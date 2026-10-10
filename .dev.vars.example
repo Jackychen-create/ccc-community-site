@@ -1,0 +1,20 @@
+# 正式環境：填在 Cloudflare Pages → Settings → Variables and Secrets
+# 本機測試：複製成 .dev.vars（已在 .gitignore，不會上傳）
+
+# Supabase（Project Settings → API）
+SUPABASE_URL=https://YOUR-PROJECT.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=
+
+# Cloudflare R2（R2 → Manage API Tokens）
+R2_ACCOUNT_ID=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_BUCKET=community-videos
+
+# 可以進後台的 Email，多個用逗號分隔
+ADMIN_EMAILS=you@example.com,friend@example.com
+
+# 寄信（選用，Brevo → SMTP & API → API Keys）。沒填就不寄信，其他功能照常
+BREVO_API_KEY=
+MAIL_FROM=
+MAIL_FROM_NAME=CCC 交易實驗室
