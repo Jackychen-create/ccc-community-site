@@ -60,8 +60,11 @@
         return;
       }
       if (e.status === 403) return showBlocked(e.message);
+      // 不是帳號的問題（網路斷線、網站設定、伺服器錯誤），不要讓會員以為自己被停權
       show("blockedView");
-      $("#blockedMsg").textContent = e.message;
+      $("#blockedTitle").textContent = "網站暫時無法使用";
+      $("#blockedMsg").textContent = e.status === 0 ? "連線失敗，請檢查網路後再試一次。" : e.message;
+      $("#blockedRetry").hidden = false;
       return;
     }
     const next = new URLSearchParams(location.search).get("next");
@@ -82,9 +85,12 @@
 
   function showBlocked(msg) {
     show("blockedView");
+    $("#blockedTitle").textContent = "沒有觀看權限";
+    $("#blockedRetry").hidden = true;
     $("#blockedMsg").textContent = msg || "這個帳號目前沒有觀看權限，請聯絡管理員。";
   }
   $("#blockedLogout").addEventListener("click", () => sb.auth.signOut());
+  $("#blockedRetry").addEventListener("click", () => location.reload());
 
   // ─────────────────────────────────────────────
   // 登入／註冊
@@ -204,13 +210,13 @@
 
   function renderMenu() {
     $("#avatar").textContent = (me?.email || "?").charAt(0).toUpperCase();
-    menuPanel.replaceChildren(
+    menuPanel.replaceChildren(...[
       el("div", { class: "who" }, el("div", { text: "登入身分" }), el("div", { style: { color: "var(--ink)" }, text: me?.email || "" })),
       me?.isAdmin ? el("a", { href: "/admin", role: "menuitem" }, icon("settings"), "後台管理") : null,
       el("button", { type: "button", role: "menuitem", onclick: () => { toggleMenu(false); A.whatsNew({ all: true }); } }, icon("news"), "更新紀錄"),
       el("button", { type: "button", role: "menuitem", onclick: changePassword }, icon("key"), "修改密碼"),
-      el("button", { type: "button", role: "menuitem", onclick: () => sb.auth.signOut() }, icon("logout"), "登出")
-    );
+      el("button", { type: "button", role: "menuitem", onclick: () => sb.auth.signOut() }, icon("logout"), "登出"),
+    ].filter(Boolean));
   }
   function toggleMenu(open) {
     const willOpen = open ?? menuPanel.hidden;
@@ -383,7 +389,14 @@
       return;
     }
     if (!list.length) {
-      $("#grid").replaceChildren(emptyBox("找不到符合的場次", "換個關鍵字或篩選條件試試看。"));
+      const box = emptyBox("找不到符合的場次", query.trim() ? `沒有標題或簡介包含「${query.trim()}」的場次。` : "換個篩選條件試試看。");
+      box.append(el("button", { class: "btn sm", type: "button", style: { marginTop: "14px" }, text: "顯示全部場次", onclick: () => {
+        filter = "all";
+        query = "";
+        $("#search").value = "";
+        renderList();
+      } }));
+      $("#grid").replaceChildren(box);
       return;
     }
     $("#grid").replaceChildren(...list.map(row));
@@ -449,7 +462,7 @@
     const cont = videos
       .filter(isInProgress)
       .sort((a, b) => new Date(b.watched_at || 0) - new Date(a.watched_at || 0));
-    const show = videos.length > 0 && filter === "all" && !query.trim();
+    const show = videos.length > 0;
     $("#continueSec").hidden = !show;
     if (!show) return;
     const box = $("#continueList");

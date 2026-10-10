@@ -33,7 +33,10 @@
         return location.replace("/?next=admin");
       }
       show("noAccess");
-      if (e.status !== 403) $("#noAccessMsg").textContent = e.message;
+      if (e.status !== 403) {
+        $("#noAccessTitle").textContent = "網站暫時無法使用";
+        $("#noAccessMsg").textContent = e.status === 0 ? "連線失敗，請檢查網路後再試一次。" : e.message;
+      }
       return;
     }
     if (!me.isAdmin) return show("noAccess");
