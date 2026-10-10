@@ -24,8 +24,11 @@ export default route({
         qualifiedUntil: row?.qualified_at ? cycleEnd(row.qualified_at) : null,
       };
     }
+    // 有沒有還沒看的提問回覆（右上角選單會亮一個點）
+    const { count: unread } = await supabaseAdmin.from("feedback").select("id", { count: "exact", head: true }).eq("user_id", ctx.user.id).eq("seen_reply", false);
     return res.status(200).json({
       email: ctx.user.email,
+      feedbackUnread: unread || 0,
       isAdmin: ctx.isAdmin,
       accessUntil: ctx.member?.access_until || null,
       notify: ctx.member ? ctx.member.notify !== false : null,

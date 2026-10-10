@@ -165,6 +165,48 @@ export function twDate(ts) {
   return new Date(new Date(ts).getTime() + 8 * 3600 * 1000).toISOString().slice(0, 10);
 }
 
+// ── 寄信（Brevo）──
+export const escHtml = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+export const mailReady = () => !!(env.BREVO_API_KEY && env.MAIL_FROM);
+// 寄給一或多人（各寄一封，看不到彼此）；沒設定或失敗就回 false，不丟錯
+export async function sendMail({ to, subject, html }) {
+  const list = [...new Set((to || []).filter(Boolean))];
+  if (!mailReady() || !list.length) return false;
+  try {
+    const r = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: { "api-key": env.BREVO_API_KEY, "Content-Type": "application/json", accept: "application/json" },
+      body: JSON.stringify({
+        sender: { email: env.MAIL_FROM, name: env.MAIL_FROM_NAME || "CCC 交易實驗室" },
+        subject,
+        htmlContent: `<div style="font-family:system-ui,'Noto Sans TC',sans-serif;font-size:15px;line-height:1.7;color:#1b1f1d">${html}</div>`,
+        messageVersions: list.slice(0, 1000).map((email) => ({ to: [{ email }] })),
+      }),
+    });
+    if (!r.ok) console.error("Brevo error", r.status, (await r.text().catch(() => "")).slice(0, 300));
+    return r.ok;
+  } catch (e) {
+    console.error("Brevo failed", e?.message);
+    return false;
+  }
+}
+
+// ── 觀看分段：每 30 秒一格 ──
+export const BUCKET_SEC = 30;
+// 合併「這次看過的格子」：{ "12": 1 } 這種格式，最多 600 格、每格每次最多 +5
+export function mergeBuckets(old, seen) {
+  const out = { ...(old && typeof old === "object" ? old : {}) };
+  if (!seen || typeof seen !== "object") return out;
+  let n = 0;
+  for (const [k, v] of Object.entries(seen)) {
+    if (++n > 600) break;
+    const i = Number(k), c = Math.floor(Number(v));
+    if (!Number.isInteger(i) || i < 0 || i > 2880 || !Number.isFinite(c) || c < 1) continue;
+    out[i] = Math.min(9999, (Number(out[i]) || 0) + Math.min(c, 5));
+  }
+  return out;
+}
+
 // ── 教學課程 ──
 // CCC、X、OC 的教學影片各 6 份，共 18 份。每位研究員從加入那天起：
 // 每 4 週為一輪，前 3 週依序解鎖 CCC、OC、X 各一份，第 4 週休息。

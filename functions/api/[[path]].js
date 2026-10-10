@@ -8,6 +8,11 @@ import stats from "../../server/stats.js";
 import videos from "../../server/videos.js";
 import notes from "../../server/notes.js";
 import course from "../../server/course.js";
+import feedback from "../../server/feedback.js";
+import report from "../../server/report.js";
+import adminFeedback from "../../server/admin/feedback.js";
+import adminErrors from "../../server/admin/errors.js";
+import adminFollowup from "../../server/admin/followup.js";
 import adminStats from "../../server/admin/stats.js";
 import adminNotify from "../../server/admin/notify.js";
 import adminVolumes from "../../server/admin/volumes.js";
@@ -25,6 +30,11 @@ const ROUTES = {
   "videos": videos,
   "notes": notes,
   "course": course,
+  "feedback": feedback,
+  "report": report,
+  "admin/feedback": adminFeedback,
+  "admin/errors": adminErrors,
+  "admin/followup": adminFollowup,
   "admin/stats": adminStats,
   "admin/notify": adminNotify,
   "admin/volumes": adminVolumes,

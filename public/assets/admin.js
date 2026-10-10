@@ -77,8 +77,18 @@
     A.toast(e.message || "發生錯誤", "err");
   }
 
+  // 側欄數字：待回覆的提問
+  let badgesLoaded = false;
+  function loadBadges() {
+    if (badgesLoaded) return;
+    badgesLoaded = true;
+    refreshFeedbackCount();
+  }
+
   function route() {
-    const view = ["videos", "invites", "members", "volumes", "stats"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "videos";
+    loadBadges();
+    const VIEWS = ["videos", "invites", "members", "volumes", "stats", "feedback", "followup", "health"];
+    const view = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "videos";
     document.querySelectorAll("[data-view-panel]").forEach((p) => (p.hidden = p.dataset.viewPanel !== view));
     document.querySelectorAll(".nav a").forEach((a) => {
       if (a.dataset.view === view) {
@@ -88,12 +98,15 @@
       }
       else a.removeAttribute("aria-current");
     });
-    document.title = { videos: "影片", invites: "實驗室密碼", members: "研究員", volumes: "交易量", stats: "觀看統計" }[view] + "｜後台管理";
+    document.title = { videos: "影片", invites: "實驗室密碼", members: "研究員", volumes: "交易量", stats: "觀看統計", feedback: "提問回報", followup: "待跟進", health: "網站狀況" }[view] + "｜後台管理";
     if (view === "videos") loadVideos();
     if (view === "invites") loadInvites();
     if (view === "members") loadMembers();
     if (view === "stats") loadStats();
     if (view === "volumes") loadVolumes();
+    if (view === "feedback") loadFeedback();
+    if (view === "followup") loadFollowup();
+    if (view === "health") loadHealth();
   }
 
   function loadingBox() {
@@ -568,6 +581,7 @@
       renderVideos();
     } catch (e) {
       ui.fail(e.message);
+      A.report("upload", `教材上傳失敗：${e.message}`, { file: file.name, size: file.size });
     }
   }
 
@@ -783,7 +797,10 @@
       setTimeout(() => ui.remove(), 4000);
     } catch (e) {
       if (e.aborted) ui.remove();
-      else ui.fail(e.message);
+      else {
+        ui.fail(e.message);
+        A.report("upload", `影片上傳失敗：${e.message}`, { file: file.name, size: file.size });
+      }
     } finally {
       activeUploads.delete(token);
     }
@@ -964,7 +981,7 @@
         : el("span", { class: "pill" + ((Date.parse(until) - Date.parse(today)) / 86400000 <= 7 ? " brass" : "") }, `到 ${until.slice(5).replace("-", "/")}`);
     return el("div", null, label, m.note ? el("div", { class: "small muted", style: { marginTop: "4px", maxWidth: "22ch", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, title: m.note, text: m.note }) : null);
   }
-  function editAccess(m) {
+  function editAccess(m, onDone) {
     const date = el("input", { class: "input", type: "date", value: m.access_until || "" });
     const note = el("input", { class: "input", type: "text", maxlength: "200", placeholder: "例如：先試用一個月", value: m.note || "" });
     const quick = (label, val) => el("button", { class: "chip", type: "button", text: label, onclick: () => (date.value = val) });
@@ -988,7 +1005,9 @@
         await api("/api/admin/members", { method: "PATCH", body: { userId: m.user_id, action: "access", accessUntil, note: note.value } });
         m.access_until = accessUntil;
         m.note = note.value.trim() || null;
-        renderMembers();
+        membersLoaded = false;
+        if (onDone) onDone();
+        else renderMembers();
         mm.close();
         A.toast(accessUntil ? `資格更新到 ${accessUntil}` : "已改成不限");
       } catch (e) {
@@ -1230,6 +1249,276 @@
   });
 
   // ─────────────────────────────────────────────
+  // 觀看分段：大家在哪裡停下、哪裡重看、哪裡有人提問
+  // ─────────────────────────────────────────────
+  const mmss = (t) => A.fmtDur(Math.max(0, Math.round(t)));
+  async function openRetention(id) {
+    const body = el("div", { class: "ret" }, loadingBox());
+    const m = A.modal({ title: "觀看分段", body });
+    m.box.classList.add("modal-wide");
+    let r;
+    try {
+      r = await api(`/api/admin/stats?video=${id}`);
+    } catch (e) {
+      m.close();
+      return fail(e);
+    }
+    m.box.querySelector(".modal-head h2").textContent = r.video.title;
+    const B = r.bucket_sec;
+    const rows = r.buckets;
+    const base = Math.max(1, rows[0]?.viewers || 0, ...rows.slice(0, 4).map((x) => x.viewers));
+    if (!r.tracked) {
+      body.replaceChildren(el("div", { class: "empty" }, el("h2", { text: "還沒有分段資料" }),
+        el("p", { class: "small", style: { marginTop: "6px" }, text: r.viewers_total ? `已經有 ${r.viewers_total} 人看過，但分段是 v1.7 之後才開始記，之後再看的人才會出現在這裡。` : "還沒有研究員看過這一場。" })));
+      return;
+    }
+    // 重點整理
+    const half = rows.findIndex((x, i) => i > 1 && x.viewers < base / 2);
+    const stopMax = rows.reduce((best, x, i) => (x.stops > (rows[best]?.stops || 0) ? i : best), 0);
+    let replay = -1, replayRatio = 0;
+    rows.forEach((x, i) => {
+      const ratio = x.viewers >= 2 ? x.plays / x.viewers : 0;
+      if (ratio > replayRatio) { replayRatio = ratio; replay = i; }
+    });
+    const chapAt = (t) => [...(r.video.chapters || [])].reverse().find((c) => c.t <= t)?.title;
+    const where = (i) => `${mmss(i * B)}–${mmss((i + 1) * B)}${chapAt(i * B) ? `（${chapAt(i * B)}）` : ""}`;
+    const facts = [
+      `${r.viewers_total} 人看過，${r.completed} 人看完。`,
+      half > 0 ? `看到 ${where(half)} 時，只剩不到一半的人。` : "大部分的人都看到最後。",
+      rows[stopMax]?.stops >= 2 ? `最多人停下的地方：${where(stopMax)}，${rows[stopMax].stops} 人。` : null,
+      replayRatio >= 1.3 ? `重看最多：${where(replay)}，平均每人看 ${replayRatio.toFixed(1)} 次，可能比較難懂或很重要。` : null,
+      r.feedback.length ? `這一場有 ${r.feedback.length} 則提問。` : null,
+    ].filter(Boolean);
+
+    // 圖：每 30 秒一根，高度＝看過的人數比例；重看多的根標紅；章節與提問標在下方
+    const W = 1000, H = 220, pad = 24, n = rows.length, bw = (W - pad * 2) / n;
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", `0 0 ${W} ${H + 46}`);
+    svg.setAttribute("class", "ret-chart");
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", "每 30 秒有多少人看過");
+    const add = (tag, attrs, text) => {
+      const e = document.createElementNS(ns, tag);
+      for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+      if (text) e.textContent = text;
+      svg.append(e);
+      return e;
+    };
+    for (const y of [0.25, 0.5, 0.75, 1]) {
+      add("line", { x1: pad, x2: W - pad, y1: H - y * (H - 20), y2: H - y * (H - 20), class: "ret-grid" });
+      add("text", { x: 0, y: H - y * (H - 20) + 4, class: "ret-axis" }, `${Math.round(y * 100)}%`);
+    }
+    rows.forEach((x, i) => {
+      const f = Math.min(1, x.viewers / base);
+      const hot = x.viewers >= 2 && x.plays / x.viewers >= 1.3;
+      const rect = add("rect", { x: pad + i * bw + 0.5, y: H - f * (H - 20), width: Math.max(1, bw - 1), height: Math.max(0.5, f * (H - 20)), class: "ret-bar" + (hot ? " hot" : "") + (i === stopMax && x.stops >= 2 ? " stop" : "") });
+      const t = document.createElementNS(ns, "title");
+      t.textContent = `${where(i)}：${x.viewers} 人看過，共播放 ${x.plays} 次${x.stops ? `，${x.stops} 人停在這裡` : ""}`;
+      rect.append(t);
+    });
+    for (const c of r.video.chapters || []) {
+      const x = pad + (c.t / B) * bw;
+      add("line", { x1: x, x2: x, y1: H + 2, y2: H + 12, class: "ret-chap" });
+      add("text", { x: x + 3, y: H + 24, class: "ret-chap-t" }, c.title.slice(0, 10));
+    }
+    for (const fb of r.feedback) {
+      if (fb.t == null) continue;
+      const x = pad + (fb.t / B) * bw;
+      const tri = add("path", { d: `M${x} ${H + 30} l5 9 h-10 z`, class: "ret-fb" });
+      const t = document.createElementNS(ns, "title");
+      t.textContent = `${mmss(fb.t)} ${fb.email}：${fb.body}`;
+      tri.append(t);
+    }
+    add("text", { x: pad, y: H + 44, class: "ret-axis" }, "0:00");
+    add("text", { x: W - pad, y: H + 44, class: "ret-axis", "text-anchor": "end" }, mmss(r.duration));
+
+    body.replaceChildren(...[
+      el("ul", { class: "ret-facts" }, ...facts.map((t) => el("li", { text: t }))),
+      svg,
+      el("div", { class: "ret-legend small muted" },
+        el("span", null, el("i", { class: "lg lg-bar" }), "看過的人"),
+        el("span", null, el("i", { class: "lg lg-hot" }), "重看比較多"),
+        el("span", null, el("i", { class: "lg lg-fb" }), "有人提問（滑過看內容）")),
+      r.tracked < r.viewers_total ? el("p", { class: "hint", text: `${r.viewers_total} 人裡有 ${r.tracked} 人有分段紀錄（v1.7 之後才開始記）。` }) : null,
+      r.feedback.length
+        ? el("div", { class: "ret-fbs" }, el("h3", { text: "這一場的提問" }),
+            ...r.feedback.map((f) => el("div", { class: "ret-fbrow" },
+              el("a", { class: "num", href: `/#/v/${r.video.id}${f.t != null ? `?t=${f.t}` : ""}`, target: "_blank", rel: "noopener", text: f.t != null ? mmss(f.t) : "—" }),
+              el("span", { class: "grow" }, f.body), el("span", { class: "small muted", text: f.email.split("@")[0] }))))
+        : null,
+    ].filter(Boolean));
+  }
+
+  // ─────────────────────────────────────────────
+  // 提問回報
+  // ─────────────────────────────────────────────
+  let fbStatus = "open";
+  async function refreshFeedbackCount() {
+    try {
+      const r = await api("/api/admin/feedback?status=open");
+      $("#cFeedback").textContent = r.open || "";
+      return r;
+    } catch {
+      return null;
+    }
+  }
+  async function loadFeedback() {
+    const box = $("#fbBox");
+    $("#fbFilter").replaceChildren(...[["open", "待回覆"], ["done", "已處理"], ["all", "全部"]].map(([k, label]) =>
+      el("button", { class: "chip", type: "button", "aria-pressed": String(fbStatus === k), text: label, onclick: () => { fbStatus = k; loadFeedback(); } })));
+    box.replaceChildren(loadingBox());
+    let r;
+    try {
+      r = await api(`/api/admin/feedback${fbStatus === "all" ? "" : `?status=${fbStatus}`}`);
+    } catch (e) {
+      return fail(e);
+    }
+    $("#cFeedback").textContent = r.open || "";
+    const list = r.feedback || [];
+    if (!list.length) {
+      box.replaceChildren(el("div", { class: "empty" }, el("h2", { text: fbStatus === "open" ? "沒有待回覆的提問" : "這裡還沒有東西" }),
+        el("p", { class: "small", style: { marginTop: "6px" }, text: "研究員在播放頁按「提問」送來的問題會出現在這裡，也會寄信通知你們。" })));
+      return;
+    }
+    box.replaceChildren(el("div", { class: "fb-admin" }, ...list.map(fbCard)));
+  }
+  function fbCard(f) {
+    const ta = el("textarea", { class: "textarea", rows: "3", maxlength: "2000", placeholder: "寫下回覆，送出後會寄信給研究員" });
+    const send = el("button", { class: "btn primary sm", type: "button", text: "回覆並寄信" });
+    const toggle = el("button", { class: "btn sm", type: "button", text: f.status === "open" ? "標成已處理" : "重新打開" });
+    const card = el("article", { class: "card fb-card" + (f.status === "open" ? " open" : "") },
+      el("div", { class: "fb-head" },
+        el("span", { class: "pill" + (f.kind === "problem" ? " warn" : " brass"), text: f.kind === "problem" ? "網站問題" : "內容提問" }),
+        el("b", { style: { wordBreak: "break-all" }, text: f.email }),
+        f.video_id ? el("a", { class: "small", href: `/#/v/${f.video_id}${f.t != null ? `?t=${f.t}` : ""}`, target: "_blank", rel: "noopener" }, f.video_title || "影片", f.t != null ? el("span", { class: "num", text: ` ${A.fmtDur(f.t)}` }) : null) : null,
+        el("span", { class: "spacer" }),
+        el("span", { class: "small muted", text: A.fmtRel(f.created_at) })),
+      el("p", { class: "fb-body", text: f.body }),
+      f.reply
+        ? el("div", { class: "fb-reply" }, el("div", { class: "small muted", text: `${(f.replied_by || "").split("@")[0]} 回覆・${A.fmtRel(f.replied_at)}` }), el("p", { text: f.reply }))
+        : null,
+      el("div", { class: "fb-actions" }, f.reply ? null : ta, el("div", { class: "fb-btns" }, toggle, f.reply ? null : send)));
+    send.addEventListener("click", async () => {
+      if (!ta.value.trim()) return ta.focus();
+      A.setBusy(send, true, "寄送中…");
+      try {
+        const r = await api("/api/admin/feedback", { method: "PATCH", body: { id: f.id, reply: ta.value } });
+        A.toast(r.mailed ? "已回覆，也寄信通知他了" : "已回覆（寄信服務沒設定，他會在「我的提問」看到）");
+        loadFeedback();
+      } catch (e) {
+        A.setBusy(send, false);
+        fail(e);
+      }
+    });
+    toggle.addEventListener("click", async () => {
+      try {
+        await api("/api/admin/feedback", { method: "PATCH", body: { id: f.id, status: f.status === "open" ? "done" : "open" } });
+        loadFeedback();
+      } catch (e) {
+        fail(e);
+      }
+    });
+    return card;
+  }
+
+  // ─────────────────────────────────────────────
+  // 待跟進
+  // ─────────────────────────────────────────────
+  let fuData = null;
+  let fuKey = "";
+  const FU_LABELS = { expired: "已過期", expiring: "快到期", volume: "還沒達標", inactive: "很久沒來", course: "課程落後", feedback: "提問沒回" };
+  async function loadFollowup() {
+    $("#fuBox").replaceChildren(loadingBox());
+    try {
+      fuData = await api("/api/admin/followup");
+    } catch (e) {
+      return fail(e);
+    }
+    renderFollowup();
+  }
+  function renderFollowup() {
+    const { rows, counts } = fuData;
+    const need = rows.filter((r) => r.reasons.length);
+    $("#cFollowup").textContent = need.filter((r) => r.score >= 2).length || "";
+    $("#fuSub").textContent = need.length ? `${need.length} 位研究員有需要注意的地方，最需要處理的排在最上面。` : "目前每位研究員都沒有需要特別注意的地方。";
+    $("#fuFilter").replaceChildren(
+      el("button", { class: "chip", type: "button", "aria-pressed": String(!fuKey), text: `全部 ${need.length}`, onclick: () => { fuKey = ""; renderFollowup(); } }),
+      ...Object.keys(FU_LABELS).filter((k) => counts[k]).map((k) =>
+        el("button", { class: "chip", type: "button", "aria-pressed": String(fuKey === k), text: `${FU_LABELS[k]} ${counts[k]}`, onclick: () => { fuKey = k; renderFollowup(); } })));
+    const list = need.filter((r) => !fuKey || r.reasons.some((x) => x.key === fuKey));
+    if (!list.length) {
+      $("#fuBox").replaceChildren(el("div", { class: "empty" }, el("h2", { text: "沒有需要跟進的研究員" })));
+      return;
+    }
+    const lvl = (l) => (l >= 3 ? " warn" : l === 2 ? " brass" : "");
+    $("#fuBox").replaceChildren(el("div", { class: "table-wrap" },
+      el("table", { class: "table stack fu" },
+        el("thead", null, el("tr", null, el("th", { text: "研究員" }), el("th", { text: "要注意" }), el("th", { class: "hide-sm", text: "最近觀看" }), el("th", { class: "hide-sm", text: "課程" }), el("th", null, el("span", { class: "sr-only", text: "操作" })))),
+        el("tbody", null, list.map((r) =>
+          el("tr", null,
+            el("td", null, el("div", { class: "t-title", style: { wordBreak: "break-all" }, text: r.email }),
+              el("div", { class: "small muted", text: `加入 ${r.joined.slice(5).replace("-", "/")}・看過 ${r.watched} 場` })),
+            el("td", null, el("div", { class: "fu-reasons" }, ...r.reasons.map((x) => el("span", { class: "pill" + lvl(x.level), text: x.label })))),
+            el("td", { class: "small hide-sm", text: r.last_watched_at ? A.fmtRel(r.last_watched_at) : "還沒看過" }),
+            el("td", { class: "small hide-sm num", text: r.course.unlocked ? `${r.course.unlocked - r.course.behind}／${r.course.unlocked}` : "—" }),
+            el("td", null, el("div", { class: "actions" },
+              el("button", { class: "btn sm", type: "button", onclick: () => editAccess({ ...r, banned: false }, loadFollowup) }, icon("clock"), "資格"),
+              r.reasons.some((x) => x.key === "feedback") ? el("a", { class: "btn sm", href: "#feedback" }, icon("chat"), "回覆") : null,
+              el("button", { class: "btn sm icon", type: "button", "aria-label": `複製 ${r.email}`, title: "複製 Email", onclick: () => A.copyText(r.email).then(() => A.toast("已複製 Email")) }, icon("copy"))))))))));
+  }
+
+  // ─────────────────────────────────────────────
+  // 網站狀況
+  // ─────────────────────────────────────────────
+  const HL_KIND = { video: "影片播不動", api: "讀取失敗", js: "程式錯誤", upload: "上傳失敗" };
+  $("#hlDays").addEventListener("change", () => loadHealth());
+  async function loadHealth() {
+    const box = $("#hlBox");
+    box.replaceChildren(loadingBox());
+    let r;
+    try {
+      r = await api(`/api/admin/errors?days=${$("#hlDays").value}`);
+    } catch (e) {
+      return fail(e);
+    }
+    const probs = r.groups.reduce((a, g) => a + g.count, 0);
+    $("#cHealth").textContent = r.groups.length || "";
+    $("#hlSub").textContent = probs ? `最近 ${r.days} 天記到 ${probs} 次問題（${r.groups.length} 種），還有 ${r.searches.length} 個搜尋找不到東西的關鍵字。` : `最近 ${r.days} 天沒有記到問題。`;
+    const clear = async (kind, message) => {
+      try {
+        await api(`/api/admin/errors?kind=${encodeURIComponent(kind)}&message=${encodeURIComponent(message)}`, { method: "DELETE" });
+        A.toast("已標成處理好了");
+        loadHealth();
+      } catch (e) {
+        fail(e);
+      }
+    };
+    const groups = r.groups.length
+      ? el("div", { class: "table-wrap" }, el("table", { class: "table stack" },
+          el("thead", null, el("tr", null, el("th", { text: "問題" }), el("th", { text: "次數" }), el("th", { class: "hide-sm", text: "遇到的人" }), el("th", { class: "hide-sm", text: "最近一次" }), el("th", null, el("span", { class: "sr-only", text: "操作" })))),
+          el("tbody", null, r.groups.map((g) => {
+            const s0 = g.samples[0]?.context || {};
+            const detail = [s0.title ? `影片：${s0.title}` : "", s0.path ? `頁面：${s0.path}` : "", s0.ua ? (/(iPhone|iPad)/.test(s0.ua) ? "iPhone／iPad" : /Android/.test(s0.ua) ? "Android" : /Mac/.test(s0.ua) ? "Mac" : /Windows/.test(s0.ua) ? "Windows" : "") : ""].filter(Boolean).join("・");
+            return el("tr", null,
+              el("td", null, el("span", { class: "pill" + (g.kind === "video" ? " warn" : ""), text: HL_KIND[g.kind] || g.kind }), el("div", { class: "t-title", style: { marginTop: "6px" }, text: g.message }), detail ? el("div", { class: "small muted", text: detail }) : null),
+              el("td", { class: "num stat-n", text: String(g.count) }),
+              el("td", { class: "small hide-sm", title: g.users.join("\n"), text: `${g.user_count} 人` }),
+              el("td", { class: "small hide-sm", text: A.fmtRel(g.last_at) }),
+              el("td", null, el("button", { class: "btn sm", type: "button", text: "處理好了", onclick: () => clear(g.kind, g.message) })));
+          }))))
+      : el("div", { class: "empty" }, el("h2", { text: "沒有記到問題" }), el("p", { class: "small", style: { marginTop: "6px" }, text: "研究員那邊播不動、讀取失敗時，會自動記在這裡。" }));
+    const searches = el("div", { class: "card hl-search" },
+      el("h2", { text: "研究員搜尋但找不到" }),
+      el("p", { class: "small muted", style: { margin: "4px 0 12px" }, text: "可以當作下一場要講什麼的參考，或補進影片簡介、章節。" }),
+      r.searches.length
+        ? el("div", { class: "chips" }, ...r.searches.map((q) => el("span", { class: "chip hl-q", title: q.users.join("\n") }, q.q, el("b", { class: "num", text: ` ${q.count}` }),
+            el("button", { class: "hl-x", type: "button", "aria-label": `移除 ${q.q}`, onclick: () => clear("search_empty", q.q) }, "×"))))
+        : el("p", { class: "small muted", text: "還沒有。" }));
+    box.replaceChildren(groups, searches);
+  }
+
+  // ─────────────────────────────────────────────
   // 觀看統計
   // ─────────────────────────────────────────────
   async function loadStats() {
@@ -1247,14 +1536,15 @@
     const vids = (r.videos || []).filter((v) => v.is_published);
     const vTable = el("div", { class: "table-wrap" },
       el("table", { class: "table stack" },
-        el("thead", null, el("tr", null, el("th", { text: "場次" }), el("th", { text: "看過" }), el("th", { class: "hide-sm", text: "看完" }), el("th", { text: "平均看到" }))),
+        el("thead", null, el("tr", null, el("th", { text: "場次" }), el("th", { text: "看過" }), el("th", { class: "hide-sm", text: "看完" }), el("th", { text: "平均看到" }), el("th", null, el("span", { class: "sr-only", text: "操作" })))),
         el("tbody", null, vids.length ? vids.map((v) =>
           el("tr", null,
             el("td", null, el("div", { class: "t-title", text: v.title }), el("div", { class: "small muted num", text: A.fmtDate(v.published_at) })),
             el("td", null, el("div", { class: "stat-cell" }, el("span", { class: "num stat-n", text: `${v.viewers}` }), el("span", { class: "small muted", text: n ? `／${n} 人` : "人" })), bar(n ? v.viewers / n : 0)),
             el("td", { class: "hide-sm" }, el("span", { class: "num stat-n", text: `${v.completed}` }), el("span", { class: "small muted", text: " 人" })),
-            el("td", null, el("span", { class: "num stat-n", text: `${v.avg_pct}%` }))
-          )) : [el("tr", null, el("td", { colspan: "4", class: "muted", text: "還沒有發布的影片" }))])));
+            el("td", null, el("span", { class: "num stat-n", text: `${v.avg_pct}%` })),
+            el("td", null, el("button", { class: "btn sm", type: "button", onclick: () => openRetention(v.id) }, icon("chart"), "看分段"))
+          )) : [el("tr", null, el("td", { colspan: "5", class: "muted", text: "還沒有發布的影片" }))])));
     const mTable = el("div", { class: "table-wrap" },
       el("table", { class: "table stack" },
         el("thead", null, el("tr", null, el("th", { text: "研究員" }), el("th", { text: "看過" }), el("th", { class: "hide-sm", text: "看完" }), el("th", { text: "最近觀看" }))),

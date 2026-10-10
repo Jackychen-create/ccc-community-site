@@ -35,7 +35,10 @@
       <a href="#invites" data-view="invites"><span data-ico="ticket"></span>實驗室密碼<span class="count num" id="cInvites"></span></a>
       <a href="#members" data-view="members"><span data-ico="users"></span>研究員<span class="count num" id="cMembers"></span></a>
       <a href="#volumes" data-view="volumes"><span data-ico="coins"></span>交易量</a>
+      <a href="#feedback" data-view="feedback"><span data-ico="chat"></span>提問回報<span class="count num" id="cFeedback"></span></a>
+      <a href="#followup" data-view="followup"><span data-ico="flag"></span>待跟進<span class="count num" id="cFollowup"></span></a>
       <a href="#stats" data-view="stats"><span data-ico="chart"></span>觀看統計</a>
+      <a href="#health" data-view="health"><span data-ico="pulse"></span>網站狀況<span class="count num" id="cHealth"></span></a>
     </nav>
     <div class="foot">
       <div id="whoami"></div>
@@ -113,6 +116,44 @@
         </div>
       </div>
       <div id="statsBox"></div>
+    </section>
+
+    <!-- 提問回報 -->
+    <section id="v-feedback" data-view-panel="feedback" hidden>
+      <div class="page-head">
+        <div>
+          <h1>提問回報</h1>
+          <p>研究員看影片時按「提問」送來的問題。回覆會寄信給他，也會出現在他的「我的提問」</p>
+        </div>
+        <div class="chips" id="fbFilter" role="group" aria-label="篩選"></div>
+      </div>
+      <div id="fbBox"></div>
+    </section>
+
+    <!-- 待跟進 -->
+    <section id="v-followup" data-view-panel="followup" hidden>
+      <div class="page-head">
+        <div>
+          <h1>待跟進</h1>
+          <p id="fuSub">快到期、還沒達標、很久沒來、課程落後、有提問沒回的研究員</p>
+        </div>
+      </div>
+      <div class="chips" id="fuFilter" role="group" aria-label="篩選" style="margin-bottom: 16px"></div>
+      <div id="fuBox"></div>
+    </section>
+
+    <!-- 網站狀況 -->
+    <section id="v-health" data-view-panel="health" hidden>
+      <div class="page-head">
+        <div>
+          <h1>網站狀況</h1>
+          <p id="hlSub">研究員那邊自動記下的問題：影片播不動、讀取失敗、程式錯誤、搜尋找不到東西</p>
+        </div>
+        <label class="vol-month"><span class="sr-only">期間</span>
+          <select class="input" id="hlDays"><option value="7">最近 7 天</option><option value="30">最近 30 天</option><option value="90">最近 90 天</option></select>
+        </label>
+      </div>
+      <div id="hlBox"></div>
     </section>
 
     <!-- 研究員 -->

@@ -644,6 +644,8 @@ h1.cjk, h2.cjk, .vtitle.cjk { text-wrap: balance; }
   .table.stack tr:last-child { border-bottom: 0; }
   .table.stack td { padding: 0; border: 0; min-width: 0; }
   .table.stack.vt tr { grid-template-columns: 88px minmax(0, 1fr); }
+  .table.stack.fu tr { grid-template-columns: minmax(0, 1fr); }
+  .table.stack.fu .actions { justify-content: flex-start; }
   .table.stack .c-thumb { grid-row: span 2; }
   .table.stack .actions { justify-content: flex-end; }
   .table.stack .t-sub { max-width: none; }
@@ -710,4 +712,61 @@ h1.cjk, h2.cjk, .vtitle.cjk { text-wrap: balance; }
 .cg-cell:hover { border-color: var(--amber); color: var(--ink); }
 .cg-cell.draft { border-style: solid; border-color: color-mix(in srgb, var(--amber) 60%, transparent); color: var(--amber); }
 .cg-cell.on { border: 0; background: var(--amber); color: var(--amber-ink); }
+.tut-loading { display: grid; place-content: center; justify-items: center; gap: 12px; aspect-ratio: 16 / 9; margin-top: 14px; border-radius: var(--r-md); background: var(--sunken); }
+.tut-loading.portrait { aspect-ratio: auto; height: min(60vh, 420px); }
+.tut-loading .usage { width: 200px; }
+
+/* 提問 */
+#wNotes .panel-head { gap: 12px; }
+#wNotes .panel-head .spacer { flex: 1; }
+.menu-dot, #menuBtn.has-dot::after { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--up); margin-left: auto; }
+#menuBtn { position: relative; }
+#menuBtn.has-dot::after { content: ""; position: absolute; top: 4px; right: 4px; margin: 0; box-shadow: 0 0 0 2px var(--bg); }
+.fb-list { display: grid; }
+.fb { padding: 16px 20px; border-bottom: 1px solid var(--line); }
+.fb:last-child { border-bottom: 0; }
+.fb.is-new { background: var(--amber-soft, color-mix(in srgb, var(--amber) 8%, transparent)); }
+.fb-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+.fb-head .spacer { flex: 1; }
+.fb-head a { color: var(--amber); text-decoration: none; }
+.fb-body { margin-top: 10px; white-space: pre-wrap; line-height: 1.7; }
+.fb-reply { margin-top: 12px; padding: 12px 14px; border-radius: var(--r-md); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); }
+.fb-reply p { margin-top: 6px; white-space: pre-wrap; line-height: 1.7; }
+
+/* 後台：提問回報、待跟進、網站狀況、觀看分段 */
+.fb-admin { display: grid; gap: 12px; }
+.fb-card { padding: 16px 18px; }
+.fb-card.open { border-color: color-mix(in srgb, var(--amber) 45%, var(--line)); }
+.fb-actions { display: grid; gap: 10px; margin-top: 12px; }
+.fb-btns { display: flex; justify-content: flex-end; gap: 8px; }
+.fu-reasons { display: flex; flex-wrap: wrap; gap: 6px; }
+.hl-search { margin-top: 18px; }
+.hl-search h2 { font-size: 16px; }
+.hl-q { gap: 4px; padding-right: 6px; }
+.hl-q b { color: var(--amber); }
+.hl-x { border: 0; background: transparent; color: var(--ink-3); font-size: 15px; line-height: 1; padding: 0 4px; cursor: pointer; }
+.hl-x:hover { color: var(--warn); }
+.modal.modal-wide { max-width: min(1040px, calc(100vw - 32px)); }
+.ret-facts { margin: 14px 0 6px; padding-left: 20px; display: grid; gap: 4px; line-height: 1.6; }
+.ret-chart { width: 100%; height: auto; margin-top: 8px; }
+.ret-grid { stroke: var(--line); stroke-width: 1; }
+.ret-axis { fill: var(--ink-3); font: 500 11px var(--f-num); }
+.ret-bar { fill: color-mix(in srgb, var(--amber) 70%, var(--surface)); }
+.ret-bar.hot { fill: var(--up); }
+.ret-bar.stop { stroke: var(--warn); stroke-width: 2; }
+.ret-bar:hover { fill: var(--amber); }
+.ret-chap { stroke: var(--ink-3); }
+.ret-chap-t { fill: var(--ink-3); font: 500 11px var(--f); }
+.ret-fb { fill: var(--down); cursor: help; }
+.ret-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 6px; }
+.ret-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.ret-legend .lg { display: inline-block; flex: 0 0 12px; width: 12px; height: 12px; padding: 0; border: 0; border-radius: 3px; }
+.ret-legend .lg-bar { background: color-mix(in srgb, var(--amber) 70%, var(--surface)); }
+.ret-legend .lg-hot { background: var(--up); }
+.ret-legend .lg-fb { background: var(--down); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.ret-fbs { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 14px; }
+.ret-fbs h3 { font-size: 15px; margin-bottom: 8px; }
+.ret-fbrow { display: flex; gap: 12px; align-items: baseline; padding: 6px 0; }
+.ret-fbrow a { color: var(--amber); text-decoration: none; min-width: 48px; }
+.ret-fbrow .grow { flex: 1; }
 

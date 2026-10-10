@@ -131,6 +131,14 @@
     </section>
   </main>
 
+  <main id="feedbackView" class="page" hidden>
+    <a class="back" href="#/"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>直播留檔</a>
+    <section class="panel">
+      <div class="panel-head"><h1>我的提問 <span class="count" id="feedbackCount"></span></h1></div>
+      <div id="feedbackList" class="fb-list"></div>
+    </section>
+  </main>
+
   <main id="courseView" class="page" hidden>
     <a class="back" href="#/"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>直播留檔</a>
     <section class="panel">
@@ -172,6 +180,8 @@
         <section class="notes panel" id="wNotes">
           <div class="panel-head" style="padding: 14px 18px">
             <h2>我的筆記</h2>
+            <span class="spacer"></span>
+            <button class="btn sm" type="button" id="askBtn">提問</button>
             <a class="small muted" href="#/notes">看全部筆記</a>
           </div>
           <form class="note-form" id="noteForm">

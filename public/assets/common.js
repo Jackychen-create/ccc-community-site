@@ -44,12 +44,15 @@
         keepalive,
       });
     } catch {
+      if (!path.startsWith("/api/report") && navigator.onLine !== false) report("api", `${method} ${path.split("?")[0]} → 連線失敗`, {});
       const e = new Error("連線失敗，請檢查網路");
       e.status = 0;
       throw e;
     }
     if (res.status === 204) return null;
     const data = await res.json().catch(() => ({}));
+    // 伺服器出錯（500 以上）自動記到後台「網站狀況」
+    if (res.status >= 500 && !path.startsWith("/api/report")) report("api", `${method} ${path.split("?")[0]} → ${res.status}`, { error: data.error || "" });
     if (!res.ok) {
       const e = new Error(data.error || "發生錯誤，請稍後再試");
       e.status = res.status;
@@ -59,6 +62,26 @@
     }
     return data;
   }
+
+  // ── 自動回報問題到後台「網站狀況」（同一個問題一次瀏覽只回報一次）──
+  const reported = new Set();
+  function report(kind, message, context = {}) {
+    const key = kind + "|" + message;
+    if (reported.has(key) || reported.size > 30) return;
+    reported.add(key);
+    setTimeout(() => {
+      api("/api/report", { method: "POST", body: { kind, message: String(message).slice(0, 300), context: { ...context, path: location.pathname + location.hash.split("?")[0], ua: navigator.userAgent.slice(0, 120) } }, keepalive: true }).catch(() => {});
+    }, 0);
+  }
+  window.addEventListener("error", (e) => {
+    if (!e.message || /ResizeObserver/.test(e.message)) return;
+    report("js", e.message, { src: String(e.filename || "").split("/").pop(), line: e.lineno || 0 });
+  });
+  window.addEventListener("unhandledrejection", (e) => {
+    const m = e.reason?.message || String(e.reason || "");
+    if (!m || e.reason?.status) return; // api() 的錯誤畫面上已經處理了
+    report("js", m, {});
+  });
 
   // ── DOM ──
   function el(tag, props, ...children) {
@@ -88,6 +111,9 @@
   const s = (d, w = 16, extra = "") =>
     `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra}>${d}</svg>`;
   const icons = {
+    flag: s('<path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/>'),
+    pulse: s('<path d="M3 12h4l2-6 4 12 2-6h6"/>'),
+    chat: s('<path d="M4 5h16v11H9l-5 4z"/>'),
     lock: s('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>', 14),
     book: s('<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5"/>'),
     logo: `<svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="1" y="1" width="20" height="20" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 15l4-5 3 3 4-6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
@@ -404,23 +430,62 @@
 
   // 更新公告：列出上次看過之後的每一個版本。第一次來的人不打擾，直接記成已看過。
   // 使用教學影片（放在 public/tutorial/）：手機看直式、電腦看橫式
+  // 先整支下載（約 6 MB）再播放：Cloudflare Pages 的靜態檔不一定支援分段讀取，直接播會不能拉進度條
   function tutorial(who = "member") {
     const portrait = matchMedia("(max-width: 760px)").matches;
-    const video = el("video", {
-      class: "tut-video" + (portrait ? " portrait" : ""),
-      src: `/tutorial/${who}-${portrait ? "portrait" : "landscape"}.mp4`,
-      controls: true, playsinline: true, preload: "metadata",
-      controlslist: "nodownload", disablepictureinpicture: true,
+    const src = `/tutorial/${who}-${portrait ? "portrait" : "landscape"}.mp4`;
+    const bar = el("i", { style: { width: "0%" } });
+    const label = el("span", { class: "small muted", text: "影片載入中…" });
+    const box = el("div", { class: "tut-loading" + (portrait ? " portrait" : "") },
+      el("span", { class: "spinner" }), label, el("span", { class: "usage" }, el("span", { class: "track" }, bar)));
+    const wrap = el("div", null, box);
+    let blobUrl = null;
+    let video = null;
+    const ctrl = new AbortController();
+    const missing = () => wrap.replaceChildren(el("div", { class: "empty", style: { padding: "36px 12px" } },
+      el("h2", { text: "教學影片還沒放上網站" }),
+      el("p", { class: "small", style: { marginTop: "6px" }, text: "請管理員把影片放到 public/tutorial/ 之後重新部署。" })));
+    const m = modal({
+      title: who === "admin" ? "管理員使用教學" : "使用教學",
+      body: wrap,
+      onClose: () => {
+        ctrl.abort();
+        if (video) video.pause();
+        if (blobUrl) URL.revokeObjectURL(blobUrl);
+      },
     });
-    const box = el("div", null, video);
-    video.addEventListener("error", () => {
-      box.replaceChildren(el("div", { class: "empty", style: { padding: "36px 12px" } },
-        el("h2", { text: "教學影片還沒放上網站" }),
-        el("p", { class: "small", style: { marginTop: "6px" }, text: "請管理員把影片放到 public/tutorial/ 之後重新部署。" })));
-    });
-    const m = modal({ title: who === "admin" ? "管理員使用教學" : "使用教學", body: box, onClose: () => video.pause() });
     m.box.classList.add("modal-video");
-    video.play().catch(() => {});
+    (async () => {
+      try {
+        const res = await fetch(src, { signal: ctrl.signal });
+        const type = res.headers.get("content-type") || "";
+        if (!res.ok || !type.startsWith("video/")) return missing();
+        const total = Number(res.headers.get("content-length")) || 0;
+        const reader = res.body.getReader();
+        const chunks = [];
+        let got = 0;
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+          got += value.length;
+          if (total) {
+            bar.style.width = Math.round((got / total) * 100) + "%";
+            label.textContent = `影片載入中… ${Math.round((got / total) * 100)}%`;
+          }
+        }
+        blobUrl = URL.createObjectURL(new Blob(chunks, { type: "video/mp4" }));
+        video = el("video", {
+          class: "tut-video" + (portrait ? " portrait" : ""), src: blobUrl,
+          controls: true, playsinline: true, controlslist: "nodownload", disablepictureinpicture: true,
+        });
+        video.addEventListener("error", missing);
+        wrap.replaceChildren(video);
+        video.play().catch(() => {});
+      } catch (e) {
+        if (e.name !== "AbortError") missing();
+      }
+    })();
     return m;
   }
 
@@ -522,6 +587,6 @@
     cfg, sb, api, store, el, $, icon, icons, placeholderSvg, thumbImg,
     fmtDur, fmtLeft, fmtBytes, fmtDate, fmtRel, today,
     toast, copyText, modal, confirmDialog, setBusy,
-    countUp, whatsNew, tutorial, reduceMotion,
+    countUp, whatsNew, tutorial, reduceMotion, report,
   };
 })();

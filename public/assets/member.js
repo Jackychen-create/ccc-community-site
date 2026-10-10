@@ -14,6 +14,7 @@
   let filter = "all";
   let host = ""; // 主講人篩選，空字串＝全部
   let query = "";
+  let searchMissTimer = null;
   let listScroll = 0;
   let routerOn = false;
 
@@ -233,11 +234,13 @@
 
   function renderMenu() {
     $("#avatar").textContent = (me?.email || "?").charAt(0).toUpperCase();
+    $("#menuBtn").classList.toggle("has-dot", !!me?.feedbackUnread);
     menuPanel.replaceChildren(...[
       el("div", { class: "who" }, el("div", { text: "登入身分" }), el("div", { style: { color: "var(--ink)" }, text: me?.email || "" })),
       me?.isAdmin ? el("a", { href: "/admin", role: "menuitem" }, icon("settings"), "後台管理") : null,
       el("a", { href: "#/course", role: "menuitem", onclick: () => toggleMenu(false) }, icon("book"), "教學課程"),
       el("a", { href: "#/notes", role: "menuitem", onclick: () => toggleMenu(false) }, icon("note"), "我的筆記"),
+      el("a", { href: "#/feedback", role: "menuitem", onclick: () => toggleMenu(false) }, icon("chat"), "我的提問", me?.feedbackUnread ? el("span", { class: "menu-dot", "aria-label": "有新回覆" }) : null),
       me && me.notify !== null && !me.isAdmin
         ? el("button", { type: "button", role: "menuitemcheckbox", "aria-checked": String(!!me.notify), onclick: toggleNotify },
             icon("mail"), el("span", { style: { flex: "1" }, text: "新影片寄信通知" }), el("span", { class: "menu-state" + (me.notify ? " on" : ""), text: me.notify ? "開" : "關" }))
@@ -373,6 +376,7 @@
     if (m) openWatch(Number(m[1]), { t: m[2] !== undefined ? Number(m[2]) : null });
     else if (location.hash === "#/notes") openNotes();
     else if (location.hash === "#/course") openCourse();
+    else if (location.hash === "#/feedback") openFeedback();
     else openList();
   }
 
@@ -393,6 +397,7 @@
     $("#watchView").hidden = true;
     $("#notesView").hidden = true;
     $("#courseView").hidden = true;
+    $("#feedbackView").hidden = true;
     $("#listView").hidden = false;
     setNav("list");
     $("#searchBox").hidden = false;
@@ -529,6 +534,9 @@
       return;
     }
     if (!list.length) {
+      const q = query.trim();
+      clearTimeout(searchMissTimer);
+      if (q.length >= 2) searchMissTimer = setTimeout(() => query.trim() === q && A.report("search_empty", q, { q }), 1500);
       const box = emptyBox("找不到符合的場次", query.trim() ? `沒有標題或簡介包含「${query.trim()}」的場次。` : "換個篩選條件試試看。");
       box.append(el("button", { class: "btn sm", type: "button", style: { marginTop: "14px" }, text: "顯示全部場次", onclick: () => {
         filter = "all";
@@ -730,6 +738,7 @@
     $("#listView").hidden = true;
     $("#notesView").hidden = true;
     $("#courseView").hidden = true;
+    $("#feedbackView").hidden = true;
     $("#watchView").hidden = false;
     setNav(null);
     setWatchBack(false);
@@ -882,11 +891,27 @@
     if (current) saveProgress(true);
     current = null;
     pendingSeek = null;
+    seen = {};
+    lastBucket = -1;
     stopWatermark();
     video.pause();
     video.removeAttribute("src");
     video.load();
   }
+
+  // 觀看分段：每 30 秒一格，播放時每進到一格記一次（倒回去重看會再記一次），存進度時一起送出
+  const BUCKET = 30;
+  let seen = {};
+  let lastBucket = -1;
+  video.addEventListener("timeupdate", () => {
+    if (!current || video.paused || video.seeking) return;
+    const b = Math.floor(video.currentTime / BUCKET);
+    if (b !== lastBucket) {
+      seen[b] = (seen[b] || 0) + 1;
+      lastBucket = b;
+    }
+  });
+  video.addEventListener("seeking", () => (lastBucket = -1));
 
   function saveProgress(force) {
     if (!current || !video.duration || !isFinite(video.duration)) return;
@@ -901,7 +926,12 @@
       v.duration_sec = v.duration_sec || dur;
       v.watched_at = new Date().toISOString();
     }
-    api("/api/progress", { method: "POST", body: { videoId: current.id, position: pos, duration: dur }, keepalive: true }).catch(() => {});
+    const body = { videoId: current.id, position: pos, duration: dur };
+    if (Object.keys(seen).length) {
+      body.seen = seen;
+      seen = {};
+    }
+    api("/api/progress", { method: "POST", body, keepalive: true }).catch(() => {});
   }
 
   // ── 章節 ──
@@ -1091,6 +1121,7 @@
     $("#listView").hidden = true;
     $("#watchView").hidden = true;
     $("#notesView").hidden = true;
+    $("#feedbackView").hidden = true;
     $("#courseView").hidden = false;
     $("#searchBox").hidden = true;
     setNav("course");
@@ -1135,11 +1166,91 @@
     }));
   }
 
+  // ─────────────────────────────────────────────
+  // 提問／回報
+  // ─────────────────────────────────────────────
+  function askQuestion(kindInit = "question") {
+    const at = current && video.duration ? Math.floor(video.currentTime) : null;
+    let kind = kindInit;
+    let withTime = at !== null;
+    const kinds = [["question", "問內容"], ["problem", "回報問題（播放、網站）"]].map(([k, label]) => {
+      const b = el("button", { class: "chip", type: "button", "aria-pressed": String(kind === k), text: label });
+      b.addEventListener("click", () => { kind = k; kinds.forEach((x, i) => x.setAttribute("aria-pressed", String(["question", "problem"][i] === kind))); paint(); });
+      return b;
+    });
+    const timeChip = at !== null ? el("button", { class: "chip", type: "button", "aria-pressed": "true" }, icon("clock"), ` 在 ${A.fmtDur(at)} 這裡`) : null;
+    if (timeChip) timeChip.addEventListener("click", () => { withTime = !withTime; timeChip.setAttribute("aria-pressed", String(withTime)); });
+    const ta = el("textarea", { class: "textarea", rows: "5", maxlength: "2000" });
+    const err = el("div", { class: "form-error", role: "alert", hidden: true });
+    const send = el("button", { class: "btn primary", type: "button", text: "送出" });
+    const paint = () => (ta.placeholder = kind === "question"
+      ? "哪裡聽不懂、想再多講一點、或對這段有疑問，都可以問。例如：這裡停損為什麼放在前低下面？"
+      : "遇到什麼問題？例如：影片卡住、聲音不同步、教材打不開。寫下用手機還是電腦會更好查。");
+    paint();
+    const m = A.modal({
+      title: current ? `提問：${current.title}` : "提問／回報",
+      body: el("div", null,
+        el("div", { class: "chips", style: { marginTop: "14px" } }, ...kinds, timeChip),
+        el("label", { class: "field" }, el("span", { class: "sr-only", text: "內容" }), ta),
+        el("p", { class: "hint", text: "管理員回覆後會寄信給你，也可以在右上角「我的提問」看到。" }),
+        err),
+      actions: [el("button", { class: "btn", type: "button", text: "取消", onclick: () => m.close() }), send],
+    });
+    if (current) video.pause();
+    setTimeout(() => ta.focus(), 30);
+    send.addEventListener("click", async () => {
+      if (!ta.value.trim()) { err.textContent = "請寫下你的問題"; err.hidden = false; return; }
+      A.setBusy(send, true, "送出中…");
+      try {
+        await api("/api/feedback", { method: "POST", body: { kind, body: ta.value, videoId: current?.id ?? null, t: current && withTime ? at : null } });
+        m.close();
+        A.toast("已送出，回覆會寄到你的 Email");
+      } catch (e) {
+        A.setBusy(send, false);
+        err.textContent = e.message; err.hidden = false;
+      }
+    });
+  }
+  $("#askBtn").addEventListener("click", () => askQuestion("question"));
+
+  async function openFeedback() {
+    leaveWatch();
+    for (const id of ["#listView", "#watchView", "#notesView", "#courseView"]) $(id).hidden = true;
+    $("#feedbackView").hidden = false;
+    $("#searchBox").hidden = true;
+    setNav(null);
+    document.title = `我的提問｜${SITE}`;
+    window.scrollTo(0, 0);
+    const box = $("#feedbackList");
+    box.replaceChildren(el("div", { class: "skel-row" }, el("i"), el("div", null, el("i"), el("i"))));
+    let list = [];
+    try {
+      list = (await api("/api/feedback")).feedback || [];
+    } catch (e) {
+      return handleErr(e, () => box.replaceChildren(emptyBox("讀不到提問", e.message, true)));
+    }
+    if (me) { me.feedbackUnread = 0; renderMenu(); }
+    $("#feedbackCount").textContent = list.length ? `共 ${list.length} 則` : "";
+    if (!list.length) return box.replaceChildren(emptyBox("還沒有提問", "看影片時按「提問」，就能針對那個時間點發問。"));
+    box.replaceChildren(...list.map((f) =>
+      el("article", { class: "fb" + (f.is_new ? " is-new" : "") },
+        el("div", { class: "fb-head" },
+          el("span", { class: "pill" + (f.kind === "problem" ? " warn" : ""), text: f.kind === "problem" ? "回報問題" : "提問" }),
+          f.video_id ? el("a", { class: "small", href: `#/v/${f.video_id}${f.t != null ? `?t=${f.t}` : ""}` }, f.video_title || "影片", f.t != null ? el("span", { class: "num", text: ` ${A.fmtDur(f.t)}` }) : null) : null,
+          el("span", { class: "spacer" }),
+          el("span", { class: "small muted", text: A.fmtRel(f.created_at) })),
+        el("p", { class: "fb-body", text: f.body }),
+        f.reply
+          ? el("div", { class: "fb-reply" }, el("div", { class: "small muted" }, "管理員回覆・", A.fmtRel(f.replied_at), f.is_new ? el("span", { class: "pill brass", style: { marginLeft: "8px" }, text: "新回覆" }) : null), el("p", { text: f.reply }))
+          : el("p", { class: "small muted", text: f.status === "done" ? "已處理" : "等待回覆中" }))));
+  }
+
   async function openNotes() {
     leaveWatch();
     $("#listView").hidden = true;
     $("#watchView").hidden = true;
     $("#courseView").hidden = true;
+    $("#feedbackView").hidden = true;
     $("#notesView").hidden = false;
     setNav(null);
     $("#searchBox").hidden = true;
@@ -1243,8 +1354,11 @@
         return;
       } catch {}
     }
+    A.report("video", `播放失敗（錯誤碼 ${video.error?.code ?? "?"}）`, { video: current.id, title: current.title });
     setNotice(el("div", { class: "notice" }, el("span", { html: icons.alert }),
-      el("span", { text: "影片暫時無法播放，請重新整理頁面，或確認瀏覽器支援這個格式。" })));
+      el("span", { text: "影片暫時無法播放，請重新整理頁面，或確認瀏覽器支援這個格式。" }),
+      el("span", { class: "spacer" }),
+      el("button", { class: "btn sm", type: "button", text: "回報這個問題", onclick: () => askQuestion("problem") })));
   });
 
   document.addEventListener("visibilitychange", () => {

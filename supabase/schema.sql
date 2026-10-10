@@ -164,3 +164,40 @@ alter table public.videos add constraint videos_course_part_check check (
   (course_host is null and course_part is null) or (course_host is not null and course_part between 1 and 6)
 );
 create unique index if not exists videos_course_slot on public.videos (course_host, course_part) where course_host is not null;
+
+-- ─────────────────────────────────────────────
+-- v1.7：觀看分段、研究員提問／回報、網站出錯紀錄
+-- ─────────────────────────────────────────────
+alter table public.watch_progress add column if not exists buckets jsonb not null default '{}'::jsonb;  -- 每 30 秒一格看過幾次
+
+create table if not exists public.feedback (
+  id          bigint generated always as identity primary key,
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  email       text not null,
+  video_id    bigint references public.videos(id) on delete set null,
+  t           int,
+  kind        text not null default 'question' check (kind in ('question', 'problem')),
+  body        text not null check (char_length(body) between 1 and 2000),
+  status      text not null default 'open' check (status in ('open', 'done')),
+  reply       text,
+  replied_by  text,
+  replied_at  timestamptz,
+  seen_reply  boolean not null default true,
+  created_at  timestamptz not null default now()
+);
+create index if not exists feedback_user on public.feedback (user_id, created_at desc);
+create index if not exists feedback_status on public.feedback (status, created_at desc);
+alter table public.feedback enable row level security;
+
+create table if not exists public.client_errors (
+  id          bigint generated always as identity primary key,
+  user_id     uuid references auth.users(id) on delete set null,
+  email       text,
+  kind        text not null check (kind in ('video', 'api', 'js', 'search_empty', 'upload')),
+  message     text not null,
+  context     jsonb not null default '{}'::jsonb,
+  created_at  timestamptz not null default now()
+);
+create index if not exists client_errors_time on public.client_errors (created_at desc);
+create index if not exists client_errors_user_day on public.client_errors (user_id, created_at desc);
+alter table public.client_errors enable row level security;
