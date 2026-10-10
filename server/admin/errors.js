@@ -1,7 +1,7 @@
 // 後台：網站狀況（研究員那邊自動回報的問題）
 // GET    /api/admin/errors?days=7     依種類＋訊息分組：次數、幾個人遇到、最近一次
 // DELETE /api/admin/errors?kind=video&message=...   這一組標成處理好了（刪掉）
-import { supabaseAdmin, requireAdmin, route } from "../_lib.js";
+import { supabaseAdmin, requireAdmin, route } from "../lib/index.js";
 
 export default route({
   async GET(req, res) {

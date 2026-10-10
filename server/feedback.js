@@ -2,7 +2,7 @@
 // GET  /api/feedback                       我自己的提問和管理員的回覆（讀了之後回覆標成已讀）
 // POST /api/feedback { kind, body, videoId?, t? }
 //      kind：question（內容提問）或 problem（播放、網站問題）。送出後寄信通知管理員（有設定寄信才會寄）
-import { supabaseAdmin, requireMember, readBody, toInt, cleanText, route, adminEmails, sendMail, escHtml } from "./_lib.js";
+import { supabaseAdmin, requireMember, readBody, toInt, cleanText, route, adminEmails, sendMail, escHtml } from "./lib/index.js";
 
 export default route({
   async GET(req, res) {

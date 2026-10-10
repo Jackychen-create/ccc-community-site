@@ -2,7 +2,7 @@
 // GET   /api/admin/members
 // PATCH /api/admin/members  { userId, action: "ban" | "unban" | "reset" }
 //                            { userId, action: "access", accessUntil: "2026-10-31" | null, note }
-import { supabaseAdmin, requireAdmin, readBody, randomPassword, cleanText, isDate, route } from "../_lib.js";
+import { supabaseAdmin, requireAdmin, readBody, randomPassword, cleanText, isDate, route } from "../lib/index.js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const FOREVER = "876000h"; // 約 100 年

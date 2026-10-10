@@ -1,6 +1,6 @@
 // GET   /api/me            目前登入者的身分、觀看資格到期日、通知設定
 // PATCH /api/me { notify }  研究員自己開關「新影片寄信通知」
-import { supabaseAdmin, requireMember, readBody, route, EXCHANGES, getThreshold, thisMonthTW, isQualified, cycleEnd } from "./_lib.js";
+import { supabaseAdmin, requireMember, readBody, route, EXCHANGES, getThreshold, thisMonthTW, isQualified, cycleEnd } from "./lib/index.js";
 
 export default route({
   async GET(req, res) {

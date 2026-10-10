@@ -1,7 +1,7 @@
 // POST /api/report { kind, message, context }
 // 研究員那邊自動回報的問題：影片播不動、讀取失敗、程式錯誤、搜尋找不到東西
 // 沒登入就略過；每人每天最多 40 筆
-import { supabaseAdmin, getUser, readBody, cleanText, route } from "./_lib.js";
+import { supabaseAdmin, getUser, readBody, cleanText, route } from "./lib/index.js";
 
 const KINDS = ["video", "api", "js", "search_empty", "upload"];
 

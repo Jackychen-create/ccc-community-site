@@ -3,7 +3,7 @@
 import {
   supabaseAdmin, requireMember, signGet, route, todayTW, twDate,
   COURSE_HOSTS, COURSE_PARTS, courseWeek, courseUnlockDate,
-} from "./_lib.js";
+} from "./lib/index.js";
 
 export default route({
   async GET(req, res) {

@@ -4,7 +4,7 @@
 import {
   supabaseAdmin, requireAdmin, route, todayTW, thisMonthTW, twDate, addDays,
   getThreshold, isQualified, EXCHANGES, COURSE_HOSTS, COURSE_PARTS, courseUnlockDate,
-} from "../_lib.js";
+} from "../lib/index.js";
 
 export default route({
   async GET(req, res) {

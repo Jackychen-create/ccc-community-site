@@ -2,7 +2,7 @@
 // GET   /api/admin/invites
 // POST  /api/admin/invites   { max_uses, note }  產生一組新實驗室密碼
 // PATCH /api/admin/invites   { code, disabled }  停用／重新啟用
-import { supabaseAdmin, requireAdmin, readBody, cleanText, randomCode, route } from "../_lib.js";
+import { supabaseAdmin, requireAdmin, readBody, cleanText, randomCode, route } from "../lib/index.js";
 
 export default route({
   async GET(req, res) {

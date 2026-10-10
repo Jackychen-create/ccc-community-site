@@ -1,6 +1,6 @@
 // POST /api/register  { email, password, inviteCode }
 // 用實驗室密碼建立研究員帳號。
-import { supabaseAdmin, isAdminEmail, readBody, route, cycleEnd, todayTW } from "./_lib.js";
+import { supabaseAdmin, isAdminEmail, readBody, route, cycleEnd, todayTW } from "./lib/index.js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

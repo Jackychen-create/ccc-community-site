@@ -1,6 +1,6 @@
 // Cloudflare Pages Functions：所有 /api/* 都進到這裡，再依路徑交給 server/ 裡對應的程式。
 // server/ 的程式沿用 (req, res) 的寫法，這裡負責把 Cloudflare 的 Request 轉過去、把結果轉回 Response。
-import { setEnv } from "../../server/_lib.js";
+import { setEnv } from "../../server/lib/index.js";
 import me from "../../server/me.js";
 import progress from "../../server/progress.js";
 import register from "../../server/register.js";

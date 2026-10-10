@@ -10,7 +10,7 @@ import {
   cleanText,
   isIssuedKey,
   route,
-} from "../_lib.js";
+} from "../lib/index.js";
 
 export default route({
   async POST(req, res) {

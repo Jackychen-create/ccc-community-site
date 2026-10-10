@@ -8,7 +8,7 @@
 import {
   supabaseAdmin, requireAdmin, readBody, route,
   EXCHANGES, getThreshold, thisMonthTW, monthEnd, isMonth, cleanAmounts, isQualified, todayTW, cycleEnd, isDate,
-} from "../_lib.js";
+} from "../lib/index.js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

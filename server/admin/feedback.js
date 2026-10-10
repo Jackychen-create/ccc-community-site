@@ -1,7 +1,7 @@
 // 後台：研究員提問／回報
 // GET   /api/admin/feedback?status=open|done|all
 // PATCH /api/admin/feedback { id, reply?, status? }   回覆會寄信給研究員（有設定寄信才會寄），並標成已處理
-import { supabaseAdmin, requireAdmin, readBody, toInt, cleanText, route, sendMail, escHtml } from "../_lib.js";
+import { supabaseAdmin, requireAdmin, readBody, toInt, cleanText, route, sendMail, escHtml } from "../lib/index.js";
 
 export default route({
   async GET(req, res) {

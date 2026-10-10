@@ -3,6 +3,8 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+// 規則跟正式網站讀同一份
+import { EXCHANGES, isQualified, addDays, cycleEnd, COURSE_HOSTS as CH, courseUnlockDate } from "../public/assets/js/shared/rules.js";
 
 const PORT = Number(process.env.PORT || 4321);
 const ROOT = path.join(path.dirname(new URL(import.meta.url).pathname), "..");
@@ -55,18 +57,15 @@ const log = [];
 const feedback = [];
 let fbId = 1;
 const clientErrors = [];
-const EX = ["OKX", "Bybit", "UM"];
+const EX = EXCHANGES;
 let threshold = 3300000;
 const vols = new Map(); // `${user_id}:${month}` → {amounts, updated_at, updated_by}
 const monthNow = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 7);
 const monthEnd = (m) => { const [y, mo] = m.split("-").map(Number); return new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10); };
-const qualified = (a) => EX.some((e) => Number(a?.[e] || 0) >= threshold);
+const qualified = (a) => isQualified(a, threshold);
 const TODAY = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
-const addDays = (date, n) => { const x = new Date(date + "T00:00:00Z"); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
-const cycleEnd = (date) => { const [y, m, dd] = date.split("-").map(Number); const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate(); return addDays(new Date(Date.UTC(y, m, Math.min(dd, last))).toISOString().slice(0, 10), -1); };
 const twDate = (ts) => new Date(new Date(ts).getTime() + 8 * 3600e3).toISOString().slice(0, 10);
-const CH = ["CCC", "OC", "X"];
-const unlockOn = (start, h, part) => addDays(start, ((part - 1) * 4 + CH.indexOf(h)) * 7);
+const unlockOn = courseUnlockDate;
 function volSnap(month) {
   return { month, monthEnd: monthEnd(month), exchanges: EX, threshold, rows: [...members].reverse().map((m) => { const v = vols.get(m.user_id + ":" + month); return { user_id: m.user_id, email: m.email, banned: m.banned, access_until: m.access_until, note: m.note, amounts: v?.amounts || {}, updated_at: v?.updated_at || null, updated_by: v?.updated_by || null, qualified: v ? qualified(v.amounts) : false, qualified_at: v?.qualified_at || null, qualified_until: v?.qualified_at ? cycleEnd(v.qualified_at) : null }; }) };
 }

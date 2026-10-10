@@ -1,0 +1,71 @@
+/* 設計代號（顏色、字型、間距）、基本樣式（由 app.css 依序載入） */
+/* CCC 交易實驗室：「營業廳看板」
+   墨綠灰底、低飽和琥珀色數字、紅＝新上架、綠＝看完。固定深色。 */
+:root {
+  --bg: #0F1412;
+  --surface: #141B18;
+  --surface-2: #19221E;
+  --sunken: #0B0F0D;
+  --line: #222C28;
+  --line-strong: #34413B;
+  --ink: #DDE3E0;
+  --ink-2: #A6B2AD;
+  --ink-3: #86938D;
+
+  --amber: #CDA45E;
+  --amber-ink: #16120A;
+  --amber-soft: rgba(205, 164, 94, 0.14);
+  --up: #C9665D;
+  --up-soft: rgba(201, 102, 93, 0.10);
+  --down: #5FA285;
+  --down-soft: rgba(95, 162, 133, 0.12);
+  --warn: #D08B57;
+  --warn-soft: rgba(208, 139, 87, 0.12);
+
+  /* 舊名稱保留給 JS 內的少數 inline style */
+  --brass: var(--amber);
+  --brass-ink: var(--amber-ink);
+  --brass-soft: var(--amber-soft);
+  --good: var(--down);
+  --bad: var(--up);
+  --slate: #7F9790;
+
+  --overlay: rgba(4, 7, 6, 0.66);
+  --radius: 14px;   /* 面板、卡片、視窗、播放器 */
+  --r-md: 10px;     /* 按鈕、輸入框、提示 */
+  --r-sm: 7px;      /* 小元件：選單項目、縮圖、鍵帽 */
+  --f: "Noto Sans TC", system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
+  --f-num: "Sofia Sans Semi Condensed", "Noto Sans TC", system-ui, sans-serif;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; background: var(--bg); scrollbar-color: var(--line-strong) var(--bg); }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: var(--f); font-size: 15px; line-height: 1.6;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3 { margin: 0; line-height: 1.25; font-weight: 700; }
+h1 { font-size: clamp(21px, 2.2vw, 24px); }
+h2 { font-size: 16px; }
+h3 { font-size: 15px; }
+p { margin: 0; }
+a { color: inherit; }
+button, input, select, textarea { font: inherit; color: inherit; }
+img { display: block; max-width: 100%; }
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+::selection { background: var(--amber); color: var(--amber-ink); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--line-strong); border: 2px solid var(--bg); border-radius: 6px; }
+input { caret-color: var(--amber); }
+
+.label { font-size: 13px; font-weight: 500; color: var(--ink-3); }
+.muted { color: var(--ink-3); }
+.sub { color: var(--ink-2); }
+.small { font-size: 13px; }
+.num { font-family: var(--f-num); font-variant-numeric: tabular-nums; letter-spacing: 0; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
