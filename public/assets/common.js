@@ -412,7 +412,13 @@
       controls: true, playsinline: true, preload: "metadata",
       controlslist: "nodownload", disablepictureinpicture: true,
     });
-    const m = modal({ title: who === "admin" ? "管理員使用教學" : "使用教學", body: video, onClose: () => video.pause() });
+    const box = el("div", null, video);
+    video.addEventListener("error", () => {
+      box.replaceChildren(el("div", { class: "empty", style: { padding: "36px 12px" } },
+        el("h2", { text: "教學影片還沒放上網站" }),
+        el("p", { class: "small", style: { marginTop: "6px" }, text: "請管理員把影片放到 public/tutorial/ 之後重新部署。" })));
+    });
+    const m = modal({ title: who === "admin" ? "管理員使用教學" : "使用教學", body: box, onClose: () => video.pause() });
     m.box.classList.add("modal-video");
     video.play().catch(() => {});
     return m;

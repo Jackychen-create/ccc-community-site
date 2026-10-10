@@ -167,8 +167,8 @@ export function twDate(ts) {
 
 // ── 教學課程 ──
 // CCC、X、OC 的教學影片各 6 份，共 18 份。每位研究員從加入那天起：
-// 每 4 週為一輪，前 3 週依序解鎖 CCC、X、OC 各一份，第 4 週休息。
-export const COURSE_HOSTS = ["CCC", "X", "OC"];
+// 每 4 週為一輪，前 3 週依序解鎖 CCC、OC、X 各一份，第 4 週休息。
+export const COURSE_HOSTS = ["CCC", "OC", "X"]; // 解鎖順序
 export const COURSE_PARTS = 6;
 export const COURSE_CYCLE_WEEKS = 4;
 export function courseWeek(host, part) {

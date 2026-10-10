@@ -10,7 +10,7 @@
   let members = [];
   let memberQuery = "";
   const activeUploads = new Set();
-  const COURSE_HOSTS = ["CCC", "X", "OC"];
+  const COURSE_HOSTS = ["CCC", "OC", "X"]; // 教學課程解鎖順序
 
   document.querySelectorAll("[data-ico]").forEach((n) => {
     n.replaceWith(icon(n.dataset.ico));
@@ -151,7 +151,7 @@
     const courseCard = el("div", { class: "card course-grid-card" },
       el("div", { class: "course-grid-head" },
         el("h2", { text: "教學課程" }),
-        el("span", { class: "small muted", text: `已上架 ${filled}／18・研究員加入後每週解鎖一份（CCC→X→OC，每 4 週休息一週）` })),
+        el("span", { class: "small muted", text: `已上架 ${filled}／18・研究員加入後每週解鎖一份（CCC→OC→X，每 4 週休息一週）` })),
       el("div", { class: "course-grid" },
         ...COURSE_HOSTS.map((h) => el("div", { class: "course-grid-row" },
           el("span", { class: "host", text: h }),
