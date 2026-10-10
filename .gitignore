@@ -1,0 +1,21 @@
+node_modules/
+.wrangler/
+.dev.vars
+.env
+.env.*
+.DS_Store
+.impeccable/
+docs_tmp/
+
+# 測試
+tests/node_modules/
+tests/fixtures/
+tests/output/
+
+# 教學影片錄製的暫存
+tools/tutorial/media/
+tools/tutorial/upload/
+tools/tutorial/rec/
+tools/tutorial/out/
+tools/tutorial/__pycache__/
+tools/tutorial/*.log
