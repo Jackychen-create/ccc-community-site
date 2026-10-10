@@ -14,20 +14,16 @@ export default route({
     const [threshold, m, v, p, vol, fb] = await Promise.all([
       getThreshold(),
       supabaseAdmin.from("members").select("user_id, email, banned, access_until, note, created_at"),
-      supabaseAdmin.from("videos").select("id, duration_sec, course_host, course_part").eq("is_published", true),
-      supabaseAdmin.from("watch_progress").select("user_id, video_id, position_sec, duration_sec, updated_at").limit(100000),
+      supabaseAdmin.from("videos").select("id, course_host, course_part").eq("is_published", true).not("course_host", "is", null),
+      // 每位研究員看過幾場、看完哪幾場：資料庫算好（supabase/schema.sql 的 admin_member_progress）
+      supabaseAdmin.rpc("admin_member_progress"),
       supabaseAdmin.from("volumes").select("user_id, amounts, qualified_at").eq("month", month),
       supabaseAdmin.from("feedback").select("user_id").eq("status", "open"),
     ]);
     for (const r of [m, v, p, vol, fb]) if (r.error) throw r.error;
 
-    const videos = new Map((v.data || []).map((x) => [x.id, x]));
-    const courseVideo = new Map((v.data || []).filter((x) => x.course_host).map((x) => [`${x.course_host}:${x.course_part}`, x]));
-    const progress = new Map();
-    for (const r of p.data || []) {
-      if (!progress.has(r.user_id)) progress.set(r.user_id, []);
-      progress.get(r.user_id).push(r);
-    }
+    const courseVideo = new Map((v.data || []).map((x) => [`${x.course_host}:${x.course_part}`, x]));
+    const progress = new Map((p.data || []).map((r) => [r.user_id, r]));
     const volBy = new Map((vol.data || []).map((x) => [x.user_id, x]));
     const openFb = new Map();
     for (const r of fb.data || []) openFb.set(r.user_id, (openFb.get(r.user_id) || 0) + 1);
@@ -37,11 +33,8 @@ export default route({
       if (mem.banned) continue;
       const reasons = [];
       const joined = twDate(mem.created_at);
-      const prog = progress.get(mem.user_id) || [];
-      const done = (r) => {
-        const d = videos.get(r.video_id)?.duration_sec || r.duration_sec;
-        return d && r.position_sec >= d * 0.95;
-      };
+      const prog = progress.get(mem.user_id) || { watched: 0, completed: 0, last_watched_at: null, done_ids: [] };
+      const doneIds = new Set((prog.done_ids || []).map(Number));
 
       // 資格
       if (mem.access_until && mem.access_until < today) reasons.push({ key: "expired", label: `已過期（${mem.access_until.slice(5).replace("-", "/")}）`, level: 3 });
@@ -56,7 +49,7 @@ export default route({
       }
 
       // 很久沒來
-      const last = prog.map((r) => r.updated_at).sort().pop() || null;
+      const last = prog.last_watched_at || null;
       const daysAway = last ? Math.floor((Date.now() - new Date(last).getTime()) / 86400000) : null;
       if (addDays(joined, 7) <= today) {
         if (!last) reasons.push({ key: "inactive", label: "加入後還沒看過影片", level: 2 });
@@ -71,8 +64,7 @@ export default route({
           const cv = courseVideo.get(`${h}:${part}`);
           if (!cv) continue;
           unlocked++;
-          const r = prog.find((x) => x.video_id === cv.id);
-          if (!r || !done(r)) behind++;
+          if (!doneIds.has(Number(cv.id))) behind++;
         }
       }
       if (behind >= 2) reasons.push({ key: "course", label: `課程有 ${behind} 份還沒看完`, level: 1 });
@@ -83,7 +75,7 @@ export default route({
 
       rows.push({
         user_id: mem.user_id, email: mem.email, access_until: mem.access_until, note: mem.note, joined,
-        last_watched_at: last, watched: prog.length, completed: prog.filter(done).length,
+        last_watched_at: last, watched: prog.watched, completed: prog.completed,
         course: { unlocked, behind }, volume_best: best, threshold,
         reasons, score: reasons.reduce((a, r) => a + r.level, 0),
       });

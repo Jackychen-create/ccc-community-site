@@ -201,3 +201,52 @@ create table if not exists public.client_errors (
 create index if not exists client_errors_time on public.client_errors (created_at desc);
 create index if not exists client_errors_user_day on public.client_errors (user_id, created_at desc);
 alter table public.client_errors enable row level security;
+
+-- ─────────────────────────────────────────────
+-- v1.7.3：補索引；後台統計改在資料庫裡算好再回傳（不用把全部觀看紀錄抓到伺服器）
+-- ─────────────────────────────────────────────
+create index if not exists watch_progress_video on public.watch_progress (video_id);
+create index if not exists notes_video on public.notes (video_id);
+create index if not exists feedback_video on public.feedback (video_id);
+
+-- 每位研究員（不含管理員）：看過幾場、看完幾場、最近一次、看完的影片編號
+-- 「看過」＝進度大於 0；「看完」＝看到 95% 以上（片長用影片的，沒有就用觀看紀錄的）
+create or replace function public.admin_member_progress()
+returns table (user_id uuid, watched int, completed int, last_watched_at timestamptz, done_ids bigint[])
+language sql stable set search_path = ''
+as $$
+  select p.user_id,
+         count(*)::int,
+         (count(*) filter (where d.dur > 0 and p.position_sec >= d.dur * 0.95))::int,
+         max(p.updated_at),
+         coalesce(array_agg(p.video_id) filter (where d.dur > 0 and p.position_sec >= d.dur * 0.95), '{}'::bigint[])
+  from public.watch_progress p
+  join public.members m on m.user_id = p.user_id
+  left join public.videos v on v.id = p.video_id
+  cross join lateral (select coalesce(nullif(v.duration_sec, 0), nullif(p.duration_sec, 0)) as dur) d
+  where p.position_sec > 0
+  group by p.user_id;
+$$;
+
+-- 每一場（只算研究員）：幾個人看過、幾個人看完、平均看到幾 %
+create or replace function public.admin_video_stats()
+returns table (video_id bigint, viewers int, completed int, avg_pct int)
+language sql stable set search_path = ''
+as $$
+  select p.video_id,
+         count(*)::int,
+         (count(*) filter (where d.dur > 0 and p.position_sec >= d.dur * 0.95))::int,
+         round(avg(case when d.dur > 0 then least(1, p.position_sec::numeric / d.dur) else 0 end) * 100)::int
+  from public.watch_progress p
+  join public.members m on m.user_id = p.user_id
+  left join public.videos v on v.id = p.video_id
+  cross join lateral (select coalesce(nullif(v.duration_sec, 0), nullif(p.duration_sec, 0)) as dur) d
+  where p.position_sec > 0
+  group by p.video_id;
+$$;
+
+-- 只有伺服器（service role）可以呼叫，瀏覽器拿到的公開金鑰不行
+revoke execute on function public.admin_member_progress() from public, anon, authenticated;
+revoke execute on function public.admin_video_stats() from public, anon, authenticated;
+grant execute on function public.admin_member_progress() to service_role;
+grant execute on function public.admin_video_stats() to service_role;

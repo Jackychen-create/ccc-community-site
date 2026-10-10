@@ -1,0 +1,35 @@
+# 自動測試：每次開 PR、推到 main 都跑一次 npm test 和 npm run check
+# 結果在 GitHub 的 PR 頁面下方（綠勾＝通過、紅叉＝有東西壞了，不要合併）
+name: 測試
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 安裝 ffmpeg（產生測試用影片）
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - name: 安裝網站套件
+        run: npm ci
+      - name: 安裝測試工具
+        working-directory: tests
+        run: npm install --no-audit --no-fund && npx playwright install --with-deps chromium
+      - name: 跑測試
+        run: npm test
+      - name: 發布前檢查
+        run: npm run check
+      - name: 失敗時保留紀錄
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output
+          path: tests/output
