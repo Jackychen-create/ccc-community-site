@@ -6,6 +6,9 @@ import progress from "../../server/progress.js";
 import register from "../../server/register.js";
 import stats from "../../server/stats.js";
 import videos from "../../server/videos.js";
+import notes from "../../server/notes.js";
+import adminStats from "../../server/admin/stats.js";
+import adminNotify from "../../server/admin/notify.js";
 import adminAttachments from "../../server/admin/attachments.js";
 import adminInvites from "../../server/admin/invites.js";
 import adminMembers from "../../server/admin/members.js";
@@ -18,6 +21,9 @@ const ROUTES = {
   "register": register,
   "stats": stats,
   "videos": videos,
+  "notes": notes,
+  "admin/stats": adminStats,
+  "admin/notify": adminNotify,
   "admin/attachments": adminAttachments,
   "admin/invites": adminInvites,
   "admin/members": adminMembers,

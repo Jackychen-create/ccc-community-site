@@ -32,8 +32,9 @@
     <a class="brand" href="#videos"><span class="mark">CCC</span><span>後台管理</span></a>
     <nav class="nav" aria-label="後台">
       <a href="#videos" data-view="videos"><span data-ico="video"></span>影片<span class="count num" id="cVideos"></span></a>
-      <a href="#invites" data-view="invites"><span data-ico="ticket"></span>邀請碼<span class="count num" id="cInvites"></span></a>
+      <a href="#invites" data-view="invites"><span data-ico="ticket"></span>實驗室密碼<span class="count num" id="cInvites"></span></a>
       <a href="#members" data-view="members"><span data-ico="users"></span>會員<span class="count num" id="cMembers"></span></a>
+      <a href="#stats" data-view="stats"><span data-ico="chart"></span>觀看統計</a>
     </nav>
     <div class="foot">
       <div id="whoami"></div>
@@ -61,28 +62,39 @@
       <div style="margin-top: 22px" id="videoTableBox"></div>
     </section>
 
-    <!-- 邀請碼 -->
+    <!-- 實驗室密碼 -->
     <section id="v-invites" data-view-panel="invites" hidden>
       <div class="page-head">
         <div>
-          <h1>邀請碼</h1>
-          <p>每組邀請碼可以設定使用次數，把註冊連結傳給新會員就好</p>
+          <h1>實驗室密碼</h1>
+          <p>每組實驗室密碼可以設定使用次數，把加入連結傳給新會員就好</p>
         </div>
       </div>
       <div class="cols">
         <div class="wide" id="inviteTableBox"></div>
         <div class="narrow card">
-          <h2>產生邀請碼</h2>
+          <h2>產生實驗室密碼</h2>
           <label class="field"><span class="label">可使用次數</span>
             <input class="input" id="invMax" type="number" min="1" max="1000" value="30" inputmode="numeric">
           </label>
           <label class="field"><span class="label">備註（只有你看得到）</span>
             <input class="input" id="invNote" type="text" maxlength="100" placeholder="例如：10 月新會員">
           </label>
-          <button class="btn primary block" type="button" id="invCreate" style="margin-top: 18px">產生邀請碼</button>
+          <button class="btn primary block" type="button" id="invCreate" style="margin-top: 18px">產生實驗室密碼</button>
           <div id="invResult"></div>
         </div>
       </div>
+    </section>
+
+    <!-- 觀看統計 -->
+    <section id="v-stats" data-view-panel="stats" hidden>
+      <div class="page-head">
+        <div>
+          <h1>觀看統計</h1>
+          <p id="statsSub">每一場有多少會員看、看到哪裡（不算管理員自己看的）</p>
+        </div>
+      </div>
+      <div id="statsBox"></div>
     </section>
 
     <!-- 會員 -->
@@ -90,12 +102,12 @@
       <div class="page-head">
         <div>
           <h1>會員</h1>
-          <p id="memberSub">用邀請碼註冊的會員</p>
+          <p id="memberSub">用用實驗室密碼加入的會員</p>
         </div>
         <label class="search">
           <span class="sr-only">搜尋會員</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-          <input class="input" id="memberSearch" type="search" placeholder="搜尋 Email 或邀請碼" autocomplete="off">
+          <input class="input" id="memberSearch" type="search" placeholder="搜尋 Email 或實驗室密碼" autocomplete="off">
         </label>
       </div>
       <div id="memberTableBox"></div>

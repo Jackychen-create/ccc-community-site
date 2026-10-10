@@ -112,3 +112,23 @@ $$;
 
 revoke all on function public.use_invite_code(text)    from public, anon, authenticated;
 revoke all on function public.refund_invite_code(text) from public, anon, authenticated;
+
+-- ─────────────────────────────────────────────
+-- v1.4：章節、每月資格、通知、會員筆記
+-- ─────────────────────────────────────────────
+alter table public.videos  add column if not exists chapters jsonb not null default '[]'::jsonb;  -- [{t: 秒, title: "開盤區間"}]
+alter table public.videos  add column if not exists notified_at timestamptz;                      -- 上次寄新影片通知的時間
+alter table public.members add column if not exists access_until date;                           -- 觀看資格到哪一天（空白＝不限）
+alter table public.members add column if not exists note text;                                   -- 管理員備註，例如本月交易量
+alter table public.members add column if not exists notify boolean not null default true;        -- 新影片寄信通知
+
+create table if not exists public.notes (
+  id          bigint generated always as identity primary key,
+  user_id     uuid   not null references auth.users(id) on delete cascade,
+  video_id    bigint not null references public.videos(id) on delete cascade,
+  t_sec       int    not null default 0 check (t_sec >= 0),
+  body        text   not null check (char_length(body) between 1 and 2000),
+  created_at  timestamptz not null default now()
+);
+create index if not exists notes_user_idx on public.notes(user_id, video_id);
+alter table public.notes enable row level security;

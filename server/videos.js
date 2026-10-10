@@ -20,7 +20,7 @@ async function list(res, user) {
   const [{ data: videos, error }, { data: progress }, { data: atts }] = await Promise.all([
     supabaseAdmin
       .from("videos")
-      .select("id, title, description, published_at, duration_sec, thumb_key, hosts, created_at")
+      .select("id, title, description, published_at, duration_sec, thumb_key, hosts, chapters, created_at")
       .eq("is_published", true)
       .order("published_at", { ascending: false })
       .order("id", { ascending: false }),
@@ -50,6 +50,7 @@ async function list(res, user) {
         watched_at: p?.updated_at ?? null,
         attachment_count: attCount.get(v.id) || 0,
         hosts: v.hosts || [],
+        chapters: v.chapters || [],
       };
     })
   );
@@ -59,7 +60,7 @@ async function list(res, user) {
 async function detail(res, user, isAdmin, id) {
   const { data: v, error } = await supabaseAdmin
     .from("videos")
-    .select("id, title, description, published_at, duration_sec, r2_key, is_published, hosts")
+    .select("id, title, description, published_at, duration_sec, r2_key, is_published, hosts, chapters")
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;
@@ -99,6 +100,7 @@ async function detail(res, user, isAdmin, id) {
     duration_sec: v.duration_sec,
     is_published: v.is_published,
     hosts: v.hosts || [],
+    chapters: v.chapters || [],
     url: await signGet(v.r2_key),
     position_sec: p?.position_sec ?? 0,
     attachments,

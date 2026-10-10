@@ -1,4 +1,4 @@
-// 後台：影片上傳與管理、邀請碼、會員
+// 後台：影片上傳與管理、實驗室密碼、會員
 (function () {
   "use strict";
   const A = window.App;
@@ -73,16 +73,17 @@
   }
 
   function route() {
-    const view = ["videos", "invites", "members"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "videos";
+    const view = ["videos", "invites", "members", "stats"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "videos";
     document.querySelectorAll("[data-view-panel]").forEach((p) => (p.hidden = p.dataset.viewPanel !== view));
     document.querySelectorAll(".nav a").forEach((a) => {
       if (a.dataset.view === view) a.setAttribute("aria-current", "page");
       else a.removeAttribute("aria-current");
     });
-    document.title = { videos: "影片", invites: "邀請碼", members: "會員" }[view] + "｜後台管理";
+    document.title = { videos: "影片", invites: "實驗室密碼", members: "會員", stats: "觀看統計" }[view] + "｜後台管理";
     if (view === "videos") loadVideos();
     if (view === "invites") loadInvites();
     if (view === "members") loadMembers();
+    if (view === "stats") loadStats();
   }
 
   function loadingBox() {
@@ -206,6 +207,61 @@
         return b;
       }));
     const pickedHosts = () => hostOpts.filter((h) => hostSet.has(h));
+
+    // 章節：一行一段「05:30 開盤區間」
+    const chapText = el("textarea", { class: "textarea mono-ish", rows: "5", placeholder: "一行一段，時間在前面，例如：\n00:00 開場\n05:30 開盤區間怎麼畫\n32:10 停損案例\n1:02:00 Q&A" });
+    chapText.value = (v.chapters || []).map((c) => `${A.fmtDur(c.t)} ${c.title}`).join("\n");
+    const chapHint = el("div", { class: "hint" });
+    const updateChapHint = () => {
+      const { chapters, bad } = parseChapters(chapText.value);
+      chapHint.textContent = bad.length
+        ? `第 ${bad.join("、")} 行看不懂時間，會略過。時間要寫成 5:30 或 1:02:10`
+        : chapters.length ? `共 ${chapters.length} 段，會員可以在播放頁點章節直接跳過去` : "可以不填。填了之後會員在播放頁會看到章節，也能用搜尋找到。";
+      chapHint.classList.toggle("warn-text", bad.length > 0);
+    };
+    chapText.addEventListener("input", updateChapHint);
+    updateChapHint();
+
+    // 封面
+    const coverImg = el("div", { class: "mini-thumb cover-preview" });
+    const paintCover = () => coverImg.replaceChildren(v.thumb_url ? A.thumbImg(v.thumb_url) : A.placeholderSvg());
+    paintCover();
+    const coverInput = el("input", { type: "file", accept: "image/jpeg,image/png,image/webp", hidden: true });
+    coverInput.addEventListener("change", async () => {
+      const f = coverInput.files[0];
+      coverInput.value = "";
+      if (!f) return;
+      try {
+        const blob = await imageToJpeg(f);
+        await setCover(v, blob);
+        paintCover();
+      } catch (e) {
+        A.toast(e.message || "封面上傳失敗", "err");
+      }
+    });
+
+    // 寄通知
+    const notifyBtn = el("button", { class: "btn sm", type: "button" }, icon("mail"), "寄信通知會員");
+    const notifyNote = el("span", { class: "small muted" });
+    const paintNotify = () => {
+      notifyNote.textContent = v.notified_at ? `上次寄出：${A.fmtRel(v.notified_at)}` : v.is_published ? "還沒寄過" : "發布後才能寄";
+      notifyBtn.disabled = !v.is_published;
+    };
+    paintNotify();
+    notifyBtn.addEventListener("click", async () => {
+      if (v.notified_at && !(await A.confirmDialog({ title: "再寄一次？", message: `這一場 ${A.fmtRel(v.notified_at)} 已經寄過通知，確定要再寄一次嗎？`, confirmText: "再寄一次" }))) return;
+      A.setBusy(notifyBtn, true, "寄送中…");
+      try {
+        const r = await api("/api/admin/notify", { method: "POST", body: { videoId: v.id } });
+        v.notified_at = new Date().toISOString();
+        A.toast(`已寄給 ${r.sent} 位會員`);
+      } catch (e) {
+        A.toast(e.message, "err");
+      } finally {
+        A.setBusy(notifyBtn, false);
+        paintNotify();
+      }
+    });
     const err = el("div", { class: "form-error", role: "alert", hidden: true });
 
     const attList = el("div", { style: { display: "grid", gap: "8px" } });
@@ -244,12 +300,21 @@
         el("label", { class: "field" }, el("span", { class: "label", text: "標題" }), title),
         el("label", { class: "field" }, el("span", { class: "label", text: "直播日期" }), date),
         hostOpts.length ? el("div", { class: "field" }, el("span", { class: "label", style: { display: "block", marginBottom: "8px" }, text: "主講（可複選）" }), hostBox) : null,
+        el("div", { class: "field" },
+          el("span", { class: "label", style: { display: "block", marginBottom: "8px" }, text: "封面" }),
+          el("div", { class: "cover-row" }, coverImg,
+            el("div", { class: "cover-actions" },
+              el("button", { class: "btn sm", type: "button", onclick: () => pickFrame(v, paintCover) }, icon("video"), "從影片挑一格"),
+              el("button", { class: "btn sm", type: "button", onclick: () => coverInput.click() }, icon("image"), "上傳圖片"),
+              coverInput))),
         el("label", { class: "field" }, el("span", { class: "label", text: "簡介" }), desc),
+        el("label", { class: "field" }, el("span", { class: "label", text: "章節" }), chapText, chapHint),
         el("div", { class: "field" }, el("label", { class: "switch" }, pub, el("span", { class: "track" }), el("span", { text: "發布（會員看得到）" }))),
         el("div", { class: "field" },
           el("div", { class: "section-label" }, el("span", { class: "label", text: "教材附件" }),
             el("button", { class: "btn sm", type: "button", onclick: () => attInput.click() }, icon("plus"), "新增教材")),
           attList, attUploads, attInput),
+        el("div", { class: "field notify-row" }, notifyBtn, notifyNote),
         err,
         el("p", { class: "small", style: { marginTop: "16px" } }, el("a", { href: `/#/v/${v.id}`, target: "_blank", rel: "noopener", class: "meta-ico" }, icon("ext"), "用會員畫面預覽"))
       ),
@@ -272,19 +337,134 @@
       }
       A.setBusy(save, true, "儲存中…");
       try {
-        await api("/api/admin/videos", {
+        const saved = await api("/api/admin/videos", {
           method: "PATCH",
-          body: { id: v.id, title: t, description: desc.value, published_at: date.value || A.today(), is_published: pub.checked, hosts: pickedHosts() },
+          body: { id: v.id, title: t, description: desc.value, published_at: date.value || A.today(), is_published: pub.checked, hosts: pickedHosts(), chapters: parseChapters(chapText.value).chapters },
         });
+        const savedTitle = saved?.title || t;
         const wasPublished = v.is_published;
-        Object.assign(v, { title: t, description: desc.value.trim() || null, published_at: date.value || A.today(), is_published: pub.checked, hosts: pickedHosts() });
+        Object.assign(v, { title: savedTitle, description: desc.value.trim() || null, published_at: date.value || A.today(), is_published: pub.checked, hosts: pickedHosts(), chapters: parseChapters(chapText.value).chapters });
         renderVideos();
         m.close();
-        A.toast(pub.checked && !wasPublished ? "已發布，會員現在看得到了" : "已儲存");
+        if (pub.checked && !wasPublished) {
+          // 剛發布：問要不要順便寄信
+          const send = await A.confirmDialog({ title: "已發布，會員現在看得到了", message: "要順便寄信通知會員有新的一場嗎？（關掉通知的會員不會收到）", confirmText: "寄信通知" });
+          if (send) {
+            try {
+              const r = await api("/api/admin/notify", { method: "POST", body: { videoId: v.id } });
+              v.notified_at = new Date().toISOString();
+              A.toast(`已寄給 ${r.sent} 位會員`);
+            } catch (e) {
+              A.toast(e.message, "err");
+            }
+          }
+        } else A.toast(savedTitle !== t ? `已儲存（標題開頭的日期拿掉了：「${savedTitle}」）` : "已儲存");
       } catch (e) {
         A.setBusy(save, false);
         err.textContent = e.message;
         err.hidden = false;
+      }
+    });
+  }
+
+  // 「05:30 標題」「1:02:10 - 標題」→ {t, title}
+  function parseChapters(text) {
+    const chapters = [];
+    const bad = [];
+    String(text || "").split(/\r?\n/).forEach((line, i) => {
+      const raw = line.trim();
+      if (!raw) return;
+      const m = raw.match(/^(\d{1,2})[:：](\d{1,2})(?:[:：](\d{1,2}))?\s*[-–—|｜]?\s*(.*)$/);
+      if (!m || !m[4].trim()) return bad.push(i + 1);
+      const t = m[3] !== undefined ? +m[1] * 3600 + +m[2] * 60 + +m[3] : +m[1] * 60 + +m[2];
+      chapters.push({ t, title: m[4].trim().slice(0, 60) });
+    });
+    chapters.sort((a, b) => a.t - b.t);
+    return { chapters, bad };
+  }
+
+  // 圖片轉成 1280 寬以內的 JPEG（封面只收 JPEG／WebP）
+  function imageToJpeg(file) {
+    return new Promise((resolve, reject) => {
+      if (file.size > 15 * 1024 * 1024) return reject(new Error("圖片太大，請小於 15 MB"));
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const w = Math.min(1280, img.naturalWidth);
+        const h = Math.round((w * img.naturalHeight) / img.naturalWidth);
+        const c = document.createElement("canvas");
+        c.width = w;
+        c.height = h;
+        c.getContext("2d").drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(url);
+        c.toBlob((b) => (b ? resolve(b) : reject(new Error("圖片轉換失敗"))), "image/jpeg", 0.85);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("讀不出這張圖片"));
+      };
+      img.src = url;
+    });
+  }
+
+  async function setCover(v, blob) {
+    const t = await api("/api/admin/upload-url", { method: "POST", body: { kind: "thumb", filename: "cover.jpg", contentType: "image/jpeg", size: blob.size } });
+    await putFile(t.url, blob, t.contentType, { progress() {}, setAbort() {} });
+    const r = await api("/api/admin/videos", { method: "PATCH", body: { id: v.id, thumb_key: t.key } });
+    v.thumb_url = r.thumb_url || URL.createObjectURL(blob);
+    renderVideos();
+    A.toast("封面已更新");
+  }
+
+  // 從影片挑一格當封面：拖時間軸找畫面，按「用這一格」
+  async function pickFrame(v, onDone) {
+    let d;
+    try {
+      d = await api(`/api/videos?id=${v.id}`);
+    } catch (e) {
+      return A.toast(e.message, "err");
+    }
+    const vid = el("video", { muted: true, playsinline: true, preload: "auto", crossorigin: "anonymous", class: "frame-video" });
+    const range = el("input", { type: "range", min: "0", max: "1000", value: "100", class: "frame-range", "aria-label": "選擇畫面的時間" });
+    const time = el("span", { class: "num frame-time", text: "0:00" });
+    const use = el("button", { class: "btn primary", type: "button", text: "用這一格", disabled: true });
+    const status = el("p", { class: "small muted", style: { marginTop: "8px" }, text: "載入影片中…" });
+    const m = A.modal({
+      title: "從影片挑封面",
+      body: el("div", { class: "frame-picker" }, el("div", { class: "frame-box" }, vid), el("div", { class: "frame-ctrl" }, range, time), status),
+      actions: [el("button", { class: "btn", type: "button", text: "取消", onclick: () => m.close() }), use],
+    });
+    m.box.style.maxWidth = "760px";
+    const seek = () => {
+      if (!isFinite(vid.duration)) return;
+      vid.currentTime = (range.value / 1000) * vid.duration;
+      time.textContent = A.fmtDur(vid.currentTime);
+    };
+    vid.addEventListener("loadedmetadata", () => {
+      status.textContent = "拖動下面的時間軸，找一個好看的畫面";
+      use.disabled = false;
+      seek();
+    });
+    vid.addEventListener("error", () => (status.textContent = "影片載入失敗，請確認 R2 的 CORS 設定有包含這個網址"));
+    range.addEventListener("input", seek);
+    vid.src = d.url;
+    use.addEventListener("click", async () => {
+      A.setBusy(use, true, "上傳中…");
+      try {
+        const w = Math.min(1280, vid.videoWidth || 1280);
+        const h = Math.round((w * vid.videoHeight) / vid.videoWidth) || 720;
+        const c = document.createElement("canvas");
+        c.width = w;
+        c.height = h;
+        c.getContext("2d").drawImage(vid, 0, 0, w, h);
+        const blob = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.85));
+        if (!blob) throw new Error("擷取畫面失敗");
+        await setCover(v, blob);
+        onDone && onDone();
+        m.close();
+      } catch (e) {
+        A.setBusy(use, false);
+        status.textContent = /tainted|insecure|security/i.test(String(e.message)) ? "瀏覽器不允許擷取這個影片的畫面（R2 的 CORS 需要允許這個網址）" : e.message;
       }
     });
   }
@@ -545,7 +725,7 @@
   }
 
   // ─────────────────────────────────────────────
-  // 邀請碼
+  // 實驗室密碼
   // ─────────────────────────────────────────────
   let invitesLoaded = false;
   async function loadInvites(silent) {
@@ -561,7 +741,7 @@
   }
 
   const inviteLink = (code) => `${location.origin}/?invite=${encodeURIComponent(code)}`;
-  const shareText = (code) => `CCC 交易實驗室 會員專區邀請碼：${code}\n註冊連結：${inviteLink(code)}`;
+  const shareText = (code) => `CCC 交易實驗室 實驗室密碼：${code}\n加入連結：${inviteLink(code)}`;
 
   function inviteState(i) {
     if (i.disabled) return ["已停用", "warn"];
@@ -573,13 +753,13 @@
     $("#cInvites").textContent = invites.filter((i) => inviteState(i)[1] === "good").length || "";
     const box = $("#inviteTableBox");
     if (!invites.length) {
-      box.replaceChildren(el("div", { class: "empty" }, el("h2", { text: "還沒有邀請碼" }), el("p", { class: "small", style: { marginTop: "6px" }, text: "在右邊產生第一組，把註冊連結傳給會員。" })));
+      box.replaceChildren(el("div", { class: "empty" }, el("h2", { text: "還沒有實驗室密碼" }), el("p", { class: "small", style: { marginTop: "6px" }, text: "在右邊產生第一組，把註冊連結傳給會員。" })));
       return;
     }
     box.replaceChildren(
       el("div", { class: "table-wrap" },
         el("table", { class: "table stack" },
-          el("thead", null, el("tr", null, el("th", { text: "邀請碼" }), el("th", { text: "使用狀況" }), el("th", { class: "hide-sm", text: "備註" }), el("th", { text: "狀態" }), el("th", null, el("span", { class: "sr-only", text: "操作" })))),
+          el("thead", null, el("tr", null, el("th", { text: "實驗室密碼" }), el("th", { text: "使用狀況" }), el("th", { class: "hide-sm", text: "備註" }), el("th", { text: "狀態" }), el("th", null, el("span", { class: "sr-only", text: "操作" })))),
           el("tbody", null,
             invites.map((i) => {
               const [label, kind] = inviteState(i);
@@ -604,7 +784,7 @@
       await api("/api/admin/invites", { method: "PATCH", body: { code: i.code, disabled: !i.disabled } });
       i.disabled = !i.disabled;
       renderInvites();
-      A.toast(i.disabled ? "已停用，這組邀請碼不能再註冊" : "已重新啟用");
+      A.toast(i.disabled ? "已停用，這組實驗室密碼不能再註冊" : "已重新啟用");
     } catch (e) {
       fail(e);
     }
@@ -623,11 +803,11 @@
       const code = r.invite.code;
       $("#invResult").replaceChildren(
         el("div", { class: "new-code" },
-          el("div", { class: "label", text: "新的邀請碼" }),
+          el("div", { class: "label", text: "新的實驗室密碼" }),
           el("div", { class: "big num", text: code }),
           el("div", { class: "small sub", style: { marginTop: "4px", wordBreak: "break-all" }, text: inviteLink(code) }),
           el("div", { style: { display: "flex", gap: "8px", marginTop: "12px", flexWrap: "wrap" } },
-            el("button", { class: "btn sm", type: "button", onclick: () => A.copyText(shareText(code)) }, icon("copy"), "複製邀請訊息"),
+            el("button", { class: "btn sm", type: "button", onclick: () => A.copyText(shareText(code)) }, icon("copy"), "複製加入訊息"),
             el("button", { class: "btn sm ghost", type: "button", onclick: () => A.copyText(code) }, "只複製代碼")
           )
         )
@@ -663,11 +843,11 @@
   function renderMembers() {
     $("#cMembers").textContent = members.length || "";
     const active = members.filter((m) => !m.banned).length;
-    $("#memberSub").textContent = members.length ? `共 ${members.length} 位，${active} 位可觀看` : "用邀請碼註冊的會員";
+    $("#memberSub").textContent = members.length ? `共 ${members.length} 位，${active} 位可觀看` : "用用實驗室密碼加入的會員";
     const list = members.filter((m) => !memberQuery || `${m.email} ${m.invite_code || ""}`.toLowerCase().includes(memberQuery));
     const box = $("#memberTableBox");
     if (!members.length) {
-      box.replaceChildren(el("div", { class: "empty" }, el("h2", { text: "還沒有會員" }), el("p", { class: "small", style: { marginTop: "6px" }, text: "到「邀請碼」產生一組，把註冊連結傳出去。" })));
+      box.replaceChildren(el("div", { class: "empty" }, el("h2", { text: "還沒有會員" }), el("p", { class: "small", style: { marginTop: "6px" }, text: "到「實驗室密碼」產生一組，把註冊連結傳出去。" })));
       return;
     }
     if (!list.length) {
@@ -677,16 +857,18 @@
     box.replaceChildren(
       el("div", { class: "table-wrap" },
         el("table", { class: "table stack" },
-          el("thead", null, el("tr", null, el("th", { text: "Email" }), el("th", { class: "hide-sm", text: "加入" }), el("th", { text: "最近登入" }), el("th", { class: "hide-sm", text: "看過" }), el("th", { text: "狀態" }), el("th", null, el("span", { class: "sr-only", text: "操作" })))),
+          el("thead", null, el("tr", null, el("th", { text: "Email" }), el("th", { class: "hide-sm", text: "加入" }), el("th", { text: "最近登入" }), el("th", { class: "hide-sm", text: "看過" }), el("th", { text: "資格" }), el("th", { text: "狀態" }), el("th", null, el("span", { class: "sr-only", text: "操作" })))),
           el("tbody", null,
             list.map((m) =>
               el("tr", null,
-                el("td", null, el("div", { class: "t-title", style: { wordBreak: "break-all" }, text: m.email }), el("div", { class: "small muted num", text: m.invite_code ? `邀請碼 ${m.invite_code}` : "" })),
+                el("td", null, el("div", { class: "t-title", style: { wordBreak: "break-all" }, text: m.email }), el("div", { class: "small muted num", text: m.invite_code ? `實驗室密碼 ${m.invite_code}` : "" })),
                 el("td", { class: "small num hide-sm", text: A.fmtDate(m.created_at) }),
                 el("td", { class: "small", text: A.fmtRel(m.last_sign_in_at) }),
                 el("td", { class: "small num hide-sm", text: `${m.watched_count} 支` }),
+                el("td", null, accessCell(m)),
                 el("td", null, m.banned ? el("span", { class: "pill warn" }, el("span", { class: "dot" }), "已停權") : el("span", { class: "pill good" }, el("span", { class: "dot" }), "正常")),
                 el("td", null, el("div", { class: "actions" },
+                  el("button", { class: "btn sm", type: "button", onclick: () => editAccess(m) }, icon("clock"), "資格"),
                   el("button", { class: "btn sm", type: "button", onclick: () => resetPassword(m) }, icon("key"), "重設密碼"),
                   m.banned
                     ? el("button", { class: "btn sm", type: "button", text: "恢復", onclick: () => setBan(m, false) })
@@ -695,6 +877,102 @@
               )
             )
           )))
+    );
+  }
+
+  // ── 每月資格（看單月交易量決定）──
+  function twToday() {
+    return new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+  }
+  function monthEnd(offset = 0) {
+    const [y, mo] = twToday().split("-").map(Number);
+    const d = new Date(Date.UTC(y, mo - 1 + offset + 1, 0));
+    return d.toISOString().slice(0, 10);
+  }
+  function accessCell(m) {
+    const today = twToday();
+    const until = m.access_until;
+    const label = !until
+      ? el("span", { class: "pill dash", text: "不限" })
+      : until < today
+        ? el("span", { class: "pill warn" }, el("span", { class: "dot" }), `已過期 ${until.slice(5).replace("-", "/")}`)
+        : el("span", { class: "pill" + ((Date.parse(until) - Date.parse(today)) / 86400000 <= 7 ? " brass" : "") }, `到 ${until.slice(5).replace("-", "/")}`);
+    return el("div", null, label, m.note ? el("div", { class: "small muted", style: { marginTop: "4px", maxWidth: "22ch", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, title: m.note, text: m.note }) : null);
+  }
+  function editAccess(m) {
+    const date = el("input", { class: "input", type: "date", value: m.access_until || "" });
+    const note = el("input", { class: "input", type: "text", maxlength: "200", placeholder: "例如：10 月交易量 120 口", value: m.note || "" });
+    const quick = (label, val) => el("button", { class: "chip", type: "button", text: label, onclick: () => (date.value = val) });
+    const err = el("div", { class: "form-error", role: "alert", hidden: true });
+    const save = el("button", { class: "btn primary", type: "button", text: "儲存" });
+    const mm = A.modal({
+      title: "觀看資格",
+      body: el("div", null,
+        el("p", { class: "small sub", style: { marginTop: "14px", wordBreak: "break-all" }, text: m.email }),
+        el("label", { class: "field" }, el("span", { class: "label", text: "可以看到哪一天（含當天）" }), date),
+        el("div", { class: "chips", style: { marginTop: "10px" } }, quick("這個月底", monthEnd(0)), quick("下個月底", monthEnd(1)), quick("不限", "")),
+        el("p", { class: "hint", text: "過了這天會員就不能看，到期前 7 天會在畫面上提醒他。留空白＝不限。" }),
+        el("label", { class: "field" }, el("span", { class: "label", text: "備註（只有管理員看得到）" }), note),
+        err),
+      actions: [el("button", { class: "btn", type: "button", text: "取消", onclick: () => mm.close() }), save],
+    });
+    save.addEventListener("click", async () => {
+      A.setBusy(save, true, "儲存中…");
+      try {
+        const accessUntil = date.value || null;
+        await api("/api/admin/members", { method: "PATCH", body: { userId: m.user_id, action: "access", accessUntil, note: note.value } });
+        m.access_until = accessUntil;
+        m.note = note.value.trim() || null;
+        renderMembers();
+        mm.close();
+        A.toast(accessUntil ? `資格更新到 ${accessUntil}` : "已改成不限");
+      } catch (e) {
+        A.setBusy(save, false);
+        err.textContent = e.message;
+        err.hidden = false;
+      }
+    });
+  }
+
+  // ─────────────────────────────────────────────
+  // 觀看統計
+  // ─────────────────────────────────────────────
+  async function loadStats() {
+    const box = $("#statsBox");
+    box.replaceChildren(loadingBox());
+    let r;
+    try {
+      r = await api("/api/admin/stats");
+    } catch (e) {
+      return fail(e);
+    }
+    const n = r.memberCount || 0;
+    $("#statsSub").textContent = `目前 ${n} 位會員。每一場有多少會員看、看到哪裡（不算管理員自己看的）`;
+    const bar = (f) => el("span", { class: "usage" }, el("span", { class: "track" }, el("i", { style: { width: Math.round(f * 100) + "%" } })));
+    const vids = (r.videos || []).filter((v) => v.is_published);
+    const vTable = el("div", { class: "table-wrap" },
+      el("table", { class: "table stack" },
+        el("thead", null, el("tr", null, el("th", { text: "場次" }), el("th", { text: "看過" }), el("th", { class: "hide-sm", text: "看完" }), el("th", { text: "平均看到" }))),
+        el("tbody", null, vids.length ? vids.map((v) =>
+          el("tr", null,
+            el("td", null, el("div", { class: "t-title", text: v.title }), el("div", { class: "small muted num", text: A.fmtDate(v.published_at) })),
+            el("td", null, el("div", { class: "stat-cell" }, el("span", { class: "num stat-n", text: `${v.viewers}` }), el("span", { class: "small muted", text: n ? `／${n} 人` : "人" })), bar(n ? v.viewers / n : 0)),
+            el("td", { class: "hide-sm" }, el("span", { class: "num stat-n", text: `${v.completed}` }), el("span", { class: "small muted", text: " 人" })),
+            el("td", null, el("span", { class: "num stat-n", text: `${v.avg_pct}%` }))
+          )) : [el("tr", null, el("td", { colspan: "4", class: "muted", text: "還沒有發布的影片" }))])));
+    const mTable = el("div", { class: "table-wrap" },
+      el("table", { class: "table stack" },
+        el("thead", null, el("tr", null, el("th", { text: "會員" }), el("th", { text: "看過" }), el("th", { class: "hide-sm", text: "看完" }), el("th", { text: "最近觀看" }))),
+        el("tbody", null, (r.members || []).length ? r.members.map((m) =>
+          el("tr", null,
+            el("td", null, el("div", { class: "t-title", style: { wordBreak: "break-all" }, text: m.email }), m.banned ? el("span", { class: "pill warn", text: "已停權" }) : null),
+            el("td", null, el("span", { class: "num stat-n", text: `${m.watched}` }), el("span", { class: "small muted", text: vids.length ? `／${vids.length} 場` : " 場" })),
+            el("td", { class: "hide-sm" }, el("span", { class: "num stat-n", text: `${m.completed}` }), el("span", { class: "small muted", text: " 場" })),
+            el("td", { class: "small", text: m.last_watched_at ? A.fmtRel(m.last_watched_at) : "還沒看過" })
+          )) : [el("tr", null, el("td", { colspan: "4", class: "muted", text: "還沒有會員" }))])));
+    box.replaceChildren(
+      el("h2", { class: "stats-h", text: "每一場" }), vTable,
+      el("h2", { class: "stats-h", text: "每位會員" }), mTable
     );
   }
 

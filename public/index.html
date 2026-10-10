@@ -31,7 +31,7 @@
       <section class="auth-card card">
         <div class="seg" role="tablist" aria-label="登入或註冊">
           <button type="button" role="tab" id="tabLogin" aria-selected="true">登入</button>
-          <button type="button" role="tab" id="tabRegister" aria-selected="false">邀請碼註冊</button>
+          <button type="button" role="tab" id="tabRegister" aria-selected="false">用實驗室密碼加入</button>
         </div>
         <h1 id="authTitle">登入</h1>
         <p id="authSub" class="intro">登入以觀看直播留檔</p>
@@ -41,13 +41,13 @@
           </label>
           <label class="field"><span class="label" id="pwLabel">密碼</span>
             <span class="input-wrap" style="display: block">
-              <input class="input" id="password" type="password" autocomplete="current-password" minlength="8" required>
+              <input class="input" id="password" type="password" autocomplete="current-password" required>
               <button class="btn ghost reveal" type="button" id="revealPw" aria-label="顯示密碼" aria-pressed="false"></button>
             </span>
           </label>
-          <label class="field" id="inviteRow" hidden><span class="label">邀請碼</span>
+          <label class="field" id="inviteRow" hidden><span class="label">實驗室密碼</span>
             <input class="input" id="invite" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="例如 ABCD-EFGH">
-            <span class="hint">邀請碼由管理員提供，每組有使用次數限制</span>
+            <span class="hint">實驗室密碼由管理員提供，每組有使用次數限制</span>
           </label>
           <div id="authError" class="form-error" role="alert" hidden></div>
           <button class="btn primary lg block" id="authSubmit" type="submit" style="margin-top: 24px">登入</button>
@@ -87,6 +87,8 @@
     </div>
   </header>
 
+  <div id="accessBanner" class="access-banner" role="status" hidden></div>
+
   <main id="listView" class="page">
     <div class="desk">
       <section class="panel">
@@ -97,10 +99,33 @@
         <div class="vhead" aria-hidden="true"><span>日期</span><span>主題</span><span class="r">片長</span><span class="r">教材</span><span class="r">狀態</span></div>
         <div class="vlist" id="grid" aria-live="polite"></div>
       </section>
-      <aside class="aside" id="continueSec" hidden>
+      <aside class="aside" id="continueSec">
         <div class="panel" id="continueList"></div>
+        <div class="panel" id="statsPanel"></div>
+        <section class="panel" id="recentNotes">
+          <div class="panel-head" style="padding: 14px 18px"><h2>最近的筆記</h2><a class="small muted" href="#/notes">全部</a></div>
+          <div id="recentNotesList"></div>
+        </section>
+        <section class="panel keys-panel">
+          <div class="panel-head" style="padding: 14px 18px"><h2>播放快捷鍵</h2></div>
+          <dl class="keys">
+            <div><dt><span class="kbd">空白</span></dt><dd>播放／暫停</dd></div>
+            <div><dt><span class="kbd">←</span><span class="kbd">→</span></dt><dd>倒退／快轉 10 秒</dd></div>
+            <div><dt><span class="kbd">N</span></dt><dd>在這個時間點記筆記</dd></div>
+            <div><dt><span class="kbd">F</span></dt><dd>全螢幕</dd></div>
+            <div><dt><span class="kbd">/</span></dt><dd>搜尋場次與章節</dd></div>
+          </dl>
+        </section>
       </aside>
     </div>
+  </main>
+
+  <main id="notesView" class="page" hidden>
+    <a class="back" href="#/"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>直播留檔</a>
+    <section class="panel">
+      <div class="panel-head"><h1>我的筆記 <span class="count" id="notesCount"></span></h1></div>
+      <div id="notesAll"></div>
+    </section>
   </main>
 
   <main id="watchView" class="page" hidden>
@@ -118,6 +143,7 @@
           <span class="grow"></span>
           <button class="btn sm" type="button" id="fsBtn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>全螢幕</button>
         </div>
+        <div class="chapbar" id="chapBar" hidden></div>
         <div id="watchNotice"></div>
         <div class="wtitle-row"><span class="vdate" id="wDate"></span><h1 id="wTitle"></h1></div>
         <div class="vmeta" id="wMeta"></div>
@@ -126,10 +152,28 @@
           <div class="section-label"><span class="label">教材下載</span></div>
           <div id="wFileList"></div>
         </section>
+        <section class="notes panel" id="wNotes">
+          <div class="panel-head" style="padding: 14px 18px">
+            <h2>我的筆記</h2>
+            <a class="small muted" href="#/notes">看全部筆記</a>
+          </div>
+          <form class="note-form" id="noteForm">
+            <button class="note-at num" type="button" id="noteAt" title="筆記會記在這個時間點，按一下改成目前播放位置">0:00</button>
+            <textarea class="textarea" id="noteBody" rows="2" maxlength="2000" placeholder="在這個時間點記一筆，例如：這裡的停損放法要再看一次（按 N 也能開始寫）"></textarea>
+            <button class="btn primary sm" type="submit" id="noteSave">記下來</button>
+          </form>
+          <div class="note-list" id="noteList"></div>
+        </section>
       </section>
-      <aside class="watch-side panel">
-        <div class="panel-head" style="padding: 14px 18px"><h2>其他場次</h2></div>
-        <div class="side-list" id="others"></div>
+      <aside class="watch-side">
+        <section class="panel chapters" id="wChapters" hidden>
+          <div class="panel-head" style="padding: 14px 18px"><h2>章節</h2><span class="small muted num" id="chapCount"></span></div>
+          <div class="chap-list" id="chapList"></div>
+        </section>
+        <section class="panel">
+          <div class="panel-head" style="padding: 14px 18px"><h2>其他場次</h2></div>
+          <div class="side-list" id="others"></div>
+        </section>
       </aside>
     </div>
   </main>

@@ -1,7 +1,8 @@
 // 後台：會員
 // GET   /api/admin/members
 // PATCH /api/admin/members  { userId, action: "ban" | "unban" | "reset" }
-import { supabaseAdmin, requireAdmin, readBody, randomPassword, route } from "../_lib.js";
+//                            { userId, action: "access", accessUntil: "2026-10-31" | null, note }
+import { supabaseAdmin, requireAdmin, readBody, randomPassword, cleanText, isDate, route } from "../_lib.js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const FOREVER = "876000h"; // 約 100 年
@@ -12,7 +13,7 @@ export default route({
 
     const { data: members, error } = await supabaseAdmin
       .from("members")
-      .select("user_id, email, invite_code, banned, created_at")
+      .select("user_id, email, invite_code, banned, created_at, access_until, note, notify")
       .order("created_at", { ascending: false });
     if (error) throw error;
 
@@ -74,6 +75,19 @@ export default route({
         ban_duration: banned ? FOREVER : "none",
       });
       if (authError) throw authError;
+      return res.status(200).json({ ok: true });
+    }
+
+    if (b.action === "access") {
+      const patch = {};
+      if (b.accessUntil !== undefined) {
+        if (b.accessUntil !== null && !isDate(b.accessUntil)) return res.status(400).json({ error: "日期格式不正確" });
+        patch.access_until = b.accessUntil;
+      }
+      if (b.note !== undefined) patch.note = cleanText(b.note, 200) || null;
+      if (!Object.keys(patch).length) return res.status(400).json({ error: "沒有要修改的內容" });
+      const { error: upError } = await supabaseAdmin.from("members").update(patch).eq("user_id", userId);
+      if (upError) throw upError;
       return res.status(200).json({ ok: true });
     }
 

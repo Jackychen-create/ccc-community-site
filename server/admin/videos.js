@@ -13,6 +13,8 @@ import {
   cleanText,
   isDate,
   isIssuedKey,
+  cleanTitle,
+  cleanChapters,
   route,
 } from "../_lib.js";
 
@@ -22,7 +24,7 @@ export default route({
     const { data, error } = await supabaseAdmin
       .from("videos")
       .select(
-        "id, title, description, published_at, is_published, duration_sec, size_bytes, thumb_key, hosts, created_at, attachments(id, title, size_bytes, created_at)"
+        "id, title, description, published_at, is_published, duration_sec, size_bytes, thumb_key, hosts, chapters, notified_at, created_at, attachments(id, title, size_bytes, created_at)"
       )
       .order("published_at", { ascending: false })
       .order("id", { ascending: false });
@@ -42,7 +44,7 @@ export default route({
     if (!(await requireAdmin(req, res))) return;
     const b = readBody(req);
 
-    const title = cleanText(b.title, 120);
+    const title = cleanTitle(b.title);
     const r2_key = String(b.r2_key || "");
     if (!title) return res.status(400).json({ error: "請填寫標題" });
     if (!isIssuedKey(r2_key, "videos")) {
@@ -63,6 +65,7 @@ export default route({
       duration_sec: posInt(b.duration_sec),
       size_bytes: posInt(b.size_bytes),
       hosts: cleanHosts(b.hosts),
+      chapters: cleanChapters(b.chapters),
     };
     const { data, error } = await supabaseAdmin.from("videos").insert(row).select("id").single();
     if (error) throw error;
@@ -77,7 +80,7 @@ export default route({
 
     const patch = {};
     if (b.title !== undefined) {
-      const t = cleanText(b.title, 120);
+      const t = cleanTitle(b.title);
       if (!t) return res.status(400).json({ error: "標題不能空白" });
       patch.title = t;
     }
@@ -88,6 +91,16 @@ export default route({
     }
     if (b.is_published !== undefined) patch.is_published = b.is_published === true;
     if (b.hosts !== undefined) patch.hosts = cleanHosts(b.hosts);
+    if (b.chapters !== undefined) patch.chapters = cleanChapters(b.chapters);
+    // 換封面：新的封面要是 upload-url 發的路徑，舊封面存好後再刪
+    let oldThumb = null;
+    if (b.thumb_key !== undefined) {
+      const tk = String(b.thumb_key || "");
+      if (!isIssuedKey(tk, "thumbs")) return res.status(400).json({ error: "封面路徑不正確" });
+      const { data: cur } = await supabaseAdmin.from("videos").select("thumb_key").eq("id", id).maybeSingle();
+      oldThumb = cur?.thumb_key && cur.thumb_key !== tk ? cur.thumb_key : null;
+      patch.thumb_key = tk;
+    }
     if (!Object.keys(patch).length) return res.status(400).json({ error: "沒有要修改的內容" });
 
     const { data, error } = await supabaseAdmin
@@ -98,7 +111,11 @@ export default route({
       .maybeSingle();
     if (error) throw error;
     if (!data) return res.status(404).json({ error: "找不到這支影片" });
-    return res.status(200).json({ ok: true });
+    if (oldThumb) await deleteObject(oldThumb);
+    const out = { ok: true };
+    if (patch.title) out.title = patch.title;
+    if (patch.thumb_key) out.thumb_url = await signGet(patch.thumb_key, { expiresIn: 12 * 60 * 60 });
+    return res.status(200).json(out);
   },
 
   async DELETE(req, res) {

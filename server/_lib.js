@@ -8,7 +8,7 @@ export let supabaseAdmin = null;
 
 export function setEnv(e) {
   if (supabaseAdmin && env.SUPABASE_URL === e.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY === e.SUPABASE_SERVICE_ROLE_KEY) return;
-  for (const k of ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET", "ADMIN_EMAILS"]) {
+  for (const k of ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET", "ADMIN_EMAILS", "BREVO_API_KEY", "MAIL_FROM", "MAIL_FROM_NAME"]) {
     env[k] = e[k] || "";
   }
   supabaseAdmin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
@@ -75,7 +75,7 @@ export function isAdminEmail(email) {
   return !!email && adminEmails().includes(String(email).trim().toLowerCase());
 }
 
-// 管理員：Email 在名單內、Email 已驗證，而且「不是」用邀請碼註冊的會員帳號。
+// 管理員：Email 在名單內、Email 已驗證，而且「不是」用用實驗室密碼加入的會員帳號。
 // 會員註冊時 Email 沒有經過收信驗證，所以會員帳號永遠不能變成管理員，
 // 就算之後把同一個 Email 加進 ADMIN_EMAILS 也一樣。
 function adminEligible(user) {
@@ -85,7 +85,7 @@ function adminEligible(user) {
 async function memberRow(userId) {
   const { data, error } = await supabaseAdmin
     .from("members")
-    .select("user_id, banned")
+    .select("user_id, banned, access_until, notify")
     .eq("user_id", userId)
     .maybeSingle();
   if (error) throw error;
@@ -114,7 +114,12 @@ export async function requireMember(req, res) {
     res.status(403).json({ error: "這個帳號目前沒有觀看權限，請聯絡管理員" });
     return null;
   }
-  return { user, isAdmin: false };
+  // 每月資格：過了到期日就不能看（到期日當天還可以）
+  if (member.access_until && member.access_until < todayTW()) {
+    res.status(403).json({ error: `你的觀看資格到 ${member.access_until} 為止，請聯絡管理員更新`, code: "expired" });
+    return null;
+  }
+  return { user, isAdmin: false, member };
 }
 
 export async function requireAdmin(req, res) {
@@ -131,6 +136,35 @@ export async function requireAdmin(req, res) {
 }
 
 // ── 小工具 ──────────────────────────────────────
+
+// 台灣日期 YYYY-MM-DD（伺服器在 UTC，直接用會差 8 小時）
+export function todayTW() {
+  return new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+// 標題開頭的「10/9 直播：」拿掉（列表已經有日期欄）；拿掉後是空的就保留原樣
+export function cleanTitle(v) {
+  const t = cleanText(v, 120);
+  if (!t) return t;
+  const stripped = t.replace(/^\s*\d{1,2}\s*[\/.\-]\s*\d{1,2}\s*(?:(?:直播|live)\s*)?(?:[：:\-–—|｜]\s*|\s+(?=\S))/i, "").trim();
+  return stripped && stripped !== t ? stripped : t;
+}
+
+// 章節：[{t: 秒, title}]，依時間排序、最多 60 個、同一秒只留一個
+export function cleanChapters(v) {
+  if (!Array.isArray(v)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const c of v) {
+    const t = Math.floor(Number(c?.t));
+    const title = cleanText(c?.title, 60);
+    if (!Number.isFinite(t) || t < 0 || t > 24 * 3600 || !title || seen.has(t)) continue;
+    seen.add(t);
+    out.push({ t, title });
+    if (out.length >= 60) break;
+  }
+  return out.sort((a, b) => a.t - b.t);
+}
 
 // 請求內容已在 functions/api/[[path]].js 解析成物件
 export function readBody(req) {

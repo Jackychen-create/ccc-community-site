@@ -1,5 +1,5 @@
 // POST /api/register  { email, password, inviteCode }
-// 用邀請碼建立會員帳號。
+// 用實驗室密碼建立會員帳號。
 import { supabaseAdmin, isAdminEmail, readBody, route } from "./_lib.js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -12,7 +12,7 @@ export default route({
     const code = String(body.inviteCode || "").trim().toUpperCase();
 
     if (!email || !password || !code) {
-      return res.status(400).json({ error: "請填寫 Email、密碼與邀請碼" });
+      return res.status(400).json({ error: "請填寫 Email、密碼與實驗室密碼" });
     }
     if (!EMAIL_RE.test(email) || email.length > 254) {
       return res.status(400).json({ error: "Email 格式不正確" });
@@ -20,16 +20,16 @@ export default route({
     if (password.length < 8 || password.length > 72) {
       return res.status(400).json({ error: "密碼需要 8 到 72 個字元" });
     }
-    // 管理員帳號不能用邀請碼註冊，避免別人搶先用你的 Email 註冊成管理員
+    // 管理員帳號不能用用實驗室密碼加入，避免別人搶先用你的 Email 註冊成管理員
     if (isAdminEmail(email)) {
-      return res.status(400).json({ error: "這個 Email 不能用邀請碼註冊" });
+      return res.status(400).json({ error: "這個 Email 不能用用實驗室密碼加入" });
     }
 
     const { data: ok, error: rpcError } = await supabaseAdmin.rpc("use_invite_code", {
       p_code: code,
     });
     if (rpcError) throw rpcError;
-    if (!ok) return res.status(400).json({ error: "邀請碼無效、已停用或已被用完" });
+    if (!ok) return res.status(400).json({ error: "實驗室密碼無效、已停用或已被用完" });
 
     const refund = () => supabaseAdmin.rpc("refund_invite_code", { p_code: code });
 

@@ -1,6 +1,6 @@
-// 後台：邀請碼
+// 後台：實驗室密碼
 // GET   /api/admin/invites
-// POST  /api/admin/invites   { max_uses, note }  產生一組新邀請碼
+// POST  /api/admin/invites   { max_uses, note }  產生一組新實驗室密碼
 // PATCH /api/admin/invites   { code, disabled }  停用／重新啟用
 import { supabaseAdmin, requireAdmin, readBody, cleanText, randomCode, route } from "../_lib.js";
 
@@ -34,7 +34,7 @@ export default route({
       if (!error) return res.status(200).json({ invite: data });
       if (error.code !== "23505") throw error; // 23505 = 撞號，再產生一次
     }
-    return res.status(500).json({ error: "產生邀請碼失敗，請再試一次" });
+    return res.status(500).json({ error: "產生實驗室密碼失敗，請再試一次" });
   },
 
   async PATCH(req, res) {
@@ -51,7 +51,7 @@ export default route({
       .select("code")
       .maybeSingle();
     if (error) throw error;
-    if (!data) return res.status(404).json({ error: "找不到這組邀請碼" });
+    if (!data) return res.status(404).json({ error: "找不到這組實驗室密碼" });
     return res.status(200).json({ ok: true });
   },
 });

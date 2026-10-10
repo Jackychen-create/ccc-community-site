@@ -76,6 +76,7 @@
     if (location.search) history.replaceState(null, "", location.pathname + location.hash);
     show("appView");
     renderMenu();
+    renderAccessBanner();
     A.whatsNew();
     if (!routerOn) {
       routerOn = true;
@@ -139,8 +140,8 @@
     $("#inviteRow").hidden = !reg;
     $("#invite").required = reg;
     $("#authTitle").textContent = reg ? "加入會員" : "登入";
-    $("#authSub").textContent = reg ? "輸入邀請碼，建立你的帳號" : "登入以觀看直播留檔";
-    $("#pwLabel").textContent = reg ? "設定密碼（至少 8 個字元）" : "密碼";
+    $("#authSub").textContent = reg ? "輸入實驗室密碼，建立你的帳號" : "登入以觀看直播留檔";
+    $("#pwLabel").textContent = reg ? "設定你的登入密碼（至少 8 個字元）" : "密碼";
     $("#password").autocomplete = reg ? "new-password" : "current-password";
     $("#authSubmit").textContent = reg ? "建立帳號並登入" : "登入";
     setAuthError("");
@@ -181,8 +182,10 @@
     const invite = $("#invite").value.trim().toUpperCase();
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setAuthError("請輸入正確的 Email");
-    if (password.length < 8) return setAuthError("密碼至少需要 8 個字元");
-    if (mode === "register" && !invite) return setAuthError("請輸入邀請碼");
+    // 登入不檢查長度（管理員在 Supabase 建的帳號密碼可能比較短）；註冊才要求至少 8 個字元
+    if (!password) return setAuthError("請輸入密碼");
+    if (mode === "register" && password.length < 8) return setAuthError("密碼至少需要 8 個字元");
+    if (mode === "register" && !invite) return setAuthError("請輸入實驗室密碼");
 
     const btn = $("#authSubmit");
     A.setBusy(btn, true, mode === "register" ? "建立帳號中…" : "登入中…");
@@ -214,11 +217,44 @@
     menuPanel.replaceChildren(...[
       el("div", { class: "who" }, el("div", { text: "登入身分" }), el("div", { style: { color: "var(--ink)" }, text: me?.email || "" })),
       me?.isAdmin ? el("a", { href: "/admin", role: "menuitem" }, icon("settings"), "後台管理") : null,
+      el("a", { href: "#/notes", role: "menuitem", onclick: () => toggleMenu(false) }, icon("note"), "我的筆記"),
+      me && me.notify !== null && !me.isAdmin
+        ? el("button", { type: "button", role: "menuitemcheckbox", "aria-checked": String(!!me.notify), onclick: toggleNotify },
+            icon("mail"), el("span", { style: { flex: "1" }, text: "新影片寄信通知" }), el("span", { class: "menu-state" + (me.notify ? " on" : ""), text: me.notify ? "開" : "關" }))
+        : null,
       el("button", { type: "button", role: "menuitem", onclick: () => { toggleMenu(false); A.whatsNew({ all: true }); } }, icon("news"), "更新紀錄"),
       el("button", { type: "button", role: "menuitem", onclick: changePassword }, icon("key"), "修改密碼"),
       el("button", { type: "button", role: "menuitem", onclick: () => sb.auth.signOut() }, icon("logout"), "登出"),
     ].filter(Boolean));
   }
+  async function toggleNotify() {
+    const next = !me.notify;
+    try {
+      await api("/api/me", { method: "PATCH", body: { notify: next } });
+      me.notify = next;
+      renderMenu();
+      A.toast(next ? "新影片上架時會寄信通知你" : "已關閉新影片寄信通知");
+    } catch (e) {
+      A.toast(e.message, "err");
+    }
+  }
+
+  // 每月資格：到期前 7 天提醒
+  function renderAccessBanner() {
+    const box = $("#accessBanner");
+    const until = me?.accessUntil;
+    if (!until) return (box.hidden = true);
+    const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+    const days = Math.round((Date.parse(until) - Date.parse(today)) / DAY);
+    if (days > 7) return (box.hidden = true);
+    box.hidden = false;
+    box.replaceChildren(
+      el("span", { html: icons.clock }),
+      el("span", { text: days <= 0 ? `你的觀看資格今天（${until}）到期。` : `你的觀看資格到 ${until}，還有 ${days} 天。` }),
+      el("span", { class: "muted", text: "要繼續觀看請聯絡管理員更新資格。" })
+    );
+  }
+
   function toggleMenu(open) {
     const willOpen = open ?? menuPanel.hidden;
     menuPanel.hidden = !willOpen;
@@ -275,8 +311,9 @@
   // ─────────────────────────────────────────────
   function route() {
     if (!me) return;
-    const m = location.hash.match(/^#\/v\/(\d+)/);
-    if (m) openWatch(Number(m[1]));
+    const m = location.hash.match(/^#\/v\/(\d+)(?:\?t=(\d+))?/);
+    if (m) openWatch(Number(m[1]), { t: m[2] !== undefined ? Number(m[2]) : null });
+    else if (location.hash === "#/notes") openNotes();
     else openList();
   }
 
@@ -295,6 +332,7 @@
     asideAnimated = false;
     leaveWatch();
     $("#watchView").hidden = true;
+    $("#notesView").hidden = true;
     $("#listView").hidden = false;
     $("#searchBox").hidden = false;
     document.title = SITE;
@@ -303,6 +341,7 @@
       renderList();
       requestAnimationFrame(() => window.scrollTo(0, listScroll));
     }
+    loadRecentNotes();
     try {
       const r = await api("/api/videos");
       videos = r.videos || [];
@@ -322,7 +361,8 @@
   }
 
   function renderSkeleton() {
-    $("#continueSec").hidden = true;
+    $("#continueList").replaceChildren(el("div", { class: "skel-row", "aria-hidden": "true" }, el("i"), el("div", null, el("i"), el("i"))));
+    $("#statsPanel").replaceChildren();
     $("#chips").replaceChildren();
     $("#countText").textContent = "";
     const items = [];
@@ -354,7 +394,7 @@
     if (!opts.some(([k]) => k === filter)) filter = "all";
     const hosts = hostList();
     if (host && !hosts.includes(host)) host = "";
-    $("#chips").replaceChildren(
+    $("#chips").replaceChildren(...[
       ...opts.map(([k, label]) =>
         el("button", {
           class: "chip", type: "button", "aria-pressed": String(filter === k), text: label,
@@ -373,8 +413,8 @@
             renderList();
           },
         })
-      )
-    );
+      ),
+    ].filter(Boolean));
   }
 
   // 有出現在影片裡的主講人，照 config.js 的順序排
@@ -383,6 +423,20 @@
     const order = A.cfg.HOSTS || [];
     return [...order.filter((h) => used.has(h)), ...[...used].filter((h) => !order.includes(h))];
   }
+  // 搜尋到章節時，列出符合的章節，點了直接跳到那個時間
+  function chapterHits(v) {
+    const q = query.trim().toLowerCase();
+    if (!q || !v.chapters?.length) return null;
+    const hits = v.chapters.filter((c) => c.title.toLowerCase().includes(q)).slice(0, 3);
+    if (!hits.length) return null;
+    return el("div", { class: "chap-hits" }, ...hits.map((c) =>
+      el("span", { class: "chap-hit", role: "link", tabindex: "0", onclick: (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        location.hash = `#/v/${v.id}?t=${c.t}`;
+      } }, el("b", { class: "num", text: A.fmtDur(c.t) }), c.title)));
+  }
+
   function hostTags(v) {
     return v.hosts?.length ? el("div", { class: "hosts" }, ...v.hosts.map((h) => el("span", { class: "host", text: h }))) : null;
   }
@@ -393,7 +447,7 @@
       if (filter === "unfinished" && isWatched(v)) return false;
       if (filter.startsWith("m:") && monthKey(v) !== filter.slice(2)) return false;
       if (host && !(v.hosts || []).includes(host)) return false;
-      if (q && !`${v.title} ${v.description || ""} ${(v.hosts || []).join(" ")}`.toLowerCase().includes(q)) return false;
+      if (q && !`${v.title} ${v.description || ""} ${(v.hosts || []).join(" ")} ${(v.chapters || []).map((c) => c.title).join(" ")}`.toLowerCase().includes(q)) return false;
       return true;
     });
   }
@@ -475,6 +529,7 @@
         el("div", { class: "vtitle", text: v.title }),
         v.description ? el("div", { class: "vdesc", text: v.description }) : null,
         hostTags(v),
+        chapterHits(v),
         el("div", { class: "vm" }, el("span", { text: dur }), files ? el("span", { text: `教材 ${files}` }) : null)
       ),
       el("span", { class: "vfig r" + (v.duration_sec ? "" : " dim"), text: dur }),
@@ -483,18 +538,9 @@
     );
   }
 
-  // 右側：上次看到哪一場、其他未看完、本月統計
+  // 右側：上次看到哪一場、本月統計、最近的筆記、快捷鍵（一直都在，不讓右邊空著）
   function renderAside() {
-    const cont = videos
-      .filter(isInProgress)
-      .sort((a, b) => new Date(b.watched_at || 0) - new Date(a.watched_at || 0));
-    const show = videos.length > 0;
-    $("#continueSec").hidden = !show;
-    if (!show) return;
     const box = $("#continueList");
-    const thisMonth = new Date().toISOString().slice(0, 7);
-    const watchedThisMonth = videos.filter((v) => v.position_sec > 0 && String(v.watched_at || "").slice(0, 7) === thisMonth).length;
-    const unfinished = videos.filter((v) => !isWatched(v)).length;
     const animate = !asideAnimated;
     asideAnimated = true;
     const numNode = (n) => {
@@ -502,10 +548,29 @@
       if (animate) A.countUp(t, n);
       return t;
     };
-    const stats = el("div", { class: "stats", style: { borderTop: "1px solid var(--line)" } },
-      el("div", null, el("small", { text: "這個月看了" }), el("b", null, numNode(watchedThisMonth), el("span", { text: "場" }))),
-      el("div", null, el("small", { text: "未看完" }), el("b", null, numNode(unfinished), el("span", { text: "場" })))
+
+    // 統計
+    const thisMonth = new Date().toISOString().slice(0, 7);
+    const watchedThisMonth = videos.filter((v) => v.position_sec > 0 && String(v.watched_at || "").slice(0, 7) === thisMonth).length;
+    const unfinished = videos.filter((v) => !isWatched(v)).length;
+    const done = videos.filter(isWatched).length;
+    const stat = (label, n) => el("div", null, el("small", { text: label }), el("b", null, numNode(n), el("span", { text: "場" })));
+    $("#statsPanel").replaceChildren(
+      el("div", { class: "stats stats-4" }, stat("這個月看了", watchedThisMonth), stat("未看完", unfinished), stat("看完了", done), stat("全部場次", videos.length))
     );
+
+    // 上次看到／最新一場／還沒有影片
+    if (!videos.length) {
+      box.replaceChildren(el("div", { class: "resume" },
+        el("span", { class: "label", text: "最新一場" }),
+        el("div", { class: "screen" }, A.placeholderSvg()),
+        el("div", { class: "vtitle", text: "第一場直播還沒上架" }),
+        el("p", { class: "small muted", style: { marginTop: "6px" }, text: me?.notify ? "上架後會出現在這裡，也會寄信通知你。" : "上架後會出現在這裡。" })));
+      return;
+    }
+    const cont = videos
+      .filter(isInProgress)
+      .sort((a, b) => new Date(b.watched_at || 0) - new Date(a.watched_at || 0));
     if (!cont.length) {
       const latest = videos[0];
       box.replaceChildren(
@@ -515,8 +580,7 @@
           el("div", { class: "vtitle", text: latest.title }),
           el("div", { class: "prog" }, el("span", { text: shortDate(latest.published_at) }), el("span", { text: latest.duration_sec ? A.fmtDur(latest.duration_sec) : "" })),
           el("a", { class: "btn primary block", href: `#/v/${latest.id}` }, icon("play"), "開始看")
-        ),
-        stats
+        )
       );
       return;
     }
@@ -537,8 +601,27 @@
       ),
       more.length ? el("div", { class: "more" }, ...more.map((m) =>
         el("a", { href: `#/v/${m.id}` }, el("span", { text: m.title }), el("span", { class: "num", text: Math.round(pctOf(m) * 100) + "%" })))) : null,
-      stats,
     ].filter(Boolean));
+  }
+
+  // 最近的筆記（右欄）：進到列表時抓一次
+  async function loadRecentNotes() {
+    const box = $("#recentNotesList");
+    let list = [];
+    try {
+      list = (await api("/api/notes")).notes || [];
+    } catch {
+      return;
+    }
+    const recent = list.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))).slice(0, 3);
+    if (!recent.length) {
+      box.replaceChildren(el("p", { class: "small muted note-empty", text: "看影片時按 N 就能在那個時間點記一筆，最近的筆記會出現在這裡。" }));
+      return;
+    }
+    box.replaceChildren(...recent.map((n) =>
+      el("a", { class: "recent-note", href: `#/v/${n.video_id}?t=${n.t}` },
+        el("span", { class: "num", text: A.fmtDur(n.t) }),
+        el("span", null, el("span", { class: "recent-note-body", text: n.body }), el("span", { class: "small muted", text: `${shortDate(n.published_at)} ${n.video_title}` })))));
   }
 
   $("#search").addEventListener("input", (e) => {
@@ -572,12 +655,23 @@
     $("#watchNotice").replaceChildren(...(node ? [node] : []));
   }
 
-  async function openWatch(id) {
-    if (current && current.id === id) return;
+  async function openWatch(id, { t = null } = {}) {
+    if (current && current.id === id) {
+      if (t !== null) {
+        video.currentTime = t;
+        video.play().catch(() => {});
+      }
+      return;
+    }
     if (!$("#listView").hidden) listScroll = window.scrollY;
     leaveWatch();
     $("#listView").hidden = true;
+    $("#notesView").hidden = true;
     $("#watchView").hidden = false;
+    document.body.classList.add("watching");
+    renderChapters(null);
+    notes = [];
+    renderNotes();
     $("#searchBox").hidden = true;
     window.scrollTo(0, 0);
 
@@ -622,7 +716,10 @@
 
     const pos = d.position_sec || 0;
     const nearEnd = d.duration_sec && pos > d.duration_sec - 20;
-    pendingSeek = pos >= 15 && !nearEnd ? pos : null;
+    pendingSeek = t !== null ? t : pos >= 15 && !nearEnd ? pos : null;
+    if (t !== null) jumpedTo = t;
+    renderChapters(d);
+    loadNotes(d.id);
 
     video.defaultPlaybackRate = A.store.get("speed", 1);
     startWatermark();
@@ -705,6 +802,7 @@
   player.addEventListener("contextmenu", (e) => e.preventDefault());
 
   function leaveWatch() {
+    document.body.classList.remove("watching", "playing");
     if (current) saveProgress(true);
     current = null;
     pendingSeek = null;
@@ -730,6 +828,170 @@
     api("/api/progress", { method: "POST", body: { videoId: current.id, position: pos, duration: dur }, keepalive: true }).catch(() => {});
   }
 
+  // ── 章節 ──
+  let chapters = [];
+  let jumpedTo = null;
+  function renderChapters(d) {
+    chapters = d?.chapters || [];
+    const has = chapters.length > 0;
+    $("#wChapters").hidden = !has;
+    $("#chapBar").hidden = !has;
+    if (!has) {
+      $("#chapList").replaceChildren();
+      $("#chapBar").replaceChildren();
+      return;
+    }
+    $("#chapCount").textContent = `${chapters.length} 段`;
+    $("#chapList").replaceChildren(...chapters.map((c, i) =>
+      el("button", { class: "chap", type: "button", dataset: { i }, onclick: () => seekTo(c.t) },
+        el("span", { class: "num", text: A.fmtDur(c.t) }), el("span", { class: "chap-title", text: c.title }))));
+    // 時間軸：每一段一格，寬度照長度
+    const total = d.duration_sec || chapters[chapters.length - 1].t + 60;
+    $("#chapBar").replaceChildren(
+      ...chapters.map((c, i) => {
+        const end = chapters[i + 1]?.t ?? total;
+        return el("button", { class: "seg", type: "button", title: `${A.fmtDur(c.t)} ${c.title}`, "aria-label": `跳到 ${A.fmtDur(c.t)} ${c.title}`,
+          style: { flexGrow: String(Math.max(1, end - c.t)) }, dataset: { i }, onclick: () => seekTo(c.t) }, el("i"));
+      })
+    );
+    updateChapter();
+  }
+  function seekTo(t) {
+    if (!isFinite(video.duration)) {
+      pendingSeek = t;
+      jumpedTo = t;
+      return;
+    }
+    video.currentTime = t;
+    video.play().catch(() => {});
+  }
+  let activeChap = -1;
+  function updateChapter() {
+    if (!chapters.length) return;
+    const now = video.currentTime || 0;
+    let idx = -1;
+    chapters.forEach((c, i) => {
+      if (now >= c.t) idx = i;
+    });
+    document.querySelectorAll("#chapBar .seg").forEach((seg, i) => {
+      const c = chapters[i];
+      const end = chapters[i + 1]?.t ?? (video.duration || c.t + 60);
+      const f = Math.max(0, Math.min(1, (now - c.t) / Math.max(1, end - c.t)));
+      seg.firstChild.style.width = f * 100 + "%";
+    });
+    if (idx === activeChap) return;
+    activeChap = idx;
+    document.querySelectorAll("#chapList .chap").forEach((b, i) => b.classList.toggle("on", i === idx));
+    document.querySelectorAll("#chapBar .seg").forEach((b, i) => b.classList.toggle("on", i === idx));
+  }
+  video.addEventListener("timeupdate", updateChapter);
+  video.addEventListener("seeked", updateChapter);
+  video.addEventListener("play", () => document.body.classList.add("playing"));
+  video.addEventListener("pause", () => document.body.classList.remove("playing"));
+  video.addEventListener("ended", () => document.body.classList.remove("playing"));
+
+  // ── 筆記（只有自己看得到）──
+  let notes = [];
+  let noteAt = 0;
+  function setNoteAt(t) {
+    noteAt = Math.max(0, Math.floor(t || 0));
+    $("#noteAt").textContent = A.fmtDur(noteAt);
+  }
+  $("#noteAt").addEventListener("click", () => setNoteAt(video.currentTime));
+  $("#noteBody").addEventListener("focus", () => {
+    if (!$("#noteBody").value.trim()) setNoteAt(video.currentTime);
+  });
+  async function loadNotes(id) {
+    try {
+      const r = await api(`/api/notes?videoId=${id}`);
+      if (current?.id !== id) return;
+      notes = r.notes || [];
+      renderNotes();
+    } catch {}
+  }
+  function renderNotes() {
+    const list = $("#noteList");
+    if (!notes.length) {
+      list.replaceChildren(el("p", { class: "small muted note-empty", text: "還沒有筆記。播放到重點時寫一句，之後點時間就能跳回來。" }));
+      return;
+    }
+    list.replaceChildren(...notes.map((n) =>
+      el("div", { class: "note" },
+        el("button", { class: "note-t num", type: "button", text: A.fmtDur(n.t), "aria-label": `跳到 ${A.fmtDur(n.t)}`, onclick: () => seekTo(n.t) }),
+        el("p", { class: "note-body", text: n.body }),
+        el("button", { class: "btn sm ghost icon", type: "button", "aria-label": "刪除這則筆記", onclick: () => deleteNote(n) }, icon("trash")))));
+  }
+  $("#noteForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const body = $("#noteBody").value.trim();
+    if (!body || !current) return;
+    const btn = $("#noteSave");
+    A.setBusy(btn, true, "儲存中…");
+    try {
+      const r = await api("/api/notes", { method: "POST", body: { videoId: current.id, t: noteAt, body } });
+      notes.push(r.note);
+      notes.sort((a, b) => a.t - b.t);
+      $("#noteBody").value = "";
+      renderNotes();
+      A.toast(`已記在 ${A.fmtDur(r.note.t)}`);
+    } catch (err) {
+      A.toast(err.message, "err");
+    } finally {
+      A.setBusy(btn, false);
+    }
+  });
+  $("#noteBody").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) $("#noteForm").requestSubmit();
+  });
+  async function deleteNote(n) {
+    try {
+      await api(`/api/notes?id=${n.id}`, { method: "DELETE" });
+      notes = notes.filter((x) => x.id !== n.id);
+      renderNotes();
+      if (!$("#notesView").hidden) openNotes();
+    } catch (err) {
+      A.toast(err.message, "err");
+    }
+  }
+
+  // ── 我的筆記（全部）──
+  async function openNotes() {
+    leaveWatch();
+    $("#listView").hidden = true;
+    $("#watchView").hidden = true;
+    $("#notesView").hidden = false;
+    $("#searchBox").hidden = true;
+    document.title = `我的筆記｜${SITE}`;
+    const box = $("#notesAll");
+    box.replaceChildren(el("div", { class: "skel-row" }, el("i"), el("div", null, el("i"), el("i"))));
+    let all = [];
+    try {
+      all = (await api("/api/notes")).notes || [];
+    } catch (e) {
+      return handleErr(e, () => box.replaceChildren(emptyBox("讀不到筆記", e.message, true)));
+    }
+    $("#notesCount").textContent = all.length ? `共 ${all.length} 則` : "";
+    if (!all.length) {
+      box.replaceChildren(emptyBox("還沒有筆記", "看影片時在播放器下方寫一句，就會出現在這裡。"));
+      return;
+    }
+    const groups = new Map();
+    for (const n of all) {
+      if (!groups.has(n.video_id)) groups.set(n.video_id, { title: n.video_title, date: n.published_at, items: [] });
+      groups.get(n.video_id).items.push(n);
+    }
+    box.replaceChildren(...[...groups.entries()]
+      .sort((a, b) => String(b[1].date).localeCompare(String(a[1].date)))
+      .map(([vid, g]) =>
+        el("section", { class: "note-group" },
+          el("a", { class: "note-group-head", href: `#/v/${vid}` }, el("span", { class: "vdate", text: shortDate(g.date) }), el("span", { class: "vtitle", text: g.title })),
+          ...g.items.map((n) =>
+            el("div", { class: "note" },
+              el("a", { class: "note-t num", href: `#/v/${vid}?t=${n.t}`, text: A.fmtDur(n.t) }),
+              el("p", { class: "note-body", text: n.body }),
+              el("button", { class: "btn sm ghost icon", type: "button", "aria-label": "刪除這則筆記", onclick: () => deleteNote(n) }, icon("trash")))))));
+  }
+
   // 影片事件
   video.addEventListener("loadedmetadata", () => {
     $("#videoLoading").hidden = true;
@@ -738,9 +1000,11 @@
       const at = pendingSeek;
       video.currentTime = at;
       if (!retried) {
+        const jumped = jumpedTo !== null;
+        jumpedTo = null;
         setNotice(el("div", { class: "notice" },
           el("span", { html: icons.clock }),
-          el("span", { text: `已從 ${A.fmtDur(at)} 繼續播放` }),
+          el("span", { text: jumped ? `從 ${A.fmtDur(at)} 開始播放` : `已從 ${A.fmtDur(at)} 繼續播放` }),
           el("span", { class: "spacer" }),
           el("button", { class: "btn sm", type: "button", text: "從頭開始", onclick: () => {
             video.currentTime = 0;
@@ -831,6 +1095,10 @@
       if (canFs) toggleFullscreen();
     } else if (k === "m") {
       video.muted = !video.muted;
+    } else if (k === "n") {
+      e.preventDefault();
+      setNoteAt(video.currentTime);
+      $("#noteBody").focus({ preventScroll: false });
     }
   });
 })();
