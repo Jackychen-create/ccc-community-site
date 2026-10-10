@@ -44,6 +44,7 @@
     // 先把三個清單都抓回來，側欄數字才有東西
     loadInvites(true);
     loadMembers(true);
+    A.whatsNew();
   })();
 
   async function logout(e) {
@@ -53,6 +54,10 @@
     location.href = "/";
   }
   $("#logout").addEventListener("click", logout);
+  $("#changelogLink").addEventListener("click", (e) => {
+    e.preventDefault();
+    A.whatsNew({ all: true });
+  });
   $("#noAccessLogout").addEventListener("click", logout);
 
   function fail(e) {

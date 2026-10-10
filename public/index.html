@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<meta name="theme-color" content="#0D1017">
-<title>會員專區</title>
+<meta name="theme-color" content="#0F1412">
+<title>CCC 交易實驗室</title>
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Sofia+Sans+Semi+Condensed:wght@500;600;700&display=swap">
 <link rel="stylesheet" href="/assets/app.css">
 </head>
 <body>
@@ -20,88 +20,41 @@
 <!-- 登入／註冊 -->
 <div id="authView" class="auth" hidden>
   <header class="topbar">
-    <a class="brand" href="/"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="1" y="1" width="20" height="20" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 15l4-5 3 3 4-6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span data-site-name></span></a>
-    <span class="spacer"></span>
-    <span class="small muted">僅限受邀會員</span>
+    <a class="brand" href="/"><span class="mark">CCC</span><span class="brand-name">交易實驗室</span></a>
   </header>
   <main class="auth-main">
-    <section class="auth-intro rise">
-      <div class="label">會員專區</div>
-      <h1>每一場直播的重點，<br>留在這裡慢慢看</h1>
-      <p>直播留檔與教材只開放給受邀會員。第一次來請用邀請碼註冊，之後用 Email 登入就能回看，換手機或電腦也會記得你看到哪裡。</p>
-      <div class="card replay" style="margin-top: 24px">
-        <div class="replay-head">
-          <span class="replay-tag"><span class="rec-dot"></span>直播回放</span>
-          <span class="small muted num">NQ · 5 分 K</span>
+    <div class="auth-col rise">
+      <div class="auth-board" id="authBoard" aria-label="直播留檔概況">
+        <div><small>最新一場</small><b class="num" id="statLatest">—</b></div>
+        <div><small>累計場次</small><b class="num" id="statCount">—</b></div>
+      </div>
+      <section class="auth-card card">
+        <div class="seg" role="tablist" aria-label="登入或註冊">
+          <button type="button" role="tab" id="tabLogin" aria-selected="true">登入</button>
+          <button type="button" role="tab" id="tabRegister" aria-selected="false">邀請碼註冊</button>
         </div>
-        <svg viewBox="0 0 480 160" style="display: block; width: 100%; height: auto; overflow: visible" role="img" aria-label="示意圖：一張 K 線圖，播放線正在回放直播">
-          <line x1="0" y1="40" x2="480" y2="40" stroke="var(--line)" stroke-dasharray="3 4"/>
-          <line x1="0" y1="80" x2="480" y2="80" stroke="var(--line)" stroke-dasharray="3 4"/>
-          <line x1="0" y1="120" x2="480" y2="120" stroke="var(--line)" stroke-dasharray="3 4"/>
-          <line x1="0" y1="159" x2="480" y2="159" stroke="var(--line)"/>
-          <g class="candle" style="animation-delay:0.00s"><line x1="8.0" y1="133.7" x2="8.0" y2="139.9" stroke="var(--slate)" stroke-width="1.2"/><rect x="3.6" y="137.2" width="8.8" height="1.5" fill="var(--slate)"/></g>
-            <g class="candle" style="animation-delay:0.04s"><line x1="24.0" y1="132.1" x2="24.0" y2="141.8" stroke="var(--slate)" stroke-width="1.2"/><rect x="19.6" y="138.4" width="8.8" height="1.9" fill="var(--slate)"/></g>
-            <g class="candle" style="animation-delay:0.07s"><line x1="40.0" y1="121.6" x2="40.0" y2="147.3" stroke="var(--ink-3)" stroke-width="1.2"/><rect x="35.6" y="124.5" width="8.8" height="15.8" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="1.2"/></g>
-            <g class="candle" style="animation-delay:0.11s"><line x1="56.0" y1="116.8" x2="56.0" y2="125.8" stroke="var(--ink-3)" stroke-width="1.2"/><rect x="51.6" y="119.4" width="8.8" height="5.1" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="1.2"/></g>
-            <g class="candle" style="animation-delay:0.14s"><line x1="72.0" y1="113.6" x2="72.0" y2="141.6" stroke="var(--slate)" stroke-width="1.2"/><rect x="67.6" y="119.4" width="8.8" height="18.8" fill="var(--slate)"/></g>
-            <g class="candle" style="animation-delay:0.18s"><line x1="88.0" y1="118.5" x2="88.0" y2="150.0" stroke="var(--ink-3)" stroke-width="1.2"/><rect x="83.6" y="130.0" width="8.8" height="8.2" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="1.2"/></g>
-            <g class="candle" style="animation-delay:0.21s"><line x1="104.0" y1="126.8" x2="104.0" y2="141.1" stroke="var(--slate)" stroke-width="1.2"/><rect x="99.6" y="130.0" width="8.8" height="9.1" fill="var(--slate)"/></g>
-            <g class="candle" style="animation-delay:0.25s"><line x1="120.0" y1="134.1" x2="120.0" y2="143.4" stroke="var(--ink-3)" stroke-width="1.2"/><rect x="115.6" y="137.7" width="8.8" height="1.5" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="1.2"/></g>
-            <g class="candle" style="animation-delay:0.28s"><line x1="136.0" y1="129.2" x2="136.0" y2="142.2" stroke="var(--ink-3)" stroke-width="1.2"/><rect x="131.6" y="131.9" width="8.8" height="5.8" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="1.2"/></g>
-            <g class="candle" style="animation-delay:0.32s"><line x1="152.0" y1="104.7" x2="152.0" y2="140.0" stroke="var(--ink-3)" stroke-width="1.2"/><rect x="147.6" y="108.5" width="8.8" height="23.4" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="1.2"/></g>
-            <g class="candle" style="animation-delay:0.35s"><line x1="168.0" y1="103.5" x2="168.0" y2="116.6" stroke="var(--slate)" stroke-width="1.2"/><rect x="163.6" y="108.5" width="8.8" height="5.8" fill="var(--slate)"/></g>
-            <g class="candle" style="animation-delay:0.39s"><line x1="184.0" y1="109.3" x2="184.0" y2="115.9" stroke="var(--ink-3)" stroke-width="1.2"/><rect x="179.6" y="113.6" width="8.8" height="1.5" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="1.2"/></g>
-            <g class="candle" style="animation-delay:0.42s"><line x1="200.0" y1="107.1" x2="200.0" y2="120.7" stroke="var(--slate)" stroke-width="1.2"/><rect x="195.6" y="113.6" width="8.8" height="3.6" fill="var(--slate)"/></g>
-            <g class="candle" style="animation-delay:0.46s"><line x1="216.0" y1="94.6" x2="216.0" y2="118.8" stroke="var(--ink-3)" stroke-width="1.2"/><rect x="211.6" y="100.0" width="8.8" height="17.2" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="1.2"/></g>
-            <g class="candle" style="animation-delay:0.49s"><line x1="232.0" y1="82.6" x2="232.0" y2="100.4" stroke="var(--ink-3)" stroke-width="1.2"/><rect x="227.6" y="92.7" width="8.8" height="7.3" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="1.2"/></g>
-            <g class="candle" style="animation-delay:0.53s"><line x1="248.0" y1="60.9" x2="248.0" y2="94.9" stroke="var(--ink-3)" stroke-width="1.2"/><rect x="243.6" y="74.5" width="8.8" height="18.2" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="1.2"/></g>
-            <g class="candle" style="animation-delay:0.56s"><line x1="264.0" y1="68.3" x2="264.0" y2="77.9" stroke="var(--ink-3)" stroke-width="1.2"/><rect x="259.6" y="73.9" width="8.8" height="1.5" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="1.2"/></g>
-            <g class="candle" style="animation-delay:0.60s"><line x1="280.0" y1="62.7" x2="280.0" y2="79.5" stroke="var(--ink-3)" stroke-width="1.2"/><rect x="275.6" y="72.7" width="8.8" height="1.5" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="1.2"/></g>
-            <g class="candle" style="animation-delay:0.63s"><line x1="296.0" y1="56.0" x2="296.0" y2="82.4" stroke="var(--ink-3)" stroke-width="1.2"/><rect x="291.6" y="62.4" width="8.8" height="10.3" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="1.2"/></g>
-            <g class="candle" style="animation-delay:0.67s"><line x1="312.0" y1="55.1" x2="312.0" y2="71.2" stroke="var(--ink-3)" stroke-width="1.2"/><rect x="307.6" y="55.9" width="8.8" height="6.5" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="1.2"/></g>
-            <g class="candle" style="animation-delay:0.70s"><line x1="328.0" y1="42.1" x2="328.0" y2="59.0" stroke="var(--ink-3)" stroke-width="1.2"/><rect x="323.6" y="46.3" width="8.8" height="9.6" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="1.2"/></g>
-            <g class="candle" style="animation-delay:0.74s"><line x1="344.0" y1="39.7" x2="344.0" y2="63.6" stroke="var(--slate)" stroke-width="1.2"/><rect x="339.6" y="46.3" width="8.8" height="13.7" fill="var(--slate)"/></g>
-            <g class="candle" style="animation-delay:0.77s"><line x1="360.0" y1="28.2" x2="360.0" y2="69.9" stroke="var(--ink-3)" stroke-width="1.2"/><rect x="355.6" y="42.0" width="8.8" height="18.0" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="1.2"/></g>
-            <g class="candle" style="animation-delay:0.81s"><line x1="376.0" y1="27.3" x2="376.0" y2="45.9" stroke="var(--ink-3)" stroke-width="1.2"/><rect x="371.6" y="37.1" width="8.8" height="4.9" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="1.2"/></g>
-            <g class="candle" style="animation-delay:0.84s"><line x1="392.0" y1="20.0" x2="392.0" y2="61.1" stroke="var(--slate)" stroke-width="1.2"/><rect x="387.6" y="37.1" width="8.8" height="21.6" fill="var(--slate)"/></g>
-            <g class="candle" style="animation-delay:0.88s"><line x1="408.0" y1="51.1" x2="408.0" y2="72.5" stroke="var(--slate)" stroke-width="1.2"/><rect x="403.6" y="58.7" width="8.8" height="7.2" fill="var(--slate)"/></g>
-            <g class="candle" style="animation-delay:0.91s"><line x1="424.0" y1="49.1" x2="424.0" y2="67.5" stroke="var(--ink-3)" stroke-width="1.2"/><rect x="419.6" y="50.2" width="8.8" height="15.7" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="1.2"/></g>
-            <g class="candle" style="animation-delay:0.95s"><line x1="440.0" y1="32.0" x2="440.0" y2="54.4" stroke="var(--ink-3)" stroke-width="1.2"/><rect x="435.6" y="42.8" width="8.8" height="7.4" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="1.2"/></g>
-            <g class="candle" style="animation-delay:0.98s"><line x1="456.0" y1="30.7" x2="456.0" y2="53.5" stroke="var(--ink-3)" stroke-width="1.2"/><rect x="451.6" y="34.4" width="8.8" height="8.4" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="1.2"/></g>
-            <g class="candle" style="animation-delay:1.02s"><line x1="472.0" y1="10.0" x2="472.0" y2="38.0" stroke="var(--ink-3)" stroke-width="1.2"/><rect x="467.6" y="16.5" width="8.8" height="17.9" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="1.2"/></g>
-          <line class="playhead" x1="0" y1="2" x2="0" y2="160" stroke="var(--brass)" stroke-width="1.5"/>
-        </svg>
-        <div class="scrub"><i></i></div>
-        <div class="scrub-meta small muted num"><span>直播留檔</span><span>隨時回看</span></div>
-      </div>
-    </section>
-
-    <section class="auth-card card rise" style="animation-delay: .08s; padding: 28px">
-      <h2 id="authTitle" style="font-size: 20px">登入</h2>
-      <p id="authSub" class="muted" style="margin: 4px 0 20px">登入以觀看直播留檔</p>
-      <div class="seg" role="tablist" aria-label="登入或註冊">
-        <button type="button" role="tab" id="tabLogin" aria-selected="true">登入</button>
-        <button type="button" role="tab" id="tabRegister" aria-selected="false">邀請碼註冊</button>
-      </div>
-      <form id="authForm" novalidate>
-        <label class="field"><span class="label">Email</span>
-          <input class="input" id="email" type="email" autocomplete="email" inputmode="email" required>
-        </label>
-        <label class="field"><span class="label" id="pwLabel">密碼</span>
-          <span class="input-wrap" style="display: block">
-            <input class="input" id="password" type="password" autocomplete="current-password" minlength="8" required>
-            <button class="btn ghost reveal" type="button" id="revealPw" aria-label="顯示密碼" aria-pressed="false"></button>
-          </span>
-        </label>
-        <label class="field" id="inviteRow" hidden><span class="label">邀請碼</span>
-          <input class="input" id="invite" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="例如 ABCD-EFGH">
-          <span class="hint">邀請碼由管理員提供，每組有使用次數限制</span>
-        </label>
-        <div id="authError" class="form-error" role="alert" hidden></div>
-        <button class="btn primary lg block" id="authSubmit" type="submit" style="margin-top: 22px">登入</button>
-        <p class="small muted" style="margin-top: 14px; text-align: center">忘記密碼請聯絡管理員重設</p>
-      </form>
-    </section>
+        <h1 id="authTitle">登入</h1>
+        <p id="authSub" class="intro">登入以觀看直播留檔</p>
+        <form id="authForm" novalidate>
+          <label class="field"><span class="label">Email</span>
+            <input class="input" id="email" type="email" autocomplete="email" inputmode="email" required>
+          </label>
+          <label class="field"><span class="label" id="pwLabel">密碼</span>
+            <span class="input-wrap" style="display: block">
+              <input class="input" id="password" type="password" autocomplete="current-password" minlength="8" required>
+              <button class="btn ghost reveal" type="button" id="revealPw" aria-label="顯示密碼" aria-pressed="false"></button>
+            </span>
+          </label>
+          <label class="field" id="inviteRow" hidden><span class="label">邀請碼</span>
+            <input class="input" id="invite" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="例如 ABCD-EFGH">
+            <span class="hint">邀請碼由管理員提供，每組有使用次數限制</span>
+          </label>
+          <div id="authError" class="form-error" role="alert" hidden></div>
+          <button class="btn primary lg block" id="authSubmit" type="submit" style="margin-top: 24px">登入</button>
+        </form>
+      </section>
+      <p class="auth-foot">僅限受邀會員．忘記密碼請聯絡管理員重設</p>
+    </div>
   </main>
 </div>
 
@@ -117,12 +70,13 @@
 <!-- 會員內容 -->
 <div id="appView" hidden>
   <header class="topbar">
-    <a class="brand" href="#/"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="1" y="1" width="20" height="20" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 15l4-5 3 3 4-6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span data-site-name></span></a>
+    <a class="brand" href="#/"><span class="mark">CCC</span><span class="brand-name">交易實驗室</span></a>
+    <div class="ticker" id="ticker"></div>
     <span class="spacer"></span>
     <label class="search" id="searchBox">
       <span class="sr-only">搜尋影片</span>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-      <input class="input" id="search" type="search" placeholder="搜尋標題或內容" autocomplete="off">
+      <input class="input" id="search" type="search" placeholder="搜尋主題或內容" autocomplete="off">
     </label>
     <div class="menu">
       <button class="btn ghost icon" type="button" id="menuBtn" aria-haspopup="menu" aria-expanded="false" aria-label="帳號選單"><span class="avatar" id="avatar">·</span></button>
@@ -131,20 +85,19 @@
   </header>
 
   <main id="listView" class="page">
-    <div class="page-head rise">
-      <div>
-        <div class="label">會員專區</div>
-        <h1 style="margin-top: 6px">直播留檔</h1>
-        <p>點選影片就能播放，系統會記住你看到哪裡</p>
-      </div>
-      <span class="small muted" id="countText"></span>
+    <div class="desk">
+      <section class="panel">
+        <div class="panel-head">
+          <h1>直播留檔 <span class="count" id="countText"></span></h1>
+          <div class="chips" id="chips" role="group" aria-label="篩選"></div>
+        </div>
+        <div class="vhead" aria-hidden="true"><span>日期</span><span>主題</span><span class="r">片長</span><span class="r">教材</span><span class="r">狀態</span></div>
+        <div class="vlist" id="grid" aria-live="polite"></div>
+      </section>
+      <aside class="aside" id="continueSec" hidden>
+        <div class="panel" id="continueList"></div>
+      </aside>
     </div>
-    <section id="continueSec" hidden>
-      <div class="section-label"><span class="label">繼續觀看</span></div>
-      <div class="continue" id="continueList"></div>
-    </section>
-    <div class="chips" id="chips" role="group" aria-label="篩選" style="margin-bottom: 20px"></div>
-    <div class="grid" id="grid" aria-live="polite"></div>
   </main>
 
   <main id="watchView" class="page" hidden>
@@ -152,15 +105,18 @@
     <div class="watch">
       <section class="watch-main">
         <div class="player" id="player">
-          <video id="video" controls playsinline preload="metadata" controlslist="nodownload"></video>
+          <video id="video" controls playsinline preload="metadata" controlslist="nodownload nofullscreen noremoteplayback" disablepictureinpicture disableremoteplayback></video>
+          <div class="wm" id="wm" aria-hidden="true"></div>
           <div class="loading" id="videoLoading"><span class="spinner"></span></div>
         </div>
         <div class="toolbar">
           <div class="speed" id="speed" role="group" aria-label="播放速度"></div>
           <span class="small muted hide-sm"><span class="kbd">空白</span> 播放／暫停　<span class="kbd">←</span><span class="kbd">→</span> 10 秒　<span class="kbd">F</span> 全螢幕</span>
+          <span class="grow"></span>
+          <button class="btn sm" type="button" id="fsBtn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>全螢幕</button>
         </div>
         <div id="watchNotice"></div>
-        <h1 id="wTitle"></h1>
+        <div class="wtitle-row"><span class="vdate" id="wDate"></span><h1 id="wTitle"></h1></div>
         <div class="vmeta" id="wMeta"></div>
         <p class="desc" id="wDesc"></p>
         <section class="files" id="wFiles" hidden>
@@ -168,8 +124,8 @@
           <div id="wFileList"></div>
         </section>
       </section>
-      <aside class="watch-side">
-        <div class="section-label"><span class="label">其他場次</span></div>
+      <aside class="watch-side panel">
+        <div class="panel-head" style="padding: 14px 18px"><h2>其他場次</h2></div>
         <div class="side-list" id="others"></div>
       </aside>
     </div>

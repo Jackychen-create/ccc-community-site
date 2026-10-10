@@ -2,7 +2,7 @@
 
 會員用邀請碼註冊後，可以觀看直播留檔、下載教材。管理員在 `/admin` 上傳影片、發邀請碼、管理會員。
 
-- 網站與 API：Vercel（免費方案）
+- 網站與 API：Cloudflare Pages（免費方案，可商用；網頁在 `public/`，API 在 `functions/` 與 `server/`）
 - 帳號與資料：Supabase（免費方案）
 - 影片與教材檔：Cloudflare R2（10 GB 內免費，下載流量不收費）
 
@@ -29,12 +29,12 @@
 2. 打開 **R2 → Manage API Tokens → Create API token**：
    - 權限選 **Object Read & Write**，範圍只限這個 bucket。
    - 記下 Access Key ID、Secret Access Key，以及頁面上的 Account ID。
-3. 打開 bucket 的 **Settings → CORS Policy**，貼上下面這段（把網址換成你的 Vercel 網址），後台才能直接在網頁上傳：
+3. 打開 bucket 的 **Settings → CORS Policy**，貼上下面這段（把網址換成你的 pages.dev 網址；搬家期間可以新舊網址都放），後台才能直接在網頁上傳：
 
 ```json
 [
   {
-    "AllowedOrigins": ["https://你的網站.vercel.app"],
+    "AllowedOrigins": ["https://你的網站.pages.dev"],
     "AllowedMethods": ["GET", "PUT", "HEAD"],
     "AllowedHeaders": ["content-type", "content-length", "range"],
     "ExposeHeaders": ["etag", "content-length", "content-range"],
@@ -45,10 +45,15 @@
 
 之後如果綁了自己的網域，記得把網域加進 `AllowedOrigins`。
 
-## 三、Vercel
+## 三、Cloudflare Pages
 
-1. 把這個資料夾推到 GitHub，在 Vercel 匯入。也可以在資料夾裡執行 `npx vercel --prod`。
-2. 打開 **Settings → Environment Variables**，填入下面這些值（範本在 `.env.example`）：
+1. 把這個資料夾推到 GitHub（建議 private）。
+2. Cloudflare 後台 → **Workers & Pages → Create → Pages → Connect to Git**，選這個 repo。
+3. 建置設定：
+   - **Framework preset**：None
+   - **Build command**：`npm install`
+   - **Build output directory**：`public`
+4. **Environment variables**（Production）填入下面這些值，金鑰類請選 **Encrypt**（範本在 `.dev.vars.example`）：
 
 | 名稱 | 內容 |
 |---|---|
@@ -60,7 +65,8 @@
 | `R2_BUCKET` | bucket 名稱 |
 | `ADMIN_EMAILS` | 可以進後台的 Email，多人用逗號分隔，例如 `a0926580734@gmail.com` |
 
-3. 重新部署一次，讓環境變數生效。
+5. 按 **Save and Deploy**。之後每次推到 GitHub 都會自動重新部署；改了環境變數要到 **Deployments → 最新一筆 → Retry deployment** 才會生效。
+6. 拿到 `xxx.pages.dev` 網址後，把它加進 R2 bucket 的 CORS `AllowedOrigins`（第二節）。
 
 ## 四、第一次使用
 
@@ -69,7 +75,7 @@
 3. 到 **影片** 把直播錄影拖進去。系統會自動抓片長和封面，上傳完補上標題、簡介、教材，就可以發布。
 
 ### 想讓別人也能進後台
-1. 把他的 Email 加進 Vercel 的 `ADMIN_EMAILS`，然後重新部署。
+1. 把他的 Email 加進 Cloudflare Pages 的 `ADMIN_EMAILS`，然後重新部署。
 2. 在 Supabase 的 Users 用 **Add user**（勾 Auto Confirm）幫他建立帳號。
 
 用邀請碼註冊的會員帳號，就算 Email 後來被加進管理員名單，也不會變成管理員。這是刻意的設計，因為會員註冊時沒有驗證過信箱。
@@ -83,7 +89,9 @@
 - 新影片標示「新」，看完的標示「看完了」，卡片上有進度條
 - 播放頁：倍速（0.75–2×，會記住你的選擇）、快捷鍵（空白、← →、F、M）、看完後可以直接接下一場
 - 教材下載、側欄列出其他場次
-- 支援手機版、淺色／深色模式（跟隨系統）
+- 登入頁只顯示最新一場的日期和累計場數（`/api/stats`，不含任何標題或內容）
+- 支援手機版；固定深色（營業廳看板風格）
+- 防外流：播放時畫面上有會員 Email 浮水印（定時換位置，全螢幕也看得到），關閉下載、子母畫面與右鍵
 
 **後台**
 - 網頁直接上傳影片到 R2，可看進度、速度、剩餘時間，上傳中可以取消
@@ -97,9 +105,16 @@
 
 - **格式：** 上傳 **MP4（H.264 + AAC）** 最保險。MKV 或 HEVC 有些瀏覽器播不了，後台在上傳時會提醒。可以用 `ffmpeg -i in.mkv -c:v libx264 -c:a aac -movflags +faststart out.mp4` 轉檔。
 - **大小：** 單一影片最大 5 GB。1 小時 1080p 錄影通常 1–3 GB。
-- **連結期限：** 影片連結 1 小時後失效，播放中過期會自動換新連結並接著播。這只能擋路人，擋不住會員自己螢幕錄影。
+- **連結期限：** 影片連結 1 小時後失效，播放中過期會自動換新連結並接著播。
+- **防盜錄的極限：** 網頁擋不住螢幕錄影或手機翻拍。浮水印的用途是外流時看得出是哪個帳號。iPhone 的瀏覽器不支援把播放區整塊放大成全螢幕，所以 iPhone 上不顯示我們的全螢幕按鈕；但 iPhone 系統播放器自己的全螢幕擋不掉，用它全螢幕時浮水印不會出現。
 - **免費額度：** R2 免費 10 GB，超過約每 GB 每月 0.015 美元。下載流量不收費。
 
-## 七、本機測試
+## 七、發新版本
 
-`api/` 是 Vercel 的 serverless functions，本機用 `npx vercel dev` 就能跑，需要先填好 `.env`。
+1. 改完功能，在 `public/changelog.json` 最上面加一筆（版本號、日期、會員看得懂的白話條目）。
+2. 推到 GitHub，Cloudflare 自動部署。
+3. 已經開著網站的人，最多 30 分鐘內（或切回分頁時）上方會出現「網站有新版本」的提示；老會員下次登入會看到這次更新了什麼。第一次來的會員不會跳公告。
+
+## 八、本機測試
+
+把 `.dev.vars.example` 複製成 `.dev.vars` 填好，執行 `npm install`、`npm run dev`，打開 http://localhost:8788 。

@@ -72,6 +72,7 @@
     if (location.search) history.replaceState(null, "", location.pathname + location.hash);
     show("appView");
     renderMenu();
+    A.whatsNew();
     if (!routerOn) {
       routerOn = true;
       window.addEventListener("hashchange", route);
@@ -103,6 +104,24 @@
     }
     const remembered = A.store.get("lastEmail", "");
     if (remembered && !$("#email").value) $("#email").value = remembered;
+    loadBoard();
+  }
+
+  // 登入頁上方的小看板：最新一場的日期、累計場次（不含任何影片內容）
+  let boardLoaded = false;
+  async function loadBoard() {
+    if (boardLoaded) return;
+    try {
+      const r = await api("/api/stats");
+      boardLoaded = true;
+      if (r.latest) {
+        $("#statLatest").textContent = shortDate(r.latest);
+      }
+      const n = document.createTextNode("0");
+      $("#statCount").replaceChildren(n, el("span", { text: "場" }));
+      A.countUp(n, r.count || 0);
+      $("#authBoard").classList.add("tick");
+    } catch {}
   }
 
   function setMode(m) {
@@ -123,12 +142,12 @@
   $("#tabRegister").addEventListener("click", () => setMode("register"));
 
   const reveal = $("#revealPw");
-  reveal.innerHTML = icons.eye;
+  reveal.innerHTML = icons.eyeOff; // 預設密碼是隱藏的：顯示斜線眼睛
   reveal.addEventListener("click", () => {
     const pw = $("#password");
     const showing = pw.type === "text";
     pw.type = showing ? "password" : "text";
-    reveal.innerHTML = showing ? icons.eye : icons.eyeOff;
+    reveal.innerHTML = showing ? icons.eyeOff : icons.eye; // 看得到密碼 = 張開的眼睛
     reveal.setAttribute("aria-pressed", String(!showing));
     reveal.setAttribute("aria-label", showing ? "顯示密碼" : "隱藏密碼");
   });
@@ -188,6 +207,7 @@
     menuPanel.replaceChildren(
       el("div", { class: "who" }, el("div", { text: "登入身分" }), el("div", { style: { color: "var(--ink)" }, text: me?.email || "" })),
       me?.isAdmin ? el("a", { href: "/admin", role: "menuitem" }, icon("settings"), "後台管理") : null,
+      el("button", { type: "button", role: "menuitem", onclick: () => { toggleMenu(false); A.whatsNew({ all: true }); } }, icon("news"), "更新紀錄"),
       el("button", { type: "button", role: "menuitem", onclick: changePassword }, icon("key"), "修改密碼"),
       el("button", { type: "button", role: "menuitem", onclick: () => sb.auth.signOut() }, icon("logout"), "登出")
     );
@@ -265,6 +285,7 @@
   const isNew = (v) => !v.position_sec && Date.now() - new Date(v.published_at).getTime() < 7 * DAY;
 
   async function openList() {
+    asideAnimated = false;
     leaveWatch();
     $("#watchView").hidden = true;
     $("#listView").hidden = false;
@@ -298,9 +319,7 @@
     $("#chips").replaceChildren();
     $("#countText").textContent = "";
     const items = [];
-    for (let i = 0; i < 6; i++) {
-      items.push(el("div", { class: "skel", "aria-hidden": "true" }, el("div", { class: "thumb" }), el("div", { class: "line" }), el("div", { class: "line short" })));
-    }
+    for (let i = 0; i < 6; i++) items.push(el("div", { class: "skel-row", "aria-hidden": "true" }, el("i"), el("div", null, el("i"), el("i"))));
     $("#grid").replaceChildren(...items);
   }
 
@@ -310,6 +329,16 @@
   function monthLabel(k) {
     const [y, m] = k.split("-");
     return Number(y) === new Date().getFullYear() ? `${Number(m)} 月` : `${y} 年 ${Number(m)} 月`;
+  }
+  function shortDate(d) {
+    const s = String(d).slice(0, 10);
+    return `${Number(s.slice(5, 7))}/${s.slice(8, 10)}`;
+  }
+  const WD = "日一二三四五六";
+  function weekday(d) {
+    const s = String(d).slice(0, 10);
+    const t = new Date(Number(s.slice(0, 4)), Number(s.slice(5, 7)) - 1, Number(s.slice(8, 10)));
+    return "週" + WD[t.getDay()];
   }
 
   function renderChips() {
@@ -339,77 +368,138 @@
     });
   }
 
+  let ticked = false; // 新上架的那一列只在第一次顯示時跳一下
+  let asideAnimated = false; // 右側統計數字、進度條：進到列表時跑一次
+
   function renderList() {
     renderChips();
+    renderTicker();
     const list = filtered();
-    $("#countText").textContent = videos.length ? `共 ${videos.length} 支` : "";
-
-    const cont = videos
-      .filter(isInProgress)
-      .sort((a, b) => new Date(b.watched_at || 0) - new Date(a.watched_at || 0))
-      .slice(0, 3);
-    const showCont = cont.length > 0 && filter === "all" && !query.trim();
-    $("#continueSec").hidden = !showCont;
-    if (showCont) $("#continueList").replaceChildren(...cont.map(continueRow));
+    $("#countText").textContent = videos.length ? `共 ${videos.length} 場` : "";
+    renderAside();
 
     if (!videos.length) {
       $("#grid").replaceChildren(emptyBox("目前還沒有影片", "新的直播留檔上傳後會出現在這裡。"));
       return;
     }
     if (!list.length) {
-      $("#grid").replaceChildren(emptyBox("找不到符合的影片", "換個關鍵字或篩選條件試試看。"));
+      $("#grid").replaceChildren(emptyBox("找不到符合的場次", "換個關鍵字或篩選條件試試看。"));
       return;
     }
-    $("#grid").replaceChildren(...list.map(card));
+    $("#grid").replaceChildren(...list.map(row));
+    ticked = true;
+  }
+
+  function renderTicker() {
+    const t = $("#ticker");
+    if (!videos.length) return t.replaceChildren();
+    t.replaceChildren(
+      el("span", null, "最新一場", el("b", { text: shortDate(videos[0].published_at) })),
+      el("span", null, "累計", el("b", { text: String(videos.length) }), " 場")
+    );
+  }
+
+  function statusOf(v, { compact = false } = {}) {
+    if (isNew(v)) return el("span", { class: "st new" }, el("span", { html: icons.up }), compact ? "新" : "新上架");
+    if (isWatched(v)) return el("span", { class: "st done", text: "看完" });
+    const p = pctOf(v);
+    if (p > 0.01) {
+      const pct = Math.round(p * 100);
+      return el("span", { class: "st part" }, `${pct}%`, compact ? null : el("span", { class: "meter" + (ticked ? "" : " grow") }, el("i", { style: { width: pct + "%" } })));
+    }
+    return el("span", { class: "st todo", text: "未看" });
   }
 
   function emptyBox(title, text, retry) {
-    const box = el("div", { class: "empty", style: { gridColumn: "1 / -1" } },
+    const box = el("div", { class: "empty" },
       el("span", { html: icons.film, style: { display: "block" } }),
       el("h2", { text: title }),
-      el("p", { class: "small", style: { marginTop: "6px" }, text })
+      el("p", { class: "small", text })
     );
     if (retry) box.append(el("button", { class: "btn sm", type: "button", style: { marginTop: "14px" }, text: "重新整理", onclick: openList }));
     return box;
   }
 
-  function thumbBox(v, { small = false } = {}) {
-    const box = el("div", { class: "thumb" });
+  function thumbBox(v) {
+    const box = el("div", { class: "screen" });
     if (v.thumb_url) box.append(A.thumbImg(v.thumb_url));
     else box.append(A.placeholderSvg());
-    if (!small) box.append(el("div", { class: "center" }, el("div", { class: "play", html: icons.play })));
-    const tl = el("div", { class: "tl" });
-    if (!small && isNew(v)) tl.append(el("span", { class: "pill brass", text: "新" }));
-    if (!small && isWatched(v)) tl.append(el("span", { class: "pill good" }, icon("check"), "看完了"));
-    if (tl.childNodes.length) box.append(tl);
-    if (v.duration_sec && !small) box.append(el("span", { class: "dur num", text: A.fmtDur(v.duration_sec) }));
-    const p = pctOf(v);
-    if (p > 0.01 && !isWatched(v)) box.append(el("div", { class: "bar" }, el("i", { style: { width: Math.round(p * 100) + "%" } })));
     return box;
   }
 
-  function card(v, i) {
-    const meta = el("div", { class: "vmeta" }, el("span", { class: "num", text: A.fmtDate(v.published_at) }));
-    if (v.attachment_count) meta.append(el("span", { class: "meta-ico" }, icon("paperclip"), `教材 ${v.attachment_count}`));
-    return el("a", { class: "vcard rise", href: `#/v/${v.id}`, style: { animationDelay: Math.min(i, 8) * 0.04 + "s" } },
-      thumbBox(v),
-      el("div", { class: "vbody" },
+  function row(v) {
+    const fresh = isNew(v);
+    const dur = v.duration_sec ? A.fmtDur(v.duration_sec) : "—";
+    const files = v.attachment_count || 0;
+    return el("a", { class: "vrow" + (fresh ? " is-new" + (ticked ? "" : " tick") : ""), href: `#/v/${v.id}` },
+      el("span", { class: "vdate" }, shortDate(v.published_at), el("small", { text: weekday(v.published_at) })),
+      el("span", { style: { minWidth: "0" } },
         el("div", { class: "vtitle", text: v.title }),
-        meta,
-        v.description ? el("p", { class: "vdesc", text: v.description }) : null
-      )
+        v.description ? el("div", { class: "vdesc", text: v.description }) : null,
+        el("div", { class: "vm" }, el("span", { text: dur }), files ? el("span", { text: `教材 ${files}` }) : null)
+      ),
+      el("span", { class: "vfig r" + (v.duration_sec ? "" : " dim"), text: dur }),
+      el("span", { class: "vfig r" + (files ? "" : " dim"), text: files ? String(files) : "—" }),
+      el("span", { class: "r" }, statusOf(v))
     );
   }
 
-  function continueRow(v) {
-    const left = v.duration_sec ? A.fmtLeft(v.duration_sec - v.position_sec) : `看到 ${A.fmtDur(v.position_sec)}`;
-    return el("a", { class: "crow", href: `#/v/${v.id}` },
-      thumbBox(v, { small: true }),
-      el("div", { style: { minWidth: "0" } },
-        el("div", { class: "vtitle", text: v.title }),
-        el("div", { class: "vmeta" }, el("span", { class: "meta-ico", style: { color: "var(--brass)" } }, icon("play"), "繼續看"), el("span", { text: left }))
-      )
+  // 右側：上次看到哪一場、其他未看完、本月統計
+  function renderAside() {
+    const cont = videos
+      .filter(isInProgress)
+      .sort((a, b) => new Date(b.watched_at || 0) - new Date(a.watched_at || 0));
+    const show = videos.length > 0 && filter === "all" && !query.trim();
+    $("#continueSec").hidden = !show;
+    if (!show) return;
+    const box = $("#continueList");
+    const thisMonth = new Date().toISOString().slice(0, 7);
+    const watchedThisMonth = videos.filter((v) => v.position_sec > 0 && String(v.watched_at || "").slice(0, 7) === thisMonth).length;
+    const unfinished = videos.filter((v) => !isWatched(v)).length;
+    const animate = !asideAnimated;
+    asideAnimated = true;
+    const numNode = (n) => {
+      const t = document.createTextNode(String(n));
+      if (animate) A.countUp(t, n);
+      return t;
+    };
+    const stats = el("div", { class: "stats", style: { borderTop: "1px solid var(--line)" } },
+      el("div", null, el("small", { text: "這個月看了" }), el("b", null, numNode(watchedThisMonth), el("span", { text: "場" }))),
+      el("div", null, el("small", { text: "未看完" }), el("b", null, numNode(unfinished), el("span", { text: "場" })))
     );
+    if (!cont.length) {
+      const latest = videos[0];
+      box.replaceChildren(
+        el("div", { class: "resume" },
+          el("span", { class: "label", text: "最新一場" }),
+          el("a", { href: `#/v/${latest.id}`, style: { display: "block" } }, thumbBox(latest)),
+          el("div", { class: "vtitle", text: latest.title }),
+          el("div", { class: "prog" }, el("span", { text: shortDate(latest.published_at) }), el("span", { text: latest.duration_sec ? A.fmtDur(latest.duration_sec) : "" })),
+          el("a", { class: "btn primary block", href: `#/v/${latest.id}` }, icon("play"), "開始看")
+        ),
+        stats
+      );
+      return;
+    }
+    const v = cont[0];
+    const pct = Math.round(pctOf(v) * 100);
+    const left = v.duration_sec ? A.fmtDur(v.duration_sec - v.position_sec) : "";
+    const screen = thumbBox(v);
+    screen.append(el("span", { class: "tc", text: `${A.fmtDur(v.position_sec)}${v.duration_sec ? " / " + A.fmtDur(v.duration_sec) : ""}` }));
+    const more = cont.slice(1, 4);
+    box.replaceChildren(...[
+      el("div", { class: "resume" },
+        el("span", { class: "label", text: "上次看到" }),
+        el("a", { href: `#/v/${v.id}`, style: { display: "block" }, "aria-label": `繼續看 ${v.title}` }, screen),
+        el("div", { class: "vtitle", text: v.title }),
+        el("div", { class: "prog" }, el("span", { text: shortDate(v.published_at) }), el("span", { text: left ? `剩 ${left}` : "" })),
+        el("div", { class: "track" + (animate ? " grow" : "") }, el("i", { style: { width: pct + "%" } })),
+        el("a", { class: "btn primary block", href: `#/v/${v.id}` }, icon("play"), `從 ${A.fmtDur(v.position_sec)} 繼續`)
+      ),
+      more.length ? el("div", { class: "more" }, ...more.map((m) =>
+        el("a", { href: `#/v/${m.id}` }, el("span", { text: m.title }), el("span", { class: "num", text: Math.round(pctOf(m) * 100) + "%" })))) : null,
+      stats,
+    ].filter(Boolean));
   }
 
   $("#search").addEventListener("input", (e) => {
@@ -453,6 +543,7 @@
     window.scrollTo(0, 0);
 
     $("#wTitle").textContent = "載入中…";
+    $("#wDate").textContent = "";
     $("#wMeta").replaceChildren();
     $("#wDesc").textContent = "";
     $("#wFiles").hidden = true;
@@ -477,8 +568,9 @@
     lastSaved = d.position_sec || -1;
     document.title = `${d.title}｜${SITE}`;
     $("#wTitle").textContent = d.title;
+    $("#wDate").textContent = shortDate(d.published_at);
     const meta = $("#wMeta");
-    meta.append(el("span", { class: "num", text: A.fmtDate(d.published_at) }));
+    meta.append(el("span", { text: `${String(d.published_at).slice(0, 4)} 年・${weekday(d.published_at)}` }));
     if (d.duration_sec) meta.append(el("span", { class: "num", text: A.fmtDur(d.duration_sec) }));
     if (!d.is_published) meta.append(el("span", { class: "pill warn", text: "草稿預覽（會員看不到）" }));
     $("#wDesc").textContent = d.description || "";
@@ -493,6 +585,7 @@
     pendingSeek = pos >= 15 && !nearEnd ? pos : null;
 
     video.defaultPlaybackRate = A.store.get("speed", 1);
+    startWatermark();
     video.src = d.url;
     if (!loadedList) {
       api("/api/videos").then((r) => {
@@ -513,7 +606,7 @@
   }
 
   function renderOthers(id) {
-    const others = videos.filter((v) => v.id !== id).slice(0, 6);
+    const others = videos.filter((v) => v.id !== id).slice(0, 8);
     const box = $("#others");
     if (!others.length) {
       box.replaceChildren(el("p", { class: "small muted", text: loadedList ? "目前沒有其他場次" : "" }));
@@ -521,21 +614,61 @@
     }
     box.replaceChildren(
       ...others.map((v) =>
-        el("a", { class: "crow", href: `#/v/${v.id}` },
-          thumbBox(v, { small: true }),
-          el("div", { style: { minWidth: "0" } },
-            el("div", { class: "vtitle", text: v.title }),
-            el("div", { class: "vmeta" }, el("span", { class: "num", text: A.fmtDate(v.published_at) }), isWatched(v) ? el("span", { text: "看完了" }) : null)
-          )
+        el("a", { href: `#/v/${v.id}` },
+          el("span", { class: "vdate", text: shortDate(v.published_at) }),
+          el("span", { class: "vtitle", text: v.title }),
+          statusOf(v, { compact: true })
         )
       )
     );
   }
 
+  // ── 浮水印（防外流）：會員 Email 在畫面上定時換位置，全螢幕時一起顯示 ──
+  let wmTimer = null;
+  function startWatermark() {
+    const box = $("#wm");
+    const who = me?.email || "";
+    const stamp = new Date().toISOString().slice(0, 10);
+    const tile = el("div", { class: "wm-tile" });
+    for (let i = 0; i < 24; i++) tile.append(el("span", { text: who }));
+    const mover = el("div", { class: "wm-move", text: `${who}・${stamp}` });
+    box.replaceChildren(tile, mover);
+    const move = () => {
+      mover.style.left = 4 + Math.random() * 56 + "%";
+      mover.style.top = 6 + Math.random() * 78 + "%";
+    };
+    move();
+    clearInterval(wmTimer);
+    wmTimer = setInterval(move, 12000);
+  }
+  function stopWatermark() {
+    clearInterval(wmTimer);
+    wmTimer = null;
+    $("#wm").replaceChildren();
+  }
+
+  // 全螢幕一律放大整個播放區（含浮水印），不用影片本身的全螢幕
+  const player = $("#player");
+  const canFs = !!(player.requestFullscreen || player.webkitRequestFullscreen);
+  function toggleFullscreen() {
+    const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+    if (fsEl) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    else if (player.requestFullscreen) player.requestFullscreen().catch(() => {});
+    else if (player.webkitRequestFullscreen) player.webkitRequestFullscreen();
+  }
+  if (!canFs) $("#fsBtn").hidden = true;
+  $("#fsBtn").addEventListener("click", toggleFullscreen);
+  video.addEventListener("dblclick", (e) => {
+    e.preventDefault();
+    if (canFs) toggleFullscreen();
+  });
+  player.addEventListener("contextmenu", (e) => e.preventDefault());
+
   function leaveWatch() {
     if (current) saveProgress(true);
     current = null;
     pendingSeek = null;
+    stopWatermark();
     video.pause();
     video.removeAttribute("src");
     video.load();
@@ -655,10 +788,7 @@
       e.preventDefault();
       video.currentTime = Math.min(video.duration || 0, video.currentTime + 10);
     } else if (k === "f") {
-      const p = $("#player");
-      if (document.fullscreenElement) document.exitFullscreen();
-      else if (p.requestFullscreen) p.requestFullscreen().catch(() => {});
-      else if (video.webkitEnterFullscreen) video.webkitEnterFullscreen();
+      if (canFs) toggleFullscreen();
     } else if (k === "m") {
       video.muted = !video.muted;
     }

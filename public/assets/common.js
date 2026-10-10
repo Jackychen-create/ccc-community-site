@@ -87,12 +87,14 @@
     `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra}>${d}</svg>`;
   const icons = {
     logo: `<svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="1" y="1" width="20" height="20" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 15l4-5 3 3 4-6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    up: `<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1.5L9.2 8.5H.8z" fill="currentColor"/></svg>`,
     play: `<svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 3.5v13l11-6.5z" fill="currentColor"/></svg>`,
     search: s('<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>'),
     back: s('<path d="M15 6l-6 6 6 6"/>'),
     file: s('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>', 14),
     download: s('<path d="M12 4v11M7 10l5 5 5-5"/><path d="M5 20h14"/>'),
     clock: s('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+    news: s('<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 13h8M8 17h5"/>'),
     check: s('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 14),
     alert: s('<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17.5v.5"/>'),
     ok: s('<circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/>'),
@@ -277,9 +279,155 @@
     }
   }
 
+  const reduceMotion = () => window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // ── 數字從 0 數上去（減少動態效果時直接顯示）──
+  function countUp(node, to, { ms = 700 } = {}) {
+    to = Math.round(Number(to) || 0);
+    if (reduceMotion() || to <= 0 || navigator.webdriver) {
+      node.textContent = String(to);
+      return;
+    }
+    const start = performance.now();
+    node.textContent = "0";
+    const step = (t) => {
+      const p = Math.min(1, (t - start) / ms);
+      const eased = p === 1 ? 1 : 1 - Math.pow(2, -10 * p);
+      node.textContent = String(Math.round(to * eased));
+      if (p < 1) requestAnimationFrame(step);
+      else node.textContent = String(to); // 一定停在正確數字
+    };
+    requestAnimationFrame(step);
+  }
+
+  // ── 中文換行：只在詞和詞之間換行，數字和單位不拆開，最後一兩個字不單獨掉到下一行 ──
+  const CJK_SEL = ".vtitle, .vdesc, .desc, h1, h2, .intro, .notice span, .t-title, .t-sub, .page-head p, .whatsnew li, .auth-foot";
+  const segmenter = typeof Intl !== "undefined" && Intl.Segmenter ? new Intl.Segmenter("zh-Hant", { granularity: "word" }) : null;
+  const done = new WeakMap();
+  const NO_BREAK_BEFORE = /^[，。、：；！？）」』】〉》,.:;!?)\]%…—・·]/;
+  const NO_BREAK_AFTER = /[（「『【〈《(\[]$/;
+  const IS_NUM = /^[\d.,:+\-−]+$/;
+  function cjkify(node) {
+    if (!segmenter || done.get(node) === node.textContent) return;
+    // 只處理純文字的元素（避免動到裡面的按鈕或圖示）
+    if (node.children.length && [...node.childNodes].some((c) => c.nodeType === 1 && c.tagName !== "WBR")) return;
+    const text = node.textContent;
+    if (!/[㐀-鿿]/.test(text)) {
+      done.set(node, text);
+      return;
+    }
+    const segs = [...segmenter.segment(text)].map((s) => s.segment);
+    // 最後一個詞（扣掉標點）只有一兩個字時，跟前一個詞黏在一起
+    let tail = segs.length - 1;
+    while (tail > 0 && NO_BREAK_BEFORE.test(segs[tail])) tail--;
+    const frag = document.createDocumentFragment();
+    let buf = "";
+    segs.forEach((seg, i) => {
+      if (i > 0) {
+        const prev = segs[i - 1];
+        const allow =
+          !NO_BREAK_BEFORE.test(seg) && !NO_BREAK_AFTER.test(prev) &&
+          !(IS_NUM.test(prev) && !/^\s/.test(seg)) &&
+          !(i === tail && seg.trim().length <= 2) &&
+          !/\s$/.test(prev) && !/^\s/.test(seg);
+        if (allow) {
+          frag.append(buf, document.createElement("wbr"));
+          buf = "";
+        }
+      }
+      buf += seg;
+    });
+    frag.append(buf);
+    node.replaceChildren(frag);
+    node.classList.add("cjk");
+    done.set(node, node.textContent);
+  }
+  let cjkQueued = false;
+  function cjkScan() {
+    cjkQueued = false;
+    document.querySelectorAll(CJK_SEL).forEach(cjkify);
+  }
+  if (segmenter) {
+    new MutationObserver(() => {
+      if (!cjkQueued) {
+        cjkQueued = true;
+        requestAnimationFrame(cjkScan);
+      }
+    }).observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+    document.addEventListener("DOMContentLoaded", cjkScan);
+  }
+
+  // ── 版本：偵測新版本、更新公告 ──
+  let changelog = null;
+  let loadedVersion = null;
+  async function fetchChangelog() {
+    const r = await fetch("/changelog.json?t=" + Date.now(), { cache: "no-store" });
+    if (!r.ok) throw new Error("changelog " + r.status);
+    const list = await r.json();
+    return Array.isArray(list) ? list : [];
+  }
+  async function checkVersion() {
+    try {
+      const list = await fetchChangelog();
+      const v = list[0]?.version;
+      if (!v) return;
+      if (!loadedVersion) {
+        loadedVersion = v;
+        changelog = list;
+      } else if (v !== loadedVersion) {
+        showUpdateBar(v);
+      }
+    } catch {}
+  }
+  function showUpdateBar(v) {
+    if (document.getElementById("updateBar")) return;
+    const bar = el("div", { class: "update-bar", id: "updateBar", role: "status" },
+      el("span", { text: `網站有新版本（v${v}）` }),
+      el("button", { class: "btn sm primary", type: "button", text: "重新整理", onclick: () => location.reload() }),
+      el("button", { class: "btn sm ghost icon", type: "button", "aria-label": "先不要", onclick: () => bar.remove() }, icon("x"))
+    );
+    document.body.prepend(bar);
+  }
+  // 打開時、切回分頁時、每 30 分鐘檢查一次；不會自動重新載入
+  const versionReady = checkVersion();
+  document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && checkVersion());
+  setInterval(checkVersion, 30 * 60 * 1000);
+
+  // 更新公告：列出上次看過之後的每一個版本。第一次來的人不打擾，直接記成已看過。
+  async function whatsNew({ all = false } = {}) {
+    await versionReady;
+    if (!changelog || !changelog.length) return;
+    const latest = changelog[0].version;
+    const seen = store.get("seenVersion", null);
+    if (!all) {
+      if (!seen) return store.set("seenVersion", latest);
+      if (seen === latest) return;
+    }
+    let entries = changelog;
+    if (!all) {
+      const idx = changelog.findIndex((c) => c.version === seen);
+      entries = idx === -1 ? changelog.slice(0, 2) : changelog.slice(0, idx);
+    }
+    store.set("seenVersion", latest);
+    const body = el("div", { class: "whatsnew" },
+      ...entries.map((c) =>
+        el("section", null,
+          el("h3", null, el("span", { class: "num", text: "v" + c.version }), el("span", { class: "muted small", text: c.date || "" })),
+          el("ul", null, ...(c.items || []).map((t) => el("li", { text: t })))
+        )
+      )
+    );
+    const m = modal({
+      title: all ? "更新紀錄" : "網站更新了",
+      body,
+      actions: [el("button", { class: "btn primary", type: "button", text: "知道了", onclick: () => m.close() })],
+    });
+  }
+
   window.App = {
     cfg, sb, api, store, el, $, icon, icons, placeholderSvg, thumbImg,
     fmtDur, fmtLeft, fmtBytes, fmtDate, fmtRel, today,
     toast, copyText, modal, confirmDialog, setBusy,
+    countUp, whatsNew, reduceMotion,
   };
 })();
