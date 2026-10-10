@@ -3,5 +3,6 @@
 window.APP_CONFIG = {
   SUPABASE_URL: "https://vwepwxihugvtezmrvavo.supabase.co",
   SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ3ZXB3eGlodWd2dGV6bXJ2YXZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1NzkxOTEsImV4cCI6MjEwNzE1NTE5MX0.USa-Gm_yF5TBSWDFeIxHKroKRdDtpTYIOP2X9f7lcNM",
-  SITE_NAME: "CCC 交易實驗室", // 顯示在頁首和瀏覽器分頁
+  SITE_NAME: "CCC 交易實驗室", // 顯示在瀏覽器分頁
+  HOSTS: ["CCC", "X", "OC"], // 主講人選項（後台上傳時勾選），也是左上角翻牌會翻過的名字
 };

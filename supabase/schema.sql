@@ -41,6 +41,7 @@ alter table public.videos add column if not exists is_published boolean not null
 alter table public.videos add column if not exists duration_sec int;
 alter table public.videos add column if not exists size_bytes   bigint;
 alter table public.videos add column if not exists thumb_key    text;
+alter table public.videos add column if not exists hosts        text[] not null default '{}';  -- 主講人，例如 {CCC,OC}
 
 -- ─────────────────────────────────────────────
 -- 教材附件（PDF 等，掛在某支影片底下）

@@ -122,7 +122,8 @@
         el("td", { class: "c-thumb", style: { width: "104px" } }, thumb),
         el("td", null,
           el("div", { class: "t-title", text: v.title }),
-          el("div", { class: "t-sub", text: v.description || "尚未填寫簡介" })),
+          el("div", { class: "t-sub", text: v.description || "尚未填寫簡介" }),
+          v.hosts?.length ? el("div", { class: "hosts", style: { marginTop: "6px" } }, ...v.hosts.map((h) => el("span", { class: "host", text: h }))) : null),
         el("td", { class: "num small", style: { whiteSpace: "nowrap" }, text: A.fmtDate(v.published_at) }),
         el("td", { class: "num small hide-sm", text: v.duration_sec ? A.fmtDur(v.duration_sec) : "—" }),
         el("td", { class: "small hide-sm" }, v.attachments?.length ? el("span", { class: "meta-ico" }, icon("paperclip"), String(v.attachments.length)) : el("span", { class: "muted", text: "—" })),
@@ -192,6 +193,19 @@
     desc.value = v.description || "";
     const pub = el("input", { type: "checkbox" });
     pub.checked = justUploaded ? true : v.is_published;
+    // 主講人：可以複選，選項在 config.js 的 HOSTS
+    const hostSet = new Set(v.hosts || []);
+    const hostOpts = [...new Set([...(A.cfg.HOSTS || []), ...hostSet])];
+    const hostBox = el("div", { class: "chips", role: "group", "aria-label": "主講人" },
+      ...hostOpts.map((h) => {
+        const b = el("button", { class: "chip", type: "button", "aria-pressed": String(hostSet.has(h)), text: h });
+        b.addEventListener("click", () => {
+          hostSet.has(h) ? hostSet.delete(h) : hostSet.add(h);
+          b.setAttribute("aria-pressed", String(hostSet.has(h)));
+        });
+        return b;
+      }));
+    const pickedHosts = () => hostOpts.filter((h) => hostSet.has(h));
     const err = el("div", { class: "form-error", role: "alert", hidden: true });
 
     const attList = el("div", { style: { display: "grid", gap: "8px" } });
@@ -229,6 +243,7 @@
         justUploaded ? el("p", { class: "small sub", style: { marginTop: "14px" }, text: "影片目前是草稿，會員還看不到。填好標題和簡介，按下儲存就會發布。" }) : null,
         el("label", { class: "field" }, el("span", { class: "label", text: "標題" }), title),
         el("label", { class: "field" }, el("span", { class: "label", text: "直播日期" }), date),
+        hostOpts.length ? el("div", { class: "field" }, el("span", { class: "label", style: { display: "block", marginBottom: "8px" }, text: "主講（可複選）" }), hostBox) : null,
         el("label", { class: "field" }, el("span", { class: "label", text: "簡介" }), desc),
         el("div", { class: "field" }, el("label", { class: "switch" }, pub, el("span", { class: "track" }), el("span", { text: "發布（會員看得到）" }))),
         el("div", { class: "field" },
@@ -259,10 +274,10 @@
       try {
         await api("/api/admin/videos", {
           method: "PATCH",
-          body: { id: v.id, title: t, description: desc.value, published_at: date.value || A.today(), is_published: pub.checked },
+          body: { id: v.id, title: t, description: desc.value, published_at: date.value || A.today(), is_published: pub.checked, hosts: pickedHosts() },
         });
         const wasPublished = v.is_published;
-        Object.assign(v, { title: t, description: desc.value.trim() || null, published_at: date.value || A.today(), is_published: pub.checked });
+        Object.assign(v, { title: t, description: desc.value.trim() || null, published_at: date.value || A.today(), is_published: pub.checked, hosts: pickedHosts() });
         renderVideos();
         m.close();
         A.toast(pub.checked && !wasPublished ? "已發布，會員現在看得到了" : "已儲存");

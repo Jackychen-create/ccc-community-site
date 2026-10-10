@@ -12,6 +12,7 @@
   let videos = [];
   let loadedList = false;
   let filter = "all";
+  let host = ""; // 主講人篩選，空字串＝全部
   let query = "";
   let listScroll = 0;
   let routerOn = false;
@@ -351,6 +352,8 @@
     const months = [...new Set(videos.map(monthKey))];
     const opts = [["all", "全部"], ["unfinished", "未看完"], ...months.map((k) => ["m:" + k, monthLabel(k)])];
     if (!opts.some(([k]) => k === filter)) filter = "all";
+    const hosts = hostList();
+    if (host && !hosts.includes(host)) host = "";
     $("#chips").replaceChildren(
       ...opts.map(([k, label]) =>
         el("button", {
@@ -360,8 +363,28 @@
             renderList();
           },
         })
+      ),
+      hosts.length > 1 ? el("span", { class: "chip-sep", "aria-hidden": "true" }) : null,
+      ...(hosts.length > 1 ? hosts : []).map((h) =>
+        el("button", {
+          class: "chip host-chip", type: "button", "aria-pressed": String(host === h), title: `只看 ${h} 主講的場次`, text: h,
+          onclick: () => {
+            host = host === h ? "" : h;
+            renderList();
+          },
+        })
       )
     );
+  }
+
+  // 有出現在影片裡的主講人，照 config.js 的順序排
+  function hostList() {
+    const used = new Set(videos.flatMap((v) => v.hosts || []));
+    const order = A.cfg.HOSTS || [];
+    return [...order.filter((h) => used.has(h)), ...[...used].filter((h) => !order.includes(h))];
+  }
+  function hostTags(v) {
+    return v.hosts?.length ? el("div", { class: "hosts" }, ...v.hosts.map((h) => el("span", { class: "host", text: h }))) : null;
   }
 
   function filtered() {
@@ -369,7 +392,8 @@
     return videos.filter((v) => {
       if (filter === "unfinished" && isWatched(v)) return false;
       if (filter.startsWith("m:") && monthKey(v) !== filter.slice(2)) return false;
-      if (q && !`${v.title} ${v.description || ""}`.toLowerCase().includes(q)) return false;
+      if (host && !(v.hosts || []).includes(host)) return false;
+      if (q && !`${v.title} ${v.description || ""} ${(v.hosts || []).join(" ")}`.toLowerCase().includes(q)) return false;
       return true;
     });
   }
@@ -392,6 +416,7 @@
       const box = emptyBox("找不到符合的場次", query.trim() ? `沒有標題或簡介包含「${query.trim()}」的場次。` : "換個篩選條件試試看。");
       box.append(el("button", { class: "btn sm", type: "button", style: { marginTop: "14px" }, text: "顯示全部場次", onclick: () => {
         filter = "all";
+        host = "";
         query = "";
         $("#search").value = "";
         renderList();
@@ -449,6 +474,7 @@
       el("span", { style: { minWidth: "0" } },
         el("div", { class: "vtitle", text: v.title }),
         v.description ? el("div", { class: "vdesc", text: v.description }) : null,
+        hostTags(v),
         el("div", { class: "vm" }, el("span", { text: dur }), files ? el("span", { text: `教材 ${files}` }) : null)
       ),
       el("span", { class: "vfig r" + (v.duration_sec ? "" : " dim"), text: dur }),
@@ -584,6 +610,7 @@
     $("#wDate").textContent = shortDate(d.published_at);
     const meta = $("#wMeta");
     meta.append(el("span", { text: `${String(d.published_at).slice(0, 4)} 年・${weekday(d.published_at)}` }));
+    if (d.hosts?.length) meta.append(el("span", null, "主講 ", ...d.hosts.map((h) => el("span", { class: "host", text: h }))));
     if (d.duration_sec) meta.append(el("span", { class: "num", text: A.fmtDur(d.duration_sec) }));
     if (!d.is_published) meta.append(el("span", { class: "pill warn", text: "草稿預覽（會員看不到）" }));
     $("#wDesc").textContent = d.description || "";

@@ -22,7 +22,7 @@ export default route({
     const { data, error } = await supabaseAdmin
       .from("videos")
       .select(
-        "id, title, description, published_at, is_published, duration_sec, size_bytes, thumb_key, created_at, attachments(id, title, size_bytes, created_at)"
+        "id, title, description, published_at, is_published, duration_sec, size_bytes, thumb_key, hosts, created_at, attachments(id, title, size_bytes, created_at)"
       )
       .order("published_at", { ascending: false })
       .order("id", { ascending: false });
@@ -62,6 +62,7 @@ export default route({
       thumb_key,
       duration_sec: posInt(b.duration_sec),
       size_bytes: posInt(b.size_bytes),
+      hosts: cleanHosts(b.hosts),
     };
     const { data, error } = await supabaseAdmin.from("videos").insert(row).select("id").single();
     if (error) throw error;
@@ -86,6 +87,7 @@ export default route({
       patch.published_at = b.published_at;
     }
     if (b.is_published !== undefined) patch.is_published = b.is_published === true;
+    if (b.hosts !== undefined) patch.hosts = cleanHosts(b.hosts);
     if (!Object.keys(patch).length) return res.status(400).json({ error: "沒有要修改的內容" });
 
     const { data, error } = await supabaseAdmin
@@ -124,6 +126,18 @@ export default route({
     return res.status(200).json({ ok: true });
   },
 });
+
+// 主講人：最多 5 個、每個最多 12 字，去掉重複和空白
+function cleanHosts(v) {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const h of v) {
+    const t = String(h || "").trim().slice(0, 12);
+    if (t && !out.includes(t)) out.push(t);
+    if (out.length >= 5) break;
+  }
+  return out;
+}
 
 function posInt(v) {
   const n = Math.round(Number(v));
