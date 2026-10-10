@@ -34,6 +34,7 @@
       <a href="#videos" data-view="videos"><span data-ico="video"></span>影片<span class="count num" id="cVideos"></span></a>
       <a href="#invites" data-view="invites"><span data-ico="ticket"></span>實驗室密碼<span class="count num" id="cInvites"></span></a>
       <a href="#members" data-view="members"><span data-ico="users"></span>會員<span class="count num" id="cMembers"></span></a>
+      <a href="#volumes" data-view="volumes"><span data-ico="coins"></span>交易量</a>
       <a href="#stats" data-view="stats"><span data-ico="chart"></span>觀看統計</a>
     </nav>
     <div class="foot">
@@ -84,6 +85,22 @@
           <div id="invResult"></div>
         </div>
       </div>
+    </section>
+
+    <!-- 每月交易量 -->
+    <section id="v-volumes" data-view-panel="volumes" hidden>
+      <div class="page-head">
+        <div>
+          <h1>交易量</h1>
+          <p id="volSub">OKX、Bybit、UM 任一間當月成交金額達門檻，就能看到那個月底</p>
+        </div>
+        <div class="vol-tools">
+          <label class="vol-month"><span class="sr-only">月份</span><input class="input" type="month" id="volMonth"></label>
+          <button class="btn" type="button" id="volPaste"><span data-ico="copy"></span>貼上一整批</button>
+          <button class="btn" type="button" id="volThreshold"></button>
+        </div>
+      </div>
+      <div id="volBox"></div>
     </section>
 
     <!-- 觀看統計 -->

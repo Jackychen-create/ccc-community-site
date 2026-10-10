@@ -94,6 +94,7 @@
     file: s('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>', 14),
     download: s('<path d="M12 4v11M7 10l5 5 5-5"/><path d="M5 20h14"/>'),
     clock: s('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+    coins: s('<ellipse cx="9" cy="7" rx="6" ry="3"/><path d="M3 7v5c0 1.7 2.7 3 6 3s6-1.3 6-3V7"/><path d="M9 15v2c0 1.7 2.7 3 6 3s6-1.3 6-3v-5c0-1.7-2.7-3-6-3"/>'),
     chart: s('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'),
     image: s('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>', 15),
     note: s('<path d="M5 4h10l4 4v12H5z"/><path d="M14 4v5h5M8 13h8M8 17h5"/>'),

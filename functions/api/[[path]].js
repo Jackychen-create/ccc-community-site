@@ -9,6 +9,7 @@ import videos from "../../server/videos.js";
 import notes from "../../server/notes.js";
 import adminStats from "../../server/admin/stats.js";
 import adminNotify from "../../server/admin/notify.js";
+import adminVolumes from "../../server/admin/volumes.js";
 import adminAttachments from "../../server/admin/attachments.js";
 import adminInvites from "../../server/admin/invites.js";
 import adminMembers from "../../server/admin/members.js";
@@ -24,6 +25,7 @@ const ROUTES = {
   "notes": notes,
   "admin/stats": adminStats,
   "admin/notify": adminNotify,
+  "admin/volumes": adminVolumes,
   "admin/attachments": adminAttachments,
   "admin/invites": adminInvites,
   "admin/members": adminMembers,

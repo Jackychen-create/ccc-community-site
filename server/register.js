@@ -1,6 +1,6 @@
 // POST /api/register  { email, password, inviteCode }
 // 用實驗室密碼建立會員帳號。
-import { supabaseAdmin, isAdminEmail, readBody, route } from "./_lib.js";
+import { supabaseAdmin, isAdminEmail, readBody, route, monthEnd, thisMonthTW } from "./_lib.js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -51,6 +51,8 @@ export default route({
       user_id: created.user.id,
       email,
       invite_code: code,
+      // 新會員先給加入當月；之後每個月看交易量（任一間交易所達標）延長
+      access_until: monthEnd(thisMonthTW()),
     });
     if (memberError) {
       // 會員資料寫不進去就整個撤回，避免留下沒有權限的空帳號

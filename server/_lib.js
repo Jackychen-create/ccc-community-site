@@ -142,6 +142,40 @@ export function todayTW() {
   return new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
 }
 
+// ── 每月交易量 ──
+// 三間合作交易所，任一間當月成交金額（USDT）達到門檻，就有當月觀看資格
+export const EXCHANGES = ["OKX", "Bybit", "UM"];
+export const DEFAULT_THRESHOLD = 3300000;
+
+export function thisMonthTW() {
+  return todayTW().slice(0, 7);
+}
+// "2026-10" → "2026-10-31"
+export function monthEnd(month) {
+  const [y, m] = month.split("-").map(Number);
+  return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+}
+export function isMonth(v) {
+  return typeof v === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(v);
+}
+export async function getThreshold() {
+  const { data } = await supabaseAdmin.from("settings").select("value").eq("key", "volume_threshold").maybeSingle();
+  const n = Number(data?.value);
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_THRESHOLD;
+}
+// 只收三間交易所、0 以上的數字，四捨五入到小數 2 位
+export function cleanAmounts(v) {
+  const out = {};
+  for (const ex of EXCHANGES) {
+    const n = Number(v?.[ex]);
+    if (Number.isFinite(n) && n >= 0 && n <= 1e13) out[ex] = Math.round(n * 100) / 100;
+  }
+  return out;
+}
+export function isQualified(amounts, threshold) {
+  return EXCHANGES.some((ex) => Number(amounts?.[ex] || 0) >= threshold);
+}
+
 // 標題開頭的「10/9 直播：」拿掉（列表已經有日期欄）；拿掉後是空的就保留原樣
 export function cleanTitle(v) {
   const t = cleanText(v, 120);

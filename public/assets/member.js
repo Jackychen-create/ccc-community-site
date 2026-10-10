@@ -77,6 +77,7 @@
     show("appView");
     renderMenu();
     renderAccessBanner();
+    renderVolPanel();
     A.whatsNew();
     if (!routerOn) {
       routerOn = true;
@@ -248,10 +249,47 @@
     const days = Math.round((Date.parse(until) - Date.parse(today)) / DAY);
     if (days > 7) return (box.hidden = true);
     box.hidden = false;
+    const v = me.volume;
     box.replaceChildren(
       el("span", { html: icons.clock }),
       el("span", { text: days <= 0 ? `你的觀看資格今天（${until}）到期。` : `你的觀看資格到 ${until}，還有 ${days} 天。` }),
-      el("span", { class: "muted", text: "要繼續觀看請聯絡管理員更新資格。" })
+      el("span", { class: "muted", text: volHint(v, until) })
+    );
+  }
+
+  // 資格提醒的第二句：這個月達標還能延長，就講這個月；已經到月底了，就講下個月
+  function volHint(v, until) {
+    if (!v) return "要繼續觀看請聯絡管理員更新資格。";
+    const [y, m] = v.month.split("-").map(Number);
+    const end = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+    const rule = `任一間（${v.exchanges.join("、")}）交易量達 ${fmtWan(v.threshold)} USDT`;
+    return until < end ? `這個月${rule}，就能看到 ${end}。` : `下個月${rule}，管理員更新後就能繼續看。`;
+  }
+
+  const fmtWan = (n) => (n >= 1e4 ? `${Math.round((n / 1e4) * 10) / 10} 萬` : (Number(n) || 0).toLocaleString("en-US"));
+
+  // 右欄：本月交易量（管理員在後台填，任一間達標就有當月資格）
+  function renderVolPanel() {
+    const box = $("#volPanel");
+    const v = me?.volume;
+    if (!v) return (box.hidden = true);
+    box.hidden = false;
+    const monthNo = Number(v.month.slice(5));
+    const best = Math.max(0, ...v.exchanges.map((ex) => Number(v.amounts?.[ex] || 0)));
+    box.replaceChildren(
+      el("div", { class: "panel-head", style: { padding: "14px 18px" } },
+        el("h2", { text: `${monthNo} 月交易量` }),
+        v.qualified ? el("span", { class: "pill good" }, el("span", { class: "dot" }), "已達標")
+          : el("span", { class: "pill" }, v.amounts ? `還差 ${fmtWan(Math.max(0, v.threshold - best))}` : "尚未更新")),
+      el("div", { class: "vol-rows" },
+        ...v.exchanges.map((ex) => {
+          const n = Number(v.amounts?.[ex] || 0);
+          return el("div", { class: "vol-row" + (n >= v.threshold ? " ok" : "") },
+            el("span", { class: "vol-ex", text: ex }),
+            el("span", { class: "num vol-n", text: v.amounts ? fmtWan(n) : "—" }),
+            el("span", { class: "track" }, el("i", { style: { width: Math.min(100, (n / v.threshold) * 100) + "%" } })));
+        })),
+      el("p", { class: "small muted vol-note", text: `任一間當月成交金額達 ${fmtWan(v.threshold)} USDT，就能看到這個月底。${v.updatedAt ? `數字由管理員更新（${A.fmtRel(v.updatedAt)}）。` : "數字由管理員每月更新。"}` })
     );
   }
 

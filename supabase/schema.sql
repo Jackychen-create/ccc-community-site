@@ -132,3 +132,23 @@ create table if not exists public.notes (
 );
 create index if not exists notes_user_idx on public.notes(user_id, video_id);
 alter table public.notes enable row level security;
+
+-- ─────────────────────────────────────────────
+-- v1.5：每月交易量（OKX、Bybit、UM 任一間達標就有當月觀看資格）
+-- ─────────────────────────────────────────────
+create table if not exists public.volumes (
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  month       text not null check (month ~ '^\d{4}-\d{2}$'),   -- 例如 2026-10
+  amounts     jsonb not null default '{}'::jsonb,                 -- {"OKX": 1200000, "Bybit": 0, "UM": 3500000}（USDT）
+  updated_at  timestamptz not null default now(),
+  updated_by  text,
+  primary key (user_id, month)
+);
+alter table public.volumes enable row level security;
+
+create table if not exists public.settings (
+  key   text primary key,
+  value jsonb not null
+);
+alter table public.settings enable row level security;
+insert into public.settings (key, value) values ('volume_threshold', '3300000'::jsonb) on conflict (key) do nothing;
