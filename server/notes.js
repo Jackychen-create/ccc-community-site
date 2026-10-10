@@ -3,7 +3,7 @@
 // GET    /api/notes?videoId=12    某一場的筆記
 // POST   /api/notes  { videoId, t, body }
 // DELETE /api/notes?id=3
-import { supabaseAdmin, requireMember, readBody, toInt, route } from "./_lib.js";
+import { supabaseAdmin, requireMember, readBody, toInt, route } from "./lib/index.js";
 
 export default route({
   async GET(req, res) {

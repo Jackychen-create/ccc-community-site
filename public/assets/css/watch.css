@@ -1,0 +1,63 @@
+/* 播放頁、浮水印（由 app.css 依序載入） */
+/* ── 播放頁 ─────────────────────────── */
+.back { display: inline-flex; align-items: center; gap: 4px; height: 34px; padding: 0 10px 0 4px; margin-bottom: 14px;
+  border-radius: var(--r-md); color: var(--ink-2); text-decoration: none; font-size: 14.5px; }
+.back:hover { background: var(--surface-2); color: var(--ink); }
+.watch { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 24px; align-items: start; }
+.watch-main { min-width: 0; }
+.watch-side { min-width: 0; }
+.player { position: relative; overflow: hidden; background: #000; border: 1px solid var(--line); border-radius: var(--radius);
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.player video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; }
+.player:fullscreen { border: 0; border-radius: 0; display: flex; align-items: center; justify-content: center; }
+.player:fullscreen video { height: 100%; aspect-ratio: auto; }
+.player .loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--ink); pointer-events: none; }
+.player .loading .spinner { width: 28px; height: 28px; }
+
+/* 浮水印：會員 Email，定時換位置；全螢幕時一起顯示 */
+.wm { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 2; }
+.wm-move { position: absolute; left: 12%; top: 18%; font-family: var(--f-num); font-size: clamp(12px, 1.6vw, 18px); font-weight: 600;
+  color: rgba(255, 255, 255, .26); text-shadow: 0 1px 2px rgba(0, 0, 0, .5); white-space: nowrap;
+  transition: left 1.2s ease, top 1.2s ease; }
+.wm-tile { position: absolute; inset: -20%; display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 120px; align-items: center; justify-items: center;
+  transform: rotate(-18deg); font-family: var(--f-num); font-size: 13px; color: rgba(255, 255, 255, .055); white-space: nowrap; }
+
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 12px; }
+.speed { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 999px; overflow: hidden; }
+.speed button { height: 32px; min-width: 50px; padding: 0 8px; border: 0; background: none; color: var(--ink-2); cursor: pointer;
+  font-family: var(--f-num); font-size: 15px; font-weight: 600; }
+.speed button + button { border-left: 1px solid var(--line); }
+.speed button:hover { color: var(--ink); background: var(--surface-2); }
+.speed button[aria-pressed="true"] { background: var(--amber); color: var(--amber-ink); }
+.toolbar .grow { flex: 1; }
+.kbd { display: inline-block; min-width: 20px; padding: 0 5px; border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 5px;
+  font-size: 11.5px; text-align: center; color: var(--ink-2); }
+.notice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 12px; padding: 10px 14px; border-radius: var(--r-md);
+  background: var(--surface); border: 1px solid var(--line); font-size: 14px; color: var(--ink-2); animation: rise .3s ease-out both; }
+.notice svg { color: var(--amber); flex: 0 0 auto; }
+.notice .spacer { flex: 1; }
+.wtitle-row { display: flex; align-items: baseline; gap: 14px; margin-top: 22px; }
+.wtitle-row .vdate { font-size: 22px; }
+.watch h1 { font-size: 22px; }
+.watch .vmeta { margin-top: 6px; }
+.watch .vmeta .num { font-size: 15px; }
+.desc { margin-top: 12px; white-space: pre-line; color: var(--ink-2); max-width: 72ch; }
+.files { margin-top: 24px; }
+.file { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r-md); text-decoration: none; color: var(--ink); transition: border-color .12s, background .12s; }
+.file + .file { margin-top: 8px; }
+.file:hover { border-color: var(--line-strong); background: var(--surface-2); }
+.file .ext { flex: 0 0 auto; width: 40px; height: 40px; border-radius: var(--r-sm); display: flex; align-items: center; justify-content: center;
+  background: var(--sunken); border: 1px solid var(--line); font-family: var(--f-num); font-size: 12.5px; font-weight: 700; color: var(--amber); letter-spacing: .03em; }
+.file .grow { flex: 1; min-width: 0; }
+.file .name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file .dl { color: var(--ink-3); }
+.side-list { display: block; }
+.side-list a { display: grid; grid-template-columns: 54px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 18px;
+  border-bottom: 1px solid var(--line); text-decoration: none; color: var(--ink); transition: background .12s; }
+.side-list a:last-child { border-bottom: 0; }
+.side-list a:hover { background: var(--surface-2); }
+.side-list .vdate { font-size: 17px; }
+.side-list .vtitle { font-size: 14.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.side-list .st { font-size: 12.5px; }
+.side-list > p { padding: 16px 18px; }

@@ -24,7 +24,7 @@ CCC 交易實驗室（台灣的交易社群，原名「交易碎碎念」）的�
 - 技術：Cloudflare Pages 靜態 `public/` + Pages Functions（`functions/` 路由、`server/` 邏輯），Supabase Auth/Postgres，Cloudflare R2。前端是原生 HTML/CSS/JS（無框架），CSP 只允許自家腳本、Google Fonts 字型。
 
 ## Capabilities and Constraints
-- 所有 JS 行為與元素 ID 必須保留（member.js、admin.js、common.js 依賴它們）。
+- 所有 JS 行為與元素 ID 必須保留（`public/assets/js/` 裡的程式依賴它們）。
 - 介面一律繁體中文、白話。
 - 固定深色（2026-10-10 起），支援 reduced motion、手機版。
 

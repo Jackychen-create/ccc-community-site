@@ -1,0 +1,37 @@
+/* 頁首、翻牌看板（由 app.css 依序載入） */
+/* ── 頁首 ───────────────────────────── */
+.topbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 20px; height: 58px; padding: 0 28px;
+  background: var(--bg); border-bottom: 1px solid var(--line); }
+.brand { display: inline-flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 700; text-decoration: none; white-space: nowrap; }
+.mark { display: inline-flex; gap: 3px; line-height: 1; }
+.flap { position: relative; display: inline-grid; place-items: center; width: 20px; height: 26px; border-radius: 5px; overflow: hidden;
+  background: linear-gradient(var(--amber) 0 50%, color-mix(in srgb, var(--amber) 88%, #000) 50% 100%);
+  color: var(--amber-ink); font-family: var(--f-num); font-size: 17px; font-weight: 700; perspective: 90px;
+  box-shadow: inset 0 0 0 1px rgba(22, 18, 10, .18); }
+.flap.blank { background: color-mix(in srgb, var(--amber) 62%, var(--bg)); }
+.flap::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; margin-top: -.5px; background: rgba(22, 18, 10, .42); }
+.flap b { display: block; transform-origin: 50% 50%; backface-visibility: hidden; }
+.flap b.flip { animation: flap-in 58ms cubic-bezier(.3, .6, .4, 1) both; }
+.flap.settle { animation: flap-settle .5s cubic-bezier(.16, 1, .3, 1); }
+@keyframes flap-in { from { transform: rotateX(-88deg); opacity: .55; } to { transform: none; opacity: 1; } }
+@keyframes flap-settle { 0% { transform: translateY(-2px); filter: brightness(1.25); } 100% { transform: none; filter: none; } }
+.ticker { display: flex; align-items: baseline; gap: 18px; font-size: 13px; color: var(--ink-3); white-space: nowrap; }
+.ticker b { font-family: var(--f-num); font-size: 16px; font-weight: 600; color: var(--amber); margin-left: 4px; }
+.topbar .spacer { flex: 1; }
+.search { position: relative; width: min(300px, 100%); }
+.search svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--ink-3); pointer-events: none; }
+.search .input { height: 38px; padding-left: 34px; font-size: 14.5px; background: var(--surface); }
+.menu { position: relative; }
+.menu-panel { position: absolute; right: 0; top: calc(100% + 6px); min-width: 230px; padding: 6px; background: var(--surface);
+  border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: 0 10px 18px rgba(0,0,0,.35); z-index: 30;
+  animation: rise .14s ease-out both; }
+.menu-panel .who { padding: 8px 10px 10px; border-bottom: 1px solid var(--line); margin-bottom: 6px; font-size: 13px; color: var(--ink-3); word-break: break-all; }
+.menu-panel a, .menu-panel button { display: flex; align-items: center; gap: 10px; width: 100%; height: 38px; padding: 0 10px; border: 0; border-radius: var(--r-sm);
+  background: none; color: var(--ink); text-decoration: none; cursor: pointer; font-size: 14.5px; text-align: left; }
+.menu-panel a:hover, .menu-panel button:hover { background: var(--surface-2); }
+.avatar { width: 34px; height: 34px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line-strong); font-family: var(--f-num); font-size: 16px; font-weight: 700; color: var(--amber); }
+
+.page { max-width: 1400px; margin: 0 auto; padding: 28px 28px 80px; }
+.page-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.page-head p { margin-top: 6px; color: var(--ink-2); }

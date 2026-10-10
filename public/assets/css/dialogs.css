@@ -1,0 +1,24 @@
+/* 對話框、提示訊息（由 app.css 依序載入） */
+/* ── Modal、Toast ───────────────────── */
+.modal-back { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: var(--overlay); animation: fadein .15s ease-out both; }
+.modal { width: 100%; max-width: 520px; max-height: calc(100vh - 32px); overflow-y: auto; background: var(--surface);
+  border: 1px solid var(--line-strong); border-radius: var(--radius); box-shadow: 0 30px 80px rgba(0,0,0,.5); animation: pop .18s ease-out both; }
+.modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 22px; border-bottom: 1px solid var(--line); }
+.modal-body { padding: 4px 22px 22px; }
+.modal-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 22px; border-top: 1px solid var(--line); }
+.toasts { position: fixed; z-index: 60; left: 50%; bottom: 24px; transform: translateX(-50%); display: grid; gap: 8px; width: min(420px, calc(100% - 32px)); }
+.toast { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: var(--r-md); background: var(--surface-2);
+  border: 1px solid var(--line-strong); box-shadow: 0 12px 30px rgba(0,0,0,.4); font-size: 14.5px; animation: rise .2s ease-out both; }
+.toast.err { border-color: color-mix(in srgb, var(--warn) 55%, transparent); }
+.toast.ok svg { color: var(--down); }
+.toast.err svg { color: var(--warn); }
+
+.center-msg { min-height: 70vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.center-msg .card { max-width: 420px; text-align: center; }
+.center-msg .card p { margin: 8px 0 18px; color: var(--ink-2); }
+
+.rise { animation: rise .4s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes pop { from { opacity: 0; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes fadein { from { opacity: 0; } to { opacity: 1; } }

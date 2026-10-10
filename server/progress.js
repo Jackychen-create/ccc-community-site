@@ -1,7 +1,7 @@
 // POST /api/progress  { videoId, position, duration, seen? }
 // seen：這段時間看過的 30 秒格子 { "12": 1, "13": 1 }，用來畫「大家在哪裡停下、哪裡重看」
 // 記錄看到哪裡，下次從這裡繼續（換裝置也會同步）
-import { supabaseAdmin, requireMember, readBody, toInt, route, mergeBuckets } from "./_lib.js";
+import { supabaseAdmin, requireMember, readBody, toInt, route, mergeBuckets } from "./lib/index.js";
 
 export default route({
   async POST(req, res) {

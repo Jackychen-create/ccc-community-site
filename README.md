@@ -17,9 +17,11 @@
 ## 資料夾
 
 ```
-public/            網頁：index.html（研究員）、admin.html（後台）、assets/、changelog.json（更新公告）、tutorial/（使用教學影片）
+public/            網頁：index.html（研究員）、admin.html（後台）、changelog.json（更新公告）、tutorial/（使用教學影片）
+  assets/js/       程式：core/（共用）、member/（研究員頁）、admin/（後台）、shared/rules.js（資格、交易量、課程規則）
+  assets/css/      樣式（app.css 依序載入）
 functions/api/     Cloudflare Pages Functions 的入口，把 /api/* 交給 server/
-server/            API 的實際程式（admin/ 是後台用的）
+server/            API 的實際程式（admin/ 是後台用的，lib/ 是共用工具）
 supabase/          資料庫結構 schema.sql（每個版本新增的部分接在後面）
 tests/             自動測試：模擬伺服器＋瀏覽器測試（npm test）
 tools/tutorial/    重錄使用教學影片的程式（示範資料、錄影、配樂）

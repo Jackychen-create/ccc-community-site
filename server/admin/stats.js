@@ -1,7 +1,7 @@
 // 後台：觀看統計（只算研究員，不算管理員自己看的）
 // GET /api/admin/stats             每一場、每位研究員的總覽
 // GET /api/admin/stats?video=12    單一場的觀看分段：每 30 秒有幾個人看過、看了幾次、大家在哪裡停下、哪裡有人提問
-import { supabaseAdmin, requireAdmin, route, toInt, BUCKET_SEC } from "../_lib.js";
+import { supabaseAdmin, requireAdmin, route, toInt, BUCKET_SEC } from "../lib/index.js";
 
 async function videoDetail(res, id) {
   const [{ data: v, error }, { data: members }, { data: rows, error: e2 }, { data: fb }] = await Promise.all([

@@ -18,7 +18,7 @@ import {
   COURSE_HOSTS,
   COURSE_PARTS,
   route,
-} from "../_lib.js";
+} from "../lib/index.js";
 
 export default route({
   async GET(req, res) {

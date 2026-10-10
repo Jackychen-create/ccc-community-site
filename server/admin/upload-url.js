@@ -1,6 +1,6 @@
 // POST /api/admin/upload-url  { filename, contentType, kind, size }
 // 回傳 R2 的上傳簽名網址，瀏覽器直接 PUT 上去（大檔不經過 Vercel）
-import { requireAdmin, signPut, readBody, randomHex, route } from "../_lib.js";
+import { requireAdmin, signPut, readBody, randomHex, route } from "../lib/index.js";
 
 const GB = 1024 ** 3;
 const MB = 1024 ** 2;

@@ -1,7 +1,7 @@
 // 後台：寄「新影片上架」通知給研究員
 // POST /api/admin/notify { videoId }
 // 用 Brevo 寄信（免費方案每天 300 封）；環境變數 BREVO_API_KEY、MAIL_FROM、MAIL_FROM_NAME
-import { supabaseAdmin, requireAdmin, readBody, toInt, todayTW, env, route } from "../_lib.js";
+import { supabaseAdmin, requireAdmin, readBody, toInt, todayTW, env, route } from "../lib/index.js";
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 

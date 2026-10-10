@@ -1,6 +1,6 @@
 // GET /api/videos          已發布影片清單＋我的觀看進度
 // GET /api/videos?id=12    單支影片的播放連結、教材下載連結、上次看到哪
-import { supabaseAdmin, requireMember, signGet, toInt, route, todayTW, twDate, courseUnlockDate } from "./_lib.js";
+import { supabaseAdmin, requireMember, signGet, toInt, route, todayTW, twDate, courseUnlockDate } from "./lib/index.js";
 
 export default route({
   async GET(req, res) {

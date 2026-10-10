@@ -1,6 +1,6 @@
 // GET /api/stats  登入頁小看板用：最新一場的日期、已發布的直播留檔場數（不含教學課程）。
 // 不需登入，只回這兩個數字，不含任何標題或內容。
-import { supabaseAdmin, route } from "./_lib.js";
+import { supabaseAdmin, route } from "./lib/index.js";
 
 export default route({
   async GET(req, res) {
