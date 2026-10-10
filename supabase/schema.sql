@@ -152,3 +152,15 @@ create table if not exists public.settings (
 );
 alter table public.settings enable row level security;
 insert into public.settings (key, value) values ('volume_threshold', '3300000'::jsonb) on conflict (key) do nothing;
+
+-- ─────────────────────────────────────────────
+-- v1.6：達標日起算一個月、教學課程
+-- ─────────────────────────────────────────────
+alter table public.volumes add column if not exists qualified_at date;   -- 這個月第一次達標的日期；資格＝這天起一個月
+alter table public.videos add column if not exists course_host text;     -- 教學課程：哪位主講（CCC、X、OC）；直播留檔是空的
+alter table public.videos add column if not exists course_part int;      -- 教學課程：第幾份（1–6）
+alter table public.videos drop constraint if exists videos_course_part_check;
+alter table public.videos add constraint videos_course_part_check check (
+  (course_host is null and course_part is null) or (course_host is not null and course_part between 1 and 6)
+);
+create unique index if not exists videos_course_slot on public.videos (course_host, course_part) where course_host is not null;

@@ -1,4 +1,4 @@
-// 後台：寄「新影片上架」通知給會員
+// 後台：寄「新影片上架」通知給研究員
 // POST /api/admin/notify { videoId }
 // 用 Brevo 寄信（免費方案每天 300 封）；環境變數 BREVO_API_KEY、MAIL_FROM、MAIL_FROM_NAME
 import { supabaseAdmin, requireAdmin, readBody, toInt, todayTW, env, route } from "../_lib.js";
@@ -16,17 +16,18 @@ export default route({
     if (videoId === null) return res.status(400).json({ error: "影片編號不正確" });
 
     const { data: v, error } = await supabaseAdmin
-      .from("videos").select("id, title, description, published_at, is_published, hosts").eq("id", videoId).maybeSingle();
+      .from("videos").select("id, title, description, published_at, is_published, hosts, course_host").eq("id", videoId).maybeSingle();
     if (error) throw error;
     if (!v) return res.status(404).json({ error: "找不到這支影片" });
     if (!v.is_published) return res.status(400).json({ error: "影片還是草稿，發布後才能寄通知" });
+    if (v.course_host) return res.status(400).json({ error: "教學課程依每個人的加入日期解鎖，不寄全體通知" });
 
-    // 收件人：開著通知、沒被停權、資格沒過期的會員
+    // 收件人：開著通知、沒被停權、資格沒過期的研究員
     const today = todayTW();
     const { data: members, error: mErr } = await supabaseAdmin.from("members").select("email, banned, notify, access_until");
     if (mErr) throw mErr;
     const to = (members || []).filter((m) => m.notify !== false && !m.banned && (!m.access_until || m.access_until >= today)).map((m) => m.email);
-    if (!to.length) return res.status(400).json({ error: "沒有可以寄的會員（都關掉通知、停權或資格過期）" });
+    if (!to.length) return res.status(400).json({ error: "沒有可以寄的研究員（都關掉通知、停權或資格過期）" });
 
     const host = req.headers.host || "";
     const link = `https://${host}/#/v/${v.id}`;
@@ -39,7 +40,7 @@ export default route({
 <p style="color:#888;font-size:13px">不想收到這種通知？登入後在右上角選單關掉「新影片寄信通知」。</p>
 </div>`;
 
-    // 每位會員各寄一封（不會看到彼此的 Email），一次最多 1000 位
+    // 每位研究員各寄一封（不會看到彼此的 Email），一次最多 1000 位
     const r = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
       headers: { "api-key": env.BREVO_API_KEY, "Content-Type": "application/json", accept: "application/json" },

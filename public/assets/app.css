@@ -582,7 +582,7 @@ h1.cjk, h2.cjk, .vtitle.cjk { text-wrap: balance; }
   .desk, .watch { grid-template-columns: minmax(0, 1fr); }
   /* 右欄拆開：「上次看到」放在列表上面，統計、筆記放在列表下面，快捷鍵在觸控裝置用不到 */
   .aside { display: contents; }
-  #continueList { order: -1; }
+  #continueList, #coursePanel { order: -1; }
   #listView .desk > .panel { order: 0; }
   #statsPanel, #recentNotes, #volPanel { order: 1; }
   .keys-panel { display: none; }
@@ -651,3 +651,63 @@ h1.cjk, h2.cjk, .vtitle.cjk { text-wrap: balance; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* 使用教學影片 */
+.modal.modal-video { max-width: min(1040px, calc(100vw - 32px)); }
+.tut-video { display: block; width: 100%; max-height: calc(100vh - 150px); background: #000; border-radius: var(--r-md); margin-top: 14px; }
+.tut-video.portrait { width: auto; max-width: 100%; height: calc(100dvh - 150px); margin-inline: auto; }
+.auth-foot a { color: var(--amber); white-space: nowrap; }
+
+.side .foot .foot-links { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.side .foot .foot-links a { white-space: nowrap; }
+
+/* 頂部導覽 */
+.topnav { display: flex; gap: 4px; }
+.topnav a { padding: 7px 12px; border-radius: var(--r-md); font-size: 14.5px; font-weight: 500; color: var(--ink-3); text-decoration: none; white-space: nowrap; }
+.topnav a:hover { color: var(--ink); background: var(--surface-2); }
+.topnav a[aria-current="page"] { color: var(--ink); box-shadow: inset 0 -2px 0 var(--amber); border-radius: var(--r-md) var(--r-md) 0 0; }
+
+/* 教學課程 */
+.course-head { align-items: flex-start; }
+.course-head p { margin-top: 6px; max-width: 60ch; }
+.course-track { display: flex; gap: 4px; padding: 0 20px 16px; }
+.course-track i { flex: 1; height: 6px; border-radius: 999px; background: var(--line-strong); }
+.course-track i.on { background: color-mix(in srgb, var(--amber) 55%, var(--surface)); }
+.course-track i.done { background: var(--down); }
+.course-track i.gap { margin-left: 10px; }
+.course-row .vdate { font-size: 24px; }
+.course-row .vtitle .host { vertical-align: 2px; }
+.course-row .course-title { font-weight: 700; }
+.course-row.locked { color: var(--ink-3); }
+.course-row.locked .vdate, .course-row.locked .vtitle { color: var(--ink-3); }
+.course-row.static:hover { background: transparent; }
+.course-row .st svg { margin-right: 2px; }
+.course-mini { display: grid; gap: 12px; padding: 0 18px 18px; }
+.course-latest { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: var(--r-md); background: var(--surface-2); color: var(--ink); text-decoration: none; }
+.course-latest:hover { background: color-mix(in srgb, var(--amber) 10%, var(--surface-2)); }
+.course-latest .grow { flex: 1; min-width: 0; }
+.course-latest .vtitle { font-size: 15px; margin-top: 2px; }
+.course-latest .dl { color: var(--amber); }
+@media (max-width: 900px) { .topnav { display: none; } }
+@media (max-width: 720px) {
+  .course-row .vdate { font-size: 20px; }
+  .course-track { padding: 0 14px 14px; gap: 3px; }
+  .course-track i.gap { margin-left: 6px; }
+}
+.vol-qual { display: inline-flex; align-items: center; gap: 8px; }
+.vol-qual-l { font-size: 13px; color: var(--ink-3); white-space: nowrap; }
+/* 後台：教學課程 */
+.course-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.course-tag { margin-right: 8px; vertical-align: 2px; font-size: 12px; }
+.course-grid-card { margin-bottom: 18px; padding: 16px 18px; }
+.course-grid-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 12px; }
+.course-grid-head h2 { font-size: 16px; }
+.course-grid { display: grid; gap: 8px; }
+.course-grid-row { display: grid; grid-template-columns: 52px repeat(6, minmax(0, 1fr)); gap: 6px; align-items: center; }
+.course-grid-row .host { justify-self: start; }
+.cg-cell { height: 34px; border-radius: var(--r-sm); border: 1px dashed var(--line-strong); background: transparent; color: var(--ink-3);
+  font-family: var(--f-num); font-weight: 600; font-size: 15px; cursor: pointer; }
+.cg-cell:hover { border-color: var(--amber); color: var(--ink); }
+.cg-cell.draft { border-style: solid; border-color: color-mix(in srgb, var(--amber) 60%, transparent); color: var(--amber); }
+.cg-cell.on { border: 0; background: var(--amber); color: var(--amber-ink); }
+

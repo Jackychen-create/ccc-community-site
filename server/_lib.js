@@ -75,8 +75,8 @@ export function isAdminEmail(email) {
   return !!email && adminEmails().includes(String(email).trim().toLowerCase());
 }
 
-// 管理員：Email 在名單內、Email 已驗證，而且「不是」用用實驗室密碼加入的會員帳號。
-// 會員註冊時 Email 沒有經過收信驗證，所以會員帳號永遠不能變成管理員，
+// 管理員：Email 在名單內、Email 已驗證，而且「不是」用實驗室密碼加入的研究員帳號。
+// 研究員註冊時 Email 沒有經過收信驗證，所以研究員帳號永遠不能變成管理員，
 // 就算之後把同一個 Email 加進 ADMIN_EMAILS 也一樣。
 function adminEligible(user) {
   return isAdminEmail(user?.email) && !!user?.email_confirmed_at;
@@ -85,7 +85,7 @@ function adminEligible(user) {
 async function memberRow(userId) {
   const { data, error } = await supabaseAdmin
     .from("members")
-    .select("user_id, banned, access_until, notify")
+    .select("user_id, banned, access_until, notify, created_at")
     .eq("user_id", userId)
     .maybeSingle();
   if (error) throw error;
@@ -101,7 +101,7 @@ export async function getUser(req) {
   return data.user;
 }
 
-// 會員或管理員才放行；失敗時直接回應錯誤並回傳 null
+// 研究員或管理員才放行；失敗時直接回應錯誤並回傳 null
 export async function requireMember(req, res) {
   const user = await getUser(req);
   if (!user) {
@@ -146,6 +146,40 @@ export function todayTW() {
 // 三間合作交易所，任一間當月成交金額（USDT）達到門檻，就有當月觀看資格
 export const EXCHANGES = ["OKX", "Bybit", "UM"];
 export const DEFAULT_THRESHOLD = 3300000;
+
+// 日期加減天數（YYYY-MM-DD）
+export function addDays(date, n) {
+  const d = new Date(date + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+// 資格一輪：從這天起一個月（含當天），例如 10/15 → 11/14；1/31 → 2/27（2 月沒有 31 號就用月底）
+export function cycleEnd(date) {
+  const [y, m, d] = date.split("-").map(Number);
+  const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  const next = new Date(Date.UTC(y, m, Math.min(d, last)));
+  return addDays(next.toISOString().slice(0, 10), -1);
+}
+// 時間戳記 → 台灣日期
+export function twDate(ts) {
+  return new Date(new Date(ts).getTime() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+// ── 教學課程 ──
+// CCC、X、OC 的教學影片各 6 份，共 18 份。每位研究員從加入那天起：
+// 每 4 週為一輪，前 3 週依序解鎖 CCC、X、OC 各一份，第 4 週休息。
+export const COURSE_HOSTS = ["CCC", "X", "OC"];
+export const COURSE_PARTS = 6;
+export const COURSE_CYCLE_WEEKS = 4;
+export function courseWeek(host, part) {
+  return (part - 1) * COURSE_CYCLE_WEEKS + COURSE_HOSTS.indexOf(host); // 從 0 起算：第 0 週＝加入當天
+}
+export function courseUnlockDate(startDate, host, part) {
+  return addDays(startDate, courseWeek(host, part) * 7);
+}
+export function isCourse(v) {
+  return !!(v && v.course_host);
+}
 
 export function thisMonthTW() {
   return todayTW().slice(0, 7);

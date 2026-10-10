@@ -1,6 +1,6 @@
 // GET /api/videos          已發布影片清單＋我的觀看進度
 // GET /api/videos?id=12    單支影片的播放連結、教材下載連結、上次看到哪
-import { supabaseAdmin, requireMember, signGet, toInt, route } from "./_lib.js";
+import { supabaseAdmin, requireMember, signGet, toInt, route, todayTW, twDate, courseUnlockDate } from "./_lib.js";
 
 export default route({
   async GET(req, res) {
@@ -12,7 +12,7 @@ export default route({
 
     const id = toInt(req.query.id);
     if (id === null) return res.status(400).json({ error: "影片編號不正確" });
-    return detail(res, user, isAdmin, id);
+    return detail(res, ctx, id);
   },
 });
 
@@ -22,6 +22,7 @@ async function list(res, user) {
       .from("videos")
       .select("id, title, description, published_at, duration_sec, thumb_key, hosts, chapters, created_at")
       .eq("is_published", true)
+      .is("course_host", null) // 教學課程另外列在 /api/course
       .order("published_at", { ascending: false })
       .order("id", { ascending: false }),
     supabaseAdmin
@@ -57,16 +58,22 @@ async function list(res, user) {
   return res.status(200).json({ videos: out });
 }
 
-async function detail(res, user, isAdmin, id) {
+async function detail(res, ctx, id) {
+  const { user, isAdmin, member } = ctx;
   const { data: v, error } = await supabaseAdmin
     .from("videos")
-    .select("id, title, description, published_at, duration_sec, r2_key, is_published, hosts, chapters")
+    .select("id, title, description, published_at, duration_sec, r2_key, is_published, hosts, chapters, course_host, course_part")
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;
   // 草稿只有管理員看得到（方便發布前先預覽）
   if (!v || (!v.is_published && !isAdmin)) {
     return res.status(404).json({ error: "找不到這支影片" });
+  }
+  // 教學課程：從加入那天起每週解鎖，還沒到的不給播放連結
+  if (v.course_host && !isAdmin) {
+    const unlock = courseUnlockDate(twDate(member.created_at), v.course_host, v.course_part);
+    if (unlock > todayTW()) return res.status(403).json({ error: `這一份課程 ${unlock} 解鎖`, code: "locked", unlock_on: unlock });
   }
 
   const [{ data: atts }, { data: p }] = await Promise.all([
@@ -101,6 +108,8 @@ async function detail(res, user, isAdmin, id) {
     is_published: v.is_published,
     hosts: v.hosts || [],
     chapters: v.chapters || [],
+    course_host: v.course_host || null,
+    course_part: v.course_part || null,
     url: await signGet(v.r2_key),
     position_sec: p?.position_sec ?? 0,
     attachments,

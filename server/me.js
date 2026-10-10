@@ -1,6 +1,6 @@
 // GET   /api/me            目前登入者的身分、觀看資格到期日、通知設定
-// PATCH /api/me { notify }  會員自己開關「新影片寄信通知」
-import { supabaseAdmin, requireMember, readBody, route, EXCHANGES, getThreshold, thisMonthTW, isQualified } from "./_lib.js";
+// PATCH /api/me { notify }  研究員自己開關「新影片寄信通知」
+import { supabaseAdmin, requireMember, readBody, route, EXCHANGES, getThreshold, thisMonthTW, isQualified, cycleEnd } from "./_lib.js";
 
 export default route({
   async GET(req, res) {
@@ -11,7 +11,7 @@ export default route({
       const month = thisMonthTW();
       const [threshold, { data: row }] = await Promise.all([
         getThreshold(),
-        supabaseAdmin.from("volumes").select("amounts, updated_at").eq("user_id", ctx.user.id).eq("month", month).maybeSingle(),
+        supabaseAdmin.from("volumes").select("amounts, updated_at, qualified_at").eq("user_id", ctx.user.id).eq("month", month).maybeSingle(),
       ]);
       volume = {
         month,
@@ -20,6 +20,8 @@ export default route({
         amounts: row?.amounts || null,
         updatedAt: row?.updated_at || null,
         qualified: row ? isQualified(row.amounts, threshold) : false,
+        qualifiedAt: row?.qualified_at || null,
+        qualifiedUntil: row?.qualified_at ? cycleEnd(row.qualified_at) : null,
       };
     }
     return res.status(200).json({

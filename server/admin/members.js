@@ -1,4 +1,4 @@
-// 後台：會員
+// 後台：研究員
 // GET   /api/admin/members
 // PATCH /api/admin/members  { userId, action: "ban" | "unban" | "reset" }
 //                            { userId, action: "access", accessUntil: "2026-10-31" | null, note }
@@ -52,16 +52,16 @@ export default route({
     if (!(await requireAdmin(req, res))) return;
     const b = readBody(req);
     const userId = String(b.userId || "");
-    if (!UUID_RE.test(userId)) return res.status(400).json({ error: "會員編號不正確" });
+    if (!UUID_RE.test(userId)) return res.status(400).json({ error: "研究員編號不正確" });
 
-    // 只能操作 members 表裡的會員，管理員帳號不受影響
+    // 只能操作 members 表裡的研究員，管理員帳號不受影響
     const { data: m, error } = await supabaseAdmin
       .from("members")
       .select("user_id")
       .eq("user_id", userId)
       .maybeSingle();
     if (error) throw error;
-    if (!m) return res.status(404).json({ error: "找不到這位會員" });
+    if (!m) return res.status(404).json({ error: "找不到這位研究員" });
 
     if (b.action === "ban" || b.action === "unban") {
       const banned = b.action === "ban";

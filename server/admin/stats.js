@@ -1,4 +1,4 @@
-// 後台：觀看統計（只算會員，不算管理員自己看的）
+// 後台：觀看統計（只算研究員，不算管理員自己看的）
 // GET /api/admin/stats
 import { supabaseAdmin, requireAdmin, route } from "../_lib.js";
 

@@ -53,7 +53,7 @@
           <button class="btn primary lg block" id="authSubmit" type="submit" style="margin-top: 24px">登入</button>
         </form>
       </section>
-      <p class="auth-foot">僅限受邀會員．忘記密碼請聯絡管理員重設</p>
+      <p class="auth-foot">僅限實驗室研究員．忘記密碼請聯絡管理員重設．<a href="#" id="authTutorial">第一次使用？看使用教學</a></p>
     </div>
   </main>
 </div>
@@ -70,10 +70,11 @@
   </div>
 </div>
 
-<!-- 會員內容 -->
+<!-- 研究員內容 -->
 <div id="appView" hidden>
   <header class="topbar">
     <a class="brand" href="#/"><span class="mark">CCC</span><span class="brand-name">交易實驗室</span></a>
+    <nav class="topnav" aria-label="主選單"><a href="#/" id="navList">直播留檔</a><a href="#/course" id="navCourse">教學課程</a></nav>
     <div class="ticker" id="ticker"></div>
     <span class="spacer"></span>
     <label class="search" id="searchBox">
@@ -101,6 +102,7 @@
       </section>
       <aside class="aside" id="continueSec">
         <div class="panel" id="continueList"></div>
+        <section class="panel" id="coursePanel" hidden></section>
         <section class="panel" id="volPanel" hidden></section>
         <div class="panel" id="statsPanel"></div>
         <section class="panel" id="recentNotes">
@@ -129,8 +131,22 @@
     </section>
   </main>
 
-  <main id="watchView" class="page" hidden>
+  <main id="courseView" class="page" hidden>
     <a class="back" href="#/"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>直播留檔</a>
+    <section class="panel">
+      <div class="panel-head course-head">
+        <div>
+          <h1>教學課程 <span class="count" id="courseCount"></span></h1>
+          <p class="small muted" id="courseSub">CCC、X、OC 的教學影片各 6 份。從你加入那天起每週解鎖一份，三人輪流，每 4 週休息一週。</p>
+        </div>
+      </div>
+      <div class="course-track" id="courseTrack" aria-hidden="true"></div>
+      <div id="courseList"></div>
+    </section>
+  </main>
+
+  <main id="watchView" class="page" hidden>
+    <a class="back" id="watchBack" href="#/"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg><span>直播留檔</span></a>
     <div class="watch">
       <section class="watch-main">
         <div class="player" id="player">

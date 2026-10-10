@@ -53,6 +53,8 @@
     if (!res.ok) {
       const e = new Error(data.error || "發生錯誤，請稍後再試");
       e.status = res.status;
+      e.code = data.code;
+      e.data = data;
       throw e;
     }
     return data;
@@ -86,6 +88,8 @@
   const s = (d, w = 16, extra = "") =>
     `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra}>${d}</svg>`;
   const icons = {
+    lock: s('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>', 14),
+    book: s('<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5"/>'),
     logo: `<svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="1" y="1" width="20" height="20" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 15l4-5 3 3 4-6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
     up: `<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1.5L9.2 8.5H.8z" fill="currentColor"/></svg>`,
     play: `<svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 3.5v13l11-6.5z" fill="currentColor"/></svg>`,
@@ -249,7 +253,7 @@
     return { close, box };
   }
 
-  function confirmDialog({ title, message, confirmText = "確定", danger = false }) {
+  function confirmDialog({ title, message, confirmText = "確定", cancelText = "取消", danger = false }) {
     return new Promise((resolve) => {
       let done = false;
       const finish = (v) => {
@@ -262,7 +266,7 @@
         title,
         body: el("p", { class: "sub", style: { marginTop: "14px" }, text: message }),
         actions: [
-          el("button", { class: "btn", type: "button", text: "取消", onclick: () => finish(false) }),
+          el("button", { class: "btn", type: "button", text: cancelText, onclick: () => finish(false) }),
           el("button", { class: danger ? "btn danger-solid" : "btn primary", type: "button", text: confirmText, onclick: () => finish(true) }),
         ],
         onClose: () => finish(false),
@@ -399,6 +403,21 @@
   setInterval(checkVersion, 30 * 60 * 1000);
 
   // 更新公告：列出上次看過之後的每一個版本。第一次來的人不打擾，直接記成已看過。
+  // 使用教學影片（放在 public/tutorial/）：手機看直式、電腦看橫式
+  function tutorial(who = "member") {
+    const portrait = matchMedia("(max-width: 760px)").matches;
+    const video = el("video", {
+      class: "tut-video" + (portrait ? " portrait" : ""),
+      src: `/tutorial/${who}-${portrait ? "portrait" : "landscape"}.mp4`,
+      controls: true, playsinline: true, preload: "metadata",
+      controlslist: "nodownload", disablepictureinpicture: true,
+    });
+    const m = modal({ title: who === "admin" ? "管理員使用教學" : "使用教學", body: video, onClose: () => video.pause() });
+    m.box.classList.add("modal-video");
+    video.play().catch(() => {});
+    return m;
+  }
+
   async function whatsNew({ all = false } = {}) {
     await versionReady;
     if (!changelog || !changelog.length) return;
@@ -497,6 +516,6 @@
     cfg, sb, api, store, el, $, icon, icons, placeholderSvg, thumbImg,
     fmtDur, fmtLeft, fmtBytes, fmtDate, fmtRel, today,
     toast, copyText, modal, confirmDialog, setBusy,
-    countUp, whatsNew, reduceMotion,
+    countUp, whatsNew, tutorial, reduceMotion,
   };
 })();

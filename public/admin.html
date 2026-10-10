@@ -21,7 +21,7 @@
     <h2 id="noAccessTitle">沒有後台權限</h2>
     <p id="noAccessMsg">只有管理員可以使用後台。如果你是管理員，請確認登入的 Email 已加入管理員名單。</p>
     <div style="display: flex; gap: 8px; justify-content: center">
-      <a class="btn" href="/">回到會員頁</a>
+      <a class="btn" href="/">回到研究員頁面</a>
       <button class="btn ghost" type="button" id="noAccessLogout">登出</button>
     </div>
   </div>
@@ -33,13 +33,13 @@
     <nav class="nav" aria-label="後台">
       <a href="#videos" data-view="videos"><span data-ico="video"></span>影片<span class="count num" id="cVideos"></span></a>
       <a href="#invites" data-view="invites"><span data-ico="ticket"></span>實驗室密碼<span class="count num" id="cInvites"></span></a>
-      <a href="#members" data-view="members"><span data-ico="users"></span>會員<span class="count num" id="cMembers"></span></a>
+      <a href="#members" data-view="members"><span data-ico="users"></span>研究員<span class="count num" id="cMembers"></span></a>
       <a href="#volumes" data-view="volumes"><span data-ico="coins"></span>交易量</a>
       <a href="#stats" data-view="stats"><span data-ico="chart"></span>觀看統計</a>
     </nav>
     <div class="foot">
       <div id="whoami"></div>
-      <div style="margin-top: 8px; display: flex; gap: 12px"><a href="/">會員頁</a><a href="#" id="changelogLink">更新紀錄</a><a href="#" id="logout">登出</a></div>
+      <div class="foot-links"><a href="/">研究員頁面</a><a href="#" id="tutorialLink">使用教學</a><a href="#" id="changelogLink">更新紀錄</a><a href="#" id="logout">登出</a></div>
     </div>
   </aside>
 
@@ -49,7 +49,7 @@
       <div class="page-head">
         <div>
           <h1>影片</h1>
-          <p>上傳直播留檔、補上簡介與教材，發布後會員就看得到</p>
+          <p>上傳直播留檔、補上簡介與教材，發布後研究員就看得到</p>
         </div>
         <button class="btn primary" type="button" id="pickVideo"><span data-ico="plus"></span>上傳影片</button>
       </div>
@@ -68,7 +68,7 @@
       <div class="page-head">
         <div>
           <h1>實驗室密碼</h1>
-          <p>每組實驗室密碼可以設定使用次數，把加入連結傳給新會員就好</p>
+          <p>每組實驗室密碼可以設定使用次數，把加入連結傳給新研究員就好</p>
         </div>
       </div>
       <div class="cols">
@@ -79,7 +79,7 @@
             <input class="input" id="invMax" type="number" min="1" max="1000" value="30" inputmode="numeric">
           </label>
           <label class="field"><span class="label">備註（只有你看得到）</span>
-            <input class="input" id="invNote" type="text" maxlength="100" placeholder="例如：10 月新會員">
+            <input class="input" id="invNote" type="text" maxlength="100" placeholder="例如：10 月新研究員">
           </label>
           <button class="btn primary block" type="button" id="invCreate" style="margin-top: 18px">產生實驗室密碼</button>
           <div id="invResult"></div>
@@ -92,10 +92,11 @@
       <div class="page-head">
         <div>
           <h1>交易量</h1>
-          <p id="volSub">OKX、Bybit、UM 任一間當月成交金額達門檻，就能看到那個月底</p>
+          <p id="volSub">OKX、Bybit、UM 任一間當月成交金額達門檻，達標那天起可以看一個月</p>
         </div>
         <div class="vol-tools">
           <label class="vol-month"><span class="sr-only">月份</span><input class="input" type="month" id="volMonth"></label>
+          <label class="vol-month vol-qual" title="這次新達標的人，資格從這天起算一個月"><span class="vol-qual-l">達標日</span><input class="input" type="date" id="volQualOn"></label>
           <button class="btn" type="button" id="volPaste"><span data-ico="copy"></span>貼上一整批</button>
           <button class="btn" type="button" id="volThreshold"></button>
         </div>
@@ -108,21 +109,21 @@
       <div class="page-head">
         <div>
           <h1>觀看統計</h1>
-          <p id="statsSub">每一場有多少會員看、看到哪裡（不算管理員自己看的）</p>
+          <p id="statsSub">每一場有多少研究員看、看到哪裡（不算管理員自己看的）</p>
         </div>
       </div>
       <div id="statsBox"></div>
     </section>
 
-    <!-- 會員 -->
+    <!-- 研究員 -->
     <section id="v-members" data-view-panel="members" hidden>
       <div class="page-head">
         <div>
-          <h1>會員</h1>
-          <p id="memberSub">用用實驗室密碼加入的會員</p>
+          <h1>研究員</h1>
+          <p id="memberSub">用實驗室密碼加入的研究員</p>
         </div>
         <label class="search">
-          <span class="sr-only">搜尋會員</span>
+          <span class="sr-only">搜尋研究員</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
           <input class="input" id="memberSearch" type="search" placeholder="搜尋 Email 或實驗室密碼" autocomplete="off">
         </label>

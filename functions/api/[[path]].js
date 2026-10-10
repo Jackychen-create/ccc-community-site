@@ -7,6 +7,7 @@ import register from "../../server/register.js";
 import stats from "../../server/stats.js";
 import videos from "../../server/videos.js";
 import notes from "../../server/notes.js";
+import course from "../../server/course.js";
 import adminStats from "../../server/admin/stats.js";
 import adminNotify from "../../server/admin/notify.js";
 import adminVolumes from "../../server/admin/volumes.js";
@@ -23,6 +24,7 @@ const ROUTES = {
   "stats": stats,
   "videos": videos,
   "notes": notes,
+  "course": course,
   "admin/stats": adminStats,
   "admin/notify": adminNotify,
   "admin/volumes": adminVolumes,

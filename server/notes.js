@@ -1,4 +1,4 @@
-// 會員自己的時間點筆記（只有本人看得到）
+// 研究員自己的時間點筆記（只有本人看得到）
 // GET    /api/notes               我的全部筆記（附影片標題、日期）
 // GET    /api/notes?videoId=12    某一場的筆記
 // POST   /api/notes  { videoId, t, body }

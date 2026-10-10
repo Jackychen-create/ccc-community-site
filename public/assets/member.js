@@ -1,10 +1,10 @@
-// 會員前台：登入／註冊、影片列表、播放頁
+// 研究員前台：登入／註冊、影片列表、播放頁
 (function () {
   "use strict";
   const A = window.App;
   const { el, $, api, sb, icon, icons } = A;
 
-  const SITE = A.cfg.SITE_NAME || "會員專區";
+  const SITE = A.cfg.SITE_NAME || "交易實驗室";
   const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
   const DAY = 86400000;
 
@@ -61,7 +61,7 @@
         return;
       }
       if (e.status === 403) return showBlocked(e.message);
-      // 不是帳號的問題（網路斷線、網站設定、伺服器錯誤），不要讓會員以為自己被停權
+      // 不是帳號的問題（網路斷線、網站設定、伺服器錯誤），不要讓研究員以為自己被停權
       show("blockedView");
       $("#blockedTitle").textContent = "網站暫時無法使用";
       $("#blockedMsg").textContent = e.status === 0 ? "連線失敗，請檢查網路後再試一次。" : e.message;
@@ -78,12 +78,26 @@
     renderMenu();
     renderAccessBanner();
     renderVolPanel();
+    // 這個瀏覽器第一次進來：問要不要看使用教學（只問一次；老研究員看到的是「網站更新了」）
+    const firstVisit = !A.store.get("seenVersion", null);
     A.whatsNew();
+    if (firstVisit && !me.isAdmin && !A.store.get("tutorialOffered", false)) offerTutorial();
     if (!routerOn) {
       routerOn = true;
       window.addEventListener("hashchange", route);
     }
     route();
+  }
+
+  async function offerTutorial() {
+    A.store.set("tutorialOffered", true);
+    const yes = await A.confirmDialog({
+      title: "歡迎加入交易實驗室",
+      message: "第一次來？花 2 分鐘看使用教學：怎麼找影片、接著看、章節、筆記和每月交易量。之後也可以在右上角選單打開。",
+      confirmText: "看使用教學",
+      cancelText: "之後再看",
+    });
+    if (yes) A.tutorial();
   }
 
   function showBlocked(msg) {
@@ -140,7 +154,7 @@
     $("#tabRegister").setAttribute("aria-selected", String(reg));
     $("#inviteRow").hidden = !reg;
     $("#invite").required = reg;
-    $("#authTitle").textContent = reg ? "加入會員" : "登入";
+    $("#authTitle").textContent = reg ? "加入實驗室" : "登入";
     $("#authSub").textContent = reg ? "輸入實驗室密碼，建立你的帳號" : "登入以觀看直播留檔";
     $("#pwLabel").textContent = reg ? "設定你的登入密碼（至少 8 個字元）" : "密碼";
     $("#password").autocomplete = reg ? "new-password" : "current-password";
@@ -150,6 +164,10 @@
   $("#tabLogin").addEventListener("click", () => setMode("login"));
   $("#tabRegister").addEventListener("click", () => setMode("register"));
 
+  $("#authTutorial").addEventListener("click", (e) => {
+    e.preventDefault();
+    A.tutorial();
+  });
   const reveal = $("#revealPw");
   reveal.innerHTML = icons.eyeOff; // 預設密碼是隱藏的：顯示斜線眼睛
   reveal.addEventListener("click", () => {
@@ -218,11 +236,14 @@
     menuPanel.replaceChildren(...[
       el("div", { class: "who" }, el("div", { text: "登入身分" }), el("div", { style: { color: "var(--ink)" }, text: me?.email || "" })),
       me?.isAdmin ? el("a", { href: "/admin", role: "menuitem" }, icon("settings"), "後台管理") : null,
+      el("a", { href: "#/course", role: "menuitem", onclick: () => toggleMenu(false) }, icon("book"), "教學課程"),
       el("a", { href: "#/notes", role: "menuitem", onclick: () => toggleMenu(false) }, icon("note"), "我的筆記"),
       me && me.notify !== null && !me.isAdmin
         ? el("button", { type: "button", role: "menuitemcheckbox", "aria-checked": String(!!me.notify), onclick: toggleNotify },
             icon("mail"), el("span", { style: { flex: "1" }, text: "新影片寄信通知" }), el("span", { class: "menu-state" + (me.notify ? " on" : ""), text: me.notify ? "開" : "關" }))
         : null,
+      el("button", { type: "button", role: "menuitem", onclick: () => { toggleMenu(false); A.tutorial(); } }, icon("play"), "使用教學"),
+      me?.isAdmin ? el("button", { type: "button", role: "menuitem", onclick: () => { toggleMenu(false); A.tutorial("admin"); } }, icon("play"), "管理員使用教學") : null,
       el("button", { type: "button", role: "menuitem", onclick: () => { toggleMenu(false); A.whatsNew({ all: true }); } }, icon("news"), "更新紀錄"),
       el("button", { type: "button", role: "menuitem", onclick: changePassword }, icon("key"), "修改密碼"),
       el("button", { type: "button", role: "menuitem", onclick: () => sb.auth.signOut() }, icon("logout"), "登出"),
@@ -253,17 +274,16 @@
     box.replaceChildren(
       el("span", { html: icons.clock }),
       el("span", { text: days <= 0 ? `你的觀看資格今天（${until}）到期。` : `你的觀看資格到 ${until}，還有 ${days} 天。` }),
-      el("span", { class: "muted", text: volHint(v, until) })
+      el("span", { class: "muted", text: volHint(v) })
     );
   }
 
   // 資格提醒的第二句：這個月達標還能延長，就講這個月；已經到月底了，就講下個月
-  function volHint(v, until) {
+  const md = (d) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
+  function volHint(v) {
     if (!v) return "要繼續觀看請聯絡管理員更新資格。";
-    const [y, m] = v.month.split("-").map(Number);
-    const end = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
-    const rule = `任一間（${v.exchanges.join("、")}）交易量達 ${fmtWan(v.threshold)} USDT`;
-    return until < end ? `這個月${rule}，就能看到 ${end}。` : `下個月${rule}，管理員更新後就能繼續看。`;
+    const rule = `任一間（${v.exchanges.join("、")}）當月交易量達 ${fmtWan(v.threshold)} USDT`;
+    return v.qualified ? `下個月${rule}，達標那天起可以再看一個月。` : `這個月${rule}，達標那天起可以再看一個月。`;
   }
 
   const fmtWan = (n) => (n >= 1e4 ? `${Math.round((n / 1e4) * 10) / 10} 萬` : (Number(n) || 0).toLocaleString("en-US"));
@@ -289,7 +309,7 @@
             el("span", { class: "num vol-n", text: v.amounts ? fmtWan(n) : "—" }),
             el("span", { class: "track" }, el("i", { style: { width: Math.min(100, (n / v.threshold) * 100) + "%" } })));
         })),
-      el("p", { class: "small muted vol-note", text: `任一間當月成交金額達 ${fmtWan(v.threshold)} USDT，就能看到這個月底。${v.updatedAt ? `數字由管理員更新（${A.fmtRel(v.updatedAt)}）。` : "數字由管理員每月更新。"}` })
+      el("p", { class: "small muted vol-note", text: (v.qualifiedAt ? `${md(v.qualifiedAt)} 達標，可以看到 ${md(v.qualifiedUntil)}。` : `任一間當月成交金額達 ${fmtWan(v.threshold)} USDT，達標那天起可以看一個月（例如 10/15 達標，看到 11/14）。`) + (v.updatedAt ? `數字由管理員更新（${A.fmtRel(v.updatedAt)}）。` : "數字由管理員每月更新。") })
     );
   }
 
@@ -352,6 +372,7 @@
     const m = location.hash.match(/^#\/v\/(\d+)(?:\?t=(\d+))?/);
     if (m) openWatch(Number(m[1]), { t: m[2] !== undefined ? Number(m[2]) : null });
     else if (location.hash === "#/notes") openNotes();
+    else if (location.hash === "#/course") openCourse();
     else openList();
   }
 
@@ -371,7 +392,9 @@
     leaveWatch();
     $("#watchView").hidden = true;
     $("#notesView").hidden = true;
+    $("#courseView").hidden = true;
     $("#listView").hidden = false;
+    setNav("list");
     $("#searchBox").hidden = false;
     document.title = SITE;
     if (!loadedList) renderSkeleton();
@@ -380,6 +403,7 @@
       requestAnimationFrame(() => window.scrollTo(0, listScroll));
     }
     loadRecentNotes();
+    loadCourse();
     try {
       const r = await api("/api/videos");
       videos = r.videos || [];
@@ -705,7 +729,10 @@
     leaveWatch();
     $("#listView").hidden = true;
     $("#notesView").hidden = true;
+    $("#courseView").hidden = true;
     $("#watchView").hidden = false;
+    setNav(null);
+    setWatchBack(false);
     document.body.classList.add("watching");
     renderChapters(null);
     notes = [];
@@ -726,6 +753,13 @@
     try {
       d = await api(`/api/videos?id=${id}`);
     } catch (e) {
+      if (e.code === "locked") {
+        $("#videoLoading").hidden = true;
+        setWatchBack(true);
+        $("#wTitle").textContent = "這一份課程還沒解鎖";
+        $("#wDesc").textContent = `${e.data.unlock_on} 解鎖。先看看已經解鎖的課程吧。`;
+        return;
+      }
       return handleErr(e, () => {
         $("#videoLoading").hidden = true;
         $("#wTitle").textContent = e.status === 404 ? "找不到這支影片" : "影片載入失敗";
@@ -742,9 +776,13 @@
     $("#wDate").textContent = shortDate(d.published_at);
     const meta = $("#wMeta");
     meta.append(el("span", { text: `${String(d.published_at).slice(0, 4)} 年・${weekday(d.published_at)}` }));
-    if (d.hosts?.length) meta.append(el("span", null, "主講 ", ...d.hosts.map((h) => el("span", { class: "host", text: h }))));
+    if (d.course_host) {
+      setWatchBack(true);
+      $("#wDate").textContent = "課程";
+      meta.replaceChildren(el("span", null, "教學課程・", el("span", { class: "host", text: d.course_host }), ` 第 ${d.course_part} 份`));
+    } else if (d.hosts?.length) meta.append(el("span", null, "主講 ", ...d.hosts.map((h) => el("span", { class: "host", text: h }))));
     if (d.duration_sec) meta.append(el("span", { class: "num", text: A.fmtDur(d.duration_sec) }));
-    if (!d.is_published) meta.append(el("span", { class: "pill warn", text: "草稿預覽（會員看不到）" }));
+    if (!d.is_published) meta.append(el("span", { class: "pill warn", text: "草稿預覽（研究員看不到）" }));
     $("#wDesc").textContent = d.description || "";
 
     if (d.attachments?.length) {
@@ -798,7 +836,7 @@
     );
   }
 
-  // ── 浮水印（防外流）：會員 Email 在畫面上定時換位置，全螢幕時一起顯示 ──
+  // ── 浮水印（防外流）：研究員 Email 在畫面上定時換位置，全螢幕時一起顯示 ──
   let wmTimer = null;
   function startWatermark() {
     const box = $("#wm");
@@ -993,11 +1031,117 @@
   }
 
   // ── 我的筆記（全部）──
+  // ─────────────────────────────────────────────
+  // 頂部導覽、教學課程
+  // ─────────────────────────────────────────────
+  function setNav(which) {
+    $("#navList").toggleAttribute("aria-current", which === "list");
+    $("#navCourse").toggleAttribute("aria-current", which === "course");
+    if (which) $(which === "list" ? "#navList" : "#navCourse").setAttribute("aria-current", "page");
+  }
+  function setWatchBack(isCourse) {
+    const a = $("#watchBack");
+    a.href = isCourse ? "#/course" : "#/";
+    a.lastChild.textContent = isCourse ? "教學課程" : "直播留檔";
+  }
+
+  let course = null;
+  async function loadCourse() {
+    try {
+      course = await api("/api/course");
+    } catch {
+      course = null;
+    }
+    renderCoursePanel();
+    if (!$("#courseView").hidden) renderCourse();
+    return course;
+  }
+  const slotName = (s) => `${s.host} 第 ${s.part} 份`;
+
+  // 右欄：最新解鎖的一份＋下一份什麼時候解鎖
+  function renderCoursePanel() {
+    const box = $("#coursePanel");
+    if (!course?.slots?.length) return (box.hidden = true);
+    const open = course.slots.filter((s) => s.unlocked);
+    const latest = open[open.length - 1];
+    const next = course.slots.find((s) => !s.unlocked);
+    const done = open.filter((s) => s.video && s.video.duration_sec && s.video.position_sec >= s.video.duration_sec * 0.95).length;
+    box.hidden = false;
+    box.replaceChildren(
+      el("div", { class: "panel-head", style: { padding: "14px 18px" } },
+        el("h2", { text: "教學課程" }),
+        el("span", { class: "small muted num", text: `${open.length}／${course.slots.length} 已解鎖` })),
+      el("div", { class: "course-mini" },
+        latest
+          ? el("a", { class: "course-latest", href: latest.video?.id ? `#/v/${latest.video.id}` : "#/course" },
+              el("span", { class: "host", text: latest.host }),
+              el("span", { class: "grow" },
+                el("div", { class: "small muted", text: `第 ${latest.week} 週・${slotName(latest)}` }),
+                el("div", { class: "vtitle", text: latest.video?.title || "準備中，上架後就能看" })),
+              latest.video?.id ? el("span", { class: "dl", html: icons.play }) : null)
+          : null,
+        el("span", { class: "usage" }, el("span", { class: "track" }, el("i", { style: { width: (done / course.slots.length) * 100 + "%" } }))),
+        el("p", { class: "small muted", text: next ? `下一份：${slotName(next)}，${md(next.unlock_on)} 解鎖` : "全部都解鎖了" }),
+        el("a", { class: "btn block", href: "#/course" }, "看全部課程"))
+    );
+  }
+
+  async function openCourse() {
+    leaveWatch();
+    $("#listView").hidden = true;
+    $("#watchView").hidden = true;
+    $("#notesView").hidden = true;
+    $("#courseView").hidden = false;
+    $("#searchBox").hidden = true;
+    setNav("course");
+    document.title = `教學課程｜${SITE}`;
+    window.scrollTo(0, 0);
+    if (course) renderCourse();
+    else $("#courseList").replaceChildren(el("div", { class: "skel-row" }, el("i"), el("div", null, el("i"), el("i"))));
+    await loadCourse();
+    if (!course) $("#courseList").replaceChildren(emptyBox("讀不到課程", "請稍後再試。", true));
+  }
+
+  function renderCourse() {
+    const slots = course.slots;
+    const open = slots.filter((s) => s.unlocked).length;
+    $("#courseCount").textContent = `已解鎖 ${open}／${slots.length}`;
+    // 進度條：每一格是一份，休息週留空隙
+    $("#courseTrack").replaceChildren(...slots.map((s, i) => {
+      const v = s.video;
+      const done = v?.duration_sec && v.position_sec >= v.duration_sec * 0.95;
+      const gap = i > 0 && i % 3 === 0;
+      return el("i", { class: [s.unlocked ? "on" : "", done ? "done" : "", gap ? "gap" : ""].join(" ").trim() });
+    }));
+    $("#courseList").replaceChildren(...slots.map((s) => {
+      const v = s.video;
+      const status = !s.unlocked
+        ? el("span", { class: "st todo" }, el("span", { html: icons.lock }), `${md(s.unlock_on)} 解鎖`)
+        : !v ? el("span", { class: "st todo", text: "準備中" })
+        : statusOf(v);
+      const body = el("span", { style: { minWidth: "0" } },
+        el("div", { class: "vtitle" }, el("span", { class: "host", text: s.host }), " ", el("span", { text: `第 ${s.part} 份` }), v?.title ? el("span", { class: "course-title", text: `　${v.title}` }) : null),
+        v?.description && s.unlocked ? el("div", { class: "vdesc", text: v.description }) : null,
+        s.unlocked && v?.duration_sec ? el("div", { class: "vm" }, el("span", { text: A.fmtDur(v.duration_sec) })) : null);
+      const cls = "vrow course-row" + (s.unlocked ? "" : " locked") + (s.unlocked && v?.id ? "" : " static");
+      const kids = [
+        el("span", { class: "vdate" }, `${s.week}`, el("small", { text: `第 ${s.week} 週` })),
+        body,
+        el("span", { class: "vfig r" + (v?.duration_sec && s.unlocked ? "" : " dim"), text: v?.duration_sec && s.unlocked ? A.fmtDur(v.duration_sec) : "—" }),
+        el("span", { class: "vfig r" + (v?.attachment_count ? "" : " dim"), text: v?.attachment_count ? String(v.attachment_count) : "—" }),
+        el("span", { class: "r" }, status),
+      ];
+      return s.unlocked && v?.id ? el("a", { class: cls, href: `#/v/${v.id}` }, ...kids) : el("div", { class: cls }, ...kids);
+    }));
+  }
+
   async function openNotes() {
     leaveWatch();
     $("#listView").hidden = true;
     $("#watchView").hidden = true;
+    $("#courseView").hidden = true;
     $("#notesView").hidden = false;
+    setNav(null);
     $("#searchBox").hidden = true;
     document.title = `我的筆記｜${SITE}`;
     const box = $("#notesAll");
