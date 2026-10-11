@@ -25,6 +25,16 @@ export function thumbBox(v) {
   return box;
 }
 
+// 列表每一列的小封面（後台設的封面；沒有封面就顯示示意圖；還沒解鎖的課程只顯示一個鎖）
+// badge：手機上疊在封面左下角的日期（手機版列表不顯示日期欄）
+export function coverThumb(v, { locked = false, badge = "" } = {}) {
+  const box = el("span", { class: "vthumb" + (locked ? " locked" : ""), "aria-hidden": "true" });
+  if (locked) box.append(el("span", { class: "vthumb-lock", html: icons.lock }));
+  else box.append(v?.thumb_url ? thumbImg(v.thumb_url) : placeholderSvg());
+  if (badge) box.append(el("span", { class: "vthumb-badge num", text: badge }));
+  return box;
+}
+
 export function fileRow(a) {
   const ext = (a.title.match(/\.([a-z0-9]{1,5})$/i) || a.url.split("?")[0].match(/\.([a-z0-9]{1,5})$/i) || [, "檔案"])[1].toUpperCase();
   return el("a", { class: "file", href: a.url, rel: "noopener" },

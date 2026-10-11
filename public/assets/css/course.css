@@ -60,3 +60,4 @@
 .tut-loading { display: grid; place-content: center; justify-items: center; gap: 12px; aspect-ratio: 16 / 9; margin-top: 14px; border-radius: var(--r-md); background: var(--sunken); }
 .tut-loading.portrait { aspect-ratio: auto; height: min(60vh, 420px); }
 .tut-loading .usage { width: 200px; }
+.course-row .cpart { white-space: nowrap; }
