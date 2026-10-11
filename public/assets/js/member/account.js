@@ -35,12 +35,13 @@ export function renderVolPanel() {
   box.hidden = false;
   const monthNo = Number(v.month.slice(5));
   const best = Math.max(0, ...v.exchanges.map((ex) => Number(v.amounts?.[ex] || 0)));
-  box.replaceChildren(
+  box.replaceChildren(...[
     el("div", { class: "panel-head", style: { padding: "14px 18px" } },
       el("h2", { text: `${monthNo} 月交易量` }),
       v.qualified ? el("span", { class: "pill good" }, el("span", { class: "dot" }), "已達標")
         : el("span", { class: "pill" }, v.amounts ? `還差 ${fmtWan(Math.max(0, v.threshold - best))}` : "尚未更新")),
-    el("div", { class: "vol-rows" },
+    // 還沒填數字就不放空的進度條，標題旁的「尚未更新」已經說明了
+    !v.amounts ? null : el("div", { class: "vol-rows" },
       ...v.exchanges.map((ex) => {
         const n = Number(v.amounts?.[ex] || 0);
         return el("div", { class: "vol-row" + (n >= v.threshold ? " ok" : "") },
@@ -48,6 +49,6 @@ export function renderVolPanel() {
           el("span", { class: "num vol-n", text: v.amounts ? fmtWan(n) : "—" }),
           el("span", { class: "track" }, el("i", { style: { width: Math.min(100, (n / v.threshold) * 100) + "%" } })));
       })),
-    el("p", { class: "small muted vol-note", text: (v.qualifiedAt ? `${md(v.qualifiedAt)} 達標，可以看到 ${md(v.qualifiedUntil)}。` : `任一間當月成交金額達 ${fmtWan(v.threshold)} USDT，達標那天起可以看一個月（例如 10/15 達標，看到 11/14）。`) + (v.updatedAt ? `數字由管理員更新（${fmtRel(v.updatedAt)}）。` : "數字由管理員每月更新。") })
-  );
+    el("p", { class: "small muted vol-note", text: (v.qualifiedAt ? `${md(v.qualifiedAt)} 達標，可以看到 ${md(v.qualifiedUntil)}。` : `${v.amounts ? "任一間" : `${v.exchanges.join("、")} 任一間`}當月成交金額達 ${fmtWan(v.threshold)} USDT，達標那天起可以看一個月（例如 10/15 達標，看到 11/14）。`) + (v.updatedAt ? `數字由管理員更新（${fmtRel(v.updatedAt)}）。` : "數字由管理員每月更新。") }),
+  ].filter(Boolean));
 }

@@ -23,7 +23,12 @@
     <a class="brand" href="/"><span class="mark">CCC</span><span class="brand-name">交易實驗室</span></a>
   </header>
   <main class="auth-main">
-    <div class="auth-col rise">
+    <div class="auth-grid rise">
+      <div class="auth-copy">
+        <h1><span class="nw">直播留檔和教學課程，</span><span class="nw">研究員專屬</span></h1>
+        <p class="intro">CCC、OC、X 每週直播的完整留檔，可以跳章節、記筆記。教學課程從你加入那天起，每週解鎖一份。</p>
+      </div>
+    <div class="auth-col">
       <div class="auth-board" id="authBoard" aria-label="直播留檔概況">
         <div><small>最新一場</small><b class="num" id="statLatest">—</b></div>
         <div><small>累計場次</small><b class="num" id="statCount">—</b></div>
@@ -33,8 +38,8 @@
           <button type="button" role="tab" id="tabLogin" aria-selected="true">登入</button>
           <button type="button" role="tab" id="tabRegister" aria-selected="false">用實驗室密碼加入</button>
         </div>
-        <h1 id="authTitle">登入</h1>
-        <p id="authSub" class="intro">登入以觀看直播留檔</p>
+        <h2 id="authTitle">歡迎回來</h2>
+        <p id="authSub" class="intro">用你的 Email 和密碼登入</p>
         <form id="authForm" novalidate>
           <label class="field"><span class="label">Email</span>
             <input class="input" id="email" type="email" autocomplete="email" inputmode="email" required>
@@ -53,7 +58,8 @@
           <button class="btn primary lg block" id="authSubmit" type="submit" style="margin-top: 24px">登入</button>
         </form>
       </section>
-      <p class="auth-foot">僅限實驗室研究員．忘記密碼請聯絡管理員重設．<a href="#" id="authTutorial">第一次使用？看使用教學</a></p>
+      <p class="auth-foot">僅限實驗室研究員。忘記密碼請聯絡管理員重設。<a href="#" id="authTutorial">第一次使用？看使用教學</a></p>
+    </div>
     </div>
   </main>
 </div>
@@ -186,7 +192,7 @@
           </div>
           <form class="note-form" id="noteForm">
             <button class="note-at num" type="button" id="noteAt" title="筆記會記在這個時間點，按一下改成目前播放位置">0:00</button>
-            <textarea class="textarea" id="noteBody" rows="2" maxlength="2000" placeholder="在這個時間點記一筆，例如：這裡的停損放法要再看一次（按 N 也能開始寫）"></textarea>
+            <textarea class="textarea" id="noteBody" rows="2" maxlength="2000" placeholder="記下這個時間點的重點（按 N 也能開始寫）"></textarea>
             <button class="btn primary sm" type="submit" id="noteSave">記下來</button>
           </form>
           <div class="note-list" id="noteList"></div>

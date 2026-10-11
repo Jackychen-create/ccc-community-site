@@ -44,10 +44,10 @@ export function fileRow(a) {
   );
 }
 
-// 空白／錯誤提示；onRetry 有給就多一顆「重新整理」
-export function emptyBox(title, text, onRetry) {
+// 空白／錯誤提示；onRetry 有給就多一顆「重新整理」；ico 依內容換（film、note、chat、book；出錯一律 alert）
+export function emptyBox(title, text, onRetry, ico = "film") {
   const box = el("div", { class: "empty" },
-    el("span", { html: icons.film, style: { display: "block" } }),
+    el("span", { html: icons[onRetry ? "alert" : ico] || icons.film, style: { display: "block" } }),
     el("h2", { text: title }),
     el("p", { class: "small", text })
   );

@@ -24,7 +24,8 @@ const end = (() => { const [y, m, dd] = today.split("-").map(Number); const last
   await login(p, "amy@example.com"); await p.waitForSelector(".vrow"); await p.waitForTimeout(800);
   check("研究員看得到本月交易量", await p.isVisible("#volPanel"));
   check("還沒填顯示尚未更新", (await p.textContent("#volPanel")).includes("尚未更新"));
-  check("三間交易所都列出", (await p.locator("#volPanel .vol-row").count()) === 3);
+  { const vt = await p.textContent("#volPanel"); check("三間交易所都列出", ["OKX", "Bybit", "UM"].every((ex) => vt.includes(ex))); }
+  check("還沒填不放空的進度條", (await p.locator("#volPanel .vol-row").count()) === 0);
   const banner = await p.textContent("#accessBanner");
   check("資格提醒寫出達標後再看一個月", banner.includes("達標那天起可以再看一個月") && banner.includes("330 萬"), banner);
   await p.screenshot({ path: "output/shots/v15-member-empty.png" });

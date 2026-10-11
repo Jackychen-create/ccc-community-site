@@ -137,3 +137,4 @@
   .course-row .vthumb { width: 84px; }
 }
 @media (prefers-reduced-motion: reduce) { .vthumb img { transition: none; } }
+.empty > span:first-child svg { width: 28px; height: 28px; }

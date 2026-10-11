@@ -47,8 +47,8 @@ function setMode(m) {
   $("#tabRegister").setAttribute("aria-selected", String(reg));
   $("#inviteRow").hidden = !reg;
   $("#invite").required = reg;
-  $("#authTitle").textContent = reg ? "加入實驗室" : "登入";
-  $("#authSub").textContent = reg ? "輸入實驗室密碼，建立你的帳號" : "登入以觀看直播留檔";
+  $("#authTitle").textContent = reg ? "加入實驗室" : "歡迎回來";
+  $("#authSub").textContent = reg ? "輸入實驗室密碼，建立你的帳號" : "用你的 Email 和密碼登入";
   $("#pwLabel").textContent = reg ? "設定你的登入密碼（至少 8 個字元）" : "密碼";
   $("#password").autocomplete = reg ? "new-password" : "current-password";
   $("#authSubmit").textContent = reg ? "建立帳號並登入" : "登入";
