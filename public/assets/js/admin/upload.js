@@ -49,7 +49,7 @@ window.addEventListener("beforeunload", (e) => {
 });
 
 async function uploadVideo(file) {
-  const ui = uploadRow(file.name, $("#uploads"));
+  const ui = uploadRow(file, $("#uploads"));
   const token = {};
   activeUploads.add(token);
   try {
@@ -101,7 +101,7 @@ async function uploadVideo(file) {
   } catch (e) {
     if (e.aborted) ui.remove();
     else {
-      ui.fail(e.message);
+      ui.fail(e.message, () => uploadVideo(file));
       A.report("upload", `影片上傳失敗：${e.message}`, { file: file.name, size: file.size });
     }
   } finally {

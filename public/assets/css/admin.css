@@ -45,14 +45,36 @@
 .drop svg { color: var(--ink-3); }
 .drop strong { color: var(--ink); font-weight: 700; }
 .uploads { display: grid; gap: 10px; margin-top: 14px; }
-.upload { padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); animation: rise .25s ease-out both; }
-.upload .row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
-.upload .name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
-.progress { height: 6px; margin-top: 10px; border-radius: 999px; background: var(--line-strong); overflow: hidden; }
-.progress i { display: block; height: 100%; width: 0; background: var(--amber); }
+.upload { padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); animation: rise .25s ease-out both; transition: border-color .2s, background-color .2s; }
+.up-head { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto auto; align-items: center; gap: 4px 14px; }
+.up-ico { display: grid; place-items: center; width: 40px; height: 40px; border-radius: var(--r-sm); background: var(--surface-2); color: var(--ink-3); }
+.up-ico svg { width: 20px; height: 20px; }
+.up-main { min-width: 0; }
+.up-name { display: flex; align-items: baseline; min-width: 0; font-size: 15px; font-weight: 500; line-height: 1.4; color: var(--ink); }
+.up-base { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.up-meta { display: flex; flex-wrap: wrap; gap: 2px 12px; margin-top: 3px; font-size: 13px; color: var(--ink-3); }
+.up-live { color: var(--amber); }
+.up-actions { display: flex; align-items: center; gap: 6px; }
+.up-actions .btn svg { width: 14px; height: 14px; }
+.up-note { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; font-size: 13px; line-height: 1.6; color: var(--ink-2); }
+.up-note svg { flex: none; margin-top: 3px; width: 14px; height: 14px; color: var(--warn); }
+.progress { height: 6px; margin-top: 12px; border-radius: 999px; background: var(--line-strong); overflow: hidden; }
+.progress i { display: block; height: 100%; width: 0; background: var(--amber); transition: width .3s ease-out; }
 .progress.active i { animation: pulse 1.1s ease-in-out infinite alternate; }
 .progress.done i { background: var(--down); }
-.progress.fail i { background: var(--up); }
+.progress.fail i { background: var(--warn); }
+/* 完成：綠色勾 */
+.upload.is-done .up-ico { background: color-mix(in srgb, var(--down) 14%, transparent); color: var(--down); }
+/* 失敗：整列帶一點橘色，原因用白話寫在下面 */
+.upload.is-fail { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); background: color-mix(in srgb, var(--warn) 5%, var(--surface)); }
+.upload.is-fail .up-ico { background: var(--warn-soft); color: var(--warn); }
+.up-msg { display: grid; gap: 2px; margin-top: 12px; padding: 11px 14px; border-radius: var(--r-md); background: var(--warn-soft); font-size: 13.5px; line-height: 1.65; color: var(--ink-2); }
+.up-msg b { font-size: 14px; font-weight: 700; color: var(--warn); }
+@media (max-width: 640px) {
+  .up-head { grid-template-columns: 36px minmax(0, 1fr) auto; }
+  .up-ico { width: 36px; height: 36px; }
+  .up-actions { grid-column: 1 / -1; justify-content: flex-end; }
+}
 
 .switch { position: relative; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13.5px; color: var(--ink-2); }
 .switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }

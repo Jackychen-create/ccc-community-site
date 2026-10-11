@@ -344,7 +344,7 @@ async function removeAttachment(v, a, rerender) {
 }
 
 async function uploadAttachment(v, file, box, rerender) {
-  const ui = uploadRow(file.name, box);
+  const ui = uploadRow(file, box);
   try {
     const type = file.type || guessType(file.name) || "application/octet-stream";
     const { key, url, contentType } = await api("/api/admin/upload-url", {
@@ -363,7 +363,7 @@ async function uploadAttachment(v, file, box, rerender) {
     rerender();
     renderVideos();
   } catch (e) {
-    ui.fail(e.message);
+    ui.fail(e.message, () => uploadAttachment(v, file, box, rerender));
     A.report("upload", `教材上傳失敗：${e.message}`, { file: file.name, size: file.size });
   }
 }
