@@ -260,6 +260,9 @@ async function login(page, email) {
   await ctx.close();
 
   await browser.close();
+  // 程式錯誤（pageerror）一定要是 0；網路的 400／404 是測試故意的，不算
+  const pageErrors = [...new Set(problems.filter((x) => x.includes("pageerror")))];
+  check("沒有頁面錯誤", !pageErrors.length, pageErrors.join(" | "));
   console.log(results.join("\n"));
   console.log("\n--- console / page errors ---");
   console.log(problems.length ? [...new Set(problems)].join("\n") : "(none)");
