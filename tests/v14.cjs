@@ -21,6 +21,13 @@ const errs = [];
   // ── 研究員 ──
   let [c, p] = await ctx({ width: 1440, height: 900 });
   await login(p, "amy@example.com"); await p.waitForSelector(".vrow"); await p.waitForTimeout(800);
+  // 封面：列表每一列都有封面格，有設封面的顯示圖片；播放器按播放前顯示封面
+  check("列表每一列都有封面格", (await p.locator(".vrow .vthumb").count()) === (await p.locator(".vrow").count()));
+  check("有封面的場次顯示封面圖", (await p.locator(".vrow .vthumb img").count()) >= 1);
+  await p.evaluate(() => (location.hash = "#/v/6")); await p.waitForSelector("#watchView:not([hidden])"); await p.waitForTimeout(500);
+  check("播放器先顯示封面", /thumb/.test((await p.getAttribute("#video", "poster")) || ""), await p.getAttribute("#video", "poster"));
+  await p.evaluate(() => (location.hash = "#/")); await p.waitForSelector("#listView:not([hidden])"); await p.waitForTimeout(500);
+  check("離開播放頁會清掉封面", !(await p.getAttribute("#video", "poster")));
   check("資格快到期會提醒", (await p.isVisible("#accessBanner")) && (await p.textContent("#accessBanner")).includes("還有 5 天"), await p.textContent("#accessBanner"));
 
   await p.fill("#search", "追單"); await p.waitForTimeout(300);

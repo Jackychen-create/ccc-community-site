@@ -4,7 +4,7 @@ import { COURSE_HOSTS } from "../shared/rules.js";
 import { state, SITE } from "./state.js";
 import { showPage } from "./views.js";
 import { md } from "./format.js";
-import { statusOf, emptyBox, skelRow } from "./widgets.js";
+import { statusOf, coverThumb, emptyBox, skelRow } from "./widgets.js";
 
 export async function loadCourse() {
   try {
@@ -71,10 +71,10 @@ function renderCourse() {
       ? el("span", { class: "st todo" }, el("span", { html: icons.lock }), `${md(s.unlock_on)} 解鎖`)
       : !v ? el("span", { class: "st todo", text: "準備中" })
       : statusOf(v);
-    const body = el("span", { style: { minWidth: "0" } },
-      el("div", { class: "vtitle" }, el("span", { class: "host", text: s.host }), " ", el("span", { text: `第 ${s.part} 份` }), v?.title ? el("span", { class: "course-title", text: `　${v.title}` }) : null),
+    const body = el("span", { class: "vmain" }, coverThumb(v, { locked: !s.unlocked }), el("span", { class: "vtext" },
+      el("div", { class: "vtitle" }, el("span", { class: "host", text: s.host }), " ", el("span", { class: "cpart", text: `第 ${s.part} 份` }), v?.title ? el("span", { class: "course-title", text: `　${v.title}` }) : null),
       v?.description && s.unlocked ? el("div", { class: "vdesc", text: v.description }) : null,
-      s.unlocked && v?.duration_sec ? el("div", { class: "vm" }, el("span", { text: fmtDur(v.duration_sec) })) : null);
+      s.unlocked && v?.duration_sec ? el("div", { class: "vm" }, el("span", { text: fmtDur(v.duration_sec) })) : null));
     const cls = "vrow course-row" + (s.unlocked ? "" : " locked") + (s.unlocked && v?.id ? "" : " static");
     const kids = [
       el("span", { class: "vdate" }, `${s.week}`, el("small", { text: `第 ${s.week} 週` })),

@@ -62,7 +62,7 @@ async function detail(res, ctx, id) {
   const { user, isAdmin, member } = ctx;
   const { data: v, error } = await supabaseAdmin
     .from("videos")
-    .select("id, title, description, published_at, duration_sec, r2_key, is_published, hosts, chapters, course_host, course_part")
+    .select("id, title, description, published_at, duration_sec, r2_key, thumb_key, is_published, hosts, chapters, course_host, course_part")
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;
@@ -110,6 +110,7 @@ async function detail(res, ctx, id) {
     chapters: v.chapters || [],
     course_host: v.course_host || null,
     course_part: v.course_part || null,
+    thumb_url: v.thumb_key ? await signGet(v.thumb_key, { expiresIn: 12 * 60 * 60 }) : null,
     url: await signGet(v.r2_key),
     position_sec: p?.position_sec ?? 0,
     attachments,

@@ -3,7 +3,7 @@ import { $, el, api, icon, cfg, report, countUp, fmtDur, placeholderSvg } from "
 import { state } from "./state.js";
 import { showPage, onLeavePage, handleErr } from "./views.js";
 import { shortDate, weekday, monthKey, monthLabel, pctOf, isWatched, isInProgress, isNew } from "./format.js";
-import { statusOf, hostTags, thumbBox, emptyBox, skelRow } from "./widgets.js";
+import { statusOf, hostTags, thumbBox, coverThumb, emptyBox, skelRow } from "./widgets.js";
 import { loadCourse } from "./course.js";
 import { loadRecentNotes } from "./notes.js";
 
@@ -162,12 +162,15 @@ function row(v) {
   const files = v.attachment_count || 0;
   return el("a", { class: "vrow" + (fresh ? " is-new" + (state.ticked ? "" : " tick") : ""), href: `#/v/${v.id}` },
     el("span", { class: "vdate" }, shortDate(v.published_at), el("small", { text: weekday(v.published_at) })),
-    el("span", { style: { minWidth: "0" } },
-      el("div", { class: "vtitle", text: v.title }),
-      v.description ? el("div", { class: "vdesc", text: v.description }) : null,
-      hostTags(v),
-      chapterHits(v),
-      el("div", { class: "vm" }, el("span", { text: dur }), files ? el("span", { text: `教材 ${files}` }) : null)
+    el("span", { class: "vmain" },
+      coverThumb(v, { badge: shortDate(v.published_at) }),
+      el("span", { class: "vtext" },
+        el("div", { class: "vtitle", text: v.title }),
+        v.description ? el("div", { class: "vdesc", text: v.description }) : null,
+        hostTags(v),
+        chapterHits(v),
+        el("div", { class: "vm" }, el("span", { text: dur }), files ? el("span", { text: `教材 ${files}` }) : null)
+      )
     ),
     el("span", { class: "vfig r" + (v.duration_sec ? "" : " dim"), text: dur }),
     el("span", { class: "vfig r" + (files ? "" : " dim"), text: files ? String(files) : "—" }),

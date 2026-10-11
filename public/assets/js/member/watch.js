@@ -116,6 +116,9 @@ export async function openWatch(id, { t = null } = {}) {
 
   video.defaultPlaybackRate = store.get("speed", 1);
   startWatermark();
+  // 按播放前先顯示封面
+  if (d.thumb_url) video.poster = d.thumb_url;
+  else video.removeAttribute("poster");
   video.src = d.url;
   if (!state.loadedList) {
     api("/api/videos").then((r) => {
@@ -197,6 +200,7 @@ export function leaveWatch() {
   stopWatermark();
   video.pause();
   video.removeAttribute("src");
+  video.removeAttribute("poster");
   video.load();
 }
 onLeavePage(leaveWatch);
