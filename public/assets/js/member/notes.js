@@ -112,7 +112,7 @@ export async function openNotes() {
   }
   $("#notesCount").textContent = all.length ? `共 ${all.length} 則` : "";
   if (!all.length) {
-    box.replaceChildren(emptyBox("還沒有筆記", "看影片時在播放器下方寫一句，就會出現在這裡。"));
+    box.replaceChildren(emptyBox("還沒有筆記", "看影片時在播放器下方寫一句，就會出現在這裡。", null, "note"));
     return;
   }
   const groups = new Map();

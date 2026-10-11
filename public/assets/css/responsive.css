@@ -75,3 +75,10 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* 手機：篩選一列橫向滑動，不換成兩行 */
+@media (max-width: 720px) {
+  #chips { flex-wrap: nowrap; overflow-x: auto; margin-right: -14px; padding-right: 14px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  #chips::-webkit-scrollbar { display: none; }
+  #chips > * { flex: none; }
+}

@@ -62,7 +62,7 @@ export async function openFeedback() {
   }
   if (state.me) { state.me.feedbackUnread = 0; renderMenu(); }
   $("#feedbackCount").textContent = list.length ? `共 ${list.length} 則` : "";
-  if (!list.length) return box.replaceChildren(emptyBox("還沒有提問", "看影片時按「提問」，就能針對那個時間點發問。"));
+  if (!list.length) return box.replaceChildren(emptyBox("還沒有提問", "看影片時按「提問」，就能針對那個時間點發問。", null, "chat"));
   box.replaceChildren(...list.map((f) =>
     el("article", { class: "fb" + (f.is_new ? " is-new" : "") },
       el("div", { class: "fb-head" },
