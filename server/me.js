@@ -1,13 +1,17 @@
 // GET   /api/me            目前登入者的身分、觀看資格到期日、通知設定
 // PATCH /api/me { notify }  研究員自己開關「新影片寄信通知」
-import { supabaseAdmin, requireMember, readBody, route, EXCHANGES, getThreshold, thisMonthTW, isQualified, cycleEnd } from "./lib/index.js";
+import { supabaseAdmin, requireMember, readBody, route, EXCHANGES, getThreshold, thisMonthTW, isQualified, cycleEnd, bingxConfigured } from "./lib/index.js";
 
 export default route({
   async GET(req, res) {
     const ctx = await requireMember(req, res);
     if (!ctx) return;
     let volume = null;
+    let bingx = null;
     if (ctx.member) {
+      // BingX：有沒有設定好自動同步、這位研究員綁了哪個 UID
+      const { data: link } = await supabaseAdmin.from("exchange_links").select("exchange_uid, bound_at").eq("user_id", ctx.user.id).eq("exchange", "BingX").maybeSingle();
+      bingx = { enabled: bingxConfigured(), uid: link?.exchange_uid || null, boundAt: link?.bound_at || null };
       const month = thisMonthTW();
       const [threshold, { data: row }] = await Promise.all([
         getThreshold(),
@@ -33,6 +37,7 @@ export default route({
       accessUntil: ctx.member?.access_until || null,
       notify: ctx.member ? ctx.member.notify !== false : null,
       volume,
+      bingx,
     });
   },
 

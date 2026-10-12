@@ -250,3 +250,18 @@ revoke execute on function public.admin_member_progress() from public, anon, aut
 revoke execute on function public.admin_video_stats() from public, anon, authenticated;
 grant execute on function public.admin_member_progress() to service_role;
 grant execute on function public.admin_video_stats() to service_role;
+
+-- ─────────────────────────────────────────────
+-- v1.8：研究員綁定交易所帳號（BingX），網站每天自動同步交易量
+-- ─────────────────────────────────────────────
+create table if not exists public.exchange_links (
+  user_id       uuid not null references auth.users(id) on delete cascade,
+  exchange      text not null check (exchange in ('BingX')),
+  exchange_uid  text not null check (exchange_uid ~ '^\d{5,15}$'),
+  direct        boolean,                              -- BingX 回覆是不是直屬邀請
+  bound_at      timestamptz not null default now(),
+  primary key (user_id, exchange),
+  unique (exchange, exchange_uid)                     -- 一個 BingX UID 只能綁一位研究員
+);
+alter table public.exchange_links enable row level security;
+-- 上次同步結果存在 settings 的 bingx_sync（不用另外建表）

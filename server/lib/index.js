@@ -10,3 +10,5 @@ export * from "./buckets.js";
 export * from "./text.js";
 export * from "./random.js";
 export * from "./http.js";
+export * from "./bingx.js";
+export * from "./bingx-sync.js";

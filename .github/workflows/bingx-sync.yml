@@ -1,0 +1,24 @@
+# 每天自動同步 BingX 交易量：呼叫網站的 /api/cron/bingx
+# 需要在 GitHub 的 Settings → Secrets and variables → Actions 加一個 CRON_SECRET，
+# 值跟 Cloudflare Pages 環境變數 CRON_SECRET 一樣（還沒設定時這個排程會直接跳過，不會失敗）
+name: 每日同步 BingX
+
+on:
+  schedule:
+    - cron: "17 18 * * *" # 每天台灣時間 02:17（UTC 18:17）
+  workflow_dispatch: # 也可以在 GitHub 的 Actions 頁面手動按一次
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 同步
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE_URL: ${{ vars.SITE_URL || 'https://ccc-community-site.pages.dev' }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then echo "還沒設定 CRON_SECRET，跳過"; exit 0; fi
+          code=$(curl -sS -o out.json -w "%{http_code}" -X POST "$SITE_URL/api/cron/bingx" -H "X-Cron-Secret: $CRON_SECRET")
+          cat out.json; echo
+          [ "$code" = "200" ] || { echo "同步失敗（HTTP $code）"; exit 1; }
