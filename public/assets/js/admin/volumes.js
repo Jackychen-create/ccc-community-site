@@ -5,8 +5,11 @@ import { cycleEnd } from "../shared/rules.js";
 import { fail, loadingBox } from "./common.js";
 import { markMembersStale } from "./members.js";
 
-// 每月交易量（OKX、Bybit、UM 任一間達標 → 從達標日起看一個月）
+// 每月交易量（任一間達標 → 從達標日起看一個月）；BingX 是自動同步的，這裡只顯示不能改
 let vol = null; // 伺服器回來的這個月資料
+let bingx = null; // BingX 同步狀態 /api/admin/bingx
+const isAuto = (ex) => (vol?.autoExchanges || []).includes(ex);
+const manualExchanges = () => vol.exchanges.filter((ex) => !isAuto(ex));
 const fmtUsd = (n) => (Number(n) || 0).toLocaleString("en-US", { maximumFractionDigits: 2 });
 const parseAmount = (t) => {
   const s = String(t || "").replace(/[,\s，]/g, "").replace(/usdt?$/i, "");
@@ -30,7 +33,10 @@ export async function loadVolumes() {
   const box = $("#volBox");
   box.replaceChildren(loadingBox());
   try {
-    vol = await api(`/api/admin/volumes?month=${encodeURIComponent($("#volMonth").value)}`);
+    [vol, bingx] = await Promise.all([
+      api(`/api/admin/volumes?month=${encodeURIComponent($("#volMonth").value)}`),
+      api("/api/admin/bingx").catch(() => null),
+    ]);
     renderVolumes();
   } catch (e) {
     fail(e);
@@ -67,8 +73,9 @@ function renderVolumes() {
     const map = {};
     const result = el("td", { class: "vol-result" });
     const cells = exchanges.map((ex) => {
-      const inp = el("input", { class: "input vol-input num", type: "text", inputmode: "decimal", "aria-label": `${r.email} ${ex} 交易量`, placeholder: "0",
-        value: r.amounts?.[ex] ? fmtUsd(r.amounts[ex]) : "" });
+      const auto = isAuto(ex);
+      const inp = el("input", { class: "input vol-input num" + (auto ? " auto" : ""), type: "text", inputmode: "decimal", "aria-label": `${r.email} ${ex} 交易量`, placeholder: auto ? "—" : "0",
+        value: r.amounts?.[ex] ? fmtUsd(r.amounts[ex]) : "", readonly: auto, title: auto ? `${ex} 每天自動同步，不用手動填` : null });
       inp.addEventListener("input", () => {
         dirty.add(r.user_id);
         saveBtn.disabled = false;
@@ -80,6 +87,7 @@ function renderVolumes() {
         if (n !== null && !Number.isNaN(n)) inp.value = fmtUsd(n);
       });
       map[ex] = inp;
+      if (auto) return el("td", { "data-label": ex }, inp, el("div", { class: "small muted vol-uid", text: r.bingx_uid ? `UID ${r.bingx_uid}` : "未綁定" }));
       return el("td", { "data-label": ex }, inp);
     });
     inputs.set(r.user_id, map);
@@ -94,9 +102,10 @@ function renderVolumes() {
       el("td", { class: "small hide-sm", text: accessText(r) }));
   });
   box.replaceChildren(
+    bingxBar(),
     el("div", { class: "table-wrap" },
       el("table", { class: "table stack vol-table" },
-        el("thead", null, el("tr", null, el("th", { text: "研究員" }), ...exchanges.map((ex) => el("th", { text: `${ex}（USDT）` })), el("th", { text: "結果" }), el("th", { class: "hide-sm", text: "觀看資格" }))),
+        el("thead", null, el("tr", null, el("th", { text: "研究員" }), ...exchanges.map((ex) => el("th", { text: isAuto(ex) ? `${ex}（自動）` : `${ex}（USDT）` })), el("th", { text: "結果" }), el("th", { class: "hide-sm", text: "觀看資格" }))),
         el("tbody", null, trs))),
     el("div", { class: "vol-foot" },
       el("p", { class: "small muted", text: "可以打 3300000、3,300,000、330萬 或 3.3m。這次新達標的人，資格延長到「達標日」起一個月；這個月已經達標過的不會再延；「不限」的研究員不會被改。" }),
@@ -110,7 +119,7 @@ function renderVolumes() {
     const out = [];
     for (const id of dirty) {
       const amounts = {};
-      for (const ex of exchanges) {
+      for (const ex of manualExchanges()) {
         const n = parseAmount(inputs.get(id)[ex].value);
         if (Number.isNaN(n)) return A.toast("有數字看不懂（紅框），請修正後再存", "err");
         if (n !== null) amounts[ex] = n;
@@ -130,6 +139,35 @@ function renderVolumes() {
       fail(e);
     }
   });
+}
+
+// BingX 同步狀態列：設定好了沒、上次同步、立即同步
+function bingxBar() {
+  if (!bingx) return null;
+  if (!bingx.configured) {
+    return el("div", { class: "bx-bar" }, el("span", { class: "small muted", text: "BingX 自動同步還沒設定：要在 Cloudflare 填 BINGX_API_KEY、BINGX_SECRET_KEY（說明在 docs/部署與設定.md）。" }));
+  }
+  const last = bingx.last;
+  const text = !last ? "還沒同步過"
+    : last.ok ? `上次同步 ${A.fmtRel(last.at)}`
+    : `上次同步失敗（${A.fmtRel(last.at)}）：${last.error || ""}`;
+  const btn = el("button", { class: "btn sm", type: "button", text: "立即同步 BingX" });
+  btn.addEventListener("click", async () => {
+    A.setBusy(btn, true, "同步中…");
+    try {
+      const r = await api("/api/admin/bingx", { method: "POST" });
+      const ext = r.months.reduce((a, m) => a + (m.extended || 0), 0);
+      A.toast(ext ? `已同步，${ext} 位的資格延長了` : "已同步 BingX 交易量");
+      markMembersStale();
+      loadVolumes();
+    } catch (e) {
+      A.setBusy(btn, false);
+      fail(e);
+    }
+  });
+  return el("div", { class: "bx-bar" + (last && !last.ok ? " bad" : "") },
+    el("span", { class: "small" }, el("b", { text: "BingX" }), `　已綁定 ${bingx.linked} 位・每天自動同步・`, el("span", { class: last && !last.ok ? "warn-text" : "muted", text })),
+    btn);
 }
 
 // 修改門檻
@@ -175,14 +213,14 @@ $("#volPaste").addEventListener("click", () => {
   const apply = el("button", { class: "btn primary", type: "button", text: "填進表格" });
   const m = A.modal({
     title: "貼上一整批交易量",
-    body: el("div", null, el("p", { class: "small sub", style: { marginTop: "14px" }, text: `從交易所後台或試算表複製，順序是 ${vol.exchanges.join("、")}。填進表格後檢查一下，再按「儲存這個月的交易量」。` }), el("div", { class: "field" }, ta), out),
+    body: el("div", null, el("p", { class: "small sub", style: { marginTop: "14px" }, text: `從交易所後台或試算表複製，順序是 ${manualExchanges().join("、")}。填進表格後檢查一下，再按「儲存這個月的交易量」。` }), el("div", { class: "field" }, ta), out),
     actions: [el("button", { class: "btn", type: "button", text: "取消", onclick: () => m.close() }), apply],
   });
   let done = false;
   apply.addEventListener("click", () => {
     if (done) return m.close();
     const byEmail = new Map(vol.rows.map((r) => [r.email.toLowerCase(), r.user_id]));
-    const exLower = new Map(vol.exchanges.map((e) => [e.toLowerCase(), e]));
+    const exLower = new Map(manualExchanges().map((e) => [e.toLowerCase(), e]));
     let filled = 0;
     const missing = [];
     const bad = [];
@@ -201,12 +239,12 @@ $("#volPaste").addEventListener("click", () => {
         const n = parseAmount(parts.slice(2).join(""));
         if (n === null || Number.isNaN(n)) return bad.push(i + 1);
         map[exLower.get(parts[1].toLowerCase())].value = fmtUsd(n);
-      } else if (parts.length === vol.exchanges.length + 1) {
+      } else if (parts.length === manualExchanges().length + 1) {
         const nums = parts.slice(1).map(parseAmount);
         if (nums.some((n) => n === null || Number.isNaN(n))) return bad.push(i + 1);
         vol.exchanges.forEach((ex, k) => (map[ex].value = fmtUsd(nums[k])));
       } else return bad.push(i + 1);
-      map[vol.exchanges[0]].dispatchEvent(new Event("input"));
+      map[manualExchanges()[0]].dispatchEvent(new Event("input"));
       filled++;
     });
     if (bad.length || missing.length) {

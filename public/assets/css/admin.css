@@ -105,3 +105,9 @@
 .stat-cell { display: flex; align-items: baseline; gap: 2px; }
 .stat-n { font-size: 19px; font-weight: 700; }
 .table td .usage { margin-top: 6px; min-width: 120px; }
+/* 交易量：BingX 自動同步 */
+.bx-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
+.bx-bar.bad { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+.bx-bar b { color: var(--amber); }
+.vol-input.auto { background: transparent; border-style: dashed; color: var(--ink-2); cursor: default; }
+.vol-uid { margin-top: 4px; font-family: var(--f-num); }

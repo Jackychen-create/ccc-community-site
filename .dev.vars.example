@@ -18,3 +18,10 @@ ADMIN_EMAILS=you@example.com,friend@example.com
 BREVO_API_KEY=
 MAIL_FROM=
 MAIL_FROM_NAME=CCC 交易實驗室
+
+# BingX 代理商 API（選用，唯讀）。沒填就不會自動同步 BingX 交易量，研究員也看不到「綁定 BingX」
+BINGX_API_KEY=
+BINGX_SECRET_KEY=
+
+# 每日排程呼叫 /api/cron/bingx 用的密碼（自己產生一串亂碼；GitHub 的 Actions secret 也要填一樣的）
+CRON_SECRET=

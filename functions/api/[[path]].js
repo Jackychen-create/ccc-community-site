@@ -10,6 +10,9 @@ import notes from "../../server/notes.js";
 import course from "../../server/course.js";
 import feedback from "../../server/feedback.js";
 import report from "../../server/report.js";
+import exchangeLink from "../../server/exchange-link.js";
+import adminBingx from "../../server/admin/bingx.js";
+import cronBingx from "../../server/cron/bingx.js";
 import adminFeedback from "../../server/admin/feedback.js";
 import adminErrors from "../../server/admin/errors.js";
 import adminFollowup from "../../server/admin/followup.js";
@@ -32,6 +35,9 @@ const ROUTES = {
   "course": course,
   "feedback": feedback,
   "report": report,
+  "exchange-link": exchangeLink,
+  "admin/bingx": adminBingx,
+  "cron/bingx": cronBingx,
   "admin/feedback": adminFeedback,
   "admin/errors": adminErrors,
   "admin/followup": adminFollowup,
