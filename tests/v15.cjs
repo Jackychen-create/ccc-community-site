@@ -24,10 +24,10 @@ const end = (() => { const [y, m, dd] = today.split("-").map(Number); const last
   await login(p, "amy@example.com"); await p.waitForSelector(".vrow"); await p.waitForTimeout(800);
   check("研究員看得到本月交易量", await p.isVisible("#volPanel"));
   check("還沒填顯示尚未更新", (await p.textContent("#volPanel")).includes("尚未更新"));
-  { const vt = await p.textContent("#volPanel"); check("三間交易所都列出", ["OKX", "Bybit", "UM"].every((ex) => vt.includes(ex))); }
+  { const vt = await p.textContent("#volPanel"); check("交易所都列出（UM 先不算）", ["OKX", "Bybit", "BingX"].every((ex) => vt.includes(ex)) && !/\bUM\b/.test(vt)); }
   check("還沒填不放空的進度條", (await p.locator("#volPanel .vol-row").count()) === 0);
   const banner = await p.textContent("#accessBanner");
-  check("資格提醒寫出達標後再看一個月", banner.includes("達標那天起可以再看一個月") && banner.includes("330 萬"), banner);
+  check("資格提醒寫出達標後再看一個月", banner.includes("達標那天起可以再看一個月") && banner.includes("100 萬"), banner);
   await p.screenshot({ path: "output/shots/v15-member-empty.png" });
   await c.close();
 
@@ -36,17 +36,17 @@ const end = (() => { const [y, m, dd] = today.split("-").map(Number); const last
   await login(p, "boss@gmail.com"); await p.waitForSelector("#appView:not([hidden])");
   await p.goto(BASE + "/admin#volumes"); await p.waitForSelector(".vol-table"); await p.waitForTimeout(400);
   check("後台交易量頁", (await p.textContent("#volSub")).includes("0／2"), await p.textContent("#volSub"));
-  check("門檻按鈕 330 萬", (await p.textContent("#volThreshold")).includes("330 萬"));
+  check("門檻按鈕 100 萬", (await p.textContent("#volThreshold")).includes("100 萬"));
   const amy = "tr:has-text('amy@example.com')", ban = "tr:has-text('banned@example.com')";
-  await p.fill(`${amy} input[aria-label$='OKX 交易量']`, "330萬");
-  check("330萬 即時顯示達標", (await p.textContent(`${amy} .vol-result`)).includes("達標"));
-  await p.fill(`${ban} input[aria-label$='Bybit 交易量']`, "1.2m");
-  check("1.2m 顯示還差 210 萬", (await p.textContent(`${ban} .vol-result`)).includes("還差 210 萬"), await p.textContent(`${ban} .vol-result`));
-  await p.fill(`${ban} input[aria-label$='UM 交易量']`, "abc");
-  check("看不懂的數字標紅框", (await p.getAttribute(`${ban} input[aria-label$='UM 交易量']`, "class")).includes("bad"));
+  await p.fill(`${amy} input[aria-label$='OKX 交易量']`, "100萬");
+  check("100萬 即時顯示達標", (await p.textContent(`${amy} .vol-result`)).includes("達標"));
+  await p.fill(`${ban} input[aria-label$='Bybit 交易量']`, "0.6m");
+  check("0.6m 顯示還差 40 萬", (await p.textContent(`${ban} .vol-result`)).includes("還差 40 萬"), await p.textContent(`${ban} .vol-result`));
+  await p.fill(`${ban} input[aria-label$='OKX 交易量']`, "abc");
+  check("看不懂的數字標紅框", (await p.getAttribute(`${ban} input[aria-label$='OKX 交易量']`, "class")).includes("bad"));
   await p.click(".vol-foot .btn.primary"); await p.waitForTimeout(300);
   check("有錯不能存", (await p.textContent(".toast:last-child")).includes("看不懂"));
-  await p.fill(`${ban} input[aria-label$='UM 交易量']`, "");
+  await p.fill(`${ban} input[aria-label$='OKX 交易量']`, "");
   await p.screenshot({ path: "output/shots/v15-admin-filled.png" });
   await p.click(".vol-foot .btn.primary"); await p.waitForTimeout(600);
   const toast = await p.textContent(".toast:last-child");
@@ -54,16 +54,16 @@ const end = (() => { const [y, m, dd] = today.split("-").map(Number); const last
   check("表格顯示新資格", (await p.textContent(amy)).includes(`到 ${end}`));
   check("顯示誰更新", (await p.textContent(amy)).includes("由 boss 更新"));
   check("達標人數 1／2", (await p.textContent("#volSub")).includes("1／2"));
-  check("輸入框格式化成千分位", (await p.inputValue(`${amy} input[aria-label$='OKX 交易量']`)) === "3,300,000");
+  check("輸入框格式化成千分位", (await p.inputValue(`${amy} input[aria-label$='OKX 交易量']`)) === "1,000,000");
   // 門檻
   await p.click("#volThreshold"); await p.waitForTimeout(200);
   await p.fill(".modal input", "500萬"); await p.click(".modal-foot .btn.primary"); await p.waitForTimeout(600);
   check("門檻改成 500 萬", (await p.textContent("#volThreshold")).includes("500 萬"));
-  check("新門檻重新判斷", (await p.textContent("#volSub")).includes("0／2") && (await p.textContent(`${amy} .vol-result`)).includes("還差 170 萬"));
+  check("新門檻重新判斷", (await p.textContent("#volSub")).includes("0／2") && (await p.textContent(`${amy} .vol-result`)).includes("還差 400 萬"));
   check("資格不會被收回", (await p.textContent(amy)).includes(`到 ${end}`));
   // 貼上一整批
   await p.click("#volPaste"); await p.waitForTimeout(200);
-  await p.fill(".modal textarea", "amy@example.com 0 5,200,000 0\nnobody@x.com OKX 1\nbanned@example.com\tUM\t600萬");
+  await p.fill(".modal textarea", "amy@example.com 0 5,200,000\nnobody@x.com OKX 1\nbanned@example.com\tOKX\t600萬");
   await p.screenshot({ path: "output/shots/v15-paste.png" });
   await p.click(".modal-foot .btn.primary"); await p.waitForTimeout(200);
   const hint = await p.textContent(".modal .hint");
@@ -71,7 +71,7 @@ const end = (() => { const [y, m, dd] = today.split("-").map(Number); const last
   await p.click(".modal-foot .btn.primary"); await p.waitForTimeout(300);
   check("知道了會關掉視窗", !(await p.isVisible(".modal")));
   check("貼上：千分位數字正確", (await p.inputValue(`${amy} input[aria-label$='Bybit 交易量']`)) === "5,200,000");
-  check("貼上：Tab 分隔正確", (await p.inputValue(`${ban} input[aria-label$='UM 交易量']`)) === "6,000,000");
+  check("貼上：Tab 分隔正確", (await p.inputValue(`${ban} input[aria-label$='OKX 交易量']`)) === "6,000,000");
   await p.click(".vol-foot .btn.primary"); await p.waitForTimeout(600);
   check("兩位都達標", (await p.textContent("#volSub")).includes("2／2"));
   await p.screenshot({ path: "output/shots/v15-admin.png", fullPage: true });

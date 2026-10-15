@@ -2,6 +2,7 @@
 import { $, el, icons, fmtRel, api, modal, confirmDialog, setBusy, toast, cfg } from "../core/index.js";
 import { state } from "./state.js";
 import { DAY, md, fmtWan } from "./format.js";
+import { AUTO_EXCHANGES } from "../shared/rules.js";
 
 // 每月資格：到期前 7 天提醒
 export function renderAccessBanner() {
@@ -27,7 +28,7 @@ function volHint(v) {
   return v.qualified ? `下個月${rule}，達標那天起可以再看一個月。` : `這個月${rule}，達標那天起可以再看一個月。`;
 }
 
-// 右欄：本月交易量（OKX、Bybit、UM 管理員在後台填；BingX 綁定 UID 後每天自動更新；任一間達標就有資格）
+// 右欄：本月交易量（OKX、Bybit 管理員在後台填；BingX 綁定 UID 後每天自動更新；任一間達標就有資格）
 export function renderVolPanel() {
   const box = $("#volPanel");
   const v = state.me?.volume;
@@ -50,7 +51,7 @@ export function renderVolPanel() {
           el("span", { class: "track" }, el("i", { style: { width: Math.min(100, (n / v.threshold) * 100) + "%" } })));
       })),
     bingxRow(),
-    el("p", { class: "small muted vol-note", text: (v.qualifiedAt ? `${md(v.qualifiedAt)} 達標，可以看到 ${md(v.qualifiedUntil)}。` : `${v.amounts ? "任一間" : `${v.exchanges.join("、")} 任一間`}當月成交金額達 ${fmtWan(v.threshold)} USDT，達標那天起可以看一個月（例如 10/15 達標，看到 11/14）。`) + (v.updatedAt ? `上次更新：${fmtRel(v.updatedAt)}。` : "OKX、Bybit、UM 由管理員每月更新。") }),
+    el("p", { class: "small muted vol-note", text: (v.qualifiedAt ? `${md(v.qualifiedAt)} 達標，可以看到 ${md(v.qualifiedUntil)}。` : `${v.amounts ? "任一間" : `${v.exchanges.join("、")} 任一間`}當月成交金額達 ${fmtWan(v.threshold)} USDT，達標那天起可以看一個月（例如 10/15 達標，看到 11/14）。`) + (v.updatedAt ? `上次更新：${fmtRel(v.updatedAt)}。` : `${v.exchanges.filter((ex) => !AUTO_EXCHANGES.includes(ex)).join("、")} 由管理員每月更新。`) }),
   ].filter(Boolean));
 }
 

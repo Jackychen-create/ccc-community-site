@@ -265,3 +265,6 @@ create table if not exists public.exchange_links (
 );
 alter table public.exchange_links enable row level security;
 -- 上次同步結果存在 settings 的 bingx_sync（不用另外建表）
+
+-- ── v1.8.1：門檻改成 100 萬 USDT（UM 先不算，在 rules.js 的 EXCHANGES 拿掉，資料庫不用改）──
+update public.settings set value = '1000000'::jsonb where key = 'volume_threshold';
