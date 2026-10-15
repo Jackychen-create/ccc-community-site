@@ -6,6 +6,8 @@ import { cleanTitle, cleanChapters, toInt, isDate } from "../server/lib/text.js"
 import http from "node:http";
 import { env } from "../server/lib/env.js";
 import { buildCanonical, hmacHex, parseSafe, monthRanges, summarize, checkInvite, fetchDaily } from "../server/lib/bingx.js";
+import { bybitSign, bybitQuery, bybitRange, checkBybitClient, fetchBybitVolumes } from "../server/lib/bybit.js";
+import { syncMonths } from "../server/lib/autosync.js";
 
 let pass = 0, fail = 0;
 function test(name, fn) {
@@ -19,7 +21,7 @@ test("資格一輪：12/1 跨年 → 12/31", () => assert.equal(cycleEnd("2026-1
 test("資格一輪：12/20 跨年 → 1/19", () => assert.equal(cycleEnd("2026-12-20"), "2027-01-19"));
 test("日期加減跨月", () => assert.equal(addDays("2026-10-30", 3), "2026-11-02"));
 
-test("交易所：OKX、Bybit、BingX（UM 先不算），BingX 自動同步", () => { assert.deepEqual(EXCHANGES, ["OKX", "Bybit", "BingX"]); assert.deepEqual(AUTO_EXCHANGES, ["BingX"]); });
+test("交易所：OKX、Bybit、BingX（UM 先不算），Bybit、BingX 自動同步", () => { assert.deepEqual(EXCHANGES, ["OKX", "Bybit", "BingX"]); assert.deepEqual(AUTO_EXCHANGES, ["Bybit", "BingX"]); });
 test("預設門檻 100 萬", () => assert.equal(DEFAULT_THRESHOLD, 1000000));
 test("課程順序是 CCC → OC → X，各 6 份", () => { assert.deepEqual(COURSE_HOSTS, ["CCC", "OC", "X"]); assert.equal(COURSE_PARTS, 6); });
 test("課程：加入當天解鎖 CCC 第 1 份", () => assert.equal(courseUnlockDate("2026-10-01", "CCC", 1), "2026-10-01"));
@@ -119,6 +121,63 @@ await atest("BingX 回錯誤代碼會丟出來", async () => {
   env.BINGX_SECRET_KEY = "test-secret";
 });
 fake.close();
+
+// ── Bybit ──
+await atest("Bybit 簽名跟 openssl 算的一樣（timestamp + key + recvWindow + query）", async () =>
+  assert.equal(await bybitSign("SECRET", "1658384314791", "XXXXXXXXXX", "category=option&symbol=BTC-29JUL22-25000-C"), "127fcc9af2478ece79faf001bb923e88bffacd4cc6218287491a8e5fb8d6c432"));
+test("Bybit 參數：照順序、略過空值", () => assert.equal(bybitQuery({ size: 100, cursor: "", startDate: "2026-10-01" }), "size=100&startDate=2026-10-01"));
+test("Bybit 查詢區間：1 號到昨天、月底為止、1 號當天沒有資料", () => {
+  assert.deepEqual(bybitRange("2026-10", "2026-10-15"), ["2026-10-01", "2026-10-14"]);
+  assert.deepEqual(bybitRange("2026-09", "2026-10-02"), ["2026-09-01", "2026-09-30"]);
+  assert.equal(bybitRange("2026-10", "2026-10-01"), null);
+});
+test("每月 1–3 號也補同步上個月", () => {
+  assert.equal(syncMonths("2026-10-02").length, 2);
+  assert.equal(syncMonths("2026-10-04").length, 1);
+});
+const bseen = [];
+const bfake = http.createServer(async (req, res) => {
+  const u = new URL(req.url, "http://x");
+  const query = u.search.slice(1);
+  const h = req.headers;
+  const okSig = h["x-bapi-sign"] === (await bybitSign("by-secret", h["x-bapi-timestamp"], "by-key", query));
+  bseen.push({ path: u.pathname, query, okSig, key: h["x-bapi-api-key"], recv: h["x-bapi-recv-window"] });
+  const send = (o, status = 200) => { res.writeHead(status, { "Content-Type": "application/json" }); res.end(JSON.stringify(o)); };
+  if (u.searchParams.get("uid") === "403") return send({}, 403);
+  if (!okSig) return send({ retCode: 10004, retMsg: "error sign!" });
+  if (u.pathname === "/v5/user/aff-customer-info") {
+    const uid = u.searchParams.get("uid");
+    return uid === "77770001" ? send({ retCode: 0, retMsg: "OK", result: { uid, tradeVol30Day: "1" } }) : send({ retCode: 10001, retMsg: "not your client" });
+  }
+  if (u.pathname === "/v5/affiliate/aff-user-list") {
+    const cursor = u.searchParams.get("cursor") || "0";
+    const all = Array.from({ length: 150 }, (_, i) => ({ userId: String(77770001 + i), tradeVol: String(1000 * (i + 1)) }));
+    const start = Number(cursor);
+    return send({ retCode: 0, retMsg: "OK", result: { list: all.slice(start, start + 100), nextPageCursor: start + 100 < all.length ? String(start + 100) : "" } });
+  }
+  send({ retCode: 10017, retMsg: "route not found" });
+});
+await new Promise((r) => bfake.listen(0, r));
+Object.assign(env, { BYBIT_API_KEY: "by-key", BYBIT_SECRET_KEY: "by-secret", BYBIT_BASE_URL: `http://127.0.0.1:${bfake.address().port}` });
+await atest("Bybit 查客戶：是我們的、不是我們的", async () => {
+  assert.equal((await checkBybitClient("77770001")).invited, true);
+  assert.equal((await checkBybitClient("12345")).invited, false);
+  assert.ok(bseen.every((x) => x.okSig && x.key === "by-key" && x.recv === "5000"));
+});
+await atest("Bybit 設定錯誤（簽名、Key）會丟出來，不會當成「不是客戶」", async () => {
+  env.BYBIT_SECRET_KEY = "wrong";
+  await assert.rejects(checkBybitClient("77770001"), /10004/);
+  env.BYBIT_SECRET_KEY = "by-secret";
+});
+await atest("Bybit 被擋地區（403）會丟出來", async () => assert.rejects(checkBybitClient("403"), /擋下/));
+await atest("Bybit 交易量清單會翻頁抓完", async () => {
+  const m = await fetchBybitVolumes("2026-10-01", "2026-10-14");
+  assert.equal(m.size, 150);
+  assert.equal(m.get("77770001"), 1000);
+  assert.equal(m.get("77770150"), 150000);
+  assert.deepEqual(bseen.filter((x) => x.path.endsWith("/aff-user-list")).map((x) => new URLSearchParams(x.query).get("cursor") || ""), ["", "100"]);
+});
+bfake.close();
 
 console.log(`\n單元測試：${pass} 項通過，${fail} 項失敗`);
 process.exit(fail ? 1 : 0);

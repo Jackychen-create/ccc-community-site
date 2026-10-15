@@ -268,3 +268,25 @@ alter table public.exchange_links enable row level security;
 
 -- ── v1.8.1：門檻改成 100 萬 USDT（UM 先不算，在 rules.js 的 EXCHANGES 拿掉，資料庫不用改）──
 update public.settings set value = '1000000'::jsonb where key = 'volume_threshold';
+
+-- ── v1.9：Bybit 也可以綁定、自動抓交易量；每天的同步改由這裡（東京）發出 ──
+-- Bybit 會擋美國 IP，GitHub Actions 的主機在美國，所以排程改用 Supabase 的 pg_cron + pg_net 叫網站
+alter table public.exchange_links drop constraint if exists exchange_links_exchange_check;
+alter table public.exchange_links add constraint exchange_links_exchange_check check (exchange in ('BingX', 'Bybit'));
+-- 上次同步結果改存在 settings 的 auto_sync（{ BingX: {...}, Bybit: {...} }）
+
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+-- 每天台灣時間 02:17（UTC 18:17）呼叫 /api/cron/sync。密碼放在 Vault 的 cron_secret（跟 Cloudflare 的 CRON_SECRET 一樣），
+-- 由管理員在 SQL Editor 執行：select vault.create_secret('那串密碼', 'cron_secret');  還沒設定時這個排程什麼都不做
+-- 網址換了就改下面的 url，再執行一次這段
+select cron.unschedule(jobid) from cron.job where jobname = 'daily-volume-sync';
+select cron.schedule('daily-volume-sync', '17 18 * * *', $cron$
+  select net.http_post(
+    url := 'https://ccc-community-site.pages.dev/api/cron/sync',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'X-Cron-Secret', s.decrypted_secret),
+    body := '{}'::jsonb,
+    timeout_milliseconds := 60000
+  )
+  from vault.decrypted_secrets s where s.name = 'cron_secret';
+$cron$);

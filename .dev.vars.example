@@ -23,5 +23,9 @@ MAIL_FROM_NAME=CCC 交易實驗室
 BINGX_API_KEY=
 BINGX_SECRET_KEY=
 
-# 每日排程呼叫 /api/cron/bingx 用的密碼（自己產生一串亂碼；GitHub 的 Actions secret 也要填一樣的）
+# Bybit 聯盟（代理商）API（選用，只勾「代理商」權限）。沒填就不會自動同步 Bybit 交易量
+BYBIT_API_KEY=
+BYBIT_SECRET_KEY=
+
+# 每日排程呼叫 /api/cron/sync 用的密碼（自己產生一串亂碼；Supabase Vault 的 cron_secret 也要填一樣的）
 CRON_SECRET=

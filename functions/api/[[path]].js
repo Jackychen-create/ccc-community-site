@@ -11,8 +11,8 @@ import course from "../../server/course.js";
 import feedback from "../../server/feedback.js";
 import report from "../../server/report.js";
 import exchangeLink from "../../server/exchange-link.js";
-import adminBingx from "../../server/admin/bingx.js";
-import cronBingx from "../../server/cron/bingx.js";
+import adminSync from "../../server/admin/sync.js";
+import cronSync from "../../server/cron/sync.js";
 import adminFeedback from "../../server/admin/feedback.js";
 import adminErrors from "../../server/admin/errors.js";
 import adminFollowup from "../../server/admin/followup.js";
@@ -36,8 +36,9 @@ const ROUTES = {
   "feedback": feedback,
   "report": report,
   "exchange-link": exchangeLink,
-  "admin/bingx": adminBingx,
-  "cron/bingx": cronBingx,
+  "admin/sync": adminSync,
+  "cron/sync": cronSync,
+  "cron/bingx": cronSync, // 舊網址，保留給還沒更新的排程
   "admin/feedback": adminFeedback,
   "admin/errors": adminErrors,
   "admin/followup": adminFollowup,

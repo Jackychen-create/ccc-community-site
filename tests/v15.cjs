@@ -40,7 +40,7 @@ const end = (() => { const [y, m, dd] = today.split("-").map(Number); const last
   const amy = "tr:has-text('amy@example.com')", ban = "tr:has-text('banned@example.com')";
   await p.fill(`${amy} input[aria-label$='OKX 交易量']`, "100萬");
   check("100萬 即時顯示達標", (await p.textContent(`${amy} .vol-result`)).includes("達標"));
-  await p.fill(`${ban} input[aria-label$='Bybit 交易量']`, "0.6m");
+  await p.fill(`${ban} input[aria-label$='OKX 交易量']`, "0.6m");
   check("0.6m 顯示還差 40 萬", (await p.textContent(`${ban} .vol-result`)).includes("還差 40 萬"), await p.textContent(`${ban} .vol-result`));
   await p.fill(`${ban} input[aria-label$='OKX 交易量']`, "abc");
   check("看不懂的數字標紅框", (await p.getAttribute(`${ban} input[aria-label$='OKX 交易量']`, "class")).includes("bad"));
@@ -63,14 +63,14 @@ const end = (() => { const [y, m, dd] = today.split("-").map(Number); const last
   check("資格不會被收回", (await p.textContent(amy)).includes(`到 ${end}`));
   // 貼上一整批
   await p.click("#volPaste"); await p.waitForTimeout(200);
-  await p.fill(".modal textarea", "amy@example.com 0 5,200,000\nnobody@x.com OKX 1\nbanned@example.com\tOKX\t600萬");
+  await p.fill(".modal textarea", "amy@example.com 5,200,000\nnobody@x.com OKX 1\nbanned@example.com\tOKX\t600萬");
   await p.screenshot({ path: "output/shots/v15-paste.png" });
   await p.click(".modal-foot .btn.primary"); await p.waitForTimeout(200);
   const hint = await p.textContent(".modal .hint");
   check("貼上：找不到的研究員有提醒", hint.includes("已填進 2 行") && hint.includes("nobody@x.com"), hint);
   await p.click(".modal-foot .btn.primary"); await p.waitForTimeout(300);
   check("知道了會關掉視窗", !(await p.isVisible(".modal")));
-  check("貼上：千分位數字正確", (await p.inputValue(`${amy} input[aria-label$='Bybit 交易量']`)) === "5,200,000");
+  check("貼上：千分位數字正確", (await p.inputValue(`${amy} input[aria-label$='OKX 交易量']`)) === "5,200,000");
   check("貼上：Tab 分隔正確", (await p.inputValue(`${ban} input[aria-label$='OKX 交易量']`)) === "6,000,000");
   await p.click(".vol-foot .btn.primary"); await p.waitForTimeout(600);
   check("兩位都達標", (await p.textContent("#volSub")).includes("2／2"));

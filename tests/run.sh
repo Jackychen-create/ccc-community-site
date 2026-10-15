@@ -5,7 +5,7 @@ cd "$(dirname "$0")"
 [ -d node_modules/playwright ] || { npm install --no-audit --no-fund && npx playwright install chromium; }
 [ -f fixtures/live.webm ] || bash make-fixtures.sh
 mkdir -p output/shots
-suites=("$@"); [ ${#suites[@]} -eq 0 ] && suites=(e2e v14 v15 v16 v17 v18)
+suites=("$@"); [ ${#suites[@]} -eq 0 ] && suites=(e2e v14 v15 v16 v17 v18 v19)
 total_fail=0
 # 單元測試（規則、伺服器小工具），幾秒鐘
 node unit.mjs > output/unit.log 2>&1; uc=$?

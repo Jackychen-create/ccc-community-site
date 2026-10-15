@@ -1,6 +1,6 @@
 // 後台：每月交易量
-// GET   /api/admin/volumes?month=2026-10   這個月每位研究員在各交易所的交易量、門檻、資格、BingX 綁定的 UID
-// POST  /api/admin/volumes  { month, rows: [{ userId, amounts: { OKX, Bybit } }] }（BingX 是自動同步的，這裡送來也會保留資料庫的數字）
+// GET   /api/admin/volumes?month=2026-10   這個月每位研究員在各交易所的交易量、門檻、資格、綁定的交易所 UID（links）
+// POST  /api/admin/volumes  { month, rows: [{ userId, amounts: { OKX } }] }（Bybit、BingX 是自動同步的，這裡送來也會保留資料庫的數字）
 //       { month, qualifiedOn: "2026-10-15", rows }
 //       儲存交易量；這次「新達標」的人記下達標日，觀看資格延長到達標日起一個月（10/15 → 11/14）
 //       原本更晚就不動；「不限」的研究員不動；同一個月已經達標過的不會再延一次
@@ -17,11 +17,12 @@ async function snapshot(month) {
     getThreshold(),
     supabaseAdmin.from("members").select("user_id, email, banned, access_until, note").order("created_at", { ascending: true }),
     supabaseAdmin.from("volumes").select("user_id, amounts, updated_at, updated_by, qualified_at").eq("month", month),
-    supabaseAdmin.from("exchange_links").select("user_id, exchange_uid").eq("exchange", "BingX"),
+    supabaseAdmin.from("exchange_links").select("user_id, exchange, exchange_uid"),
   ]);
   if (e1 || e2) throw e1 || e2;
   const byUser = new Map((vols || []).map((v) => [v.user_id, v]));
-  const bingxUid = new Map((links || []).map((l) => [l.user_id, l.exchange_uid]));
+  const linkMap = new Map();
+  for (const l of links || []) linkMap.set(l.user_id, { ...(linkMap.get(l.user_id) || {}), [l.exchange]: l.exchange_uid });
   return {
     month,
     monthEnd: monthEnd(month),
@@ -36,7 +37,7 @@ async function snapshot(month) {
         qualified: v ? isQualified(v.amounts, threshold) : false,
         qualified_at: v?.qualified_at || null,
         qualified_until: v?.qualified_at ? cycleEnd(v.qualified_at) : null,
-        bingx_uid: bingxUid.get(m.user_id) || null,
+        links: linkMap.get(m.user_id) || {},
       };
     }),
   };
