@@ -18,10 +18,10 @@ export function cycleEnd(date) {
 
 // ── 每月交易量 ──
 // 合作交易所，任一間當月成交金額（USDT）達到門檻就算達標
-// BingX 由網站每天自動抓（研究員綁定 UID 後），其他由管理員填
+// Bybit、BingX 由網站每天自動抓（研究員綁定 UID 後），其他由管理員填
 // UM 還沒決定要不要算，先不列（要加回來就放進這個清單，例如 ["OKX", "Bybit", "UM", "BingX"]）
 export const EXCHANGES = ["OKX", "Bybit", "BingX"];
-export const AUTO_EXCHANGES = ["BingX"];
+export const AUTO_EXCHANGES = ["Bybit", "BingX"];
 export const DEFAULT_THRESHOLD = 1000000;
 export function isQualified(amounts, threshold) {
   return EXCHANGES.some((ex) => Number(amounts?.[ex] || 0) >= threshold);

@@ -5,9 +5,9 @@ import { cycleEnd } from "../shared/rules.js";
 import { fail, loadingBox } from "./common.js";
 import { markMembersStale } from "./members.js";
 
-// 每月交易量（任一間達標 → 從達標日起看一個月）；BingX 是自動同步的，這裡只顯示不能改
+// 每月交易量（任一間達標 → 從達標日起看一個月）；Bybit、BingX 是自動同步的，這裡只顯示不能改
 let vol = null; // 伺服器回來的這個月資料
-let bingx = null; // BingX 同步狀態 /api/admin/bingx
+let sync = null; // 自動同步狀態 /api/admin/sync：{ Bybit: { configured, linked, last }, BingX: {...} }
 const isAuto = (ex) => (vol?.autoExchanges || []).includes(ex);
 const manualExchanges = () => vol.exchanges.filter((ex) => !isAuto(ex));
 const fmtUsd = (n) => (Number(n) || 0).toLocaleString("en-US", { maximumFractionDigits: 2 });
@@ -33,9 +33,9 @@ export async function loadVolumes() {
   const box = $("#volBox");
   box.replaceChildren(loadingBox());
   try {
-    [vol, bingx] = await Promise.all([
+    [vol, sync] = await Promise.all([
       api(`/api/admin/volumes?month=${encodeURIComponent($("#volMonth").value)}`),
-      api("/api/admin/bingx").catch(() => null),
+      api("/api/admin/sync").then((r) => r.exchanges).catch(() => null),
     ]);
     renderVolumes();
   } catch (e) {
@@ -87,7 +87,7 @@ function renderVolumes() {
         if (n !== null && !Number.isNaN(n)) inp.value = fmtUsd(n);
       });
       map[ex] = inp;
-      if (auto) return el("td", { "data-label": ex }, inp, el("div", { class: "small muted vol-uid", text: r.bingx_uid ? `UID ${r.bingx_uid}` : "未綁定" }));
+      if (auto) return el("td", { "data-label": ex }, inp, el("div", { class: "small muted vol-uid", text: r.links?.[ex] ? `UID ${r.links[ex]}` : "未綁定" }));
       return el("td", { "data-label": ex }, inp);
     });
     inputs.set(r.user_id, map);
@@ -102,7 +102,7 @@ function renderVolumes() {
       el("td", { class: "small hide-sm", text: accessText(r) }));
   });
   box.replaceChildren(
-    bingxBar(),
+    syncBar(),
     el("div", { class: "table-wrap" },
       el("table", { class: "table stack vol-table" },
         el("thead", null, el("tr", null, el("th", { text: "研究員" }), ...exchanges.map((ex) => el("th", { text: isAuto(ex) ? `${ex}（自動）` : `${ex}（USDT）` })), el("th", { text: "結果" }), el("th", { class: "hide-sm", text: "觀看資格" }))),
@@ -141,23 +141,25 @@ function renderVolumes() {
   });
 }
 
-// BingX 同步狀態列：設定好了沒、上次同步、立即同步
-function bingxBar() {
-  if (!bingx) return null;
-  if (!bingx.configured) {
-    return el("div", { class: "bx-bar" }, el("span", { class: "small muted", text: "BingX 自動同步還沒設定：要在 Cloudflare 填 BINGX_API_KEY、BINGX_SECRET_KEY（說明在 docs/部署與設定.md）。" }));
-  }
-  const last = bingx.last;
-  const text = !last ? "還沒同步過"
-    : last.ok ? `上次同步 ${A.fmtRel(last.at)}`
-    : `上次同步失敗（${A.fmtRel(last.at)}）：${last.error || ""}`;
-  const btn = el("button", { class: "btn sm", type: "button", text: "立即同步 BingX" });
-  btn.addEventListener("click", async () => {
+// 自動同步狀態：每間交易所一列（設定好了沒、綁定幾位、上次同步）、一顆「立即同步」
+function syncBar() {
+  if (!sync) return null;
+  const list = vol.autoExchanges.filter((ex) => sync[ex]);
+  if (!list.length) return null;
+  const ready = list.filter((ex) => sync[ex].configured);
+  const line = (ex) => {
+    const s = sync[ex];
+    if (!s.configured) return el("div", { class: "bx-line" }, el("b", { text: ex }), el("span", { class: "muted", text: `還沒設定：要在 Cloudflare 填 ${ex.toUpperCase()}_API_KEY、${ex.toUpperCase()}_SECRET_KEY（說明在 docs/部署與設定.md）` }));
+    const last = s.last;
+    const text = !last ? "還沒同步過" : last.ok ? `上次同步 ${A.fmtRel(last.at)}` : `上次同步失敗（${A.fmtRel(last.at)}）：${last.error || ""}`;
+    return el("div", { class: "bx-line" }, el("b", { text: ex }), el("span", null, `已綁定 ${s.linked} 位・每天自動同步・`, el("span", { class: last && !last.ok ? "warn-text" : "muted", text })));
+  };
+  const btn = ready.length ? el("button", { class: "btn sm", type: "button", text: "立即同步" }) : null;
+  btn?.addEventListener("click", async () => {
     A.setBusy(btn, true, "同步中…");
     try {
-      const r = await api("/api/admin/bingx", { method: "POST" });
-      const ext = r.months.reduce((a, m) => a + (m.extended || 0), 0);
-      A.toast(ext ? `已同步，${ext} 位的資格延長了` : "已同步 BingX 交易量");
+      await api("/api/admin/sync", { method: "POST", body: {} });
+      A.toast(`已同步 ${ready.join("、")} 交易量`);
       markMembersStale();
       loadVolumes();
     } catch (e) {
@@ -165,9 +167,8 @@ function bingxBar() {
       fail(e);
     }
   });
-  return el("div", { class: "bx-bar" + (last && !last.ok ? " bad" : "") },
-    el("span", { class: "small" }, el("b", { text: "BingX" }), `　已綁定 ${bingx.linked} 位・每天自動同步・`, el("span", { class: last && !last.ok ? "warn-text" : "muted", text })),
-    btn);
+  const bad = list.some((ex) => sync[ex].last && !sync[ex].last.ok);
+  return el("div", { class: "bx-bar" + (bad ? " bad" : "") }, el("div", { class: "bx-lines small" }, ...list.map(line)), btn);
 }
 
 // 修改門檻
@@ -208,12 +209,15 @@ $("#volThreshold").addEventListener("click", () => {
 // 貼上一整批：每行「Email 交易所 金額」或「Email OKX Bybit」（照手動填的交易所順序）
 $("#volPaste").addEventListener("click", () => {
   if (!vol || !vol._inputs) return;
-  const ta = el("textarea", { class: "textarea mono-ish", rows: "8", placeholder: "每行一位，例如：\namy@example.com OKX 3,500,000\nbob@gmail.com Bybit 120萬\n或照順序填三間：\namy@example.com 0 3500000 0" });
+  const manual = manualExchanges();
+  const ta = el("textarea", { class: "textarea mono-ish", rows: "8", placeholder: manual.length > 1
+    ? `每行一位，例如：\namy@example.com ${manual[0]} 3,500,000\nbob@gmail.com ${manual[1]} 120萬\n或照順序填 ${manual.join("、")}：\namy@example.com ${manual.map((_, i) => (i === 1 ? "3500000" : "0")).join(" ")}`
+    : `每行一位，例如：\namy@example.com 3,500,000\nbob@gmail.com ${manual[0]} 120萬` });
   const out = el("div", { class: "hint" });
   const apply = el("button", { class: "btn primary", type: "button", text: "填進表格" });
   const m = A.modal({
     title: "貼上一整批交易量",
-    body: el("div", null, el("p", { class: "small sub", style: { marginTop: "14px" }, text: `從交易所後台或試算表複製，順序是 ${manualExchanges().join("、")}。填進表格後檢查一下，再按「儲存這個月的交易量」。` }), el("div", { class: "field" }, ta), out),
+    body: el("div", null, el("p", { class: "small sub", style: { marginTop: "14px" }, text: `從交易所後台或試算表複製${manual.length > 1 ? `，順序是 ${manual.join("、")}` : `，填的是 ${manual[0]} 的交易量`}（${vol.autoExchanges.join("、")} 會自動同步，不用填）。填進表格後檢查一下，再按「儲存這個月的交易量」。` }), el("div", { class: "field" }, ta), out),
     actions: [el("button", { class: "btn", type: "button", text: "取消", onclick: () => m.close() }), apply],
   });
   let done = false;

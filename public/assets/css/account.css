@@ -76,7 +76,8 @@
 .note-group .note { border-bottom: 0; padding-top: 6px; padding-bottom: 6px; }
 .note-group .note:last-child { padding-bottom: 14px; }
 /* BingX 綁定列 */
-.bx-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 4px 18px 0; padding: 10px 0 2px; border-top: 1px solid var(--line); }
+.bx-rows { margin: 4px 18px 0; padding-top: 6px; border-top: 1px solid var(--line); }
+.bx-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; }
 .bx-text { font-size: 13.5px; line-height: 1.6; color: var(--ink-2); }
 .bx-text b { color: var(--amber); font-weight: 600; }
 .bx-row .btn { flex: none; }

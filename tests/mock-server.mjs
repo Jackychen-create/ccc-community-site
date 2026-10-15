@@ -59,10 +59,11 @@ let fbId = 1;
 const clientErrors = [];
 const EX = EXCHANGES;
 let threshold = 1000000;
-// BingX：假的代理商資料。UID 88880001 是我們邀請的，這個月交易量 350 萬（10 號跨過門檻）
-const bingxLinks = new Map(); // user_id → uid
-const BINGX_INVITED = { "88880001": 3500000 };
-let bingxLast = null;
+// 自動同步的交易所：假的代理商資料
+// BingX UID 88880001 是我們邀請的，這個月 350 萬（10 號跨過門檻）；Bybit UID 77770001 這個月 150 萬（Bybit 隔天才更新，達標日記昨天）
+const autoLinks = Object.fromEntries(AUTO_EXCHANGES.map((ex) => [ex, new Map()])); // exchange → (user_id → uid)
+const INVITED = { BingX: { "88880001": 3500000 }, Bybit: { "77770001": 1500000 } };
+const syncLast = {};
 const vols = new Map(); // `${user_id}:${month}` → {amounts, updated_at, updated_by}
 const monthNow = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 7);
 const monthEnd = (m) => { const [y, mo] = m.split("-").map(Number); return new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10); };
@@ -70,18 +71,20 @@ const qualified = (a) => isQualified(a, threshold);
 const TODAY = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
 const twDate = (ts) => new Date(new Date(ts).getTime() + 8 * 3600e3).toISOString().slice(0, 10);
 const unlockOn = courseUnlockDate;
-function bingxSyncUser(userId) {
-  const uid = bingxLinks.get(userId); if (!uid) return 0;
+function linkOf(userId) { return Object.fromEntries(AUTO_EXCHANGES.filter((ex) => autoLinks[ex].has(userId)).map((ex) => [ex, autoLinks[ex].get(userId)])); }
+function autoSyncUser(ex, userId) {
+  const uid = autoLinks[ex].get(userId); if (!uid) return 0;
   const month = monthNow(); const key = userId + ":" + month; const prev = vols.get(key);
-  const amounts = { ...(prev?.amounts || {}), BingX: BINGX_INVITED[uid] || 0 };
-  const ok = qualified(amounts); const qOn = month + "-10";
-  vols.set(key, { amounts, qualified_at: ok ? prev?.qualified_at || qOn : null, updated_at: new Date().toISOString(), updated_by: "BingX 自動同步" });
+  const amounts = { ...(prev?.amounts || {}), [ex]: INVITED[ex][uid] || 0 };
+  const yesterday = addDays(TODAY(), -1);
+  const ok = qualified(amounts); const qOn = ex === "Bybit" ? (yesterday.startsWith(month) ? yesterday : month + "-01") : month + "-10";
+  vols.set(key, { amounts, qualified_at: ok ? prev?.qualified_at || qOn : null, updated_at: new Date().toISOString(), updated_by: `${ex} 自動同步` });
   const m = members.find((x) => x.user_id === userId);
   if (ok && !prev?.qualified_at && m?.access_until && m.access_until < cycleEnd(qOn)) { m.access_until = cycleEnd(qOn); return 1; }
   return 0;
 }
 function volSnap(month) {
-  return { month, monthEnd: monthEnd(month), exchanges: EX, autoExchanges: AUTO_EXCHANGES, threshold, rows: [...members].reverse().map((m) => { const v = vols.get(m.user_id + ":" + month); return { user_id: m.user_id, email: m.email, banned: m.banned, access_until: m.access_until, note: m.note, amounts: v?.amounts || {}, updated_at: v?.updated_at || null, updated_by: v?.updated_by || null, qualified: v ? qualified(v.amounts) : false, qualified_at: v?.qualified_at || null, qualified_until: v?.qualified_at ? cycleEnd(v.qualified_at) : null, bingx_uid: bingxLinks.get(m.user_id) || null }; }) };
+  return { month, monthEnd: monthEnd(month), exchanges: EX, autoExchanges: AUTO_EXCHANGES, threshold, rows: [...members].reverse().map((m) => { const v = vols.get(m.user_id + ":" + month); return { user_id: m.user_id, email: m.email, banned: m.banned, access_until: m.access_until, note: m.note, amounts: v?.amounts || {}, updated_at: v?.updated_at || null, updated_by: v?.updated_by || null, qualified: v ? qualified(v.amounts) : false, qualified_at: v?.qualified_at || null, qualified_until: v?.qualified_at ? cycleEnd(v.qualified_at) : null, links: linkOf(m.user_id) }; }) };
 }
 
 function send(res, code, body, headers = {}) {
@@ -200,19 +203,21 @@ const server = http.createServer(async (req, res) => {
         mrow.notify = body.notify;
         return send(res, 200, { ok: true, notify: body.notify });
       }
-      return send(res, 200, { bingx: mrow ? { enabled: true, uid: bingxLinks.get(mrow.user_id) || null } : null, feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, accessUntil: mrow?.access_until || null, notify: mrow ? mrow.notify !== false : null, volume: mrow ? (() => { const v = vols.get(mrow.user_id + ":" + monthNow()); return { month: monthNow(), exchanges: EX, threshold, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, qualified: v ? qualified(v.amounts) : false, qualifiedAt: v?.qualified_at || null, qualifiedUntil: v?.qualified_at ? cycleEnd(v.qualified_at) : null }; })() : null });
+      return send(res, 200, { links: mrow ? AUTO_EXCHANGES.map((ex) => ({ exchange: ex, enabled: true, uid: autoLinks[ex].get(mrow.user_id) || null, boundAt: null })) : null, feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, accessUntil: mrow?.access_until || null, notify: mrow ? mrow.notify !== false : null, volume: mrow ? (() => { const v = vols.get(mrow.user_id + ":" + monthNow()); return { month: monthNow(), exchanges: EX, threshold, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, qualified: v ? qualified(v.amounts) : false, qualifiedAt: v?.qualified_at || null, qualifiedUntil: v?.qualified_at ? cycleEnd(v.qualified_at) : null }; })() : null });
     }
     if (p === "/api/exchange-link") {
       const mrow = members.find((m) => m.user_id === u.id);
       if (!mrow) return send(res, 400, { error: "管理員帳號不用綁定交易所" });
-      if (req.method === "GET") return send(res, 200, { links: bingxLinks.has(u.id) ? [{ exchange: "BingX", exchange_uid: bingxLinks.get(u.id) }] : [], bingxEnabled: true });
-      if (req.method === "DELETE") { bingxLinks.delete(u.id); return send(res, 200, { ok: true }); }
+      if (req.method === "GET") return send(res, 200, { links: Object.entries(linkOf(u.id)).map(([exchange, exchange_uid]) => ({ exchange, exchange_uid })), enabled: Object.fromEntries(AUTO_EXCHANGES.map((ex) => [ex, true])) });
+      const ex = req.method === "DELETE" ? url.searchParams.get("exchange") : body.exchange;
+      if (!AUTO_EXCHANGES.includes(ex)) return send(res, 400, { error: "不支援這間交易所" });
+      if (req.method === "DELETE") { autoLinks[ex].delete(u.id); return send(res, 200, { ok: true }); }
       const uid = String(body.uid || "");
       if (!/^\d{5,15}$/.test(uid)) return send(res, 400, { error: "UID 是一串數字，請再確認一次" });
-      if ([...bingxLinks].some(([k, v]) => v === uid && k !== u.id)) return send(res, 409, { error: "這個 UID 已經被其他研究員綁定了，有問題請聯絡管理員" });
-      if (!(uid in BINGX_INVITED)) return send(res, 400, { error: "這個 UID 不是用 CCC 的 BingX 邀請碼註冊的。請確認 UID，或用我們的邀請連結註冊", code: "not_invited" });
-      bingxLinks.set(u.id, uid); bingxSyncUser(u.id);
-      return send(res, 200, { ok: true, exchange: "BingX", uid, synced: true });
+      if ([...autoLinks[ex]].some(([k, v]) => v === uid && k !== u.id)) return send(res, 409, { error: "這個 UID 已經被其他研究員綁定了，有問題請聯絡管理員" });
+      if (!(uid in INVITED[ex])) return send(res, 400, { error: `這個 UID 不是用 CCC 的 ${ex} 邀請碼註冊的${ex === "Bybit" ? "（Bybit 要填主帳號的 UID）" : ""}。請確認 UID，或用我們的邀請連結註冊`, code: "not_invited" });
+      autoLinks[ex].set(u.id, uid); autoSyncUser(ex, u.id);
+      return send(res, 200, { ok: true, exchange: ex, uid, synced: true });
     }
     if (p === "/api/feedback") {
       if (req.method === "POST") {
@@ -332,11 +337,14 @@ const server = http.createServer(async (req, res) => {
       inv.disabled = body.disabled;
       return send(res, 200, { ok: true });
     }
-    if (p === "/api/admin/bingx") {
-      if (req.method === "GET") return send(res, 200, { configured: true, linked: bingxLinks.size, last: bingxLast });
-      let extended = 0; for (const id of bingxLinks.keys()) extended += bingxSyncUser(id);
-      bingxLast = { at: new Date().toISOString(), ok: true, months: [{ month: monthNow(), users: bingxLinks.size, saved: bingxLinks.size, extended }] };
-      return send(res, 200, bingxLast);
+    if (p === "/api/admin/sync") {
+      const overview = () => Object.fromEntries(AUTO_EXCHANGES.map((ex) => [ex, { configured: true, linked: autoLinks[ex].size, last: syncLast[ex] || null }]));
+      if (req.method === "GET") return send(res, 200, { exchanges: overview() });
+      for (const ex of body.exchange ? [body.exchange] : AUTO_EXCHANGES) {
+        let extended = 0; for (const id of autoLinks[ex].keys()) extended += autoSyncUser(ex, id);
+        syncLast[ex] = { at: new Date().toISOString(), ok: true, months: [{ month: monthNow(), users: autoLinks[ex].size, saved: autoLinks[ex].size, extended }] };
+      }
+      return send(res, 200, { ok: true, exchanges: overview() });
     }
     if (p === "/api/admin/volumes") {
       if (req.method === "GET") return send(res, 200, volSnap(url.searchParams.get("month") || monthNow()));

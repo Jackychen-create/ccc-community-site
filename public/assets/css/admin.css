@@ -109,5 +109,9 @@
 .bx-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
 .bx-bar.bad { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
 .bx-bar b { color: var(--amber); }
+.bx-lines { display: grid; gap: 4px; min-width: 0; }
+.bx-line { display: flex; gap: 10px; align-items: baseline; }
+.bx-line b { flex: none; min-width: 3.4em; }
+.bx-bar .btn { flex: none; }
 .vol-input.auto { background: transparent; border-style: dashed; color: var(--ink-2); cursor: default; }
 .vol-uid { margin-top: 4px; font-family: var(--f-num); }
