@@ -108,7 +108,7 @@ function renderVolumes() {
         el("thead", null, el("tr", null, el("th", { text: "研究員" }), ...exchanges.map((ex) => el("th", { text: isAuto(ex) ? `${ex}（自動）` : `${ex}（USDT）` })), el("th", { text: "結果" }), el("th", { class: "hide-sm", text: "觀看資格" }))),
         el("tbody", null, trs))),
     el("div", { class: "vol-foot" },
-      el("p", { class: "small muted", text: "可以打 3300000、3,300,000、330萬 或 3.3m。這次新達標的人，資格延長到「達標日」起一個月；這個月已經達標過的不會再延；「不限」的研究員不會被改。" }),
+      el("p", { class: "small muted", text: "可以打 1000000、1,000,000、100萬 或 1m。這次新達標的人，資格延長到「達標日」起一個月；這個月已經達標過的不會再延；「不限」的研究員不會被改。" }),
       saveBtn)
   );
   vol._inputs = inputs;
@@ -205,7 +205,7 @@ $("#volThreshold").addEventListener("click", () => {
   });
 });
 
-// 貼上一整批：每行「Email 交易所 金額」或「Email OKX Bybit UM」
+// 貼上一整批：每行「Email 交易所 金額」或「Email OKX Bybit」（照手動填的交易所順序）
 $("#volPaste").addEventListener("click", () => {
   if (!vol || !vol._inputs) return;
   const ta = el("textarea", { class: "textarea mono-ish", rows: "8", placeholder: "每行一位，例如：\namy@example.com OKX 3,500,000\nbob@gmail.com Bybit 120萬\n或照順序填三間：\namy@example.com 0 3500000 0" });

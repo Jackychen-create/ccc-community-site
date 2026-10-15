@@ -57,7 +57,7 @@ const errs = [];
   const snap = await a.evaluate(() => App.api("/api/admin/volumes").then((r) => r.rows.find((x) => x.email === "amy@example.com").amounts));
   check("手動存 OKX 不會蓋掉 BingX", snap.OKX === 1200000 && snap.BingX === 3500000, JSON.stringify(snap));
   await a.click("#volPaste"); await a.waitForSelector(".modal textarea");
-  check("貼上一整批只要填三間（BingX 自動）", (await a.textContent(".modal")).includes("OKX、Bybit、UM") && !(await a.textContent(".modal .sub")).includes("BingX"));
+  check("貼上一整批只要填三間（BingX 自動）", (await a.textContent(".modal")).includes("OKX、Bybit。") && !(await a.textContent(".modal .sub")).includes("BingX"));
   await closeModals(a);
   await c2.close();
 

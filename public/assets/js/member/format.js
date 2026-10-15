@@ -3,7 +3,7 @@ export const DAY = 86400000;
 
 // "2026-10-15" → "10/15"
 export const md = (d) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
-// 3300000 → "330 萬"
+// 1000000 → "100 萬"
 export const fmtWan = (n) => (n >= 1e4 ? `${Math.round((n / 1e4) * 10) / 10} 萬` : (Number(n) || 0).toLocaleString("en-US"));
 
 export function shortDate(d) {

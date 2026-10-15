@@ -58,7 +58,7 @@ const feedback = [];
 let fbId = 1;
 const clientErrors = [];
 const EX = EXCHANGES;
-let threshold = 3300000;
+let threshold = 1000000;
 // BingX：假的代理商資料。UID 88880001 是我們邀請的，這個月交易量 350 萬（10 號跨過門檻）
 const bingxLinks = new Map(); // user_id → uid
 const BINGX_INVITED = { "88880001": 3500000 };

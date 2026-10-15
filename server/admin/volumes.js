@@ -1,6 +1,6 @@
 // 後台：每月交易量
 // GET   /api/admin/volumes?month=2026-10   這個月每位研究員在各交易所的交易量、門檻、資格、BingX 綁定的 UID
-// POST  /api/admin/volumes  { month, rows: [{ userId, amounts: { OKX, Bybit, UM } }] }（BingX 是自動同步的，這裡送來也會保留資料庫的數字）
+// POST  /api/admin/volumes  { month, rows: [{ userId, amounts: { OKX, Bybit } }] }（BingX 是自動同步的，這裡送來也會保留資料庫的數字）
 //       { month, qualifiedOn: "2026-10-15", rows }
 //       儲存交易量；這次「新達標」的人記下達標日，觀看資格延長到達標日起一個月（10/15 → 11/14）
 //       原本更晚就不動；「不限」的研究員不動；同一個月已經達標過的不會再延一次
