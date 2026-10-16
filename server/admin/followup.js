@@ -75,13 +75,13 @@ export default route({
       rows.push({
         user_id: mem.user_id, email: mem.email, access_until: mem.access_until, note: mem.note, joined,
         last_watched_at: last, watched: prog.watched, completed: prog.completed,
-        course: { unlocked, behind }, volume_best: best, threshold,
+        course: { unlocked, behind }, threshold,
         reasons, score: reasons.reduce((a, r) => a + r.level, 0),
       });
     }
     rows.sort((a, b) => b.score - a.score || String(a.email).localeCompare(b.email));
     const counts = {};
     for (const r of rows) for (const x of r.reasons) counts[x.key] = (counts[x.key] || 0) + 1;
-    return res.status(200).json({ today, month, counts, rows });
+    return res.status(200).json({ today, counts, rows });
   },
 });

@@ -1,4 +1,4 @@
-// 自動同步交易量（每人一輪）：用假的 Supabase、BingX、Bybit 跑真的 server/lib 程式
+// 自動同步交易量（每人一輪）＋後台「交易量」「待跟進」、研究員 /api/me：用假的 Supabase、BingX、Bybit 跑真的伺服器程式
 import assert from "node:assert/strict";
 import http from "node:http";
 import { setEnv } from "../server/lib/env.js";
@@ -6,6 +6,9 @@ import { syncBingx } from "../server/lib/bingx-sync.js";
 import { syncBybit } from "../server/lib/bybit-sync.js";
 import { periodOf, nextPeriod, addDays } from "../public/assets/js/shared/rules.js";
 import { todayTW } from "../server/lib/dates.js";
+import followup from "../server/admin/followup.js";
+import adminVolumes from "../server/admin/volumes.js";
+import me from "../server/me.js";
 
 let pass = 0, fail = 0;
 async function test(name, fn) {
@@ -15,7 +18,8 @@ const listen = (srv) => new Promise((r) => srv.listen(0, "127.0.0.1", () => r(`h
 const readJson = (req) => new Promise((r) => { let b = ""; req.on("data", (c) => (b += c)); req.on("end", () => { try { r(b ? JSON.parse(b) : null); } catch { r(null); } }); });
 
 // ── 假的 Supabase（PostgREST）──
-const db = { members: [], exchange_links: [], volumes: [], settings: [{ key: "volume_threshold", value: 1000000 }] };
+const db = { members: [], exchange_links: [], volumes: [], videos: [], feedback: [], watch_progress: [], settings: [{ key: "volume_threshold", value: 1000000 }] };
+const tokens = { "tok-admin": { id: "admin-1", email: "boss@gmail.com", email_confirmed_at: "2026-01-01T00:00:00Z" } };
 const writes = [];
 function parseFilters(sp) {
   return [...sp].filter(([k]) => !["select", "order", "limit", "on_conflict", "columns"].includes(k)).map(([col, v]) => {
@@ -34,7 +38,14 @@ const match = (row, fs) => fs.every(({ col, op, val }) => {
 });
 const supa = http.createServer(async (req, res) => {
   const u = new URL(req.url, "http://x");
+  if (u.pathname === "/auth/v1/user") {
+    const user = tokens[(req.headers.authorization || "").replace("Bearer ", "")];
+    res.writeHead(user ? 200 : 401, { "Content-Type": "application/json" });
+    return res.end(JSON.stringify(user || { message: "invalid" }));
+  }
+  if (u.pathname.startsWith("/rest/v1/rpc/")) { res.writeHead(200, { "Content-Type": "application/json" }); return res.end("[]"); }
   const table = u.pathname.split("/").pop();
+  if (req.method === "HEAD") { res.writeHead(200, { "Content-Range": "0-0/0" }); return res.end(); }
   const rows = db[table];
   const one = /vnd\.pgrst\.object/.test(req.headers.accept || "");
   const send = (data, status = 200) => { res.writeHead(status, { "Content-Type": "application/json" }); res.end(JSON.stringify(one ? data[0] ?? null : data)); };
@@ -88,14 +99,14 @@ const [SUPA, BX, BY] = await Promise.all([listen(supa), listen(bingx), listen(by
 setEnv({
   SUPABASE_URL: SUPA, SUPABASE_SERVICE_ROLE_KEY: "service-test",
   BINGX_API_KEY: "k", BINGX_SECRET_KEY: "s", BINGX_BASE_URL: BX,
-  BYBIT_API_KEY: "k", BYBIT_SECRET_KEY: "s", BYBIT_BASE_URL: BY,
+  BYBIT_API_KEY: "k", BYBIT_SECRET_KEY: "s", BYBIT_BASE_URL: BY, ADMIN_EMAILS: "boss@gmail.com",
 });
 if (!globalThis.WebSocket) globalThis.WebSocket = class {};
 
 const today = todayTW();
 // 台灣某天中午的時間戳記
 const at = (d) => Date.parse(d + "T04:00:00Z");
-const member = (id, joined, access) => ({ user_id: id, created_at: new Date(at(joined)).toISOString(), access_until: access });
+const member = (id, joined, access) => ({ user_id: id, email: `${id}@example.com`, banned: false, note: null, notify: true, created_at: new Date(at(joined)).toISOString(), access_until: access });
 const vol = (id) => db.volumes.filter((v) => v.user_id === id);
 
 // A：5 天前加入，BingX 第 3 天累計超過 100 萬 → 達標日是那天，看到下一輪結束
@@ -175,6 +186,54 @@ await test("「不限」的研究員達標也不會被改成有期限", async ()
   await syncBybit({ uid: "77770004" });
   assert.equal(db.members.find((m) => m.user_id === "u-e").access_until, null);
   assert.ok(vol("u-e")[0].qualified_at);
+});
+
+// ── 真的 API 程式（模擬伺服器測不到的部分）──
+async function call(handler, { method = "GET", query = {}, body, token = "tok-admin" } = {}) {
+  const res = { statusCode: 200, body: null, headersSent: false, headers: {} };
+  res.status = (c) => ((res.statusCode = c), res);
+  res.setHeader = (k, v) => ((res.headers[k] = v), res);
+  res.json = (d) => ((res.body = d), (res.headersSent = true), res);
+  res.end = () => ((res.headersSent = true), res);
+  await handler({ method, headers: { authorization: `Bearer ${token}` }, query, body }, res);
+  return res;
+}
+await test("後台「待跟進」打得開，寫出這一輪還差多少", async () => {
+  const r = await call(followup);
+  assert.equal(r.statusCode, 200, JSON.stringify(r.body));
+  const d = r.body.rows.find((x) => x.user_id === "u-d");
+  assert.ok(d.reasons.some((x) => x.key === "volume" && x.label.startsWith("這一輪")), JSON.stringify(d.reasons));
+});
+await test("後台「交易量」這一輪：每人自己的一輪", async () => {
+  const r = await call(adminVolumes, { query: { which: "current" } });
+  assert.equal(r.statusCode, 200, JSON.stringify(r.body));
+  const a = r.body.rows.find((x) => x.user_id === "u-a");
+  assert.equal(a.period_start, aJoin); assert.equal(a.next_end, nextPeriod(aJoin, aP).end); assert.equal(a.amounts.BingX, 1050000);
+});
+await test("後台「交易量」手動填 OKX：新達標延長到下一輪結束、不蓋掉自動的數字", async () => {
+  const before = db.members.find((m) => m.user_id === "u-c").access_until;
+  const r = await call(adminVolumes, { method: "POST", body: { which: "current", qualifiedOn: today, rows: [{ userId: "00000000-0000-4000-8000-00000000000c", amounts: { OKX: 1 } }] } });
+  assert.equal(r.statusCode, 400); // 不是 UUID 的研究員不收
+  db.members.find((m) => m.user_id === "u-c").user_id = "00000000-0000-4000-8000-00000000000c";
+  db.exchange_links.find((l) => l.user_id === "u-c").user_id = "00000000-0000-4000-8000-00000000000c";
+  const r2 = await call(adminVolumes, { method: "POST", body: { which: "current", qualifiedOn: today, rows: [{ userId: "00000000-0000-4000-8000-00000000000c", amounts: { OKX: 1200000, Bybit: 99 } }] } });
+  assert.equal(r2.statusCode, 200, JSON.stringify(r2.body));
+  assert.equal(r2.body.extended, 1);
+  const c = r2.body.rows.find((x) => x.email === "u-c@example.com");
+  assert.equal(c.amounts.OKX, 1200000); assert.equal(c.amounts.Bybit, undefined);
+  assert.ok(db.members.find((m) => m.email === "u-c@example.com").access_until > before);
+});
+await test("後台「交易量」上一輪：第一輪的人不列", async () => {
+  const r = await call(adminVolumes, { query: { which: "previous" } });
+  assert.equal(r.statusCode, 200);
+  assert.ok(r.body.rows.every((x) => x.user_id === "u-d"), r.body.rows.map((x) => x.user_id).join());
+});
+await test("研究員 /api/me：這一輪的日期和交易量", async () => {
+  tokens["tok-a"] = { id: "u-a", email: "u-a@example.com", email_confirmed_at: null };
+  const r = await call(me, { token: "tok-a" });
+  assert.equal(r.statusCode, 200, JSON.stringify(r.body));
+  assert.equal(r.body.volume.periodStart, aJoin); assert.equal(r.body.volume.periodEnd, aP.end);
+  assert.equal(r.body.volume.qualified, true); assert.equal(r.body.volume.qualifiedUntil, nextPeriod(aJoin, aP).end);
 });
 
 supa.close(); bingx.close(); bybit.close();
