@@ -346,7 +346,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { ok: true });
     }
     if (p === "/api/admin/discord") {
-      if (req.method === "GET") return send(res, 200, { configured: true, settings: discordSettings, applications: discordApps });
+      if (req.method === "GET") return send(res, 200, { configured: true, settings: discordSettings, applications: discordApps, inviteUrl: "https://discord.com/oauth2/authorize?client_id=111111111111111111&scope=bot&permissions=268528656", suggestCode: "K7QM-2XPA" });
       if (req.method === "PATCH") {
         for (const k of ["roleId", "panelChannelId", "reviewChannelId"]) {
           if (body[k] === undefined) continue;
@@ -356,6 +356,12 @@ const server = http.createServer(async (req, res) => {
         }
         if (body.invites) discordSettings.invites = body.invites;
         return send(res, 200, { ok: true, settings: discordSettings });
+      }
+      if (body.action === "setup") {
+        if (body.code && !invites.some((x) => x.code === body.code && !x.disabled)) return send(res, 400, { error: "找不到這組實驗室密碼，或已經停用" });
+        const created = discordSettings.labChannelId ? [] : ["🧪 CCC 交易實驗室", "📝申請加入實驗室", "🔒申請審核", "🧪實驗室"];
+        Object.assign(discordSettings, { guildId: "222222222222222222", categoryId: "800000000000000001", panelChannelId: "800000000000000002", reviewChannelId: "800000000000000003", labChannelId: "800000000000000004", labCode: body.code || discordSettings.labCode });
+        return send(res, 200, { ok: true, guildName: "CCC 交易實驗室", hierarchyOk: false, roleName: "實驗室研究員", created, pinned: true, settings: discordSettings });
       }
       if (!discordSettings.panelChannelId) return send(res, 400, { error: "先填申請頻道的 ID" });
       discordPanels++;

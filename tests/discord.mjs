@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { setEnv } from "../server/lib/env.js";
 import handler from "../server/discord/interactions.js";
+import { setupGuild, BOT_PERMISSIONS, inviteUrl } from "../server/lib/discord-setup.js";
 
 let pass = 0, fail = 0;
 async function test(name, fn) {
@@ -61,6 +62,9 @@ const supa = http.createServer(async (req, res) => {
 
 // ── 假的 Discord API ──
 const calls = [];
+const GUILD_ID = "222222222222222222";
+const channels = new Map();
+let chanSeq = 0, botRolePos = 3;
 let roleFail = false;
 const disc = http.createServer(async (req, res) => {
   const body = await readJson(req);
@@ -72,6 +76,15 @@ const disc = http.createServer(async (req, res) => {
   }
   if (req.method === "POST" && req.url === "/users/@me/channels") return send({ id: "dm-" + body.recipient_id });
   if (req.method === "POST" && /\/channels\/\d+\/messages/.test(req.url)) return send({ id: "900000000000000001" });
+  // 一鍵建立用
+  if (req.method === "GET" && req.url === "/users/@me/guilds") return send([{ id: GUILD_ID, name: "CCC 交易實驗室" }]);
+  if (req.method === "GET" && req.url === `/guilds/${GUILD_ID}`) return send({ id: GUILD_ID, name: "CCC 交易實驗室" });
+  if (req.method === "GET" && req.url === `/guilds/${GUILD_ID}/roles`) return send([{ id: GUILD_ID, name: "@everyone", position: 0 }, { id: "1560542923173400596", name: "實驗室研究員", position: 5 }, { id: "777", name: "CCC 小幫手", position: botRolePos }]);
+  if (req.method === "GET" && /\/members\/111111111111111111$/.test(req.url)) return send({ roles: ["777"] });
+  if (req.method === "POST" && req.url === `/guilds/${GUILD_ID}/channels`) { const id = String(800000000000000000n + BigInt(++chanSeq)); channels.set(id, body); return send({ id, ...body }); }
+  if (req.method === "GET" && /^\/channels\/\d+$/.test(req.url)) { const id = req.url.split("/")[2]; return channels.has(id) ? send({ id }) : send({ message: "Unknown Channel", code: 10003 }, 404); }
+  if (req.method === "PATCH" && /^\/channels\/\d+$/.test(req.url)) return send({ id: req.url.split("/")[2] });
+  if (req.method === "PUT" && /\/pins\//.test(req.url)) { res.writeHead(204); return res.end(); }
   if (req.method === "PATCH") return send({ id: "x" });
   send({ message: "?" }, 404);
 });
@@ -210,6 +223,48 @@ await test("管理員按通過但機器人權限不夠 → 告訴管理員怎麼
   roleFail = false;
   assert.equal(r.type, 4); assert.match(r.data.content, /管理身分組/);
   assert.equal(db.discord_applications.find((a) => a.id === id).status, "pending");
+});
+
+// ── 一鍵建立頻道 ──
+await test("邀請連結帶好權限（管理身分組、管理頻道）", () => {
+  assert.ok((BigInt(BOT_PERMISSIONS) & (1n << 28n)) && (BigInt(BOT_PERMISSIONS) & (1n << 4n)));
+  assert.match(inviteUrl("111111111111111111"), /client_id=111111111111111111&scope=bot&permissions=\d+/);
+});
+let firstRun;
+await test("一鍵建立：分類＋三個頻道、權限、申請按鈕、釘選實驗室密碼", async () => {
+  const before = calls.length;
+  firstRun = await setupGuild({ code: "V3QK-88R7", origin: "https://ccc-community-site.pages.dev", threshold: 1000000 });
+  assert.equal(firstRun.ok, true);
+  assert.equal(firstRun.created.length, 4);
+  const made = [...channels.values()];
+  const lab = made.find((c) => c.name === "🧪實驗室");
+  const everyoneLab = lab.permission_overwrites.find((o) => o.id === GUILD_ID);
+  assert.ok(BigInt(everyoneLab.deny) & (1n << 10n), "實驗室頻道 everyone 要看不到");
+  assert.ok(BigInt(lab.permission_overwrites.find((o) => o.id === ROLE).allow) & (1n << 10n), "實驗室身分組要看得到");
+  const review = made.find((c) => c.name === "🔒申請審核");
+  assert.ok(BigInt(review.permission_overwrites.find((o) => o.id === GUILD_ID).deny) & (1n << 10n), "審核頻道 everyone 要看不到");
+  const posts = calls.slice(before).filter((c) => c.method === "POST" && /\/messages$/.test(c.path));
+  assert.ok(posts.some((c) => c.body.components?.[0]?.components?.[0]?.custom_id === "apply"), "沒有申請按鈕");
+  assert.ok(posts.some((c) => /V3QK-88R7/.test(c.body.content) && /invite=V3QK-88R7/.test(c.body.content)), "沒有實驗室密碼");
+  assert.ok(calls.slice(before).some((c) => c.method === "PUT" && /\/pins\//.test(c.path)), "沒有釘選");
+  const saved = db.settings.find((r) => r.key === "discord").value;
+  assert.equal(saved.guildId, GUILD_ID); assert.equal(saved.labCode, "V3QK-88R7");
+  assert.ok(saved.panelChannelId && saved.reviewChannelId && saved.labChannelId && saved.categoryId);
+});
+await test("身分組順序不對會提醒（機器人排在實驗室身分組下面）", () => assert.equal(firstRun.hierarchyOk, false));
+await test("再按一次不會重複建立、不會重貼", async () => {
+  botRolePos = 9;
+  const before = calls.length;
+  const r = await setupGuild({ code: "V3QK-88R7", origin: "https://ccc-community-site.pages.dev" });
+  assert.equal(r.created.length, 0);
+  assert.equal(r.hierarchyOk, true);
+  assert.ok(!calls.slice(before).some((c) => c.method === "POST"), "不應該再建立或貼訊息");
+  assert.equal(calls.slice(before).filter((c) => c.method === "PATCH" && /^\/channels\/\d+$/.test(c.path)).length, 3, "三個頻道的權限要調回正確");
+});
+await test("換實驗室密碼會重貼並釘選", async () => {
+  const before = calls.length;
+  await setupGuild({ code: "ABCD-2345", origin: "https://ccc-community-site.pages.dev" });
+  assert.ok(calls.slice(before).some((c) => c.method === "POST" && /ABCD-2345/.test(c.body?.content || "")));
 });
 
 supa.close(); disc.close(); bingx.close();

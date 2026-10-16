@@ -1,0 +1,116 @@
+// Discord 一鍵建立：分類、三個頻道（權限設好）、申請按鈕、實驗室頻道釘選實驗室密碼
+// 可以重複按：已經建好的頻道、已經貼過的訊息不會重複建立，只會把權限調回正確
+import {
+  getGuilds, getGuild, getRoles, getMember, getChannel, createChannel, editChannel, sendMessage, pinMessage,
+  getDiscordSettings, saveDiscordSettings,
+} from "./discord.js";
+import { env } from "./env.js";
+import { panelMessage } from "./discord-flow.js";
+import { ruleText, DEFAULT_THRESHOLD } from "../../public/assets/js/shared/rules.js";
+
+// 權限位元（https://discord.com/developers/docs/topics/permissions）
+export const P = {
+  MANAGE_CHANNELS: 1n << 4n, ADD_REACTIONS: 1n << 6n, VIEW: 1n << 10n, SEND: 1n << 11n, EMBED: 1n << 14n,
+  MANAGE_MESSAGES: 1n << 13n, HISTORY: 1n << 16n, MANAGE_ROLES: 1n << 28n, THREADS: (1n << 35n) | (1n << 36n) | (1n << 38n),
+};
+const bits = (...xs) => String(xs.reduce((a, b) => a | b, 0n));
+// 邀請機器人時要給的權限：管理頻道、看頻道、發訊息、管理訊息（釘選）、讀歷史、管理身分組
+export const BOT_PERMISSIONS = bits(P.MANAGE_CHANNELS, P.VIEW, P.SEND, P.MANAGE_MESSAGES, P.HISTORY, P.EMBED, P.MANAGE_ROLES);
+export const inviteUrl = (appId) => `https://discord.com/oauth2/authorize?client_id=${appId}&scope=bot&permissions=${BOT_PERMISSIONS}`;
+
+export const CHANNELS = {
+  category: { name: "🧪 CCC 交易實驗室", type: 4 },
+  panel: { name: "📝申請加入實驗室", type: 0, topic: "按下面的按鈕，選交易所、填 UID 就可以申請。Bybit、BingX 自動確認；OKX、UM 由管理員審核。" },
+  review: { name: "🔒申請審核", type: 0, topic: "OKX、UM 的申請會送到這裡。到交易所代理後台確認後按「通過」或「不通過」。只有管理員看得到。" },
+  lab: { name: "🧪實驗室", type: 0, topic: "實驗室研究員專用：網站實驗室密碼、公告" },
+};
+
+// 每個頻道的權限：everyone、實驗室身分組、機器人
+export function overwrites(kind, { guildId, roleId, botId }) {
+  const bot = { id: botId, type: 1, allow: bits(P.VIEW, P.SEND, P.HISTORY, P.EMBED, P.MANAGE_MESSAGES), deny: "0" };
+  if (kind === "panel") return [{ id: guildId, type: 0, allow: bits(P.VIEW, P.HISTORY), deny: bits(P.SEND, P.THREADS) }, bot];
+  if (kind === "review") return [{ id: guildId, type: 0, allow: "0", deny: bits(P.VIEW) }, bot];
+  if (kind === "lab") return [
+    { id: guildId, type: 0, allow: "0", deny: bits(P.VIEW) },
+    { id: roleId, type: 0, allow: bits(P.VIEW, P.HISTORY, P.ADD_REACTIONS), deny: bits(P.SEND, P.THREADS) },
+    bot,
+  ];
+  return [];
+}
+
+export function labMessage(code, origin, threshold = DEFAULT_THRESHOLD) {
+  return {
+    content: [
+      "## 歡迎加入 CCC 交易實驗室 🧪",
+      "研究員專區（直播留檔、教學課程）用下面的實驗室密碼註冊：",
+      "",
+      `實驗室密碼：**${code}**`,
+      `加入連結：${origin}/?invite=${code}`,
+      "",
+      "點連結，實驗室密碼會自動帶入，用 Email 設定密碼就完成了。",
+      `加入後一個月內都可以看。之後每個月${ruleText(threshold)}，就能繼續看。`,
+      "Bybit、BingX 在網站右邊綁定 UID，交易量會每天自動更新。",
+      "⚠️ 實驗室密碼請不要外流。",
+    ].join("\n"),
+    allowed_mentions: { parse: [] },
+  };
+}
+
+async function exists(id) {
+  if (!id) return false;
+  try { await getChannel(id); return true; } catch (e) { if (e.status === 404 || e.status === 403) return false; throw e; }
+}
+
+// 主流程；回傳結果和需要人處理的問題
+export async function setupGuild({ code, origin, threshold }) {
+  const s = await getDiscordSettings();
+  const botId = env.DISCORD_APP_ID;
+  // 1. 找伺服器：機器人只在一個伺服器就用那個
+  const guilds = await getGuilds();
+  if (!guilds?.length) return { ok: false, error: "機器人還沒加進 Discord 伺服器，先用邀請連結把它加進去" };
+  let guild = guilds.find((g) => g.id === s.guildId) || (guilds.length === 1 ? guilds[0] : null);
+  if (!guild) return { ok: false, error: `機器人在好幾個伺服器裡（${guilds.map((g) => g.name).join("、")}），請先在設定填伺服器 ID` };
+  const guildId = guild.id;
+  guild = await getGuild(guildId).catch(() => guild);
+
+  // 2. 檢查身分組順序：機器人的身分組要排在實驗室身分組上面，才能給別人這個身分組
+  const [roles, me] = await Promise.all([getRoles(guildId), getMember(guildId, botId)]);
+  const role = roles.find((r) => r.id === s.roleId);
+  if (!role) return { ok: false, error: `伺服器裡找不到身分組 ${s.roleId}，請確認身分組 ID` };
+  const botTop = Math.max(0, ...roles.filter((r) => me.roles?.includes(r.id)).map((r) => r.position));
+  const hierarchyOk = botTop > role.position;
+
+  // 3. 分類和頻道（已經有就沿用，權限調回正確）
+  const ctx = { guildId, roleId: s.roleId, botId };
+  const ids = { categoryId: s.categoryId, panelChannelId: s.panelChannelId, reviewChannelId: s.reviewChannelId, labChannelId: s.labChannelId };
+  const created = [];
+  if (!(await exists(ids.categoryId))) {
+    ids.categoryId = (await createChannel(guildId, { ...CHANNELS.category })).id;
+    created.push(CHANNELS.category.name);
+  }
+  for (const [kind, key] of [["panel", "panelChannelId"], ["review", "reviewChannelId"], ["lab", "labChannelId"]]) {
+    const def = CHANNELS[kind];
+    const po = overwrites(kind, ctx);
+    if (await exists(ids[key])) {
+      await editChannel(ids[key], { permission_overwrites: po });
+    } else {
+      ids[key] = (await createChannel(guildId, { name: def.name, type: def.type, topic: def.topic, parent_id: ids.categoryId, permission_overwrites: po })).id;
+      created.push(def.name);
+    }
+  }
+
+  // 4. 申請按鈕、實驗室密碼（換了頻道或換了密碼才重貼）
+  const next = { ...s, guildId, ...ids };
+  if (!s.panelMessageId || s.panelChannelId !== ids.panelChannelId) {
+    next.panelMessageId = (await sendMessage(ids.panelChannelId, panelMessage())).id;
+  }
+  let pinned = true;
+  if (code && (!s.labMessageId || s.labCode !== code || s.labChannelId !== ids.labChannelId)) {
+    const msg = await sendMessage(ids.labChannelId, labMessage(code, origin, threshold));
+    next.labMessageId = msg.id;
+    next.labCode = code;
+    try { await pinMessage(ids.labChannelId, msg.id); } catch { pinned = false; }
+  }
+  await saveDiscordSettings(next);
+  return { ok: true, guildName: guild.name, hierarchyOk, roleName: role.name, created, pinned, settings: next };
+}

@@ -2,13 +2,16 @@
 // GET   /api/admin/discord                        設定好了沒、設定值、最近的申請
 // PATCH /api/admin/discord { roleId, panelChannelId, reviewChannelId, invites }   改設定
 // POST  /api/admin/discord { action: "panel" }    在申請頻道張貼「申請加入實驗室」按鈕
+// POST  /api/admin/discord { action: "setup", code }  一鍵建立分類、頻道、權限、申請按鈕，實驗室頻道釘選實驗室密碼
 import {
-  supabaseAdmin, requireAdmin, readBody, route, EXCHANGES,
+  supabaseAdmin, requireAdmin, readBody, route, EXCHANGES, env, getThreshold,
   discordConfigured, getDiscordSettings, saveDiscordSettings, isSnowflake, sendMessage,
 } from "../lib/index.js";
 import { panelMessage } from "../lib/discord-flow.js";
+import { setupGuild, inviteUrl } from "../lib/discord-setup.js";
 
 const discordMsg = (e) => {
+  if (e?.code === 50013) return "機器人的權限不夠（要有管理頻道、管理身分組、傳送訊息），請用後台的「把機器人加進伺服器」重新邀請一次";
   if (e?.code === 50001 || e?.status === 403) return "機器人沒有這個頻道的權限（要能看到頻道、傳送訊息）";
   if (e?.code === 10003 || e?.status === 404) return "找不到這個頻道，請確認頻道 ID";
   if (e?.status === 401) return "機器人 Token 不對，請檢查 Cloudflare 的 DISCORD_BOT_TOKEN";
@@ -18,11 +21,18 @@ const discordMsg = (e) => {
 export default route({
   async GET(req, res) {
     if (!(await requireAdmin(req, res))) return;
-    const [settings, { data: apps }] = await Promise.all([
+    const [settings, { data: apps }, { data: codes }] = await Promise.all([
       getDiscordSettings(),
       supabaseAdmin.from("discord_applications").select("id, discord_name, exchange, exchange_uid, status, auto, reviewed_by, created_at, reviewed_at").order("created_at", { ascending: false }).limit(30),
+      supabaseAdmin.from("invite_codes").select("code, max_uses, used_count, disabled, note").eq("disabled", false).order("created_at", { ascending: false }).limit(20),
     ]);
-    return res.status(200).json({ configured: discordConfigured(), settings, applications: apps || [] });
+    // 建議放在實驗室頻道的實驗室密碼：已經放的那組，不然就最新一組還能用的
+    const usable = (codes || []).filter((c) => c.used_count < c.max_uses);
+    const suggestCode = settings.labCode || usable.find((c) => /DC|Discord/i.test(c.note || ""))?.code || usable[0]?.code || "";
+    return res.status(200).json({
+      configured: discordConfigured(), settings, applications: apps || [],
+      inviteUrl: env.DISCORD_APP_ID ? inviteUrl(env.DISCORD_APP_ID) : null, suggestCode,
+    });
   },
 
   async PATCH(req, res) {
@@ -52,8 +62,22 @@ export default route({
   async POST(req, res) {
     if (!(await requireAdmin(req, res))) return;
     const b = readBody(req);
-    if (b.action !== "panel") return res.status(400).json({ error: "不支援這個操作" });
+    if (!["panel", "setup"].includes(b.action)) return res.status(400).json({ error: "不支援這個操作" });
     if (!discordConfigured()) return res.status(503).json({ error: "還沒設定 Discord 機器人（Cloudflare 的 DISCORD_APP_ID、DISCORD_PUBLIC_KEY、DISCORD_BOT_TOKEN）" });
+    if (b.action === "setup") {
+      const code = String(b.code || "").trim().toUpperCase();
+      if (code) {
+        const { data: inv } = await supabaseAdmin.from("invite_codes").select("code, disabled").eq("code", code).maybeSingle();
+        if (!inv || inv.disabled) return res.status(400).json({ error: "找不到這組實驗室密碼，或已經停用" });
+      }
+      const origin = String(req.headers.origin || "https://ccc-community-site.pages.dev").replace(/\/$/, "");
+      try {
+        const r = await setupGuild({ code, origin: /^https:\/\/[\w.-]+$/.test(origin) ? origin : "https://ccc-community-site.pages.dev", threshold: await getThreshold() });
+        return res.status(r.ok ? 200 : 400).json(r.ok ? r : { error: r.error });
+      } catch (e) {
+        return res.status(502).json({ error: `建立失敗：${discordMsg(e)}` });
+      }
+    }
     const s = await getDiscordSettings();
     if (!s.panelChannelId) return res.status(400).json({ error: "先填申請頻道的 ID" });
     try {
