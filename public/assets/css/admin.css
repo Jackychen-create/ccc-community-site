@@ -125,3 +125,7 @@
 .dc-endpoint { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); display: grid; gap: 6px; }
 .dc-endpoint .btn { justify-content: flex-start; max-width: 100%; overflow: hidden; }
 .dc-endpoint .btn .num { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
+.dc-quick { margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--line); }
+.dc-quick .btn.block { justify-content: center; }
+.dc-result { margin-top: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-md); display: grid; gap: 4px; }
+.dc-result.bad { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }

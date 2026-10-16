@@ -69,21 +69,53 @@ function renderSettings() {
   const invites = EXCHANGES.map((ex) => el("label", { class: "field" }, el("span", { class: "label", text: `${ex} 邀請連結` }),
     el("input", { class: "input", type: "url", "data-ex": ex, value: s.invites?.[ex] || "", placeholder: "https://…" })));
   const save = el("button", { class: "btn primary block", type: "button", text: "儲存設定", style: { marginTop: "16px" } });
-  const post = el("button", { class: "btn block", type: "button", style: { marginTop: "10px" } }, icon("upload"), "在申請頻道張貼申請按鈕");
+  const post = el("button", { class: "btn block", type: "button", style: { marginTop: "10px" } }, icon("upload"), "重新張貼申請按鈕");
+  const codeInput = el("input", { class: "input num", id: "dcCode", type: "text", autocomplete: "off", maxlength: "9", value: s.labCode || dc.suggestCode || "", placeholder: "例如 V3QK-88R7" });
+  const setup = el("button", { class: "btn primary block", type: "button", id: "dcSetup", style: { marginTop: "12px" } }, "一鍵建立 Discord 頻道");
+  const result = el("div", { id: "dcSetupResult" });
   box.replaceChildren(
     el("h2", { text: "機器人設定" }),
     status,
-    el("label", { class: "field" }, el("span", { class: "label", text: "通過後給的身分組 ID" }), idInput("dcRole", s.roleId, "例如 1560542923173400596")),
-    el("label", { class: "field" }, el("span", { class: "label", text: "申請頻道 ID（放申請按鈕）" }), idInput("dcPanel", s.panelChannelId, "對頻道按右鍵 → 複製頻道 ID")),
-    el("label", { class: "field" }, el("span", { class: "label", text: "審核頻道 ID（OKX、UM 送到這裡）" }), idInput("dcReview", s.reviewChannelId, "只有管理員看得到的頻道")),
-    el("details", { class: "dc-more" }, el("summary", { class: "small", text: "邀請連結（選填，沒通過時會附給申請人）" }), ...invites),
-    save,
-    post,
+    el("div", { class: "dc-quick" },
+      el("p", { class: "small", text: "第 1 步：把機器人加進你的 Discord 伺服器" }),
+      dc.inviteUrl
+        ? el("a", { class: "btn block", href: dc.inviteUrl, target: "_blank", rel: "noopener", id: "dcInvite" }, icon("ext"), "把機器人加進伺服器")
+        : el("p", { class: "small muted", text: "設定好 Cloudflare 的 DISCORD_APP_ID 後這裡會出現邀請按鈕。" }),
+      el("p", { class: "small", style: { marginTop: "14px" }, text: "第 2 步：一鍵建立分類、申請頻道、審核頻道、實驗室頻道（權限都設好），實驗室頻道會釘選這組實驗室密碼" }),
+      el("label", { class: "field" }, el("span", { class: "label", text: "放在實驗室頻道的實驗室密碼" }), codeInput),
+      setup,
+      result),
+    el("details", { class: "dc-more" }, el("summary", { class: "small", text: "進階設定（頻道 ID、身分組、邀請連結）" }),
+      el("label", { class: "field" }, el("span", { class: "label", text: "通過後給的身分組 ID" }), idInput("dcRole", s.roleId, "例如 1560542923173400596")),
+      el("label", { class: "field" }, el("span", { class: "label", text: "申請頻道 ID（放申請按鈕）" }), idInput("dcPanel", s.panelChannelId, "對頻道按右鍵 → 複製頻道 ID")),
+      el("label", { class: "field" }, el("span", { class: "label", text: "審核頻道 ID（OKX、UM 送到這裡）" }), idInput("dcReview", s.reviewChannelId, "只有管理員看得到的頻道")),
+      el("p", { class: "small muted", style: { marginTop: "12px" }, text: "邀請連結（選填，沒通過時會附給申請人）" }),
+      ...invites,
+      save,
+      post),
     el("div", { class: "dc-endpoint" },
       el("span", { class: "small muted", text: "Discord Developer Portal 的 Interactions Endpoint URL：" }),
       el("button", { class: "btn sm ghost", type: "button", onclick: () => A.copyText(endpoint), title: "複製" }, icon("copy"), el("span", { class: "num", text: endpoint }))),
   );
 
+  setup.addEventListener("click", async () => {
+    A.setBusy(setup, true, "建立中…");
+    try {
+      const r = await api("/api/admin/discord", { method: "POST", body: { action: "setup", code: codeInput.value.trim() } });
+      dc.settings = r.settings;
+      A.toast(r.created.length ? `已在「${r.guildName}」建立 ${r.created.length} 個頻道` : `「${r.guildName}」的頻道和權限都已經設定好`);
+      renderSettings();
+      $("#dcSetupResult").replaceChildren(el("div", { class: "dc-result" + (r.hierarchyOk ? "" : " bad") },
+        el("p", { class: "small", text: r.created.length ? `建立了：${r.created.join("、")}` : "頻道都在，權限已經調好。" }),
+        r.hierarchyOk
+          ? el("p", { class: "small dc-ok" }, icon("ok"), `機器人可以給「${r.roleName}」身分組`)
+          : el("p", { class: "small warn-text", text: `還差一步：到 Discord 伺服器設定 → 身分組，把機器人的身分組拖到「${r.roleName}」上面，機器人才能給別人這個身分組。` }),
+        r.pinned === false ? el("p", { class: "small warn-text", text: "實驗室密碼已經貼上，但沒辦法釘選，請手動釘選。" }) : null));
+    } catch (e) {
+      A.setBusy(setup, false);
+      fail(e);
+    }
+  });
   save.addEventListener("click", async () => {
     A.setBusy(save, true, "儲存中…");
     try {

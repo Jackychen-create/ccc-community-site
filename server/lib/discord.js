@@ -37,7 +37,7 @@ export async function discordApi(method, path, body) {
     "Content-Type": "application/json",
     "User-Agent": "DiscordBot (https://ccc-community-site.pages.dev, 1.0)",
   };
-  if (method === "PUT") headers["X-Audit-Log-Reason"] = encodeURIComponent("CCC 實驗室審核通過");
+  if (method === "PUT" && path.includes("/roles/")) headers["X-Audit-Log-Reason"] = encodeURIComponent("CCC 實驗室審核通過");
   const res = await fetch(base + path, {
     method,
     headers,
@@ -94,3 +94,13 @@ export function canReview(member) {
     return false;
   }
 }
+
+// ── 一鍵建立頻道用 ──
+export const getGuilds = () => discordApi("GET", "/users/@me/guilds");
+export const getGuild = (g) => discordApi("GET", `/guilds/${g}`);
+export const getRoles = (g) => discordApi("GET", `/guilds/${g}/roles`);
+export const getMember = (g, u) => discordApi("GET", `/guilds/${g}/members/${u}`);
+export const getChannel = (c) => discordApi("GET", `/channels/${c}`);
+export const createChannel = (g, payload) => discordApi("POST", `/guilds/${g}/channels`, payload);
+export const editChannel = (c, payload) => discordApi("PATCH", `/channels/${c}`, payload);
+export const pinMessage = (c, m) => discordApi("PUT", `/channels/${c}/pins/${m}`);
