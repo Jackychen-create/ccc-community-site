@@ -9,7 +9,7 @@ const errs = [];
   const b = await chromium.launch();
   async function ctx(vp) {
     const c = await b.newContext({ viewport: vp });
-    await c.addInitScript(() => { try { localStorage.setItem("tutorialOffered", "true"); localStorage.setItem("seenVersion", JSON.stringify("9.9.9")); } catch {} });
+    await c.addInitScript(() => { try { sessionStorage.setItem("uidPrompted", "1"); localStorage.setItem("tutorialOffered", "true"); localStorage.setItem("seenVersion", JSON.stringify("9.9.9")); } catch {} });
     await c.route(/fonts\.googleapis\.com/, (r) => r.fulfill({ contentType: "text/css", body: FONT_CSS }));
     const p = await c.newPage(); p.on("pageerror", (e) => errs.push(e.message));
     return [c, p];
@@ -23,8 +23,7 @@ const errs = [];
   const [c, a] = await ctx({ width: 1440, height: 900 });
   await login(a, "boss@gmail.com"); await a.waitForSelector("#appView:not([hidden])");
   await a.goto(BASE + "/admin#discord"); await a.waitForSelector("#dcAppsBox table"); await closeModals(a);
-  check("側欄有 Discord 審核", await a.isVisible(".nav a[data-view='discord']"));
-  check("側欄顯示 1 筆等待審核", (await a.textContent("#cDiscord")).trim() === "1");
+  check("側欄先不顯示 Discord 審核（改回人工）", !(await a.isVisible(".nav a[data-view='discord']")));
   const apps = await a.textContent("#dcAppsBox");
   check("列出最近的申請", apps.includes("小明") && apps.includes("123456789012345678") && apps.includes("BingX 自動確認"), apps);
   check("三種狀態都有", ["等待審核", "已通過", "不通過"].every((t) => apps.includes(t)));

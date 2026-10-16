@@ -9,7 +9,7 @@ const errs = [];
   const b = await chromium.launch();
   async function ctx(vp) {
     const c = await b.newContext({ viewport: vp });
-    await c.addInitScript(() => { try { localStorage.setItem("tutorialOffered", "true"); localStorage.setItem("seenVersion", JSON.stringify("9.9.9")); } catch {} });
+    await c.addInitScript(() => { try { sessionStorage.setItem("uidPrompted", "1"); localStorage.setItem("tutorialOffered", "true"); localStorage.setItem("seenVersion", JSON.stringify("9.9.9")); } catch {} });
     await c.route(/fonts\.googleapis\.com/, (r) => r.fulfill({ contentType: "text/css", body: FONT_CSS }));
     const p = await c.newPage(); p.on("pageerror", (e) => errs.push(e.message));
     return [c, p];
@@ -24,7 +24,7 @@ const errs = [];
   let [c, p] = await ctx({ width: 1440, height: 900 });
   await login(p, "amy@example.com"); await p.waitForSelector(".vrow"); await p.waitForTimeout(500); await closeModals(p);
   const panel = () => p.textContent("#volPanel");
-  await p.click("#volPanel .bx-row .btn:has-text('綁定 Bybit')"); await p.waitForSelector(".modal:has-text('綁定 Bybit')");
+  await p.click("#volPanel .bx-row:has-text('Bybit') .btn:has-text('綁定')"); await p.waitForSelector(".modal:has-text('綁定 Bybit')");
   check("綁定視窗提醒填主帳號 UID", (await p.textContent(".modal")).includes("主帳號"));
   await p.fill(".modal input", "88880001"); await p.click(".modal-foot .btn.primary"); await p.waitForTimeout(400);
   check("BingX 的 UID 不能拿來綁 Bybit", (await p.textContent(".modal .form-error")).includes("Bybit 邀請碼"), await p.textContent(".modal .form-error"));
@@ -33,15 +33,15 @@ const errs = [];
   check("提醒 Bybit 隔天才更新", (await p.textContent(".toast:has-text('已綁定')")).includes("隔天"));
   await p.waitForSelector("#volPanel .bx-text:has-text('77770001')");
   check("Bybit 交易量 150 萬、達標", (await panel()).includes("150 萬") && (await panel()).includes("已達標"), await panel());
-  check("BingX 還是可以另外綁", await p.isVisible("#volPanel .bx-row .btn:has-text('綁定 BingX')"));
+  check("BingX 還是可以另外綁", await p.isVisible("#volPanel .bx-row:has-text('BingX') .btn:has-text('綁定')"));
   await p.screenshot({ path: "output/shots/v19-bound.png" });
 
   // 另一位研究員不能綁同一個 UID
   const [cb, pb] = await ctx({ width: 1280, height: 800 });
-  await pb.goto(BASE + "/"); await pb.evaluate(() => fetch("/api/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: "bob@example.com", password: "password1", inviteCode: "K7QM-2XPA" }) }));
+  await pb.goto(BASE + "/"); await pb.evaluate(() => fetch("/api/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: "bob@example.com", password: "password1", inviteCode: "K7QM-2XPA", exchange: "OKX", uid: "55556666" }) }));
   await login(pb, "bob@example.com"); await pb.waitForSelector(".vrow, #volPanel"); await pb.waitForTimeout(400); await closeModals(pb);
-  if (await pb.isVisible("#volPanel .bx-row .btn:has-text('綁定 Bybit')")) {
-    await pb.click("#volPanel .bx-row .btn:has-text('綁定 Bybit')"); await pb.waitForSelector(".modal input");
+  if (await pb.isVisible("#volPanel .bx-row:has-text('Bybit') .btn:has-text('綁定')")) {
+    await pb.click("#volPanel .bx-row:has-text('Bybit') .btn:has-text('綁定')"); await pb.waitForSelector(".modal input");
     await pb.fill(".modal input", "77770001"); await pb.click(".modal-foot .btn.primary"); await pb.waitForTimeout(400);
     check("同一個 UID 不能綁兩位", (await pb.textContent(".modal .form-error")).includes("已經被其他研究員綁定"));
   } else check("同一個 UID 不能綁兩位（找不到 bob 的綁定按鈕）", false);
@@ -66,7 +66,7 @@ const errs = [];
   // ── 解除 Bybit ──
   await p.click("#volPanel .bx-row:has-text('Bybit') .btn:has-text('解除')"); await p.waitForSelector(".modal:has-text('解除綁定 Bybit')");
   await p.click(".modal-foot .btn.danger-solid"); await p.waitForSelector(".toast:has-text('已解除')");
-  await p.waitForSelector("#volPanel .bx-row .btn:has-text('綁定 Bybit')");
+  await p.waitForSelector("#volPanel .bx-row:has-text('Bybit') .btn:has-text('綁定')");
   check("解除後回到「綁定 Bybit」", true);
   await c.close();
 

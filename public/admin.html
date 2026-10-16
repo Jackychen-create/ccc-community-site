@@ -33,7 +33,8 @@
     <nav class="nav" aria-label="後台">
       <a href="#videos" data-view="videos"><span data-ico="video"></span>影片<span class="count num" id="cVideos"></span></a>
       <a href="#invites" data-view="invites"><span data-ico="ticket"></span>實驗室密碼<span class="count num" id="cInvites"></span></a>
-      <a href="#discord" data-view="discord"><span data-ico="shield"></span>Discord 審核<span class="count num" id="cDiscord"></span></a>
+      <!-- Discord 審核：先關掉（2026-10-17 改回人工），要用時把下一行打開 -->
+      <!--<a href="#discord" data-view="discord"><span data-ico="shield"></span>Discord 審核<span class="count num" id="cDiscord"></span></a>-->
       <a href="#members" data-view="members"><span data-ico="users"></span>研究員<span class="count num" id="cMembers"></span></a>
       <a href="#volumes" data-view="volumes"><span data-ico="coins"></span>交易量</a>
       <a href="#feedback" data-view="feedback"><span data-ico="chat"></span>提問回報<span class="count num" id="cFeedback"></span></a>
@@ -181,7 +182,7 @@
         <label class="search">
           <span class="sr-only">搜尋研究員</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-          <input class="input" id="memberSearch" type="search" placeholder="搜尋 Email 或實驗室密碼" autocomplete="off">
+          <input class="input" id="memberSearch" type="search" placeholder="搜尋 Email、UID、Discord 名稱或實驗室密碼" autocomplete="off">
         </label>
       </div>
       <div id="memberTableBox"></div>

@@ -54,6 +54,20 @@
             <input class="input" id="invite" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="例如 ABCD-EFGH">
             <span class="hint">實驗室密碼由管理員提供，每組有使用次數限制</span>
           </label>
+          <div class="field" id="uidRow" hidden>
+            <span class="label" id="regUidLabel">你用 CCC 邀請連結註冊的交易所和 UID</span>
+            <div class="uid-pair">
+              <select class="select" id="regEx" aria-label="交易所">
+                <option value="">選擇交易所</option>
+                <option value="OKX">OKX</option>
+                <option value="UM">UM（Ultima Markets）</option>
+                <option value="Bybit">Bybit</option>
+                <option value="BingX">BingX</option>
+              </select>
+              <input class="input num" id="regUid" type="text" inputmode="numeric" autocomplete="off" maxlength="30" placeholder="UID" aria-labelledby="regUidLabel">
+            </div>
+            <span class="hint" id="regUidHint">管理員要靠 UID 對到你的交易量。用好幾間的話，登入後可以再加。</span>
+          </div>
           <div id="authError" class="form-error" role="alert" hidden></div>
           <button class="btn primary lg block" id="authSubmit" type="submit" style="margin-top: 24px">登入</button>
         </form>

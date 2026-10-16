@@ -34,7 +34,7 @@ async function login(page, email) {
   const browser = await chromium.launch();
 
   // ── 研究員：桌機 ──
-  let ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, colorScheme: "dark" }); await ctx.addInitScript(() => { try { localStorage.setItem("tutorialOffered", "true"); } catch {} });
+  let ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, colorScheme: "dark" }); await ctx.addInitScript(() => { try { sessionStorage.setItem("uidPrompted", "1"); localStorage.setItem("tutorialOffered", "true"); } catch {} });
   let page = await ctx.newPage();
   watch(page, "member-desktop");
 
@@ -61,9 +61,20 @@ async function login(page, email) {
   await page.fill("#email", "new@example.com");
   await page.fill("#password", "password1");
   await page.fill("#invite", "k7qm-2xpa");
+  check("註冊要填交易所和 UID", await page.isVisible("#uidRow"));
+  await page.click("#authSubmit"); await page.waitForTimeout(200);
+  check("沒選交易所會提醒", (await page.textContent("#authError")).includes("選擇你用 CCC 邀請連結註冊的交易所"));
+  await page.selectOption("#regEx", "BingX"); await page.fill("#regUid", "12345678");
+  check("選交易所會換說明", (await page.textContent("#regUidHint")).includes("BingX"));
+  await page.click("#authSubmit"); await page.waitForTimeout(400);
+  check("Bybit、BingX 不是 CCC 邀請的不能註冊", (await page.textContent("#authError")).includes("不是用 CCC 的 BingX 邀請連結"), await page.textContent("#authError"));
+  await page.selectOption("#regEx", "OKX"); await page.fill("#regUid", "1234 5678 9012");
+  await page.screenshot({ path: `${OUT}/02b-register-uid.png` });
   await page.click("#authSubmit");
   await page.waitForSelector("#appView:not([hidden])", { timeout: 8000 });
   check("用邀請碼註冊後直接登入", true);
+  const newLinks = await page.evaluate(() => App.api("/api/me").then((m) => m.links.filter((l) => l.uid).map((l) => `${l.exchange}:${l.uid}`)));
+  check("註冊時填的 UID 記下來", newLinks.join() === "OKX:123456789012", newLinks.join());
   await page.evaluate(() => App.sb.auth.signOut());
   await page.waitForSelector("#authView:not([hidden])");
 
@@ -141,7 +152,7 @@ async function login(page, email) {
   await ctx.close();
 
   // ── 研究員：手機 ──
-  ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, colorScheme: "dark" }); await ctx.addInitScript(() => { try { localStorage.setItem("tutorialOffered", "true"); } catch {} });
+  ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, colorScheme: "dark" }); await ctx.addInitScript(() => { try { sessionStorage.setItem("uidPrompted", "1"); localStorage.setItem("tutorialOffered", "true"); } catch {} });
   page = await ctx.newPage();
   watch(page, "member-mobile");
   await page.goto(BASE + "/");
@@ -165,7 +176,7 @@ async function login(page, email) {
   await ctx.close();
 
   // ── 停權研究員 ──
-  ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } }); await ctx.addInitScript(() => { try { localStorage.setItem("tutorialOffered", "true"); } catch {} });
+  ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } }); await ctx.addInitScript(() => { try { sessionStorage.setItem("uidPrompted", "1"); localStorage.setItem("tutorialOffered", "true"); } catch {} });
   page = await ctx.newPage();
   watch(page, "banned");
   await login(page, "banned@example.com");
@@ -174,7 +185,7 @@ async function login(page, email) {
   await ctx.close();
 
   // ── 管理員 ──
-  ctx = await browser.newContext({ viewport: { width: 1280, height: 860 }, colorScheme: "dark" }); await ctx.addInitScript(() => { try { localStorage.setItem("tutorialOffered", "true"); } catch {} });
+  ctx = await browser.newContext({ viewport: { width: 1280, height: 860 }, colorScheme: "dark" }); await ctx.addInitScript(() => { try { sessionStorage.setItem("uidPrompted", "1"); localStorage.setItem("tutorialOffered", "true"); } catch {} });
   page = await ctx.newPage();
   watch(page, "admin");
   await page.goto(BASE + "/admin");
@@ -244,7 +255,7 @@ async function login(page, email) {
   await ctx.close();
 
   // ── 管理員：手機 ──
-  ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }); await ctx.addInitScript(() => { try { localStorage.setItem("tutorialOffered", "true"); } catch {} });
+  ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }); await ctx.addInitScript(() => { try { sessionStorage.setItem("uidPrompted", "1"); localStorage.setItem("tutorialOffered", "true"); } catch {} });
   page = await ctx.newPage();
   watch(page, "admin-mobile");
   await login(page, "boss@gmail.com");

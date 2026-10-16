@@ -87,8 +87,9 @@ function renderVolumes() {
         if (n !== null && !Number.isNaN(n)) inp.value = fmtUsd(n);
       });
       map[ex] = inp;
-      if (auto) return el("td", { "data-label": ex }, inp, el("div", { class: "small muted vol-uid", text: r.links?.[ex] ? `UID ${r.links[ex]}` : "未綁定" }));
-      return el("td", { "data-label": ex }, inp);
+      // 填過 UID 就顯示在下面，對交易所後台時用；自動同步的沒綁就寫「未綁定」
+      const uid = r.links?.[ex];
+      return el("td", { "data-label": ex }, inp, uid || auto ? el("div", { class: "small muted vol-uid", text: uid ? `UID ${uid}` : "未綁定" }) : null);
     });
     inputs.set(r.user_id, map);
     resultCell(r, result);

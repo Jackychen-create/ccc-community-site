@@ -46,6 +46,7 @@ function setMode(m) {
   $("#tabLogin").setAttribute("aria-selected", String(!reg));
   $("#tabRegister").setAttribute("aria-selected", String(reg));
   $("#inviteRow").hidden = !reg;
+  $("#uidRow").hidden = !reg;
   $("#invite").required = reg;
   $("#authTitle").textContent = reg ? "加入實驗室" : "歡迎回來";
   $("#authSub").textContent = reg ? "輸入實驗室密碼，建立你的帳號" : "用你的 Email 和密碼登入";
@@ -70,11 +71,22 @@ function loginErrorText(err) {
   return "登入失敗，請稍後再試";
 }
 
+const UID_HINT = {
+  OKX: "OKX 的 UID 在個人中心。",
+  UM: "UM 請填 MT5 交易帳號。",
+  Bybit: "Bybit 請填主帳號的 UID。網站會跟 Bybit 確認是不是用 CCC 邀請連結註冊的。",
+  BingX: "BingX 的 UID 在個人頁面。網站會跟 BingX 確認是不是用 CCC 邀請連結註冊的。",
+};
+
 // 掛上表單事件；登入成功後呼叫 afterLogin
 export function initAuth(afterLogin) {
   onLogin = afterLogin;
   $("#tabLogin").addEventListener("click", () => setMode("login"));
   $("#tabRegister").addEventListener("click", () => setMode("register"));
+  $("#regEx").addEventListener("change", () => {
+    setAuthError("");
+    $("#regUidHint").textContent = UID_HINT[$("#regEx").value] || "管理員要靠 UID 對到你的交易量。用好幾間的話，登入後可以再加。";
+  });
   $("#authTutorial").addEventListener("click", (e) => {
     e.preventDefault();
     tutorial();
@@ -102,13 +114,17 @@ export function initAuth(afterLogin) {
     if (!password) return setAuthError("請輸入密碼");
     if (mode === "register" && password.length < 8) return setAuthError("密碼至少需要 8 個字元");
     if (mode === "register" && !invite) return setAuthError("請輸入實驗室密碼");
+    const exchange = $("#regEx").value;
+    const uid = $("#regUid").value.replace(/\s/g, "");
+    if (mode === "register" && !exchange) return setAuthError("請選擇你用 CCC 邀請連結註冊的交易所");
+    if (mode === "register" && !/^\d{5,20}$/.test(uid)) return setAuthError("請填交易所 UID（一串數字）");
 
     const btn = $("#authSubmit");
     setBusy(btn, true, mode === "register" ? "建立帳號中…" : "登入中…");
     setAuthError("");
     try {
       if (mode === "register") {
-        await api("/api/register", { method: "POST", body: { email, password, inviteCode: invite } });
+        await api("/api/register", { method: "POST", body: { email, password, inviteCode: invite, exchange, uid } });
       }
       const { error } = await sb.auth.signInWithPassword({ email, password });
       if (error) throw new Error(loginErrorText(error));

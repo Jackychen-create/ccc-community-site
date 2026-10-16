@@ -10,7 +10,7 @@ const end = (() => { const [y, m, dd] = today.split("-").map(Number); const last
 (async () => {
   const b = await chromium.launch();
   async function ctx(vp) {
-    const c = await b.newContext({ viewport: vp }); await c.addInitScript(() => { try { localStorage.setItem("tutorialOffered", "true"); } catch {} });
+    const c = await b.newContext({ viewport: vp }); await c.addInitScript(() => { try { sessionStorage.setItem("uidPrompted", "1"); localStorage.setItem("tutorialOffered", "true"); } catch {} });
     await c.route(/fonts\.googleapis\.com/, (r) => r.fulfill({ contentType: "text/css", body: FONT_CSS }));
     const p = await c.newPage(); p.on("pageerror", (e) => errs.push(e.message));
     return [c, p];

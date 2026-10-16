@@ -26,6 +26,15 @@ export default route({
       supabaseAdmin.from("discord_applications").select("id, discord_name, exchange, exchange_uid, status, auto, reviewed_by, created_at, reviewed_at").order("created_at", { ascending: false }).limit(30),
       supabaseAdmin.from("invite_codes").select("code, max_uses, used_count, disabled, note").eq("disabled", false).order("created_at", { ascending: false }).limit(20),
     ]);
+    // 每筆申請對到網站上的哪個 Email（研究員在網站填了同一個交易所 UID）
+    if (apps?.length) {
+      const { data: links } = await supabaseAdmin.from("exchange_links").select("user_id, exchange, exchange_uid").in("exchange_uid", [...new Set(apps.map((a) => a.exchange_uid))]);
+      const ids = [...new Set((links || []).map((l) => l.user_id))];
+      const { data: mems } = ids.length ? await supabaseAdmin.from("members").select("user_id, email").in("user_id", ids) : { data: [] };
+      const emailOf = new Map((mems || []).map((m) => [m.user_id, m.email]));
+      const byUid = new Map((links || []).map((l) => [`${l.exchange}:${l.exchange_uid}`, emailOf.get(l.user_id) || null]));
+      for (const a of apps) a.site_email = byUid.get(`${a.exchange}:${a.exchange_uid}`) || null;
+    }
     // 建議放在實驗室頻道的實驗室密碼：已經放的那組，不然就最新一組還能用的
     const usable = (codes || []).filter((c) => c.used_count < c.max_uses);
     const suggestCode = settings.labCode || usable.find((c) => /DC|Discord/i.test(c.note || ""))?.code || usable[0]?.code || "";
