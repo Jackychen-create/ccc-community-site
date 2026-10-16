@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 // 規則跟正式網站讀同一份
+import { canUseApi } from "../public/assets/js/shared/roles.js";
 import { EXCHANGES, AUTO_EXCHANGES, isQualified, addDays, cycleEnd, periodOf, nextPeriod, prevPeriod, COURSE_HOSTS as CH, courseUnlockDate } from "../public/assets/js/shared/rules.js";
 
 const PORT = Number(process.env.PORT || 4321);
@@ -15,8 +16,10 @@ const MEDIA = path.join(ROOT, "tests", "fixtures");
 const CSP = fs.readFileSync(path.join(PUB, "_headers"), "utf8").match(/Content-Security-Policy:\s*(.+)/)[1].trim();
 
 const ADMIN = "boss@gmail.com";
+const EDITOR = "oc@gmail.com"; // 協作管理員（只能管影片、提問、統計、看研究員）
 const users = {
   "boss@gmail.com": { id: "00000000-0000-4000-8000-000000000001", password: "password1" },
+  "oc@gmail.com": { id: "00000000-0000-4000-8000-0000000000c0", password: "password1" },
   "amy@example.com": { id: "00000000-0000-4000-8000-000000000002", password: "password1" },
   "banned@example.com": { id: "00000000-0000-4000-8000-000000000003", password: "password1" },
 };
@@ -116,7 +119,7 @@ function auth(req) {
   const t = (req.headers.authorization || "").replace("Bearer ", "");
   return tokens.get(t) || null;
 }
-const isMember = (u) => u && (u.email === ADMIN || members.some((m) => m.user_id === u.id && !m.banned));
+const isMember = (u) => u && (u.email === ADMIN || u.email === EDITOR || members.some((m) => m.user_id === u.id && !m.banned));
 const thumbUrl = (v) => (v.thumb ? `/media/${v.thumb}?sig=1` : v.thumbKey ? `/r2/${v.thumbKey}` : null);
 
 const server = http.createServer(async (req, res) => {
@@ -213,7 +216,8 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { latest: pub[0]?.published_at || null, count: pub.length });
     }
     if (!u) return send(res, 401, { error: "請先登入" });
-    const admin = u.email === ADMIN;
+    const admin = u.email === ADMIN || u.email === EDITOR;
+    const role = u.email === EDITOR ? "editor" : "owner";
     if (!admin && !isMember(u)) return send(res, 403, { error: "這個帳號目前沒有觀看權限，請聯絡管理員" });
 
     const mrow = members.find((m) => m.user_id === u.id);
@@ -223,7 +227,7 @@ const server = http.createServer(async (req, res) => {
         mrow.notify = body.notify;
         return send(res, 200, { ok: true, notify: body.notify });
       }
-      return send(res, 200, { links: mrow ? EXCHANGES.map((ex) => ({ exchange: ex, auto: AUTO_EXCHANGES.includes(ex), enabled: true, uid: autoLinks[ex].get(mrow.user_id) || null, boundAt: null })) : null, feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, accessUntil: mrow?.access_until || null, notify: mrow ? mrow.notify !== false : null, volume: mrow ? (() => { const p = curP(mrow); const v = vols.get(mrow.user_id + ":" + p.start); return { periodStart: p.start, periodEnd: p.end, exchanges: EX, threshold, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, qualified: v ? qualified(v.amounts) : false, qualifiedAt: v?.qualified_at || null, qualifiedUntil: v?.qualified_at ? nextPeriod(anchorOf(mrow), p).end : null }; })() : null });
+      return send(res, 200, { links: mrow ? EXCHANGES.map((ex) => ({ exchange: ex, auto: AUTO_EXCHANGES.includes(ex), enabled: true, uid: autoLinks[ex].get(mrow.user_id) || null, boundAt: null })) : null, feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, adminRole: admin ? role : null, accessUntil: mrow?.access_until || null, notify: mrow ? mrow.notify !== false : null, volume: mrow ? (() => { const p = curP(mrow); const v = vols.get(mrow.user_id + ":" + p.start); return { periodStart: p.start, periodEnd: p.end, exchanges: EX, threshold, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, qualified: v ? qualified(v.amounts) : false, qualifiedAt: v?.qualified_at || null, qualifiedUntil: v?.qualified_at ? nextPeriod(anchorOf(mrow), p).end : null }; })() : null });
     }
     if (p === "/api/exchange-link") {
       const mrow = members.find((m) => m.user_id === u.id);
@@ -311,6 +315,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 204);
     }
     if (!admin) return send(res, 403, { error: "只有管理員可以使用後台" });
+    if (!canUseApi(role, p.replace(/^\/api\//, ""), req.method)) return send(res, 403, { error: "這個功能只有主要管理員可以使用", code: "owner_only" });
 
     if (p === "/api/admin/videos") {
       if (req.method === "GET") return send(res, 200, { videos: videos.map((v) => ({ ...v, thumb_url: thumbUrl(v) })) });

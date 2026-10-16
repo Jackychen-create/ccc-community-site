@@ -23,6 +23,7 @@ import { loadStats } from "./stats.js";
 import { loadFeedback, refreshFeedbackCount } from "./feedback.js";
 import { loadFollowup } from "./followup.js";
 import { loadHealth } from "./health.js";
+import { canSeeView, ROLE_LABEL } from "../shared/roles.js";
 
 document.querySelectorAll("[data-ico]").forEach((n) => {
   n.replaceWith(icon(n.dataset.ico));
@@ -46,12 +47,14 @@ document.querySelectorAll("[data-ico]").forEach((n) => {
     return;
   }
   if (!state.me.isAdmin) return show("noAccess");
-  $("#whoami").textContent = state.me.email;
+  $("#whoami").textContent = state.me.adminRole === "editor" ? `${state.me.email}（${ROLE_LABEL.editor}）` : state.me.email;
+  // 協作管理員看不到的頁面，側欄直接拿掉
+  document.querySelectorAll(".nav a[data-view]").forEach((a) => { if (!canSeeView(state.me.adminRole, a.dataset.view)) a.remove(); });
   show("shell");
   window.addEventListener("hashchange", route);
   route();
   // 先把三個清單都抓回來，側欄數字才有東西
-  loadInvites(true);
+  if (canSeeView(state.me.adminRole, "invites")) loadInvites(true);
   loadMembers(true);
   A.whatsNew();
 })();
@@ -84,7 +87,8 @@ function loadBadges() {
 function route() {
   loadBadges();
   const VIEWS = ["videos", "invites", "discord", "members", "volumes", "stats", "feedback", "followup", "health"];
-  const view = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "videos";
+  const want = location.hash.slice(1);
+  const view = VIEWS.includes(want) && canSeeView(state.me?.adminRole, want) ? want : "videos";
   document.querySelectorAll("[data-view-panel]").forEach((p) => (p.hidden = p.dataset.viewPanel !== view));
   document.querySelectorAll(".nav a").forEach((a) => {
     if (a.dataset.view === view) {

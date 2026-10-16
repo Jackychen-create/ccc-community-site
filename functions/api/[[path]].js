@@ -125,6 +125,7 @@ export async function onRequest(context) {
     query: Object.fromEntries(url.searchParams),
     body,
     rawBody: rawText, // Discord 驗簽要用原始內容
+    route: path, // 例如 admin/videos；管理員權限用
     waitUntil: (p) => context.waitUntil(p), // 先回應、背景繼續做（Discord 3 秒內要回）
   };
   const res = makeRes();

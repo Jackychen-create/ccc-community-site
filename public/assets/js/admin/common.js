@@ -12,6 +12,7 @@ export function fail(e) {
     sb.auth.signOut().then(() => location.replace("/?next=admin"));
     return;
   }
+  if (e.status === 403 && e.code === "owner_only") return A.toast(e.message, "err"); // 協作管理員用到主要管理員的功能
   if (e.status === 403) return show("noAccess");
   A.toast(e.message || "發生錯誤", "err");
 }

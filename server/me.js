@@ -1,6 +1,6 @@
 // GET   /api/me            目前登入者的身分、觀看資格到期日、通知設定
 // PATCH /api/me { notify }  研究員自己開關「新影片寄信通知」
-import { supabaseAdmin, requireMember, readBody, route, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, getThreshold, isQualified, periodFor, nextPeriod, anchorOf } from "./lib/index.js";
+import { supabaseAdmin, adminRole, requireMember, readBody, route, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, getThreshold, isQualified, periodFor, nextPeriod, anchorOf } from "./lib/index.js";
 
 export default route({
   async GET(req, res) {
@@ -36,10 +36,13 @@ export default route({
     }
     // 有沒有還沒看的提問回覆（右上角選單會亮一個點）
     const { count: unread } = await supabaseAdmin.from("feedback").select("id", { count: "exact", head: true }).eq("user_id", ctx.user.id).eq("seen_reply", false);
+    // 管理員是主要管理員（owner）還是協作管理員（editor）
+    const role = ctx.isAdmin ? await adminRole(ctx.user.email) : null;
     return res.status(200).json({
       email: ctx.user.email,
       feedbackUnread: unread || 0,
       isAdmin: ctx.isAdmin,
+      adminRole: role,
       accessUntil: ctx.member?.access_until || null,
       notify: ctx.member ? ctx.member.notify !== false : null,
       volume,

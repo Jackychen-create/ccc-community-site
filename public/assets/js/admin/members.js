@@ -3,6 +3,8 @@ import * as A from "../core/index.js";
 const { el, $, api, icon } = A;
 import { cycleEnd } from "../shared/rules.js";
 import { fail, loadingBox } from "./common.js";
+import { state } from "./state.js";
+import { canManageMembers } from "../shared/roles.js";
 
 let members = [];
 let memberQuery = "";
@@ -62,7 +64,8 @@ function renderMembers() {
               el("td", { class: "small num hide-sm", text: `${m.watched_count} 支` }),
               el("td", null, accessCell(m)),
               el("td", null, m.banned ? el("span", { class: "pill warn" }, el("span", { class: "dot" }), "已停權") : el("span", { class: "pill good" }, el("span", { class: "dot" }), "正常")),
-              el("td", null, el("div", { class: "actions" },
+              // 協作管理員只能看，不能改資格、重設密碼、停權
+              !canManageMembers(state.me?.adminRole) ? el("td", { class: "small muted", text: "只能檢視" }) : el("td", null, el("div", { class: "actions" },
                 el("button", { class: "btn sm", type: "button", onclick: () => editAccess(m) }, icon("clock"), "資格"),
                 el("button", { class: "btn sm", type: "button", onclick: () => resetPassword(m) }, icon("key"), "重設密碼"),
                 m.banned
