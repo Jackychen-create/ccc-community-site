@@ -10,7 +10,7 @@ import { state, SITE } from "./state.js";
 import { show, showBlocked, showUnavailable, leavePage } from "./views.js";
 import { showAuth, initAuth } from "./auth.js";
 import { renderMenu } from "./menu.js";
-import { renderAccessBanner, renderVolPanel } from "./account.js";
+import { renderAccessBanner, renderVolPanel, promptUidIfMissing } from "./account.js";
 import { openList } from "./list.js";
 import { openWatch } from "./watch.js";
 import { openCourse } from "./course.js";
@@ -57,6 +57,7 @@ async function enterApp() {
   const firstVisit = !store.get("seenVersion", null);
   whatsNew();
   if (firstVisit && !me.isAdmin && !store.get("tutorialOffered", false)) offerTutorial();
+  promptUidIfMissing();
   if (!routerOn) {
     routerOn = true;
     window.addEventListener("hashchange", route);

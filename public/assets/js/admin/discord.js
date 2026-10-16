@@ -25,7 +25,8 @@ const STATUS = { pending: ["等待審核", "brass"], approved: ["已通過", "go
 const exName = (ex) => (ex === "UM" ? "UM" : ex);
 
 function render() {
-  $("#cDiscord").textContent = dc.applications.filter((a) => a.status === "pending").length || "";
+  const badge = $("#cDiscord"); // 側欄的 Discord 審核先關掉了
+  if (badge) badge.textContent = dc.applications.filter((a) => a.status === "pending").length || "";
   renderApps();
   renderSettings();
 }
@@ -46,7 +47,9 @@ function renderApps() {
         el("tbody", null, apps.map((a) => {
           const [label, kind] = STATUS[a.status] || [a.status, ""];
           return el("tr", null,
-            el("td", { "data-label": "申請人" }, el("b", { text: a.discord_name || "—" }), el("div", { class: "small muted num", text: A.fmtRel(a.created_at) })),
+            el("td", { "data-label": "申請人" }, el("b", { text: a.discord_name || "—" }),
+              el("div", { class: "small " + (a.site_email ? "dc-email" : "muted"), text: a.site_email ? `網站：${a.site_email}` : "網站還沒填這個 UID" }),
+              el("div", { class: "small muted num", text: A.fmtRel(a.created_at) })),
             el("td", { "data-label": "交易所／UID" }, el("span", { text: exName(a.exchange) }), el("div", { class: "small muted num", text: a.exchange_uid })),
             el("td", { "data-label": "結果" }, el("span", { class: "pill " + kind }, el("span", { class: "dot" }), label)),
             el("td", { class: "small sub hide-sm", text: a.status === "pending" ? "到 Discord 審核頻道按通過" : a.reviewed_by || "—" }));

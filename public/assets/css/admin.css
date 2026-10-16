@@ -129,3 +129,9 @@
 .dc-quick .btn.block { justify-content: center; }
 .dc-result { margin-top: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-md); display: grid; gap: 4px; }
 .dc-result.bad { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+/* 研究員：交易所 UID、Discord 名稱 */
+.mem-dc { color: var(--ink-2); margin-top: 2px; }
+.mem-uids { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 4px; }
+.mem-uid { display: inline-flex; gap: 5px; padding: 0 7px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink-2); }
+.mem-uid b { color: var(--amber); font-weight: 600; }
+.dc-email { color: var(--ink-2); word-break: break-all; }

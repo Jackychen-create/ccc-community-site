@@ -35,7 +35,7 @@ function renderMembers() {
   $("#cMembers").textContent = members.length || "";
   const active = members.filter((m) => !m.banned).length;
   $("#memberSub").textContent = members.length ? `共 ${members.length} 位，${active} 位可觀看` : "用實驗室密碼加入的研究員";
-  const list = members.filter((m) => !memberQuery || `${m.email} ${m.invite_code || ""}`.toLowerCase().includes(memberQuery));
+  const list = members.filter((m) => !memberQuery || `${m.email} ${m.invite_code || ""} ${Object.values(m.uids || {}).join(" ")} ${m.discord || ""}`.toLowerCase().includes(memberQuery));
   const box = $("#memberTableBox");
   if (!members.length) {
     box.replaceChildren(el("div", { class: "empty" }, el("h2", { text: "還沒有研究員" }), el("p", { class: "small", style: { marginTop: "6px" }, text: "到「實驗室密碼」產生一組，把註冊連結傳出去。" })));
@@ -52,7 +52,11 @@ function renderMembers() {
         el("tbody", null,
           list.map((m) =>
             el("tr", null,
-              el("td", null, el("div", { class: "t-title", style: { wordBreak: "break-all" }, text: m.email }), el("div", { class: "small muted num", text: m.invite_code ? `實驗室密碼 ${m.invite_code}` : "" })),
+              el("td", null,
+                el("div", { class: "t-title", style: { wordBreak: "break-all" }, text: m.email }),
+                el("div", { class: "small muted num", text: m.invite_code ? `實驗室密碼 ${m.invite_code}` : "" }),
+                m.discord ? el("div", { class: "small mem-dc", text: `Discord：${m.discord}` }) : null,
+                Object.keys(m.uids || {}).length ? el("div", { class: "mem-uids" }, ...Object.entries(m.uids).map(([ex, uid]) => el("span", { class: "mem-uid small num", title: `${ex} UID` }, el("b", { text: ex }), uid))) : null),
               el("td", { class: "small num hide-sm", text: A.fmtDate(m.created_at) }),
               el("td", { class: "small", text: A.fmtRel(m.last_sign_in_at) }),
               el("td", { class: "small num hide-sm", text: `${m.watched_count} 支` }),

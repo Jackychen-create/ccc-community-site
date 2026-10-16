@@ -9,7 +9,7 @@ const errs = [];
   const b = await chromium.launch();
   async function ctx(vp) {
     const c = await b.newContext({ viewport: vp });
-    await c.addInitScript(() => { try { localStorage.setItem("tutorialOffered", "true"); localStorage.setItem("seenVersion", JSON.stringify("9.9.9")); } catch {} });
+    await c.addInitScript(() => { try { sessionStorage.setItem("uidPrompted", "1"); localStorage.setItem("tutorialOffered", "true"); localStorage.setItem("seenVersion", JSON.stringify("9.9.9")); } catch {} });
     await c.route(/fonts\.googleapis\.com/, (r) => r.fulfill({ contentType: "text/css", body: FONT_CSS }));
     const p = await c.newPage(); p.on("pageerror", (e) => errs.push(e.message));
     return [c, p];
@@ -25,11 +25,19 @@ const errs = [];
   await login(p, "amy@example.com"); await p.waitForSelector(".vrow"); await p.waitForTimeout(500); await closeModals(p);
   const panel = () => p.textContent("#volPanel");
   check("交易量說明列出 BingX", (await panel()).includes("BingX"), await panel());
-  check("還沒綁定時有「綁定 BingX」", await p.isVisible("#volPanel .bx-row .btn:has-text('綁定 BingX')"));
-  check("也有「綁定 Bybit」", await p.isVisible("#volPanel .bx-row .btn:has-text('綁定 Bybit')"));
+  check("還沒綁定時有「綁定 BingX」", await p.isVisible("#volPanel .bx-row:has-text('BingX') .btn:has-text('綁定')"));
+  check("也有「綁定 Bybit」", await p.isVisible("#volPanel .bx-row:has-text('Bybit') .btn:has-text('綁定')"));
+  check("還沒填任何 UID 會提醒", (await panel()).includes("管理員才對得到你的交易量"));
+  check("四間都可以填 UID", ["OKX", "UM", "Bybit", "BingX"].every((ex) => (async () => true)()) && (await p.locator("#volPanel .bx-row").count()) === 4);
+  await p.click("#volPanel .bx-row:has-text('OKX') .btn:has-text('填寫')"); await p.waitForSelector(".modal:has-text('填寫 OKX UID')");
+  await p.fill(".modal input", "123 456 789 012 345 678"); await p.click(".modal-foot .btn.primary");
+  await p.waitForSelector(".toast:has-text('已記下你的 OKX UID')");
+  await p.waitForSelector("#volPanel .bx-text:has-text('123456789012345678')");
+  check("OKX UID 記下來（18 位數字也可以）", true);
+  check("填了之後提醒就消失", !(await panel()).includes("管理員才對得到你的交易量"));
   const before = await p.evaluate(() => App.api("/api/me").then((m) => m.accessUntil));
 
-  await p.click("#volPanel .bx-row .btn:has-text('綁定 BingX')"); await p.waitForSelector(".modal:has-text('綁定 BingX')");
+  await p.click("#volPanel .bx-row:has-text('BingX') .btn:has-text('綁定')"); await p.waitForSelector(".modal:has-text('綁定 BingX')");
   await p.fill(".modal input", "abc"); await p.click(".modal-foot .btn.primary");
   check("UID 不是數字會提醒", (await p.textContent(".modal .form-error")).includes("一串數字"));
   await p.fill(".modal input", "12345678"); await p.click(".modal-foot .btn.primary"); await p.waitForTimeout(400);
@@ -50,6 +58,7 @@ const errs = [];
   check("後台顯示 BingX 同步列", (await a.textContent(".bx-line:has-text('BingX')")).includes("已綁定 1 位"), await a.textContent(".bx-bar"));
   check("BingX 欄是自動的（唯讀）", await a.locator(".vol-table input.auto[readonly]").count() > 0);
   check("BingX 欄顯示研究員的 UID", (await a.textContent(".vol-table")).includes("UID 88880001"));
+  check("OKX 欄也顯示 UID，對交易所後台時知道是誰", (await a.textContent(".vol-table")).includes("UID 123456789012345678"));
   const amyRow = "#volBox tr:has-text('amy@example.com')";
   check("BingX 數字出現在表格", (await a.inputValue(`${amyRow} input[aria-label$='BingX 交易量']`)).includes("3,500,000"));
   await a.click(".bx-bar .btn"); await a.waitForSelector(".toast:has-text('同步')");
@@ -65,10 +74,34 @@ const errs = [];
   // ── 研究員：解除綁定 ──
   await p.click("#volPanel .bx-row:has-text('BingX') .btn:has-text('解除')"); await p.waitForSelector(".modal:has-text('解除綁定')");
   await p.click(".modal-foot .btn.danger-solid"); await p.waitForSelector(".toast:has-text('已解除')");
-  await p.waitForSelector("#volPanel .bx-row .btn:has-text('綁定 BingX')");
+  await p.waitForSelector("#volPanel .bx-row:has-text('BingX') .btn:has-text('綁定')");
   check("解除後回到「綁定 BingX」", true);
   check("已經記下的數字保留", (await panel()).includes("350 萬"));
   await c.close();
+
+  // ── 一間 UID 都沒填的研究員：登入後跳出來請他補填（同一次開網站只問一次）──
+  {
+    const c4 = await b.newContext({ viewport: { width: 1280, height: 800 } });
+    await c4.addInitScript(() => { try { localStorage.setItem("tutorialOffered", "true"); localStorage.setItem("seenVersion", JSON.stringify("9.9.9")); } catch {} });
+    await c4.route(/fonts\.googleapis\.com/, (r) => r.fulfill({ contentType: "text/css", body: FONT_CSS }));
+    const q = await c4.newPage(); q.on("pageerror", (e) => errs.push(e.message));
+    await q.goto(BASE + "/"); await q.evaluate(() => fetch("/api/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: "nouid@example.com", password: "password1", inviteCode: "K7QM-2XPA", exchange: "UM", uid: "99990001" }) }));
+    // 模擬舊研究員：把 UID 刪掉再登入
+    await login(q, "nouid@example.com"); await q.waitForSelector("#appView:not([hidden])");
+    await q.evaluate(() => App.api("/api/exchange-link?exchange=UM", { method: "DELETE" }));
+    await q.evaluate(() => sessionStorage.clear()); await q.reload(); await q.waitForSelector("#appView:not([hidden])"); await q.waitForTimeout(500);
+    const news = async () => { if (await q.isVisible(".modal:has-text('網站更新了')")) { await q.keyboard.press("Escape"); await q.waitForTimeout(300); } };
+    await news();
+    await q.waitForSelector(".modal:has-text('填寫你的交易所 UID')", { timeout: 8000 });
+    check("沒填 UID 的人登入後會被請他補填", true);
+    await q.selectOption(".modal select", "UM"); await q.fill(".modal input", "99990001"); await q.click(".modal-foot .btn.primary");
+    await q.waitForSelector(".toast:has-text('已記下你的 UM MT5 帳號')");
+    check("補填 UM MT5 帳號", (await q.textContent("#volPanel")).includes("99990001"));
+    await q.screenshot({ path: "output/shots/v18-uid-prompt-done.png" });
+    await q.evaluate(() => sessionStorage.clear()); await q.reload(); await q.waitForSelector("#appView:not([hidden])"); await q.waitForTimeout(500); await news(); await q.waitForTimeout(1500);
+    check("填過之後不會再跳出來", !(await q.isVisible(".modal:has-text('填寫你的交易所 UID')")));
+    await c4.close();
+  }
 
   // ── 手機 ──
   const [c3, m] = await ctx({ width: 390, height: 844 });

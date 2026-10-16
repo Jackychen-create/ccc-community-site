@@ -9,6 +9,7 @@ const errs = [];
   const b = await chromium.launch();
   async function ctx(vp, offered = true, mobile = false) {
     const c = await b.newContext({ viewport: vp, isMobile: mobile, hasTouch: mobile });
+    await c.addInitScript(() => { try { sessionStorage.setItem("uidPrompted", "1"); } catch {} });
     if (offered) await c.addInitScript(() => { try { localStorage.setItem("tutorialOffered", "true"); } catch {} });
     await c.route(/fonts\.googleapis\.com/, (r) => r.fulfill({ contentType: "text/css", body: FONT_CSS }));
     const p = await c.newPage(); p.on("pageerror", (e) => errs.push(e.message));

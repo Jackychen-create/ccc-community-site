@@ -1,8 +1,9 @@
-// 研究員綁定交易所帳號（Bybit、BingX，可以自動抓交易量的交易所）
+// 研究員填自己的交易所 UID：Bybit、BingX 會先跟交易所確認是 CCC 邀請的，之後每天自動抓交易量；
+// OKX、UM 不驗證，只是讓管理員對得到「這個 UID 是哪個 Email」
 // GET    /api/exchange-link                       我綁定的帳號、哪幾間已經可以綁
 // POST   /api/exchange-link { exchange, uid }     綁定：先問交易所這個 UID 是不是用我們的邀請碼註冊的，是才綁，並馬上同步這個月的交易量
 // DELETE /api/exchange-link?exchange=Bybit        解除綁定（之後不再自動同步，已經記下的交易量保留）
-import { supabaseAdmin, requireMember, readBody, route, thisMonthTW, AUTO_EXCHANGES, PROVIDERS } from "./lib/index.js";
+import { supabaseAdmin, requireMember, readBody, route, thisMonthTW, EXCHANGES, AUTO_EXCHANGES, PROVIDERS } from "./lib/index.js";
 
 export default route({
   async GET(req, res) {
@@ -10,7 +11,7 @@ export default route({
     if (!ctx) return;
     const { data, error } = await supabaseAdmin.from("exchange_links").select("exchange, exchange_uid, bound_at").eq("user_id", ctx.user.id);
     if (error) throw error;
-    const enabled = Object.fromEntries(AUTO_EXCHANGES.map((ex) => [ex, PROVIDERS[ex].configured()]));
+    const enabled = Object.fromEntries(EXCHANGES.map((ex) => [ex, AUTO_EXCHANGES.includes(ex) ? PROVIDERS[ex].configured() : true]));
     return res.status(200).json({ links: data || [], enabled });
   },
 
@@ -20,14 +21,22 @@ export default route({
     if (!ctx.member) return res.status(400).json({ error: "管理員帳號不用綁定交易所" });
     const b = readBody(req);
     const ex = b.exchange;
-    if (!AUTO_EXCHANGES.includes(ex)) return res.status(400).json({ error: "不支援這間交易所" });
+    if (!EXCHANGES.includes(ex)) return res.status(400).json({ error: "不支援這間交易所" });
+    const auto = AUTO_EXCHANGES.includes(ex);
     const p = PROVIDERS[ex];
-    const uid = String(b.uid ?? "").trim();
-    if (!/^\d{5,15}$/.test(uid)) return res.status(400).json({ error: "UID 是一串數字，請再確認一次" });
-    if (!p.configured()) return res.status(503).json({ error: `${ex} 串接還沒設定好，請聯絡管理員` });
+    const uid = String(b.uid ?? "").replace(/\s/g, "");
+    if (!/^\d{5,20}$/.test(uid)) return res.status(400).json({ error: "UID 是一串數字，請再確認一次" });
+    if (auto && !p.configured()) return res.status(503).json({ error: `${ex} 串接還沒設定好，請聯絡管理員` });
 
     const { data: taken } = await supabaseAdmin.from("exchange_links").select("user_id").eq("exchange", ex).eq("exchange_uid", uid).maybeSingle();
     if (taken && taken.user_id !== ctx.user.id) return res.status(409).json({ error: "這個 UID 已經被其他研究員綁定了，有問題請聯絡管理員" });
+
+    // OKX、UM：直接記下來
+    if (!auto) {
+      const { error } = await supabaseAdmin.from("exchange_links").upsert({ user_id: ctx.user.id, exchange: ex, exchange_uid: uid, direct: null, bound_at: new Date().toISOString() });
+      if (error) throw error;
+      return res.status(200).json({ ok: true, exchange: ex, uid, synced: false });
+    }
 
     let check;
     try {
@@ -60,7 +69,7 @@ export default route({
     const ctx = await requireMember(req, res);
     if (!ctx) return;
     const exchange = req.query?.exchange;
-    if (!AUTO_EXCHANGES.includes(exchange)) return res.status(400).json({ error: "不支援這間交易所" });
+    if (!EXCHANGES.includes(exchange)) return res.status(400).json({ error: "不支援這間交易所" });
     const { error } = await supabaseAdmin.from("exchange_links").delete().eq("user_id", ctx.user.id).eq("exchange", exchange);
     if (error) throw error;
     return res.status(200).json({ ok: true });

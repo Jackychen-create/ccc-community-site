@@ -9,11 +9,12 @@ export default route({
     let volume = null;
     let links = null;
     if (ctx.member) {
-      // 自動同步的交易所：有沒有設定好、這位研究員綁了哪個 UID
+      // 四間交易所的 UID：自動同步的（Bybit、BingX）有沒有設定好、這位研究員填了哪個 UID
       const { data: rows } = await supabaseAdmin.from("exchange_links").select("exchange, exchange_uid, bound_at").eq("user_id", ctx.user.id);
-      links = AUTO_EXCHANGES.map((ex) => {
+      links = EXCHANGES.map((ex) => {
         const l = (rows || []).find((r) => r.exchange === ex);
-        return { exchange: ex, enabled: PROVIDERS[ex].configured(), uid: l?.exchange_uid || null, boundAt: l?.bound_at || null };
+        const auto = AUTO_EXCHANGES.includes(ex);
+        return { exchange: ex, auto, enabled: auto ? PROVIDERS[ex].configured() : true, uid: l?.exchange_uid || null, boundAt: l?.bound_at || null };
       });
       const month = thisMonthTW();
       const [threshold, { data: row }] = await Promise.all([

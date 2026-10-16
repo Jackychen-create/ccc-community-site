@@ -313,3 +313,9 @@ create index if not exists discord_applications_created_idx on public.discord_ap
 -- 同一個交易所 UID 只能讓一個人通過
 create unique index if not exists discord_applications_uid_approved on public.discord_applications (exchange, exchange_uid) where status = 'approved';
 alter table public.discord_applications enable row level security;
+
+-- ── v1.11：研究員可以填四間交易所的 UID（OKX、UM 不用驗證，只是讓管理員對得到人）──
+alter table public.exchange_links drop constraint if exists exchange_links_exchange_check;
+alter table public.exchange_links add constraint exchange_links_exchange_check check (exchange in ('BingX', 'Bybit', 'OKX', 'UM'));
+alter table public.exchange_links drop constraint if exists exchange_links_exchange_uid_check;
+alter table public.exchange_links add constraint exchange_links_exchange_uid_check check (exchange_uid ~ '^\d{5,20}$');

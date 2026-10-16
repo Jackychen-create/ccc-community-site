@@ -21,7 +21,7 @@ const users = {
   "banned@example.com": { id: "00000000-0000-4000-8000-000000000003", password: "password1" },
 };
 const tokens = new Map();
-const d = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+const d = (n) => new Date(Date.now() + 8 * 3600e3 - n * 86400000).toISOString().slice(0, 10); // 台灣日期
 let nextId = 10;
 const videos = [
   { id: 6, hosts: ["CCC", "OC"], chapters: [{ t: 0, title: "開場" }, { t: 20, title: "本週違規回顧" }, { t: 50, title: "追單之後怎麼處理" }, { t: 75, title: "Q&A" }], title: "10/9 直播：本週盤勢與紀律檢討", description: "回顧這週的進場理由與違規，重點放在追單之後的處理。", published_at: d(1), is_published: true, duration_sec: 90, size_bytes: 30944161, thumb: "thumb5.jpg", attachments: [{ id: 1, title: "10-9 盤勢整理.pdf", size_bytes: 1830000 }, { id: 2, title: "交易紀錄範本.xlsx", size_bytes: 42000 }] },
@@ -61,7 +61,7 @@ const EX = EXCHANGES;
 let threshold = 1000000;
 // 自動同步的交易所：假的代理商資料
 // BingX UID 88880001 是我們邀請的，這個月 350 萬（10 號跨過門檻）；Bybit UID 77770001 這個月 150 萬（Bybit 隔天才更新，達標日記昨天）
-const autoLinks = Object.fromEntries(AUTO_EXCHANGES.map((ex) => [ex, new Map()])); // exchange → (user_id → uid)
+const autoLinks = Object.fromEntries(EXCHANGES.map((ex) => [ex, new Map()])); // exchange → (user_id → uid)；OKX、UM 只是記下來
 const INVITED = { BingX: { "88880001": 3500000 }, Bybit: { "77770001": 1500000 } };
 const syncLast = {};
 // Discord 審核機器人：設定和最近的申請
@@ -79,7 +79,7 @@ const qualified = (a) => isQualified(a, threshold);
 const TODAY = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
 const twDate = (ts) => new Date(new Date(ts).getTime() + 8 * 3600e3).toISOString().slice(0, 10);
 const unlockOn = courseUnlockDate;
-function linkOf(userId) { return Object.fromEntries(AUTO_EXCHANGES.filter((ex) => autoLinks[ex].has(userId)).map((ex) => [ex, autoLinks[ex].get(userId)])); }
+function linkOf(userId) { return Object.fromEntries(EXCHANGES.filter((ex) => autoLinks[ex].has(userId)).map((ex) => [ex, autoLinks[ex].get(userId)])); }
 function autoSyncUser(ex, userId) {
   const uid = autoLinks[ex].get(userId); if (!uid) return 0;
   const month = monthNow(); const key = userId + ":" + month; const prev = vols.get(key);
@@ -190,10 +190,16 @@ const server = http.createServer(async (req, res) => {
       const inv = invites.find((i) => i.code === body.inviteCode && !i.disabled && i.used_count < i.max_uses);
       if (!inv) return send(res, 400, { error: "邀請碼無效、已停用或已被用完" });
       if (users[body.email]) return send(res, 400, { error: "這個 Email 已經註冊過了，請直接登入" });
+      const rex = String(body.exchange || ""), ruid = String(body.uid || "").replace(/\s/g, "");
+      if (!EXCHANGES.includes(rex)) return send(res, 400, { error: "請選擇你用 CCC 邀請連結註冊的交易所" });
+      if (!/^\d{5,20}$/.test(ruid)) return send(res, 400, { error: "請填交易所 UID（一串數字）" });
+      if ([...autoLinks[rex].values()].includes(ruid)) return send(res, 409, { error: `這個 ${rex} UID 已經被其他研究員填過了，有問題請聯絡管理員` });
+      if (AUTO_EXCHANGES.includes(rex) && !(ruid in INVITED[rex])) return send(res, 400, { error: `這個 UID 不是用 CCC 的 ${rex} 邀請連結註冊的。請確認 UID，或用邀請連結重新註冊`, code: "not_invited" });
       inv.used_count++;
       const id = crypto.randomUUID();
       users[body.email] = { id, password: body.password };
       members.unshift({ user_id: id, email: body.email, invite_code: inv.code, banned: false, created_at: new Date().toISOString(), last_sign_in_at: null, watched_count: 0, access_until: cycleEnd(TODAY()), notify: true });
+      autoLinks[rex].set(id, ruid); if (AUTO_EXCHANGES.includes(rex)) autoSyncUser(rex, id);
       return send(res, 200, { ok: true });
     }
     if (p === "/api/stats") {
@@ -211,18 +217,19 @@ const server = http.createServer(async (req, res) => {
         mrow.notify = body.notify;
         return send(res, 200, { ok: true, notify: body.notify });
       }
-      return send(res, 200, { links: mrow ? AUTO_EXCHANGES.map((ex) => ({ exchange: ex, enabled: true, uid: autoLinks[ex].get(mrow.user_id) || null, boundAt: null })) : null, feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, accessUntil: mrow?.access_until || null, notify: mrow ? mrow.notify !== false : null, volume: mrow ? (() => { const v = vols.get(mrow.user_id + ":" + monthNow()); return { month: monthNow(), exchanges: EX, threshold, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, qualified: v ? qualified(v.amounts) : false, qualifiedAt: v?.qualified_at || null, qualifiedUntil: v?.qualified_at ? cycleEnd(v.qualified_at) : null }; })() : null });
+      return send(res, 200, { links: mrow ? EXCHANGES.map((ex) => ({ exchange: ex, auto: AUTO_EXCHANGES.includes(ex), enabled: true, uid: autoLinks[ex].get(mrow.user_id) || null, boundAt: null })) : null, feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, accessUntil: mrow?.access_until || null, notify: mrow ? mrow.notify !== false : null, volume: mrow ? (() => { const v = vols.get(mrow.user_id + ":" + monthNow()); return { month: monthNow(), exchanges: EX, threshold, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, qualified: v ? qualified(v.amounts) : false, qualifiedAt: v?.qualified_at || null, qualifiedUntil: v?.qualified_at ? cycleEnd(v.qualified_at) : null }; })() : null });
     }
     if (p === "/api/exchange-link") {
       const mrow = members.find((m) => m.user_id === u.id);
       if (!mrow) return send(res, 400, { error: "管理員帳號不用綁定交易所" });
-      if (req.method === "GET") return send(res, 200, { links: Object.entries(linkOf(u.id)).map(([exchange, exchange_uid]) => ({ exchange, exchange_uid })), enabled: Object.fromEntries(AUTO_EXCHANGES.map((ex) => [ex, true])) });
+      if (req.method === "GET") return send(res, 200, { links: Object.entries(linkOf(u.id)).map(([exchange, exchange_uid]) => ({ exchange, exchange_uid })), enabled: Object.fromEntries(EXCHANGES.map((ex) => [ex, true])) });
       const ex = req.method === "DELETE" ? url.searchParams.get("exchange") : body.exchange;
-      if (!AUTO_EXCHANGES.includes(ex)) return send(res, 400, { error: "不支援這間交易所" });
+      if (!EXCHANGES.includes(ex)) return send(res, 400, { error: "不支援這間交易所" });
       if (req.method === "DELETE") { autoLinks[ex].delete(u.id); return send(res, 200, { ok: true }); }
-      const uid = String(body.uid || "");
-      if (!/^\d{5,15}$/.test(uid)) return send(res, 400, { error: "UID 是一串數字，請再確認一次" });
+      const uid = String(body.uid || "").replace(/\s/g, "");
+      if (!/^\d{5,20}$/.test(uid)) return send(res, 400, { error: "UID 是一串數字，請再確認一次" });
       if ([...autoLinks[ex]].some(([k, v]) => v === uid && k !== u.id)) return send(res, 409, { error: "這個 UID 已經被其他研究員綁定了，有問題請聯絡管理員" });
+      if (!AUTO_EXCHANGES.includes(ex)) { autoLinks[ex].set(u.id, uid); return send(res, 200, { ok: true, exchange: ex, uid, synced: false }); }
       if (!(uid in INVITED[ex])) return send(res, 400, { error: `這個 UID 不是用 CCC 的 ${ex} 邀請碼註冊的${ex === "Bybit" ? "（Bybit 要填主帳號的 UID）" : ""}。請確認 UID，或用我們的邀請連結註冊`, code: "not_invited" });
       autoLinks[ex].set(u.id, uid); autoSyncUser(ex, u.id);
       return send(res, 200, { ok: true, exchange: ex, uid, synced: true });
@@ -354,7 +361,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { ok: true });
     }
     if (p === "/api/admin/discord") {
-      if (req.method === "GET") return send(res, 200, { configured: true, settings: discordSettings, applications: discordApps, inviteUrl: "https://discord.com/oauth2/authorize?client_id=111111111111111111&scope=bot&permissions=268528656", suggestCode: "K7QM-2XPA" });
+      if (req.method === "GET") return send(res, 200, { configured: true, settings: discordSettings, applications: discordApps.map((a) => { const hit = members.find((m) => linkOf(m.user_id)[a.exchange] === a.exchange_uid); return { ...a, site_email: hit?.email || null }; }), inviteUrl: "https://discord.com/oauth2/authorize?client_id=111111111111111111&scope=bot&permissions=268528656", suggestCode: "K7QM-2XPA" });
       if (req.method === "PATCH") {
         for (const k of ["roleId", "panelChannelId", "reviewChannelId"]) {
           if (body[k] === undefined) continue;
@@ -467,7 +474,10 @@ const server = http.createServer(async (req, res) => {
       });
     }
     if (p === "/api/admin/members") {
-      if (req.method === "GET") return send(res, 200, { members });
+      if (req.method === "GET") {
+        const dcBy = new Map(discordApps.filter((a) => a.status === "approved").map((a) => [`${a.exchange}:${a.exchange_uid}`, a.discord_name]));
+        return send(res, 200, { members: members.map((m) => { const uids = linkOf(m.user_id); return { ...m, uids, discord: Object.entries(uids).map(([ex, id]) => dcBy.get(`${ex}:${id}`)).find(Boolean) || null }; }) });
+      }
       const m = members.find((x) => x.user_id === body.userId);
       if (body.action === "reset") return send(res, 200, { password: "Tq8mWz3kPa7c" });
       if (body.action === "access") {
