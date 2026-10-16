@@ -53,6 +53,20 @@ const errs = [];
   await a.click("#dcSettingsBox .btn:has-text('重新張貼申請按鈕')"); await a.waitForSelector(".toast:has-text('已經在申請頻道張貼')");
   check("張貼申請按鈕", true);
   await a.screenshot({ path: "output/shots/v20-admin.png" });
+
+  // ── 實驗室密碼：刪除 ──
+  await a.goto(BASE + "/admin#invites"); await a.waitForSelector("#inviteTableBox table"); await closeModals(a);
+  await a.click("tr:has-text('K7QM-2XPA') button:has-text('刪除')"); await a.waitForSelector(".modal:has-text('刪除實驗室密碼')");
+  check("刪除前會確認，說明已加入的人不受影響", (await a.textContent(".modal")).includes("不受影響"));
+  await a.click(".modal-foot .btn.danger-solid"); await a.waitForTimeout(400);
+  check("放在 Discord 實驗室頻道的那組不能刪", (await a.textContent(".toast:last-child")).includes("Discord"), await a.textContent(".toast:last-child"));
+  check("沒刪掉", (await a.textContent("#inviteTableBox")).includes("K7QM-2XPA"));
+  await a.click("tr:has-text('HW3N-8RTE') button:has-text('刪除')"); await a.waitForSelector(".modal:has-text('刪除實驗室密碼')");
+  await a.click(".modal-foot .btn.danger-solid"); await a.waitForSelector(".toast:has-text('已刪除 HW3N-8RTE')");
+  check("刪除後從列表消失", !(await a.textContent("#inviteTableBox")).includes("HW3N-8RTE"));
+  const left = await a.evaluate(() => App.api("/api/admin/invites").then((r) => r.invites.map((x) => x.code)));
+  check("伺服器也刪掉了", !left.includes("HW3N-8RTE") && left.includes("K7QM-2XPA"), left.join(","));
+  await a.screenshot({ path: "output/shots/v20-invites.png" });
   await c.close();
 
   const [c2, m] = await ctx({ width: 390, height: 844 });

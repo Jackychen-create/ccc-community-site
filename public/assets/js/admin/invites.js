@@ -50,12 +50,27 @@ function renderInvites() {
               el("td", null, el("span", { class: "pill " + kind }, el("span", { class: "dot" }), label)),
               el("td", null, el("div", { class: "actions" },
                 el("button", { class: "btn sm", type: "button", onclick: () => A.copyText(shareText(i.code)) }, icon("copy"), "複製連結"),
-                el("button", { class: "btn sm ghost", type: "button", text: i.disabled ? "啟用" : "停用", onclick: () => toggleInvite(i) })
+                el("button", { class: "btn sm ghost", type: "button", text: i.disabled ? "啟用" : "停用", onclick: () => toggleInvite(i) }),
+                el("button", { class: "btn sm ghost danger", type: "button", text: "刪除", "aria-label": `刪除 ${i.code}`, onclick: () => deleteInvite(i) })
               ))
             );
           })
         )))
   );
+}
+
+async function deleteInvite(i) {
+  const used = i.used_count ? `已經有 ${i.used_count} 位用這組加入，他們的帳號不受影響。` : "";
+  const ok = await A.confirmDialog({ title: `刪除實驗室密碼 ${i.code}`, message: `刪除後這組就不能再註冊，也會從列表消失。${used}確定要刪除嗎？`, confirmText: "刪除", danger: true });
+  if (!ok) return;
+  try {
+    await api(`/api/admin/invites?code=${encodeURIComponent(i.code)}`, { method: "DELETE" });
+    invites = invites.filter((x) => x.code !== i.code);
+    renderInvites();
+    A.toast(`已刪除 ${i.code}`);
+  } catch (e) {
+    fail(e);
+  }
 }
 
 async function toggleInvite(i) {
