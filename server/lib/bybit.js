@@ -91,14 +91,11 @@ export async function fetchBybitVolumes(startDate, endDate) {
   return out;
 }
 
-// 一個月要查的區間：1 號到「月底和昨天比較早的那天」；還沒有資料（例如今天是 1 號）就回 null
-export function bybitRange(month, today) {
-  const start = `${month}-01`;
-  const [y, m] = month.split("-").map(Number);
-  const last = `${month}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, "0")}`;
+// 一輪要查的區間：這一輪第一天到「這一輪最後一天和昨天比較早的那天」；還沒有資料（例如這一輪今天才開始）就回 null
+export function capRange(start, end, today) {
   const t = new Date(today + "T00:00:00Z");
   t.setUTCDate(t.getUTCDate() - 1);
   const yesterday = t.toISOString().slice(0, 10);
-  const end = last < yesterday ? last : yesterday;
-  return end < start ? null : [start, end];
+  const to = end < yesterday ? end : yesterday;
+  return to < start ? null : [start, to];
 }

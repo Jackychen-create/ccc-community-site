@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 // 規則跟正式網站讀同一份
-import { EXCHANGES, AUTO_EXCHANGES, isQualified, addDays, cycleEnd, COURSE_HOSTS as CH, courseUnlockDate } from "../public/assets/js/shared/rules.js";
+import { EXCHANGES, AUTO_EXCHANGES, isQualified, addDays, cycleEnd, periodOf, nextPeriod, prevPeriod, COURSE_HOSTS as CH, courseUnlockDate } from "../public/assets/js/shared/rules.js";
 
 const PORT = Number(process.env.PORT || 4321);
 const ROOT = path.join(path.dirname(new URL(import.meta.url).pathname), "..");
@@ -80,19 +80,25 @@ const TODAY = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10)
 const twDate = (ts) => new Date(new Date(ts).getTime() + 8 * 3600e3).toISOString().slice(0, 10);
 const unlockOn = courseUnlockDate;
 function linkOf(userId) { return Object.fromEntries(EXCHANGES.filter((ex) => autoLinks[ex].has(userId)).map((ex) => [ex, autoLinks[ex].get(userId)])); }
+// 每人一輪：從加入那天（台灣日期）起算
+const anchorOf = (m) => twDate(m.created_at);
+const curP = (m) => periodOf(anchorOf(m), TODAY());
+const periodFor = (m, which) => (which === "previous" ? prevPeriod(anchorOf(m), curP(m)) : curP(m));
+const clampDay = (d, p) => (d < p.start ? p.start : d > p.end ? p.end : d);
 function autoSyncUser(ex, userId) {
   const uid = autoLinks[ex].get(userId); if (!uid) return 0;
-  const month = monthNow(); const key = userId + ":" + month; const prev = vols.get(key);
+  const m = members.find((x) => x.user_id === userId); if (!m) return 0;
+  const p = curP(m); const key = userId + ":" + p.start; const prev = vols.get(key);
   const amounts = { ...(prev?.amounts || {}), [ex]: INVITED[ex][uid] || 0 };
-  const yesterday = addDays(TODAY(), -1);
-  const ok = qualified(amounts); const qOn = ex === "Bybit" ? (yesterday.startsWith(month) ? yesterday : month + "-01") : month + "-10";
+  const ok = qualified(amounts);
+  const qOn = clampDay(ex === "Bybit" ? addDays(TODAY(), -1) : addDays(p.start, 3), p);
   vols.set(key, { amounts, qualified_at: ok ? prev?.qualified_at || qOn : null, updated_at: new Date().toISOString(), updated_by: `${ex} 自動同步` });
-  const m = members.find((x) => x.user_id === userId);
-  if (ok && !prev?.qualified_at && m?.access_until && m.access_until < cycleEnd(qOn)) { m.access_until = cycleEnd(qOn); return 1; }
+  const until = nextPeriod(anchorOf(m), p).end;
+  if (ok && !prev?.qualified_at && m.access_until && m.access_until < until) { m.access_until = until; return 1; }
   return 0;
 }
-function volSnap(month) {
-  return { month, monthEnd: monthEnd(month), exchanges: EX, autoExchanges: AUTO_EXCHANGES, threshold, rows: [...members].reverse().map((m) => { const v = vols.get(m.user_id + ":" + month); return { user_id: m.user_id, email: m.email, banned: m.banned, access_until: m.access_until, note: m.note, amounts: v?.amounts || {}, updated_at: v?.updated_at || null, updated_by: v?.updated_by || null, qualified: v ? qualified(v.amounts) : false, qualified_at: v?.qualified_at || null, qualified_until: v?.qualified_at ? cycleEnd(v.qualified_at) : null, links: linkOf(m.user_id) }; }) };
+function volSnap(which) {
+  return { which, today: TODAY(), exchanges: EX, autoExchanges: AUTO_EXCHANGES, threshold, rows: [...members].reverse().map((m) => ({ m, p: periodFor(m, which) })).filter((x) => x.p).map(({ m, p }) => { const v = vols.get(m.user_id + ":" + p.start); return { user_id: m.user_id, email: m.email, banned: m.banned, access_until: m.access_until, note: m.note, period_start: p.start, period_end: p.end, next_end: nextPeriod(anchorOf(m), p).end, amounts: v?.amounts || {}, updated_at: v?.updated_at || null, updated_by: v?.updated_by || null, qualified: v ? qualified(v.amounts) : false, qualified_at: v?.qualified_at || null, links: linkOf(m.user_id) }; }) };
 }
 
 function send(res, code, body, headers = {}) {
@@ -217,7 +223,7 @@ const server = http.createServer(async (req, res) => {
         mrow.notify = body.notify;
         return send(res, 200, { ok: true, notify: body.notify });
       }
-      return send(res, 200, { links: mrow ? EXCHANGES.map((ex) => ({ exchange: ex, auto: AUTO_EXCHANGES.includes(ex), enabled: true, uid: autoLinks[ex].get(mrow.user_id) || null, boundAt: null })) : null, feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, accessUntil: mrow?.access_until || null, notify: mrow ? mrow.notify !== false : null, volume: mrow ? (() => { const v = vols.get(mrow.user_id + ":" + monthNow()); return { month: monthNow(), exchanges: EX, threshold, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, qualified: v ? qualified(v.amounts) : false, qualifiedAt: v?.qualified_at || null, qualifiedUntil: v?.qualified_at ? cycleEnd(v.qualified_at) : null }; })() : null });
+      return send(res, 200, { links: mrow ? EXCHANGES.map((ex) => ({ exchange: ex, auto: AUTO_EXCHANGES.includes(ex), enabled: true, uid: autoLinks[ex].get(mrow.user_id) || null, boundAt: null })) : null, feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, accessUntil: mrow?.access_until || null, notify: mrow ? mrow.notify !== false : null, volume: mrow ? (() => { const p = curP(mrow); const v = vols.get(mrow.user_id + ":" + p.start); return { periodStart: p.start, periodEnd: p.end, exchanges: EX, threshold, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, qualified: v ? qualified(v.amounts) : false, qualifiedAt: v?.qualified_at || null, qualifiedUntil: v?.qualified_at ? nextPeriod(anchorOf(mrow), p).end : null }; })() : null });
     }
     if (p === "/api/exchange-link") {
       const mrow = members.find((m) => m.user_id === u.id);
@@ -387,25 +393,29 @@ const server = http.createServer(async (req, res) => {
       if (req.method === "GET") return send(res, 200, { exchanges: overview() });
       for (const ex of body.exchange ? [body.exchange] : AUTO_EXCHANGES) {
         let extended = 0; for (const id of autoLinks[ex].keys()) extended += autoSyncUser(ex, id);
-        syncLast[ex] = { at: new Date().toISOString(), ok: true, months: [{ month: monthNow(), users: autoLinks[ex].size, saved: autoLinks[ex].size, extended }] };
+        syncLast[ex] = { at: new Date().toISOString(), ok: true, users: autoLinks[ex].size, saved: autoLinks[ex].size, extended };
       }
       return send(res, 200, { ok: true, exchanges: overview() });
     }
     if (p === "/api/admin/volumes") {
-      if (req.method === "GET") return send(res, 200, volSnap(url.searchParams.get("month") || monthNow()));
+      if (req.method === "GET") return send(res, 200, volSnap(url.searchParams.get("which") === "previous" ? "previous" : "current"));
       if (req.method === "PATCH") { threshold = Math.round(Number(body.threshold)); return send(res, 200, { ok: true, threshold }); }
-      const qOn = body.qualifiedOn || TODAY(); let saved = 0, extended = 0;
+      const which = body.which === "previous" ? "previous" : "current";
+      let saved = 0, extended = 0;
       for (const r of body.rows || []) {
         const m = members.find((x) => x.user_id === r.userId); if (!m) continue;
+        const pp = periodFor(m, which); if (!pp) continue;
+        const qOn = clampDay(body.qualifiedOn || TODAY(), pp);
         const amounts = {}; for (const e of EX) if (!AUTO_EXCHANGES.includes(e) && r.amounts?.[e] != null && r.amounts[e] !== "") amounts[e] = Math.round(Number(r.amounts[e]) * 100) / 100;
-        const prevRow = vols.get(m.user_id + ":" + body.month);
+        const prevRow = vols.get(m.user_id + ":" + pp.start);
         for (const e of AUTO_EXCHANGES) if (prevRow?.amounts?.[e] != null) amounts[e] = prevRow.amounts[e];
         const prevQ = prevRow?.qualified_at || null;
         const ok = qualified(amounts);
-        vols.set(m.user_id + ":" + body.month, { amounts, qualified_at: ok ? prevQ || qOn : null, updated_at: new Date().toISOString(), updated_by: u.email }); saved++;
-        if (ok && !prevQ && m.access_until && m.access_until < cycleEnd(qOn)) { m.access_until = cycleEnd(qOn); extended++; }
+        vols.set(m.user_id + ":" + pp.start, { amounts, qualified_at: ok ? prevQ || qOn : null, updated_at: new Date().toISOString(), updated_by: u.email }); saved++;
+        const until = nextPeriod(anchorOf(m), pp).end;
+        if (ok && !prevQ && m.access_until && m.access_until < until) { m.access_until = until; extended++; }
       }
-      return send(res, 200, { ...volSnap(body.month), saved, extended, until: cycleEnd(qOn) });
+      return send(res, 200, { ...volSnap(which), saved, extended });
     }
     if (p === "/api/admin/notify" && videos.find((x) => x.id === body.videoId)?.course_host) return send(res, 400, { error: "教學課程依每個人的加入日期解鎖，不寄全體通知" });
     if (p === "/api/admin/notify") return send(res, 200, { ok: true, sent: members.filter((m) => !m.banned && m.notify !== false).length });
@@ -441,8 +451,8 @@ const server = http.createServer(async (req, res) => {
         const reasons = []; const prog = [...progress.entries()].filter(([k]) => k.startsWith(m.user_id + ":")).map(([k, v]) => ({ video_id: Number(k.split(":")[1]), ...v }));
         if (m.access_until && m.access_until < today) reasons.push({ key: "expired", label: `已過期（${m.access_until.slice(5)}）`, level: 3 });
         else if (m.access_until && m.access_until <= addDays(today, 7)) reasons.push({ key: "expiring", label: `${m.access_until.slice(5).replace("-", "/")} 到期`, level: 2 });
-        const vv = vols.get(m.user_id + ":" + monthNow());
-        if (m.access_until && !(vv && qualified(vv.amounts))) reasons.push({ key: "volume", label: vv ? "這個月還差一點" : "這個月還沒有交易量", level: 1 });
+        const vv = vols.get(m.user_id + ":" + curP(m).start);
+        if (m.access_until && !(vv && qualified(vv.amounts))) reasons.push({ key: "volume", label: vv ? "這一輪還差一點" : "這一輪還沒有交易量", level: 1 });
         const last = prog.map((x) => x.updated_at).sort().pop() || null;
         const away = last ? Math.floor((Date.now() - new Date(last).getTime()) / 864e5) : null;
         if (!last) reasons.push({ key: "inactive", label: "加入後還沒看過影片", level: 2 }); else if (away >= 14) reasons.push({ key: "inactive", label: `${away} 天沒來看`, level: 1 });

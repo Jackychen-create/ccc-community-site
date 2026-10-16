@@ -2,7 +2,7 @@
 import { $, el, icons, fmtRel, api, modal, confirmDialog, setBusy, toast, cfg } from "../core/index.js";
 import { state } from "./state.js";
 import { DAY, md } from "./format.js";
-import { AUTO_EXCHANGES, goalOf, fmtAmount, gapText, ruleText } from "../shared/rules.js";
+import { AUTO_EXCHANGES, goalOf, fmtAmount, gapText, ruleText, addDays } from "../shared/rules.js";
 
 // 每月資格：到期前 7 天提醒
 export function renderAccessBanner() {
@@ -21,23 +21,24 @@ export function renderAccessBanner() {
   );
 }
 
-// 資格提醒的第二句：這個月達標還能延長，就講這個月；已經到月底了，就講下個月
+// 資格提醒的第二句：這一輪還沒達標就講這一輪；已經達標了，提醒下一輪也要達標
 function volHint(v) {
   if (!v) return "要繼續觀看請聯絡管理員更新資格。";
   const rule = ruleText(v.threshold, v.exchanges);
-  return v.qualified ? `下個月${rule}，達標那天起可以再看一個月。` : `這個月${rule}，達標那天起可以再看一個月。`;
+  return v.qualified
+    ? `下一輪（${md(addDays(v.periodEnd, 1))} 起）也是${rule}，就能再看一輪。`
+    : `這一輪（${md(v.periodStart)}～${md(v.periodEnd)}）${rule}，就能看到下一輪結束。`;
 }
 
-// 右欄：本月交易量（OKX 管理員在後台填；Bybit、BingX 綁定 UID 後每天自動更新；任一間達標就有資格）
+// 右欄：這一輪的交易量（每人從加入那天起算，一輪一個月；OKX、UM 管理員填；Bybit、BingX 綁定 UID 後每天自動更新）
 export function renderVolPanel() {
   const box = $("#volPanel");
   const v = state.me?.volume;
   if (!v) return (box.hidden = true);
   box.hidden = false;
-  const monthNo = Number(v.month.slice(5));
   box.replaceChildren(...[
     el("div", { class: "panel-head", style: { padding: "14px 18px" } },
-      el("h2", { text: `${monthNo} 月交易量` }),
+      el("div", null, el("h2", { text: "這一輪交易量" }), el("div", { class: "small muted num vol-range", text: `${md(v.periodStart)}～${md(v.periodEnd)}` })),
       v.qualified ? el("span", { class: "pill good" }, el("span", { class: "dot" }), "已達標")
         : el("span", { class: "pill" }, v.amounts ? gapText(v.amounts, v.threshold, v.exchanges) : "尚未更新")),
     // 還沒填數字就不放空的進度條，標題旁的「尚未更新」已經說明了
@@ -51,7 +52,7 @@ export function renderVolPanel() {
           el("span", { class: "track" }, el("i", { style: { width: Math.min(100, (n / goal) * 100) + "%" } })));
       })),
     linkRows(),
-    el("p", { class: "small muted vol-note", text: (v.qualifiedAt ? `${md(v.qualifiedAt)} 達標，可以看到 ${md(v.qualifiedUntil)}。` : `${ruleText(v.threshold, v.exchanges)}，達標那天起可以看一個月（例如 10/15 達標，看到 11/14）。`) + (v.updatedAt ? `上次更新：${fmtRel(v.updatedAt)}。` : `${v.exchanges.filter((ex) => !AUTO_EXCHANGES.includes(ex)).join("、")} 由管理員每月更新。`) }),
+    el("p", { class: "small muted vol-note", text: (v.qualifiedAt ? `${md(v.qualifiedAt)} 達標，可以看到 ${md(v.qualifiedUntil)}。` : `從加入那天起算，每一輪一個月。${md(v.periodEnd)} 之前${ruleText(v.threshold, v.exchanges)}，就能看到下一輪結束；沒達標，${md(addDays(v.periodEnd, 1))} 起就不能看。`) + (v.updatedAt ? `上次更新：${fmtRel(v.updatedAt)}。` : `${v.exchanges.filter((ex) => !AUTO_EXCHANGES.includes(ex)).join("、")} 由管理員更新。`) }),
   ].filter(Boolean));
 }
 

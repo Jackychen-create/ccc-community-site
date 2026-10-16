@@ -1,13 +1,13 @@
 // 規則和伺服器小工具的單元測試（不用瀏覽器，幾秒鐘跑完）。npm test 會先跑這一支。
 import assert from "node:assert/strict";
-import { addDays, cycleEnd, courseWeek, courseUnlockDate, isQualified, COURSE_HOSTS, COURSE_PARTS, EXCHANGES, AUTO_EXCHANGES, DEFAULT_THRESHOLD, gapText, ruleText } from "../public/assets/js/shared/rules.js";
+import { addDays, cycleEnd, periodOf, nextPeriod, prevPeriod, addMonths, courseWeek, courseUnlockDate, isQualified, COURSE_HOSTS, COURSE_PARTS, EXCHANGES, AUTO_EXCHANGES, DEFAULT_THRESHOLD, gapText, ruleText } from "../public/assets/js/shared/rules.js";
 import { mergeBuckets } from "../server/lib/buckets.js";
 import { cleanTitle, cleanChapters, toInt, isDate } from "../server/lib/text.js";
 import http from "node:http";
 import { env } from "../server/lib/env.js";
-import { buildCanonical, hmacHex, parseSafe, monthRanges, summarize, checkInvite, fetchDaily } from "../server/lib/bingx.js";
-import { bybitSign, bybitQuery, bybitRange, checkBybitClient, fetchBybitVolumes } from "../server/lib/bybit.js";
-import { syncMonths } from "../server/lib/autosync.js";
+import { buildCanonical, hmacHex, parseSafe, dayChunks, summarize, checkInvite, fetchDaily } from "../server/lib/bingx.js";
+import { bybitSign, bybitQuery, capRange, checkBybitClient, fetchBybitVolumes } from "../server/lib/bybit.js";
+import { syncPeriods } from "../server/lib/volume.js";
 
 let pass = 0, fail = 0;
 function test(name, fn) {
@@ -15,6 +15,28 @@ function test(name, fn) {
   catch (e) { fail++; console.log("FAIL " + name + "：" + e.message); }
 }
 
+test("每人一輪：10/16 加入 → 10/16～11/15，11/16 是第二輪", () => {
+  assert.deepEqual(periodOf("2026-10-16", "2026-10-16"), { index: 0, start: "2026-10-16", end: "2026-11-15" });
+  assert.deepEqual(periodOf("2026-10-16", "2026-11-15"), { index: 0, start: "2026-10-16", end: "2026-11-15" });
+  assert.deepEqual(periodOf("2026-10-16", "2026-11-16"), { index: 1, start: "2026-11-16", end: "2026-12-15" });
+});
+test("每人一輪：第一輪達標可以看到第二輪結束", () => assert.equal(nextPeriod("2026-10-16", periodOf("2026-10-16", "2026-10-20")).end, "2026-12-15"));
+test("每人一輪：跨年", () => assert.deepEqual(periodOf("2026-12-20", "2027-01-25"), { index: 1, start: "2027-01-20", end: "2027-02-19" }));
+test("每人一輪：1/31 加入，2 月用月底，3 月回到 31 號", () => {
+  assert.deepEqual(periodOf("2026-01-31", "2026-02-28"), { index: 1, start: "2026-02-28", end: "2026-03-30" });
+  assert.deepEqual(periodOf("2026-01-31", "2026-03-31"), { index: 2, start: "2026-03-31", end: "2026-04-29" });
+  assert.equal(addMonths("2028-01-31", 1), "2028-02-29");
+});
+test("每人一輪：第一輪沒有上一輪", () => {
+  assert.equal(prevPeriod("2026-10-16", periodOf("2026-10-16", "2026-10-20")), null);
+  assert.equal(prevPeriod("2026-10-16", periodOf("2026-10-16", "2026-11-20")).start, "2026-10-16");
+});
+test("同步哪幾輪：上一輪剛結束 3 天內也補一次", () => {
+  const m = { created_at: "2026-10-16T04:00:00Z" };
+  assert.equal(syncPeriods(m, "2026-11-18").length, 2);
+  assert.equal(syncPeriods(m, "2026-11-19").length, 1);
+  assert.equal(syncPeriods(m, "2026-10-20").length, 1);
+});
 test("資格一輪：10/15 達標看到 11/14", () => assert.equal(cycleEnd("2026-10-15"), "2026-11-14"));
 test("資格一輪：1/31 → 2/27（2 月沒有 31 號）", () => assert.equal(cycleEnd("2026-01-31"), "2026-02-27"));
 test("資格一輪：12/1 跨年 → 12/31", () => assert.equal(cycleEnd("2026-12-01"), "2026-12-31"));
@@ -32,7 +54,7 @@ test("還差多少：挑最接近的那間", () => {
   assert.equal(gapText({ UM: 1, OKX: 600000 }, 1000000), "還差 40 萬");
   assert.equal(gapText({}, 1000000), "還差 100 萬");
 });
-test("規則文字", () => assert.equal(ruleText(1000000), "OKX、Bybit、BingX 任一間當月成交金額達 100 萬 USDT，或 UM 當月達 10 手"));
+test("規則文字", () => assert.equal(ruleText(1000000), "OKX、Bybit、BingX 任一間這一輪成交金額達 100 萬 USDT，或 UM 這一輪達 10 手"));
 test("預設門檻 100 萬", () => assert.equal(DEFAULT_THRESHOLD, 1000000));
 test("課程順序是 CCC → OC → X，各 6 份", () => { assert.deepEqual(COURSE_HOSTS, ["CCC", "OC", "X"]); assert.equal(COURSE_PARTS, 6); });
 test("課程：加入當天解鎖 CCC 第 1 份", () => assert.equal(courseUnlockDate("2026-10-01", "CCC", 1), "2026-10-01"));
@@ -78,10 +100,9 @@ async function atest(name, fn) {
 test("BingX 簽名字串：依 key 排序、不編碼", () => assert.equal(buildCanonical({ timestamp: 1696751141337, symbol: "BTC-USDT", recvWindow: 0 }), "recvWindow=0&symbol=BTC-USDT&timestamp=1696751141337"));
 await atest("BingX 簽名跟 openssl 算的一樣", async () => assert.equal(await hmacHex("SECRET_KEY", "recvWindow=0&symbol=BTC-USDT&timestamp=1696751141337"), "fe041f159118c90ac13eab4d32f9e2d75b80ca6fe17ca8acd290aba864753ce2"));
 test("很長的整數不失真", () => assert.equal(parseSafe('{"data":{"uid":12345678901234567890,"n":5}}').data.uid, "12345678901234567890"));
-test("一個月切兩段、不查未來", () => {
-  assert.deepEqual(monthRanges("2026-10", "2026-10-12"), [["20261001", "20261012"]]);
-  assert.deepEqual(monthRanges("2026-10", "2026-10-31"), [["20261001", "20261015"], ["20261016", "20261031"]]);
-  assert.deepEqual(monthRanges("2026-02", "2026-03-05"), [["20260201", "20260215"], ["20260216", "20260228"]]);
+test("BingX 一次最多查 30 天：長的區間切段", () => {
+  assert.deepEqual(dayChunks("2026-10-16", "2026-10-20"), [["20261016", "20261020"]]);
+  assert.deepEqual(dayChunks("2026-10-16", "2026-11-18"), [["20261016", "20261114"], ["20261115", "20261118"]]);
 });
 test("BingX 達標日＝累計第一次跨過門檻那天", () => {
   const day = (d) => Date.UTC(2026, 9, d);
@@ -136,14 +157,10 @@ fake.close();
 await atest("Bybit 簽名跟 openssl 算的一樣（timestamp + key + recvWindow + query）", async () =>
   assert.equal(await bybitSign("SECRET", "1658384314791", "XXXXXXXXXX", "category=option&symbol=BTC-29JUL22-25000-C"), "127fcc9af2478ece79faf001bb923e88bffacd4cc6218287491a8e5fb8d6c432"));
 test("Bybit 參數：照順序、略過空值", () => assert.equal(bybitQuery({ size: 100, cursor: "", startDate: "2026-10-01" }), "size=100&startDate=2026-10-01"));
-test("Bybit 查詢區間：1 號到昨天、月底為止、1 號當天沒有資料", () => {
-  assert.deepEqual(bybitRange("2026-10", "2026-10-15"), ["2026-10-01", "2026-10-14"]);
-  assert.deepEqual(bybitRange("2026-09", "2026-10-02"), ["2026-09-01", "2026-09-30"]);
-  assert.equal(bybitRange("2026-10", "2026-10-01"), null);
-});
-test("每月 1–3 號也補同步上個月", () => {
-  assert.equal(syncMonths("2026-10-02").length, 2);
-  assert.equal(syncMonths("2026-10-04").length, 1);
+test("Bybit 查詢區間：這一輪第一天到昨天、一輪結束為止、第一天當天沒有資料", () => {
+  assert.deepEqual(capRange("2026-10-16", "2026-11-15", "2026-10-20"), ["2026-10-16", "2026-10-19"]);
+  assert.deepEqual(capRange("2026-10-16", "2026-11-15", "2026-11-17"), ["2026-10-16", "2026-11-15"]);
+  assert.equal(capRange("2026-10-16", "2026-11-15", "2026-10-16"), null);
 });
 const bseen = [];
 const bfake = http.createServer(async (req, res) => {

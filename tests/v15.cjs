@@ -27,7 +27,8 @@ const end = (() => { const [y, m, dd] = today.split("-").map(Number); const last
   { const vt = await p.textContent("#volPanel"); check("四間交易所都列出", ["OKX", "UM", "Bybit", "BingX"].every((ex) => vt.includes(ex)) && vt.includes("10 手"), vt); }
   check("還沒填不放空的進度條", (await p.locator("#volPanel .vol-row").count()) === 0);
   const banner = await p.textContent("#accessBanner");
-  check("資格提醒寫出達標後再看一個月", banner.includes("達標那天起可以再看一個月") && banner.includes("100 萬"), banner);
+  check("資格提醒寫出這一輪的日期和達標後看到下一輪", banner.includes("這一輪（") && banner.includes("就能看到下一輪結束") && banner.includes("100 萬"), banner);
+  check("標題寫這一輪和日期", (await p.textContent("#volPanel h2")) === "這一輪交易量" && /\d+\/\d+～\d+\/\d+/.test(await p.textContent("#volPanel .vol-range")));
   await p.screenshot({ path: "output/shots/v15-member-empty.png" });
   await c.close();
 
@@ -56,8 +57,10 @@ const end = (() => { const [y, m, dd] = today.split("-").map(Number); const last
   await p.screenshot({ path: "output/shots/v15-admin-filled.png" });
   await p.click(".vol-foot .btn.primary"); await p.waitForTimeout(600);
   const toast = await p.textContent(".toast:last-child");
-  check("儲存後延長資格", toast.includes("已儲存 2 位") && toast.includes(`1 位的資格延長到 ${end}`), toast);
-  check("表格顯示新資格", (await p.textContent(amy)).includes(`到 ${end}`));
+  check("儲存後延長資格到下一輪結束", toast.includes("已儲存 2 位") && toast.includes("1 位的資格延長到下一輪結束"), toast);
+  const amyRow = await p.evaluate(() => App.api("/api/admin/volumes").then((r) => r.rows.find((x) => x.email === "amy@example.com")));
+  check("表格顯示新資格＝下一輪結束", (await p.textContent(amy)).includes(`到 ${amyRow.next_end}`) && amyRow.access_until === amyRow.next_end, JSON.stringify(amyRow));
+  check("每個人顯示自己這一輪的日期", (await p.textContent(amy)).includes("這一輪 "));
   check("顯示誰更新", (await p.textContent(amy)).includes("由 boss 更新"));
   check("達標人數 1／2", (await p.textContent("#volSub")).includes("1／2"));
   check("輸入框格式化成千分位", (await p.inputValue(`${amy} input[aria-label$='OKX 交易量']`)) === "1,000,000");
@@ -66,7 +69,7 @@ const end = (() => { const [y, m, dd] = today.split("-").map(Number); const last
   await p.fill(".modal input", "500萬"); await p.click(".modal-foot .btn.primary"); await p.waitForTimeout(600);
   check("門檻改成 500 萬", (await p.textContent("#volThreshold")).includes("500 萬"));
   check("新門檻重新判斷", (await p.textContent("#volSub")).includes("0／2") && (await p.textContent(`${amy} .vol-result`)).includes("還差 400 萬"));
-  check("資格不會被收回", (await p.textContent(amy)).includes(`到 ${end}`));
+  check("資格不會被收回", (await p.textContent(amy)).includes(`到 ${amyRow.next_end}`));
   // 貼上一整批
   await p.click("#volPaste"); await p.waitForTimeout(200);
   await p.fill(".modal textarea", "amy@example.com 5,200,000 0\nnobody@x.com OKX 1\nbanned@example.com\tOKX\t600萬");
@@ -81,9 +84,10 @@ const end = (() => { const [y, m, dd] = today.split("-").map(Number); const last
   await p.click(".vol-foot .btn.primary"); await p.waitForTimeout(600);
   check("兩位都達標", (await p.textContent("#volSub")).includes("2／2"));
   await p.screenshot({ path: "output/shots/v15-admin.png", fullPage: true });
-  // 上個月
-  await p.fill("#volMonth", "2026-09"); await p.dispatchEvent("#volMonth", "change"); await p.waitForTimeout(500);
-  check("切換月份是空的", (await p.textContent("#volSub")).includes("0／2"));
+  // 上一輪：兩位都還在第一輪
+  await p.click("#volWhich .vol-seg-btn[data-which='previous']"); await p.waitForTimeout(500);
+  check("上一輪：都還在第一輪", (await p.textContent("#volBox")).includes("沒有上一輪"), await p.textContent("#volBox"));
+  await p.click("#volWhich .vol-seg-btn[data-which='current']"); await p.waitForSelector(".vol-table");
   await c.close();
   // 手機後台
   [c, p] = await ctx({ width: 390, height: 844 });

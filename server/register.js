@@ -92,7 +92,7 @@ export default route({
     });
     if (linkError) console.error("register link failed", linkError.message);
     else if (verified) {
-      try { await p.syncMonth(thisMonthTW(), { uid }); } catch (e) { console.error("register first sync failed", e?.message); }
+      try { await p.sync({ uid }); } catch (e) { console.error("register first sync failed", e?.message); }
     }
 
     return res.status(200).json({ ok: true });

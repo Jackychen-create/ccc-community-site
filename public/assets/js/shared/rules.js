@@ -8,7 +8,7 @@ export function addDays(date, n) {
   return d.toISOString().slice(0, 10);
 }
 
-// 資格一輪：從這天起一個月（含當天），例如 10/15 → 11/14；1/31 → 2/27（2 月沒有 31 號就用月底）
+// 從這天起一個月（含當天），例如 10/15 → 11/14；1/31 → 2/27（2 月沒有 31 號就用月底）
 export function cycleEnd(date) {
   const [y, m, d] = date.split("-").map(Number);
   const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
@@ -16,7 +16,31 @@ export function cycleEnd(date) {
   return addDays(next.toISOString().slice(0, 10), -1);
 }
 
-// ── 每月交易量 ──
+// ── 每人的一輪（2026-10-17 起）──
+// 從加入那天起算，每一輪剛好一個月：10/16 加入 → 第一輪 10/16～11/15、第二輪 11/16～12/15…
+// 這一輪內交易量達標 → 可以看到「下一輪」結束；沒達標，下一輪第一天就不能看
+// 1/31 加入：1/31～2/27、2/28～3/30、3/31～4/29…（沒有 31 號的月份用月底，之後回到 31 號）
+export function addMonths(date, n) {
+  const [y, m, d] = date.split("-").map(Number);
+  const t = new Date(Date.UTC(y, m - 1 + n, 1));
+  const last = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() + 1, 0)).getUTCDate();
+  t.setUTCDate(Math.min(d, last));
+  return t.toISOString().slice(0, 10);
+}
+// anchor（加入那天）＋某一天 → 那天所在的一輪 { index, start, end }（加入之前的日子算第一輪）
+export function periodOf(anchor, date) {
+  const [ay, am] = anchor.split("-").map(Number);
+  const [y, m] = date.split("-").map(Number);
+  let k = Math.max(0, (y - ay) * 12 + (m - am));
+  while (k > 0 && addMonths(anchor, k) > date) k--;
+  return { index: k, start: addMonths(anchor, k), end: addDays(addMonths(anchor, k + 1), -1) };
+}
+// 下一輪
+export const nextPeriod = (anchor, period) => periodOf(anchor, addDays(period.end, 1));
+// 上一輪（第一輪就沒有上一輪，回傳 null）
+export const prevPeriod = (anchor, period) => (period.index > 0 ? periodOf(anchor, addDays(period.start, -1)) : null);
+
+// ── 交易量 ──
 // 合作交易所，任一間當月交易量達標就算達標
 // OKX、UM 由管理員填；Bybit、BingX 由網站每天自動抓（研究員綁定 UID 後）
 // UM（Ultima Markets，MT5）用「手」算，門檻固定在 LOT_GOALS；其他用 USDT 成交金額，門檻在後台可以改（settings.volume_threshold）
@@ -50,13 +74,13 @@ export function gapText(amounts, threshold, exchanges = EXCHANGES) {
   const b = bestProgress(amounts, threshold, exchanges);
   return `${b.ex in LOT_GOALS ? b.ex + " " : ""}還差 ${fmtAmount(b.ex, Math.max(0, b.goal - b.n))}`;
 }
-// 「OKX、Bybit、BingX 任一間當月成交金額達 100 萬 USDT，或 UM 達 10 手」
+// 「OKX、Bybit、BingX 任一間這一輪成交金額達 100 萬 USDT，或 UM 達 10 手」
 export function ruleText(threshold, exchanges = EXCHANGES) {
   const usdt = exchanges.filter((ex) => !(ex in LOT_GOALS));
   const lots = exchanges.filter((ex) => ex in LOT_GOALS);
   const parts = [];
-  if (usdt.length) parts.push(`${usdt.join("、")} ${usdt.length > 1 ? "任一間" : ""}當月成交金額達 ${fmtAmount("", threshold)} USDT`.replace("  ", " "));
-  for (const ex of lots) parts.push(`${ex} 當月達 ${LOT_GOALS[ex]} 手`);
+  if (usdt.length) parts.push(`${usdt.join("、")} ${usdt.length > 1 ? "任一間" : ""}這一輪成交金額達 ${fmtAmount("", threshold)} USDT`.replace("  ", " "));
+  for (const ex of lots) parts.push(`${ex} 這一輪達 ${LOT_GOALS[ex]} 手`);
   return parts.join("，或 ");
 }
 
