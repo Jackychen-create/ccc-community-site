@@ -1,20 +1,22 @@
 #!/usr/bin/env bash
-# 跑全部測試：npm test　只跑某幾組：npm test -- v16 v17（單元測試每次都會先跑）
+# 跑全部測試：npm test　只跑某幾組：npm test -- v16 v17（unit、discord 每次都會先跑）
 # 每一組都會重新開一次模擬伺服器（資料重置），結果寫在 tests/output/
 cd "$(dirname "$0")"
 [ -d node_modules/playwright ] || { npm install --no-audit --no-fund && npx playwright install chromium; }
 [ -f fixtures/live.webm ] || bash make-fixtures.sh
 mkdir -p output/shots
-suites=("$@"); [ ${#suites[@]} -eq 0 ] && suites=(e2e v14 v15 v16 v17 v18 v19)
+suites=("$@"); [ ${#suites[@]} -eq 0 ] && suites=(e2e v14 v15 v16 v17 v18 v19 v20)
 total_fail=0
-# 單元測試（規則、伺服器小工具），幾秒鐘
-node unit.mjs > output/unit.log 2>&1; uc=$?
-uf=$(grep -c '^FAIL' output/unit.log)
-# 程式當掉（沒跑完）或一項都沒跑到，也算失敗
-{ [ $uc -ne 0 ] || [ "$(grep -c '^PASS' output/unit.log)" -eq 0 ]; } && [ "$uf" -eq 0 ] && { uf=1; echo "unit 沒有正常跑完，看 tests/output/unit.log"; }
-echo "unit：$(grep -c '^PASS' output/unit.log) 項通過，$uf 項失敗"
-grep '^FAIL' output/unit.log | head -5
-total_fail=$((total_fail + uf))
+# 不用瀏覽器的測試，幾秒鐘：unit（規則、伺服器小工具）、discord（Discord 審核機器人整個流程）
+for n in unit discord; do
+  node "$n.mjs" > "output/$n.log" 2>&1; uc=$?
+  uf=$(grep -c '^FAIL' "output/$n.log")
+  # 程式當掉（沒跑完）或一項都沒跑到，也算失敗
+  { [ $uc -ne 0 ] || [ "$(grep -c '^PASS' "output/$n.log")" -eq 0 ]; } && [ "$uf" -eq 0 ] && { uf=1; echo "$n 沒有正常跑完，看 tests/output/$n.log"; }
+  echo "$n：$(grep -c '^PASS' "output/$n.log") 項通過，$uf 項失敗"
+  grep '^FAIL' "output/$n.log" | head -5
+  total_fail=$((total_fail + uf))
+done
 for t in "${suites[@]}"; do
   node mock-server.mjs > output/server.log 2>&1 &
   pid=$!

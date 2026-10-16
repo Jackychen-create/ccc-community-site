@@ -290,3 +290,26 @@ select cron.schedule('daily-volume-sync', '17 18 * * *', $cron$
   )
   from vault.decrypted_secrets s where s.name = 'cron_secret';
 $cron$);
+
+-- ── v1.10：Discord 審核機器人 ──
+-- 研究員在 Discord 按「申請加入實驗室」→ 選交易所 → 填 UID；Bybit、BingX 自動確認，OKX、UM 由管理員在審核頻道按通過
+-- 設定（身分組、申請頻道、審核頻道、邀請連結）存在 settings 的 discord
+create table if not exists public.discord_applications (
+  id                 bigserial primary key,
+  discord_user_id    text not null check (discord_user_id ~ '^\d{17,20}$'),
+  discord_name       text,
+  exchange           text not null check (exchange in ('OKX', 'UM', 'Bybit', 'BingX')),
+  exchange_uid       text not null check (exchange_uid ~ '^\d{5,20}$'),
+  status             text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  auto               boolean not null default false,       -- 交易所 API 自動確認的
+  reviewed_by        text,                                 -- 審核的管理員（Discord 名稱）或「Bybit 自動確認」
+  review_message_id  text,                                 -- 審核頻道那則訊息
+  note               text,                                 -- 為什麼要人工審
+  created_at         timestamptz not null default now(),
+  reviewed_at        timestamptz
+);
+create index if not exists discord_applications_user_idx on public.discord_applications (discord_user_id, created_at desc);
+create index if not exists discord_applications_created_idx on public.discord_applications (created_at desc);
+-- 同一個交易所 UID 只能讓一個人通過
+create unique index if not exists discord_applications_uid_approved on public.discord_applications (exchange, exchange_uid) where status = 'approved';
+alter table public.discord_applications enable row level security;

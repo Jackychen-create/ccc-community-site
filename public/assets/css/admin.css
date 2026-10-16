@@ -115,3 +115,13 @@
 .bx-bar .btn { flex: none; }
 .vol-input.auto { background: transparent; border-style: dashed; color: var(--ink-2); cursor: default; }
 .vol-uid { margin-top: 4px; font-family: var(--f-num); }
+
+/* Discord 審核 */
+.dc-ok { display: flex; align-items: center; gap: 6px; color: var(--down); margin: 6px 0 4px; }
+.dc-ok svg { width: 15px; height: 15px; }
+.dc-more { margin-top: 14px; }
+.dc-more summary { cursor: pointer; color: var(--ink-2); }
+.dc-more[open] summary { margin-bottom: 4px; }
+.dc-endpoint { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); display: grid; gap: 6px; }
+.dc-endpoint .btn { justify-content: flex-start; max-width: 100%; overflow: hidden; }
+.dc-endpoint .btn .num { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
