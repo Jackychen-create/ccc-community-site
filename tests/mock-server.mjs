@@ -64,6 +64,14 @@ let threshold = 1000000;
 const autoLinks = Object.fromEntries(AUTO_EXCHANGES.map((ex) => [ex, new Map()])); // exchange → (user_id → uid)
 const INVITED = { BingX: { "88880001": 3500000 }, Bybit: { "77770001": 1500000 } };
 const syncLast = {};
+// Discord 審核機器人：設定和最近的申請
+const discordSettings = { roleId: "1560542923173400596", panelChannelId: "", reviewChannelId: "", invites: {} };
+let discordPanels = 0;
+const discordApps = [
+  { id: 3, discord_name: "小明", exchange: "OKX", exchange_uid: "123456789012345678", status: "pending", auto: false, reviewed_by: null, created_at: new Date(Date.now() - 600e3).toISOString(), reviewed_at: null },
+  { id: 2, discord_name: "阿美", exchange: "BingX", exchange_uid: "88880001", status: "approved", auto: true, reviewed_by: "BingX 自動確認", created_at: new Date(Date.now() - 3600e3).toISOString(), reviewed_at: new Date(Date.now() - 3600e3).toISOString() },
+  { id: 1, discord_name: "Bob", exchange: "Bybit", exchange_uid: "12345678", status: "rejected", auto: true, reviewed_by: "Bybit 自動確認", created_at: new Date(Date.now() - 86400e3).toISOString(), reviewed_at: new Date(Date.now() - 86400e3).toISOString() },
+];
 const vols = new Map(); // `${user_id}:${month}` → {amounts, updated_at, updated_by}
 const monthNow = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 7);
 const monthEnd = (m) => { const [y, mo] = m.split("-").map(Number); return new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10); };
@@ -336,6 +344,22 @@ const server = http.createServer(async (req, res) => {
       const inv = invites.find((i) => i.code === body.code);
       inv.disabled = body.disabled;
       return send(res, 200, { ok: true });
+    }
+    if (p === "/api/admin/discord") {
+      if (req.method === "GET") return send(res, 200, { configured: true, settings: discordSettings, applications: discordApps });
+      if (req.method === "PATCH") {
+        for (const k of ["roleId", "panelChannelId", "reviewChannelId"]) {
+          if (body[k] === undefined) continue;
+          const v = String(body[k] || "").trim();
+          if (v && !/^\d{17,20}$/.test(v)) return send(res, 400, { error: "ID 是 17–20 位數字，請在 Discord 對頻道或身分組按右鍵「複製 ID」" });
+          discordSettings[k] = v;
+        }
+        if (body.invites) discordSettings.invites = body.invites;
+        return send(res, 200, { ok: true, settings: discordSettings });
+      }
+      if (!discordSettings.panelChannelId) return send(res, 400, { error: "先填申請頻道的 ID" });
+      discordPanels++;
+      return send(res, 200, { ok: true, messageId: "900000000000000001" });
     }
     if (p === "/api/admin/sync") {
       const overview = () => Object.fromEntries(AUTO_EXCHANGES.map((ex) => [ex, { configured: true, linked: autoLinks[ex].size, last: syncLast[ex] || null }]));

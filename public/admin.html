@@ -33,6 +33,7 @@
     <nav class="nav" aria-label="後台">
       <a href="#videos" data-view="videos"><span data-ico="video"></span>影片<span class="count num" id="cVideos"></span></a>
       <a href="#invites" data-view="invites"><span data-ico="ticket"></span>實驗室密碼<span class="count num" id="cInvites"></span></a>
+      <a href="#discord" data-view="discord"><span data-ico="shield"></span>Discord 審核<span class="count num" id="cDiscord"></span></a>
       <a href="#members" data-view="members"><span data-ico="users"></span>研究員<span class="count num" id="cMembers"></span></a>
       <a href="#volumes" data-view="volumes"><span data-ico="coins"></span>交易量</a>
       <a href="#feedback" data-view="feedback"><span data-ico="chat"></span>提問回報<span class="count num" id="cFeedback"></span></a>
@@ -87,6 +88,20 @@
           <button class="btn primary block" type="button" id="invCreate" style="margin-top: 18px">產生實驗室密碼</button>
           <div id="invResult"></div>
         </div>
+      </div>
+    </section>
+
+    <!-- Discord 審核 -->
+    <section id="v-discord" data-view-panel="discord" hidden>
+      <div class="page-head">
+        <div>
+          <h1>Discord 審核</h1>
+          <p>研究員在 Discord 按「申請加入實驗室」、填交易所 UID。Bybit、BingX 自動確認後直接給身分組；OKX、UM 會送到審核頻道，由你們按「通過」。</p>
+        </div>
+      </div>
+      <div class="cols">
+        <div class="wide" id="dcAppsBox"></div>
+        <div class="narrow card" id="dcSettingsBox"></div>
       </div>
     </section>
 

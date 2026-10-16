@@ -15,3 +15,4 @@ export * from "./bingx-sync.js";
 export * from "./bybit.js";
 export * from "./bybit-sync.js";
 export * from "./autosync.js";
+export * from "./discord.js";

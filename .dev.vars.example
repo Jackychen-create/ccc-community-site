@@ -27,5 +27,10 @@ BINGX_SECRET_KEY=
 BYBIT_API_KEY=
 BYBIT_SECRET_KEY=
 
+# Discord 審核機器人（選用）：Developer Portal 的 Application ID、Public Key、Bot Token
+DISCORD_APP_ID=
+DISCORD_PUBLIC_KEY=
+DISCORD_BOT_TOKEN=
+
 # 每日排程呼叫 /api/cron/sync 用的密碼（自己產生一串亂碼；Supabase Vault 的 cron_secret 也要填一樣的）
 CRON_SECRET=

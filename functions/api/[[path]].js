@@ -12,6 +12,8 @@ import feedback from "../../server/feedback.js";
 import report from "../../server/report.js";
 import exchangeLink from "../../server/exchange-link.js";
 import adminSync from "../../server/admin/sync.js";
+import adminDiscord from "../../server/admin/discord.js";
+import discordInteractions from "../../server/discord/interactions.js";
 import cronSync from "../../server/cron/sync.js";
 import adminFeedback from "../../server/admin/feedback.js";
 import adminErrors from "../../server/admin/errors.js";
@@ -38,6 +40,8 @@ const ROUTES = {
   "exchange-link": exchangeLink,
   "admin/sync": adminSync,
   "cron/sync": cronSync,
+  "discord/interactions": discordInteractions,
+  "admin/discord": adminDiscord,
   "cron/bingx": cronSync, // 舊網址，保留給還沒更新的排程
   "admin/feedback": adminFeedback,
   "admin/errors": adminErrors,
@@ -99,8 +103,10 @@ export async function onRequest(context) {
 
   const url = new URL(request.url);
   let body = {};
+  let rawText = "";
   if (request.method !== "GET" && request.method !== "HEAD" && request.method !== "DELETE") {
     const text = await request.text();
+    rawText = text;
     if (text.length > MAX_BODY) return json(413, { error: "資料太大" });
     if (text) {
       try {
@@ -118,6 +124,8 @@ export async function onRequest(context) {
     headers,
     query: Object.fromEntries(url.searchParams),
     body,
+    rawBody: rawText, // Discord 驗簽要用原始內容
+    waitUntil: (p) => context.waitUntil(p), // 先回應、背景繼續做（Discord 3 秒內要回）
   };
   const res = makeRes();
   await handler(req, res);
