@@ -1,7 +1,7 @@
 // 每月交易量：逐筆填、貼上一整批、改門檻；新達標的人資格自動延長（規則在 shared/rules.js）
 import * as A from "../core/index.js";
 const { el, $, api, icon } = A;
-import { cycleEnd, goalOf, unitOf, bestProgress, gapText, ruleText } from "../shared/rules.js";
+import { goalOf, unitOf, bestProgress, gapText, ruleText } from "../shared/rules.js";
 import { fail, loadingBox } from "./common.js";
 import { markMembersStale } from "./members.js";
 
@@ -22,8 +22,13 @@ const parseAmount = (t) => {
 };
 const shortUsd = (n) => (n >= 1e4 ? `${Math.round((n / 1e4) * 10) / 10} 萬` : fmtUsd(n));
 
-$("#volMonth").value = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 7);
-$("#volMonth").addEventListener("change", () => loadVolumes());
+// 這一輪／上一輪（每個人的一輪不一樣，從加入那天起算）
+let which = "current";
+document.querySelectorAll("#volWhich .vol-seg-btn").forEach((b) => b.addEventListener("click", () => {
+  which = b.dataset.which;
+  document.querySelectorAll("#volWhich .vol-seg-btn").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+  loadVolumes();
+}));
 $("#volQualOn").addEventListener("change", () => vol && vol._refresh && vol._refresh());
 $("#volQualOn").value = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
 
@@ -34,7 +39,7 @@ export async function loadVolumes() {
   box.replaceChildren(loadingBox());
   try {
     [vol, sync] = await Promise.all([
-      api(`/api/admin/volumes?month=${encodeURIComponent($("#volMonth").value)}`),
+      api(`/api/admin/volumes?which=${which}`),
       api("/api/admin/sync").then((r) => r.exchanges).catch(() => null),
     ]);
     renderVolumes();
@@ -47,23 +52,26 @@ function renderVolumes() {
   const { exchanges, threshold, rows } = vol;
   $("#volThreshold").replaceChildren(icon("edit"), `門檻 ${shortUsd(threshold)} USDT`);
   const passed = rows.filter((r) => r.qualified).length;
-  $("#volSub").textContent = `${ruleText(threshold, exchanges)}，達標那天起可以看一個月（例如 10/15 達標，看到 11/14）。這個月 ${passed}／${rows.length} 位達標。`;
+  $("#volSub").textContent = `每人從加入那天起算，每一輪一個月（10/16 加入 → 10/16～11/15）。${ruleText(threshold, exchanges)}，就可以看到下一輪結束；沒達標，下一輪第一天就不能看。${which === "previous" ? "上一輪" : "這一輪"} ${passed}／${rows.length} 位達標。`;
   const box = $("#volBox");
   if (!rows.length) {
-    box.replaceChildren(el("div", { class: "empty" }, el("h2", { text: "還沒有研究員" })));
+    box.replaceChildren(el("div", { class: "empty" }, el("h2", { text: which === "previous" ? "大家都還在第一輪，沒有上一輪" : "還沒有研究員" })));
     return;
   }
   const inputs = new Map(); // user_id → {ex: input}
-  const saveBtn = el("button", { class: "btn primary", type: "button", disabled: true }, "儲存這個月的交易量");
+  const saveBtn = el("button", { class: "btn primary", type: "button", disabled: true }, which === "previous" ? "儲存上一輪的交易量" : "儲存這一輪的交易量");
   const dirty = new Set();
   const refreshers = [];
   const resultCell = (r, cell) => {
     const amounts = Object.fromEntries(exchanges.map((ex) => [ex, parseAmount(inputs.get(r.user_id)[ex].value) || 0]));
     const best = bestProgress(amounts, threshold, exchanges);
     const ok = best.ratio >= 1;
-    const qualOn = r.qualified_at || $("#volQualOn").value;
+    // 達標日要落在他這一輪裡
+    let qualOn = r.qualified_at || $("#volQualOn").value;
+    if (qualOn < r.period_start) qualOn = r.period_start;
+    if (qualOn > r.period_end) qualOn = r.period_end;
     cell.replaceChildren(
-      ok ? el("span", { class: "pill good", title: `${mdv(qualOn)} 達標，看到 ${mdv(cycleEnd(qualOn))}` }, el("span", { class: "dot" }), `達標 ${mdv(qualOn)}→${mdv(cycleEnd(qualOn))}`)
+      ok ? el("span", { class: "pill good", title: `${mdv(qualOn)} 達標，可以看到下一輪結束（${mdv(r.next_end)}）` }, el("span", { class: "dot" }), `達標，看到 ${mdv(r.next_end)}`)
          : el("span", { class: "small muted" }, best.n ? gapText(amounts, threshold, exchanges) : "未填"),
       el("span", { class: "usage" }, el("span", { class: "track" }, el("i", { style: { width: Math.min(100, best.ratio * 100) + "%" } })))
     );
@@ -96,6 +104,7 @@ function renderVolumes() {
     refreshers.push(() => resultCell(r, result));
     return el("tr", null,
       el("td", null, el("div", { class: "t-title", style: { wordBreak: "break-all" }, text: r.email }),
+        el("div", { class: "small vol-period num", text: `${which === "previous" ? "上一輪" : "這一輪"} ${mdv(r.period_start)}～${mdv(r.period_end)}` }),
         r.banned ? el("span", { class: "pill warn", style: { marginTop: "6px" } }, "已停權") : null,
         r.updated_by ? el("div", { class: "small muted", text: `${A.fmtRel(r.updated_at)} 由 ${r.updated_by.split("@")[0]} 更新` }) : null),
       ...cells,
@@ -109,7 +118,7 @@ function renderVolumes() {
         el("thead", null, el("tr", null, el("th", { text: "研究員" }), ...exchanges.map((ex) => el("th", { text: isAuto(ex) ? `${ex}（自動）` : `${ex}（${unitOf(ex)}）` })), el("th", { text: "結果" }), el("th", { class: "hide-sm", text: "觀看資格" }))),
         el("tbody", null, trs))),
     el("div", { class: "vol-foot" },
-      el("p", { class: "small muted", text: "USDT 可以打 1000000、1,000,000、100萬 或 1m；UM 填手數，例如 10 或 2.5。這次新達標的人，資格延長到「達標日」起一個月；這個月已經達標過的不會再延；「不限」的研究員不會被改。" }),
+      el("p", { class: "small muted", text: "USDT 可以打 1000000、1,000,000、100萬 或 1m；UM 填手數，例如 10 或 2.5。每個人填的是他自己那一輪（名字下面的日期）的交易量。這次新達標的人，資格延長到下一輪結束；同一輪已經達標過的不會再延；「不限」的研究員不會被改。" }),
       saveBtn)
   );
   vol._inputs = inputs;
@@ -130,10 +139,10 @@ function renderVolumes() {
     if (!out.length) return;
     A.setBusy(saveBtn, true, "儲存中…");
     try {
-      const r = await api("/api/admin/volumes", { method: "POST", body: { month: vol.month, qualifiedOn: $("#volQualOn").value, rows: out } });
+      const r = await api("/api/admin/volumes", { method: "POST", body: { which, qualifiedOn: $("#volQualOn").value, rows: out } });
       vol = r;
       renderVolumes();
-      A.toast(r.extended ? `已儲存 ${r.saved} 位，${r.extended} 位的資格延長到 ${r.until}` : `已儲存 ${r.saved} 位`);
+      A.toast(r.extended ? `已儲存 ${r.saved} 位，${r.extended} 位的資格延長到下一輪結束` : `已儲存 ${r.saved} 位`);
       markMembersStale();
     } catch (e) {
       A.setBusy(saveBtn, false);

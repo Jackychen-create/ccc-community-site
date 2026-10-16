@@ -86,20 +86,24 @@ export async function fetchDaily(start, end, uid) {
   return out;
 }
 
-// 一個月切成兩段（每段不超過 30 天），而且不查未來的日子
-export function monthRanges(month, today) {
-  const [y, m] = month.split("-").map(Number);
-  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  const ymd = (d) => `${y}${String(m).padStart(2, "0")}${String(d).padStart(2, "0")}`;
-  const todayYmd = today.replaceAll("-", "");
-  const ranges = [[1, Math.min(15, last)], [16, last]]
-    .map(([a, b]) => [ymd(a), ymd(b)])
-    .filter(([a]) => a <= todayYmd)
-    .map(([a, b]) => [a, b < todayYmd ? b : todayYmd]);
-  return ranges;
+// 一段日期（YYYY-MM-DD）切成每段最多 days 天，回傳 BingX 要的 YYYYMMDD
+export function dayChunks(from, to, days = 30) {
+  const out = [];
+  const ymd = (d) => d.replaceAll("-", "");
+  let a = from;
+  while (a <= to) {
+    const t = new Date(a + "T00:00:00Z");
+    t.setUTCDate(t.getUTCDate() + days - 1);
+    const b = t.toISOString().slice(0, 10) < to ? t.toISOString().slice(0, 10) : to;
+    out.push([ymd(a), ymd(b)]);
+    const n = new Date(b + "T00:00:00Z");
+    n.setUTCDate(n.getUTCDate() + 1);
+    a = n.toISOString().slice(0, 10);
+  }
+  return out;
 }
 
-// 依 UID 加總當月交易量，並找出「累計第一次跨過門檻」的那一天
+// 依 UID 加總交易量，並找出「累計第一次跨過門檻」的那一天
 // list：commissionDataList 的資料；dayOf：commissionTime（毫秒）→ YYYY-MM-DD
 export function summarize(list, threshold, dayOf) {
   const byUid = new Map();

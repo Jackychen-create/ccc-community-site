@@ -1,6 +1,6 @@
 // GET   /api/me            目前登入者的身分、觀看資格到期日、通知設定
 // PATCH /api/me { notify }  研究員自己開關「新影片寄信通知」
-import { supabaseAdmin, requireMember, readBody, route, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, getThreshold, thisMonthTW, isQualified, cycleEnd } from "./lib/index.js";
+import { supabaseAdmin, requireMember, readBody, route, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, getThreshold, isQualified, periodFor, nextPeriod, anchorOf } from "./lib/index.js";
 
 export default route({
   async GET(req, res) {
@@ -16,20 +16,22 @@ export default route({
         const auto = AUTO_EXCHANGES.includes(ex);
         return { exchange: ex, auto, enabled: auto ? PROVIDERS[ex].configured() : true, uid: l?.exchange_uid || null, boundAt: l?.bound_at || null };
       });
-      const month = thisMonthTW();
+      // 這一輪：從加入那天起算，每一輪一個月
+      const period = periodFor({ created_at: ctx.member.created_at || ctx.user.created_at });
       const [threshold, { data: row }] = await Promise.all([
         getThreshold(),
-        supabaseAdmin.from("volumes").select("amounts, updated_at, qualified_at").eq("user_id", ctx.user.id).eq("month", month).maybeSingle(),
+        supabaseAdmin.from("volumes").select("amounts, updated_at, qualified_at").eq("user_id", ctx.user.id).eq("period_start", period.start).maybeSingle(),
       ]);
       volume = {
-        month,
+        periodStart: period.start,
+        periodEnd: period.end,
         exchanges: EXCHANGES,
         threshold,
         amounts: row?.amounts || null,
         updatedAt: row?.updated_at || null,
         qualified: row ? isQualified(row.amounts, threshold) : false,
         qualifiedAt: row?.qualified_at || null,
-        qualifiedUntil: row?.qualified_at ? cycleEnd(row.qualified_at) : null,
+        qualifiedUntil: row?.qualified_at ? nextPeriod(anchorOf({ created_at: ctx.member.created_at || ctx.user.created_at }), period).end : null,
       };
     }
     // 有沒有還沒看的提問回覆（右上角選單會亮一個點）

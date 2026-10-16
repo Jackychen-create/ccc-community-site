@@ -1,30 +1,29 @@
 // 後台：待跟進的研究員
 // GET /api/admin/followup
-// 每位研究員列出需要注意的地方：已過期、快到期、這個月還沒達標、很久沒來、課程落後、有提問還沒回
+// 每位研究員列出需要注意的地方：已過期、快到期、這一輪還沒達標、很久沒來、課程落後、有提問還沒回
 import {
-  supabaseAdmin, requireAdmin, route, todayTW, thisMonthTW, twDate, addDays,
-  getThreshold, isQualified, gapText, COURSE_HOSTS, COURSE_PARTS, courseUnlockDate,
+  supabaseAdmin, requireAdmin, route, todayTW, twDate, addDays,
+  getThreshold, isQualified, gapText, periodFor, COURSE_HOSTS, COURSE_PARTS, courseUnlockDate,
 } from "../lib/index.js";
 
 export default route({
   async GET(req, res) {
     if (!(await requireAdmin(req, res))) return;
     const today = todayTW();
-    const month = thisMonthTW();
     const [threshold, m, v, p, vol, fb] = await Promise.all([
       getThreshold(),
       supabaseAdmin.from("members").select("user_id, email, banned, access_until, note, created_at"),
       supabaseAdmin.from("videos").select("id, course_host, course_part").eq("is_published", true).not("course_host", "is", null),
       // 每位研究員看過幾場、看完哪幾場：資料庫算好（supabase/schema.sql 的 admin_member_progress）
       supabaseAdmin.rpc("admin_member_progress"),
-      supabaseAdmin.from("volumes").select("user_id, amounts, qualified_at").eq("month", month),
+      supabaseAdmin.from("volumes").select("user_id, period_start, amounts, qualified_at").gte("period_start", addDays(today, -40)),
       supabaseAdmin.from("feedback").select("user_id").eq("status", "open"),
     ]);
     for (const r of [m, v, p, vol, fb]) if (r.error) throw r.error;
 
     const courseVideo = new Map((v.data || []).map((x) => [`${x.course_host}:${x.course_part}`, x]));
     const progress = new Map((p.data || []).map((r) => [r.user_id, r]));
-    const volBy = new Map((vol.data || []).map((x) => [x.user_id, x]));
+    const volBy = new Map((vol.data || []).map((x) => [`${x.user_id}:${x.period_start}`, x]));
     const openFb = new Map();
     for (const r of fb.data || []) openFb.set(r.user_id, (openFb.get(r.user_id) || 0) + 1);
 
@@ -40,10 +39,12 @@ export default route({
       if (mem.access_until && mem.access_until < today) reasons.push({ key: "expired", label: `已過期（${mem.access_until.slice(5).replace("-", "/")}）`, level: 3 });
       else if (mem.access_until && mem.access_until <= addDays(today, 7)) reasons.push({ key: "expiring", label: `${mem.access_until.slice(5).replace("-", "/")} 到期`, level: 2 });
 
-      // 這個月交易量（「不限」的人不用看）
-      const vr = volBy.get(mem.user_id);
+      // 這一輪交易量（「不限」的人不用看）
+      const period = periodFor(mem, "current", today);
+      const vr = volBy.get(`${mem.user_id}:${period.start}`);
       if (mem.access_until && !(vr && isQualified(vr.amounts, threshold))) {
-        reasons.push({ key: "volume", label: vr ? `這個月${gapText(vr.amounts, threshold)}` : "這個月還沒有交易量", level: 1 });
+        const left = `（到 ${period.end.slice(5).replace("-", "/")}）`;
+        reasons.push({ key: "volume", label: vr ? `這一輪${gapText(vr.amounts, threshold)}${left}` : `這一輪還沒有交易量${left}`, level: 1 });
       }
 
       // 很久沒來

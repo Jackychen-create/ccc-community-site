@@ -319,3 +319,21 @@ alter table public.exchange_links drop constraint if exists exchange_links_excha
 alter table public.exchange_links add constraint exchange_links_exchange_check check (exchange in ('BingX', 'Bybit', 'OKX', 'UM'));
 alter table public.exchange_links drop constraint if exists exchange_links_exchange_uid_check;
 alter table public.exchange_links add constraint exchange_links_exchange_uid_check check (exchange_uid ~ '^\d{5,20}$');
+
+-- ── v1.12：交易量改成「每人一輪」──
+-- 每人從加入那天（台灣日期）起算，每一輪剛好一個月；volumes 一列＝一個人的一輪（period_start～period_end）
+-- 規則在 public/assets/js/shared/rules.js（periodOf）
+alter table public.volumes add column if not exists period_start date;
+alter table public.volumes add column if not exists period_end date;
+-- 舊資料（以月份記的）換成那個人那個月所在的一輪：用加入日算第一輪
+update public.volumes v set
+  period_start = (m.created_at at time zone 'Asia/Taipei')::date,
+  period_end = ((m.created_at at time zone 'Asia/Taipei')::date + interval '1 month' - interval '1 day')::date
+from public.members m
+where m.user_id = v.user_id and v.period_start is null;
+delete from public.volumes where period_start is null;
+alter table public.volumes drop constraint if exists volumes_pkey;
+alter table public.volumes alter column period_start set not null;
+alter table public.volumes alter column period_end set not null;
+alter table public.volumes add primary key (user_id, period_start);
+alter table public.volumes drop column if exists month;

@@ -57,7 +57,7 @@ export default route({
     // 馬上同步這個月的交易量；失敗也沒關係，每天的排程會再抓
     let synced = true;
     try {
-      await p.syncMonth(thisMonthTW(), { uid });
+      await p.sync({ uid });
     } catch (e) {
       synced = false;
       console.error(`${ex} first sync failed`, e?.code, e?.message);
