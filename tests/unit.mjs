@@ -1,6 +1,6 @@
 // 規則和伺服器小工具的單元測試（不用瀏覽器，幾秒鐘跑完）。npm test 會先跑這一支。
 import assert from "node:assert/strict";
-import { addDays, cycleEnd, courseWeek, courseUnlockDate, isQualified, COURSE_HOSTS, COURSE_PARTS, EXCHANGES, AUTO_EXCHANGES, DEFAULT_THRESHOLD } from "../public/assets/js/shared/rules.js";
+import { addDays, cycleEnd, courseWeek, courseUnlockDate, isQualified, COURSE_HOSTS, COURSE_PARTS, EXCHANGES, AUTO_EXCHANGES, DEFAULT_THRESHOLD, gapText, ruleText } from "../public/assets/js/shared/rules.js";
 import { mergeBuckets } from "../server/lib/buckets.js";
 import { cleanTitle, cleanChapters, toInt, isDate } from "../server/lib/text.js";
 import http from "node:http";
@@ -21,7 +21,18 @@ test("資格一輪：12/1 跨年 → 12/31", () => assert.equal(cycleEnd("2026-1
 test("資格一輪：12/20 跨年 → 1/19", () => assert.equal(cycleEnd("2026-12-20"), "2027-01-19"));
 test("日期加減跨月", () => assert.equal(addDays("2026-10-30", 3), "2026-11-02"));
 
-test("交易所：OKX、Bybit、BingX（UM 先不算），Bybit、BingX 自動同步", () => { assert.deepEqual(EXCHANGES, ["OKX", "Bybit", "BingX"]); assert.deepEqual(AUTO_EXCHANGES, ["Bybit", "BingX"]); });
+test("交易所：OKX、UM 手填，Bybit、BingX 自動同步", () => { assert.deepEqual(EXCHANGES, ["OKX", "UM", "Bybit", "BingX"]); assert.deepEqual(AUTO_EXCHANGES, ["Bybit", "BingX"]); });
+test("UM 用手數算，一個月 10 手", () => {
+  assert.equal(isQualified({ UM: 10 }, 1000000), true);
+  assert.equal(isQualified({ UM: 9.99 }, 1000000), false);
+  assert.equal(isQualified({ UM: 9, OKX: 999999 }, 1000000), false);
+});
+test("還差多少：挑最接近的那間", () => {
+  assert.equal(gapText({ UM: 7, OKX: 100000 }, 1000000), "UM 還差 3 手");
+  assert.equal(gapText({ UM: 1, OKX: 600000 }, 1000000), "還差 40 萬");
+  assert.equal(gapText({}, 1000000), "還差 100 萬");
+});
+test("規則文字", () => assert.equal(ruleText(1000000), "OKX、Bybit、BingX 任一間當月成交金額達 100 萬 USDT，或 UM 當月達 10 手"));
 test("預設門檻 100 萬", () => assert.equal(DEFAULT_THRESHOLD, 1000000));
 test("課程順序是 CCC → OC → X，各 6 份", () => { assert.deepEqual(COURSE_HOSTS, ["CCC", "OC", "X"]); assert.equal(COURSE_PARTS, 6); });
 test("課程：加入當天解鎖 CCC 第 1 份", () => assert.equal(courseUnlockDate("2026-10-01", "CCC", 1), "2026-10-01"));
@@ -40,7 +51,6 @@ test("課程：18 份的週次不重複，最後一份在第 23 週", () => {
 test("交易量：任一間達門檻就算達標", () => {
   assert.equal(isQualified({ OKX: 100, BingX: 1000000 }, 1000000), true);
   assert.equal(isQualified({ OKX: 999999 }, 1000000), false);
-  assert.equal(isQualified({ UM: 5000000 }, 1000000), false, "UM 先不算");
   assert.equal(isQualified(null, 1000000), false);
 });
 

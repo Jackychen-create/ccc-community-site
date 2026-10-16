@@ -3,7 +3,7 @@
 // 每位研究員列出需要注意的地方：已過期、快到期、這個月還沒達標、很久沒來、課程落後、有提問還沒回
 import {
   supabaseAdmin, requireAdmin, route, todayTW, thisMonthTW, twDate, addDays,
-  getThreshold, isQualified, EXCHANGES, COURSE_HOSTS, COURSE_PARTS, courseUnlockDate,
+  getThreshold, isQualified, gapText, COURSE_HOSTS, COURSE_PARTS, courseUnlockDate,
 } from "../lib/index.js";
 
 export default route({
@@ -42,10 +42,8 @@ export default route({
 
       // 這個月交易量（「不限」的人不用看）
       const vr = volBy.get(mem.user_id);
-      let best = 0;
-      if (vr) best = Math.max(0, ...EXCHANGES.map((ex) => Number(vr.amounts?.[ex] || 0)));
       if (mem.access_until && !(vr && isQualified(vr.amounts, threshold))) {
-        reasons.push({ key: "volume", label: vr ? `這個月還差 ${Math.round((threshold - best) / 1e4)} 萬` : "這個月還沒有交易量", level: 1 });
+        reasons.push({ key: "volume", label: vr ? `這個月${gapText(vr.amounts, threshold)}` : "這個月還沒有交易量", level: 1 });
       }
 
       // 很久沒來

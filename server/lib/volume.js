@@ -1,14 +1,14 @@
 // 每月交易量：門檻、金額整理（規則在 shared/rules.js）
 import { supabaseAdmin } from "./env.js";
 import { EXCHANGES, AUTO_EXCHANGES, DEFAULT_THRESHOLD, isQualified, cycleEnd } from "../../public/assets/js/shared/rules.js";
-export { EXCHANGES, AUTO_EXCHANGES, DEFAULT_THRESHOLD, isQualified } from "../../public/assets/js/shared/rules.js";
+export { EXCHANGES, AUTO_EXCHANGES, LOT_GOALS, DEFAULT_THRESHOLD, isQualified, goalOf, unitOf, gapText, ruleText } from "../../public/assets/js/shared/rules.js";
 
 export async function getThreshold() {
   const { data } = await supabaseAdmin.from("settings").select("value").eq("key", "volume_threshold").maybeSingle();
   const n = Number(data?.value);
   return Number.isFinite(n) && n > 0 ? n : DEFAULT_THRESHOLD;
 }
-// 只收三間交易所、0 以上的數字，四捨五入到小數 2 位
+// 只收合作交易所、0 以上的數字，四捨五入到小數 2 位
 export function cleanAmounts(v) {
   const out = {};
   for (const ex of EXCHANGES) {

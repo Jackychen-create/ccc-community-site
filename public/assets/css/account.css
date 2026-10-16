@@ -18,14 +18,16 @@
 .vol-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .vol-month .input { height: 38px; width: 170px; font-size: 15px; }
 .vol-table td { vertical-align: middle; }
-.vol-input { height: 38px; min-width: 120px; text-align: right; font-size: 16px; }
+.vol-input { height: 38px; min-width: 96px; text-align: right; font-size: 16px; }
+.vol-table td:first-child { min-width: 200px; overflow-wrap: anywhere; }
 .vol-input.bad { border-color: var(--warn); }
 .vol-result { min-width: 130px; }
 .vol-result .usage { margin-top: 6px; }
 .vol-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; }
 @media (max-width: 640px) {
   .vol-table td[data-label]::before { content: attr(data-label); display: block; font-size: 12.5px; color: var(--ink-3); margin-bottom: 4px; }
-  .vol-table tr { grid-template-columns: 1fr 1fr 1fr; }
+  .vol-table tr { grid-template-columns: 1fr 1fr; }
+  .vol-table td:first-child { min-width: 0; }
   .vol-table td:first-child, .vol-table .vol-result { grid-column: 1 / -1; }
   .vol-input { min-width: 0; width: 100%; }
 }

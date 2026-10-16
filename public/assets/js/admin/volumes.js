@@ -1,7 +1,7 @@
 // 每月交易量：逐筆填、貼上一整批、改門檻；新達標的人資格自動延長（規則在 shared/rules.js）
 import * as A from "../core/index.js";
 const { el, $, api, icon } = A;
-import { cycleEnd } from "../shared/rules.js";
+import { cycleEnd, goalOf, unitOf, bestProgress, gapText, ruleText } from "../shared/rules.js";
 import { fail, loadingBox } from "./common.js";
 import { markMembersStale } from "./members.js";
 
@@ -47,7 +47,7 @@ function renderVolumes() {
   const { exchanges, threshold, rows } = vol;
   $("#volThreshold").replaceChildren(icon("edit"), `門檻 ${shortUsd(threshold)} USDT`);
   const passed = rows.filter((r) => r.qualified).length;
-  $("#volSub").textContent = `${exchanges.join("、")} 任一間當月成交金額達 ${fmtUsd(threshold)} USDT，達標那天起可以看一個月（例如 10/15 達標，看到 11/14）。這個月 ${passed}／${rows.length} 位達標。`;
+  $("#volSub").textContent = `${ruleText(threshold, exchanges)}，達標那天起可以看一個月（例如 10/15 達標，看到 11/14）。這個月 ${passed}／${rows.length} 位達標。`;
   const box = $("#volBox");
   if (!rows.length) {
     box.replaceChildren(el("div", { class: "empty" }, el("h2", { text: "還沒有研究員" })));
@@ -58,14 +58,14 @@ function renderVolumes() {
   const dirty = new Set();
   const refreshers = [];
   const resultCell = (r, cell) => {
-    const vals = exchanges.map((ex) => parseAmount(inputs.get(r.user_id)[ex].value) || 0);
-    const best = Math.max(0, ...vals);
-    const ok = vals.some((v) => v >= threshold);
+    const amounts = Object.fromEntries(exchanges.map((ex) => [ex, parseAmount(inputs.get(r.user_id)[ex].value) || 0]));
+    const best = bestProgress(amounts, threshold, exchanges);
+    const ok = best.ratio >= 1;
     const qualOn = r.qualified_at || $("#volQualOn").value;
     cell.replaceChildren(
       ok ? el("span", { class: "pill good", title: `${mdv(qualOn)} 達標，看到 ${mdv(cycleEnd(qualOn))}` }, el("span", { class: "dot" }), `達標 ${mdv(qualOn)}→${mdv(cycleEnd(qualOn))}`)
-         : el("span", { class: "small muted" }, best ? `還差 ${shortUsd(threshold - best)}` : "未填"),
-      el("span", { class: "usage" }, el("span", { class: "track" }, el("i", { style: { width: Math.min(100, (best / threshold) * 100) + "%" } })))
+         : el("span", { class: "small muted" }, best.n ? gapText(amounts, threshold, exchanges) : "未填"),
+      el("span", { class: "usage" }, el("span", { class: "track" }, el("i", { style: { width: Math.min(100, best.ratio * 100) + "%" } })))
     );
   };
   const accessText = (r) => (!r.access_until ? "不限" : r.access_until < new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10) ? `已過期 ${r.access_until}` : `到 ${r.access_until}`);
@@ -74,7 +74,7 @@ function renderVolumes() {
     const result = el("td", { class: "vol-result" });
     const cells = exchanges.map((ex) => {
       const auto = isAuto(ex);
-      const inp = el("input", { class: "input vol-input num" + (auto ? " auto" : ""), type: "text", inputmode: "decimal", "aria-label": `${r.email} ${ex} 交易量`, placeholder: auto ? "—" : "0",
+      const inp = el("input", { class: "input vol-input num" + (auto ? " auto" : ""), type: "text", inputmode: "decimal", "aria-label": `${r.email} ${ex} 交易量`, placeholder: auto ? "—" : unitOf(ex) === "手" ? "0 手" : "0",
         value: r.amounts?.[ex] ? fmtUsd(r.amounts[ex]) : "", readonly: auto, title: auto ? `${ex} 每天自動同步，不用手動填` : null });
       inp.addEventListener("input", () => {
         dirty.add(r.user_id);
@@ -105,10 +105,10 @@ function renderVolumes() {
     syncBar(),
     el("div", { class: "table-wrap" },
       el("table", { class: "table stack vol-table" },
-        el("thead", null, el("tr", null, el("th", { text: "研究員" }), ...exchanges.map((ex) => el("th", { text: isAuto(ex) ? `${ex}（自動）` : `${ex}（USDT）` })), el("th", { text: "結果" }), el("th", { class: "hide-sm", text: "觀看資格" }))),
+        el("thead", null, el("tr", null, el("th", { text: "研究員" }), ...exchanges.map((ex) => el("th", { text: isAuto(ex) ? `${ex}（自動）` : `${ex}（${unitOf(ex)}）` })), el("th", { text: "結果" }), el("th", { class: "hide-sm", text: "觀看資格" }))),
         el("tbody", null, trs))),
     el("div", { class: "vol-foot" },
-      el("p", { class: "small muted", text: "可以打 1000000、1,000,000、100萬 或 1m。這次新達標的人，資格延長到「達標日」起一個月；這個月已經達標過的不會再延；「不限」的研究員不會被改。" }),
+      el("p", { class: "small muted", text: "USDT 可以打 1000000、1,000,000、100萬 或 1m；UM 填手數，例如 10 或 2.5。這次新達標的人，資格延長到「達標日」起一個月；這個月已經達標過的不會再延；「不限」的研究員不會被改。" }),
       saveBtn)
   );
   vol._inputs = inputs;
@@ -180,8 +180,8 @@ $("#volThreshold").addEventListener("click", () => {
   const m = A.modal({
     title: "交易量門檻",
     body: el("div", null,
-      el("label", { class: "field" }, el("span", { class: "label", text: "任一間交易所當月成交金額（USDT）達到" }), inp),
-      el("p", { class: "hint", text: "改了之後，這個月已經填過的交易量會照新門檻重新判斷，但已經延長的資格不會被收回。" }),
+      el("label", { class: "field" }, el("span", { class: "label", text: `${vol.exchanges.filter((ex) => unitOf(ex) === "USDT").join("、")} 任一間當月成交金額（USDT）達到` }), inp),
+      el("p", { class: "hint", text: "UM 固定是一個月 10 手，不在這裡改。改了之後，這個月已經填過的交易量會照新門檻重新判斷，但已經延長的資格不會被收回。" }),
       err),
     actions: [el("button", { class: "btn", type: "button", text: "取消", onclick: () => m.close() }), save],
   });
@@ -210,9 +210,10 @@ $("#volThreshold").addEventListener("click", () => {
 $("#volPaste").addEventListener("click", () => {
   if (!vol || !vol._inputs) return;
   const manual = manualExchanges();
+  const sample = (ex, big) => (unitOf(ex) === "手" ? (big ? "12" : "2.5") : big ? "3,500,000" : "120萬");
   const ta = el("textarea", { class: "textarea mono-ish", rows: "8", placeholder: manual.length > 1
-    ? `每行一位，例如：\namy@example.com ${manual[0]} 3,500,000\nbob@gmail.com ${manual[1]} 120萬\n或照順序填 ${manual.join("、")}：\namy@example.com ${manual.map((_, i) => (i === 1 ? "3500000" : "0")).join(" ")}`
-    : `每行一位，例如：\namy@example.com 3,500,000\nbob@gmail.com ${manual[0]} 120萬` });
+    ? `每行一位，例如：\namy@example.com ${manual[0]} ${sample(manual[0], true)}\nbob@gmail.com ${manual[1]} ${sample(manual[1], false)}\n或照順序填 ${manual.join("、")}：\namy@example.com ${manual.map((ex, i) => (i === 1 ? sample(ex, true).replace(/,/g, "") : "0")).join(" ")}`
+    : `每行一位，例如：\namy@example.com ${sample(manual[0], true)}\nbob@gmail.com ${manual[0]} ${sample(manual[0], false)}` });
   const out = el("div", { class: "hint" });
   const apply = el("button", { class: "btn primary", type: "button", text: "填進表格" });
   const m = A.modal({

@@ -55,7 +55,7 @@ const errs = [];
   check("Bybit 已綁定 1 位", (await a.textContent(".bx-line:has-text('Bybit')")).includes("已綁定 1 位"));
   const amyRow = "#volBox tr:has-text('amy@example.com')";
   check("Bybit 欄唯讀、顯示 UID", (await a.getAttribute(`${amyRow} input[aria-label$='Bybit 交易量']`, "readonly")) !== null && (await a.textContent(amyRow)).includes("UID 77770001"));
-  check("只有 OKX 可以手填", (await a.locator(`${amyRow} input.vol-input:not([readonly])`).count()) === 1);
+  check("只有 OKX、UM 可以手填", (await a.locator(`${amyRow} input.vol-input:not([readonly])`).count()) === 2);
   check("表頭寫 Bybit（自動）", (await a.textContent(".vol-table thead")).includes("Bybit（自動）"));
   await a.click(".bx-bar .btn:has-text('立即同步')"); await a.waitForSelector(".toast:has-text('已同步')");
   check("立即同步兩間", (await a.textContent(".toast:has-text('已同步')")).includes("Bybit、BingX"));
