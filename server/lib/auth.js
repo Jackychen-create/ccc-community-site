@@ -1,6 +1,15 @@
 // 登入驗證與權限：研究員、管理員
 import { env, supabaseAdmin } from "./env.js";
 import { todayTW } from "./dates.js";
+import { canUseApi } from "../../public/assets/js/shared/roles.js";
+export { ROLE_LABEL, VIEWS_FOR, canUseApi } from "../../public/assets/js/shared/roles.js";
+
+// 這位管理員是 owner 還是 editor（settings 的 admin_roles；沒列到就是 owner）
+export async function adminRole(email) {
+  const { data } = await supabaseAdmin.from("settings").select("value").eq("key", "admin_roles").maybeSingle();
+  const r = data?.value?.[String(email || "").trim().toLowerCase()];
+  return r === "editor" ? "editor" : "owner";
+}
 
 export function adminEmails() {
   return (env.ADMIN_EMAILS || "")
@@ -70,5 +79,11 @@ export async function requireAdmin(req, res) {
     res.status(403).json({ error: "只有管理員可以使用後台" });
     return null;
   }
-  return { user };
+  // 協作管理員只能用部分功能（規則在 shared/roles.js）
+  const role = await adminRole(user.email);
+  if (!canUseApi(role, req.route || "", req.method)) {
+    res.status(403).json({ error: "這個功能只有主要管理員可以使用", code: "owner_only" });
+    return null;
+  }
+  return { user, role };
 }

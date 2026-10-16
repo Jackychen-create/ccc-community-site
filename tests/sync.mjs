@@ -1,7 +1,7 @@
 // 自動同步交易量（每人一輪）＋後台「交易量」「待跟進」、研究員 /api/me：用假的 Supabase、BingX、Bybit 跑真的伺服器程式
 import assert from "node:assert/strict";
 import http from "node:http";
-import { setEnv } from "../server/lib/env.js";
+import { setEnv, env } from "../server/lib/env.js";
 import { syncBingx } from "../server/lib/bingx-sync.js";
 import { syncBybit } from "../server/lib/bybit-sync.js";
 import { periodOf, nextPeriod, addDays } from "../public/assets/js/shared/rules.js";
@@ -189,13 +189,13 @@ await test("「不限」的研究員達標也不會被改成有期限", async ()
 });
 
 // ── 真的 API 程式（模擬伺服器測不到的部分）──
-async function call(handler, { method = "GET", query = {}, body, token = "tok-admin" } = {}) {
+async function call(handler, { method = "GET", query = {}, body, token = "tok-admin", route = "" } = {}) {
   const res = { statusCode: 200, body: null, headersSent: false, headers: {} };
   res.status = (c) => ((res.statusCode = c), res);
   res.setHeader = (k, v) => ((res.headers[k] = v), res);
   res.json = (d) => ((res.body = d), (res.headersSent = true), res);
   res.end = () => ((res.headersSent = true), res);
-  await handler({ method, headers: { authorization: `Bearer ${token}` }, query, body }, res);
+  await handler({ method, route, headers: { authorization: `Bearer ${token}` }, query, body }, res);
   return res;
 }
 await test("後台「待跟進」打得開，寫出這一輪還差多少", async () => {
@@ -234,6 +234,20 @@ await test("研究員 /api/me：這一輪的日期和交易量", async () => {
   assert.equal(r.statusCode, 200, JSON.stringify(r.body));
   assert.equal(r.body.volume.periodStart, aJoin); assert.equal(r.body.volume.periodEnd, aP.end);
   assert.equal(r.body.volume.qualified, true); assert.equal(r.body.volume.qualifiedUntil, nextPeriod(aJoin, aP).end);
+});
+
+await test("協作管理員：交易量、待跟進被擋，主要管理員不受影響", async () => {
+  tokens["tok-oc"] = { id: "oc-1", email: "oc@gmail.com", email_confirmed_at: "2026-01-01T00:00:00Z" };
+  env.ADMIN_EMAILS = "boss@gmail.com,oc@gmail.com";
+  db.settings.push({ key: "admin_roles", value: { "oc@gmail.com": "editor" } });
+  const v = await call(adminVolumes, { token: "tok-oc", route: "admin/volumes" });
+  assert.equal(v.statusCode, 403); assert.equal(v.body.code, "owner_only");
+  const f = await call(followup, { token: "tok-oc", route: "admin/followup" });
+  assert.equal(f.statusCode, 403);
+  const o = await call(adminVolumes, { token: "tok-admin", route: "admin/volumes" });
+  assert.equal(o.statusCode, 200);
+  const m = await call(me, { token: "tok-oc" });
+  assert.equal(m.body.adminRole, "editor");
 });
 
 supa.close(); bingx.close(); bybit.close();
