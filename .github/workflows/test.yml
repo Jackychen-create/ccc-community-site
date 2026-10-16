@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - name: 安裝 ffmpeg（產生測試用影片）
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
       - name: 安裝網站套件

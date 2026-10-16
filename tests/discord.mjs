@@ -88,6 +88,8 @@ const [SUPA, DISC, BX] = await Promise.all([listen(supa), listen(disc), listen(b
 // 金鑰（Discord 用 Ed25519 簽名）
 const kp = await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"]);
 const pubHex = Buffer.from(await crypto.subtle.exportKey("raw", kp.publicKey)).toString("hex");
+// Node 20 沒有全域 WebSocket，Supabase 的即時連線會抱怨；這個測試用不到即時連線
+if (!globalThis.WebSocket) globalThis.WebSocket = class {};
 setEnv({
   SUPABASE_URL: SUPA, SUPABASE_SERVICE_ROLE_KEY: "service-test",
   DISCORD_APP_ID: "111111111111111111", DISCORD_PUBLIC_KEY: pubHex, DISCORD_BOT_TOKEN: "bot-token", DISCORD_API_BASE: DISC,
