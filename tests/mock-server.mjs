@@ -341,6 +341,14 @@ const server = http.createServer(async (req, res) => {
         invites.unshift(inv);
         return send(res, 200, { invite: inv });
       }
+      if (req.method === "DELETE") {
+        const code = url.searchParams.get("code");
+        if (discordSettings.labCode === code) return send(res, 409, { error: "這組放在 Discord 的實驗室頻道，請先到「Discord 審核」換一組再刪" });
+        const i = invites.findIndex((x) => x.code === code);
+        if (i < 0) return send(res, 404, { error: "找不到這組實驗室密碼" });
+        invites.splice(i, 1);
+        return send(res, 200, { ok: true });
+      }
       const inv = invites.find((i) => i.code === body.code);
       inv.disabled = body.disabled;
       return send(res, 200, { ok: true });

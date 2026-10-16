@@ -2,7 +2,8 @@
 // GET   /api/admin/invites
 // POST  /api/admin/invites   { max_uses, note }  產生一組新實驗室密碼
 // PATCH /api/admin/invites   { code, disabled }  停用／重新啟用
-import { supabaseAdmin, requireAdmin, readBody, cleanText, randomCode, route } from "../lib/index.js";
+// DELETE /api/admin/invites?code=XXXX-XXXX       刪除（用這組加入的研究員不受影響；放在 Discord 實驗室頻道的那組要先換掉才能刪）
+import { supabaseAdmin, requireAdmin, readBody, cleanText, randomCode, route, getDiscordSettings } from "../lib/index.js";
 
 export default route({
   async GET(req, res) {
@@ -50,6 +51,18 @@ export default route({
       .eq("code", code)
       .select("code")
       .maybeSingle();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: "找不到這組實驗室密碼" });
+    return res.status(200).json({ ok: true });
+  },
+
+  async DELETE(req, res) {
+    if (!(await requireAdmin(req, res))) return;
+    const code = String(req.query?.code || "").trim().toUpperCase();
+    if (!/^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(code)) return res.status(400).json({ error: "資料不正確" });
+    const dc = await getDiscordSettings();
+    if (dc.labCode === code) return res.status(409).json({ error: "這組放在 Discord 的實驗室頻道，請先到「Discord 審核」換一組再刪" });
+    const { data, error } = await supabaseAdmin.from("invite_codes").delete().eq("code", code).select("code").maybeSingle();
     if (error) throw error;
     if (!data) return res.status(404).json({ error: "找不到這組實驗室密碼" });
     return res.status(200).json({ ok: true });
