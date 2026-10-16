@@ -9,6 +9,11 @@
   "scripts": {
     "dev": "npx wrangler pages dev public --port 8788",
     "test": "bash tests/run.sh",
-    "check": "node scripts/check-release.mjs"
+    "check": "eslint . && node scripts/check-release.mjs",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "eslint": "^9.39.5",
+    "globals": "^16.4.0"
   }
 }
