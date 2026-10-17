@@ -2,7 +2,7 @@
 import { $, el, icons, fmtRel, api, modal, confirmDialog, setBusy, toast, cfg } from "../core/index.js";
 import { state } from "./state.js";
 import { DAY, md } from "./format.js";
-import { AUTO_EXCHANGES, goalOf, fmtAmount, gapText, ruleText, addDays, TRADFI_NOTE } from "../shared/rules.js";
+import { AUTO_EXCHANGES, goalOf, fmtAmount, gapText, ruleText, addDays, TRADFI_NOTE, cleanExId, exIdOk, exIdError } from "../shared/rules.js";
 
 // 每月資格：到期前 7 天提醒
 export function renderAccessBanner() {
@@ -59,7 +59,7 @@ export function renderVolPanel() {
 // ── Bybit、BingX：綁定 UID 後每天自動更新交易量 ──
 const LINK_INFO = {
   OKX: { hint: "UID 在 OKX 的個人中心。填了之後，管理員才對得到你的交易量。", invite: "", lag: "" },
-  UM: { hint: "UM（Ultima Markets）的 MT5 交易帳號。填了之後，管理員才對得到你的手數。", invite: "", lag: "", label: "MT5 帳號" },
+  UM: { hint: "UM（Ultima Markets）的 MT5 交易帳號，或你在 UM 的名字。填了之後，管理員才對得到你的手數。", invite: "", lag: "", label: "帳號或名字" },
   Bybit: { hint: "UID 在 Bybit 的個人頁面，請填主帳號的 UID。要用 CCC 的 Bybit 邀請連結註冊的帳號才能綁定。", invite: "BYBIT_INVITE_URL", lag: "Bybit 的數字隔天才會更新。" },
   BingX: { hint: "UID 在 BingX 的個人頁面。要用 CCC 的 BingX 邀請連結註冊的帳號才能綁定。", invite: "BINGX_INVITE_URL", lag: "" },
 };
@@ -106,6 +106,10 @@ function bindLink(ex = null, auto = true, { title, intro } = {}) {
   const save = el("button", { class: "btn primary", type: "button", text: ex && auto ? "綁定" : "儲存" });
   const refresh = () => {
     const info = LINK_INFO[cur] || { hint: "先選你用 CCC 邀請連結註冊的交易所。", invite: "" };
+    // UM 可以填名字，不限數字
+    input.inputMode = cur === "UM" ? "text" : "numeric";
+    input.placeholder = cur === "UM" ? "例如 1327127 或 王小明" : "例如 12345678";
+    input.maxLength = cur === "UM" ? 40 : 30;
     label.textContent = cur ? `你的 ${cur} ${uidLabel(cur)}` : "UID";
     hint.textContent = info.hint;
     const invite = cfg[info.invite];
@@ -128,8 +132,8 @@ function bindLink(ex = null, auto = true, { title, intro } = {}) {
   input.addEventListener("keydown", (e) => e.key === "Enter" && save.click());
   save.addEventListener("click", async () => {
     if (!cur) return fail("請先選交易所");
-    const uid = input.value.replace(/\s/g, "");
-    if (!/^\d{5,20}$/.test(uid)) return fail("UID 是一串數字，請再確認一次");
+    const uid = cleanExId(cur, input.value);
+    if (!exIdOk(cur, uid)) return fail(exIdError(cur));
     const a = isAuto();
     setBusy(save, true, a ? `向 ${cur} 確認中…` : "儲存中…");
     try {

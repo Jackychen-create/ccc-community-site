@@ -3,6 +3,7 @@ import { $, el, api, sb, icons, store, setBusy, countUp, tutorial } from "../cor
 import { SITE } from "./state.js";
 import { show } from "./views.js";
 import { shortDate } from "./format.js";
+import { cleanExId, exIdOk, exIdError } from "../shared/rules.js";
 
 let mode = "login";
 let onLogin = async () => {};
@@ -73,7 +74,7 @@ function loginErrorText(err) {
 
 const UID_HINT = {
   OKX: "OKX 的 UID 在個人中心。",
-  UM: "UM 請填 MT5 交易帳號。",
+  UM: "UM 請填 MT5 交易帳號，或你在 UM 的名字。",
   Bybit: "Bybit 請填主帳號的 UID。網站會跟 Bybit 確認是不是用 CCC 邀請連結註冊的。",
   BingX: "BingX 的 UID 在個人頁面。網站會跟 BingX 確認是不是用 CCC 邀請連結註冊的。",
 };
@@ -85,7 +86,12 @@ export function initAuth(afterLogin) {
   $("#tabRegister").addEventListener("click", () => setMode("register"));
   $("#regEx").addEventListener("change", () => {
     setAuthError("");
-    $("#regUidHint").textContent = UID_HINT[$("#regEx").value] || "管理員要靠 UID 對到你的交易量。用好幾間的話，登入後可以再加。";
+    const ex = $("#regEx").value;
+    $("#regUidHint").textContent = UID_HINT[ex] || "管理員要靠 UID 對到你的交易量。用好幾間的話，登入後可以再加。";
+    // UM 可以填名字，不限數字
+    $("#regUid").inputMode = ex === "UM" ? "text" : "numeric";
+    $("#regUid").placeholder = ex === "UM" ? "MT5 帳號或名字" : "UID";
+    $("#regUid").maxLength = ex === "UM" ? 40 : 30;
   });
   $("#authTutorial").addEventListener("click", (e) => {
     e.preventDefault();
@@ -115,9 +121,9 @@ export function initAuth(afterLogin) {
     if (mode === "register" && password.length < 8) return setAuthError("密碼至少需要 8 個字元");
     if (mode === "register" && !invite) return setAuthError("請輸入實驗室密碼");
     const exchange = $("#regEx").value;
-    const uid = $("#regUid").value.replace(/\s/g, "");
+    const uid = cleanExId(exchange, $("#regUid").value);
     if (mode === "register" && !exchange) return setAuthError("請選擇你用 CCC 邀請連結註冊的交易所");
-    if (mode === "register" && !/^\d{5,20}$/.test(uid)) return setAuthError("請填交易所 UID（一串數字）");
+    if (mode === "register" && !exIdOk(exchange, uid)) return setAuthError(exchange === "UM" ? exIdError("UM") : "請填交易所 UID（一串數字）");
 
     const btn = $("#authSubmit");
     setBusy(btn, true, mode === "register" ? "建立帳號中…" : "登入中…");

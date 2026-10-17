@@ -3,7 +3,7 @@
 // GET    /api/exchange-link                       我綁定的帳號、哪幾間已經可以綁
 // POST   /api/exchange-link { exchange, uid }     綁定：先問交易所這個 UID 是不是用我們的邀請碼註冊的，是才綁，並馬上同步這個月的交易量
 // DELETE /api/exchange-link?exchange=Bybit        解除綁定（之後不再自動同步，已經記下的交易量保留）
-import { supabaseAdmin, requireMember, readBody, route, thisMonthTW, EXCHANGES, AUTO_EXCHANGES, PROVIDERS } from "./lib/index.js";
+import { supabaseAdmin, requireMember, readBody, route, thisMonthTW, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, cleanExId, exIdOk, exIdError, idLabel } from "./lib/index.js";
 
 export default route({
   async GET(req, res) {
@@ -24,12 +24,12 @@ export default route({
     if (!EXCHANGES.includes(ex)) return res.status(400).json({ error: "不支援這間交易所" });
     const auto = AUTO_EXCHANGES.includes(ex);
     const p = PROVIDERS[ex];
-    const uid = String(b.uid ?? "").replace(/\s/g, "");
-    if (!/^\d{5,20}$/.test(uid)) return res.status(400).json({ error: "UID 是一串數字，請再確認一次" });
+    const uid = cleanExId(ex, b.uid);
+    if (!exIdOk(ex, uid)) return res.status(400).json({ error: exIdError(ex) });
     if (auto && !p.configured()) return res.status(503).json({ error: `${ex} 串接還沒設定好，請聯絡管理員` });
 
     const { data: taken } = await supabaseAdmin.from("exchange_links").select("user_id").eq("exchange", ex).eq("exchange_uid", uid).maybeSingle();
-    if (taken && taken.user_id !== ctx.user.id) return res.status(409).json({ error: "這個 UID 已經被其他研究員綁定了，有問題請聯絡管理員" });
+    if (taken && taken.user_id !== ctx.user.id) return res.status(409).json({ error: `這個 ${idLabel(ex)}已經被其他研究員綁定了，有問題請聯絡管理員` });
 
     // OKX、UM：直接記下來
     if (!auto) {

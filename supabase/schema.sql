@@ -398,3 +398,11 @@ select cron.schedule('daily-volume-sync', '17 2,10 * * *', $cron$
   )
   from vault.decrypted_secrets s where s.name = 'cron_secret';
 $cron$);
+
+-- ── v1.16.4：UM 可以填 MT5 帳號或名字（不限數字），其他交易所還是 UID ──
+alter table public.exchange_links drop constraint if exists exchange_links_exchange_uid_check;
+alter table public.exchange_links add constraint exchange_links_exchange_uid_check
+  check ((exchange = 'UM' and char_length(exchange_uid) between 2 and 40) or exchange_uid ~ '^\d{5,20}$');
+alter table public.discord_applications drop constraint if exists discord_applications_exchange_uid_check;
+alter table public.discord_applications add constraint discord_applications_exchange_uid_check
+  check ((exchange = 'UM' and char_length(exchange_uid) between 2 and 40) or exchange_uid ~ '^\d{5,20}$');
