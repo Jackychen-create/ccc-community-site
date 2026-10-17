@@ -88,7 +88,7 @@ const clientErrors = [];
   for (const [q, n] of [["布林通道", 4], ["ICT", 3], ["資金費率", 2], ["期權", 1]]) for (let i = 0; i < n; i++) E(["wang.k@example.com", "jay.h@example.com", "mei.c@example.com"][i % 3], "search_empty", q, { q }, 10 + i * 7);
 }
 const EX = ["OKX", "Bybit", "UM"];
-let threshold = 3300000;
+let threshold = 1000000;
 const vols = new Map(); // `${user_id}:${month}` → {amounts, updated_at, updated_by}
 for (const [n, a, by] of [[2, { OKX: 1850000, Bybit: 2960000 }, "x"], [3, { OKX: 4120000 }, "oc"], [4, { UM: 3380000 }, "oc"], [5, { Bybit: 5260000, UM: 800000 }, "x"], [7, { OKX: 3510000 }, "x"], [8, { Bybit: 950000 }, "x"]])
   vols.set(`${uid(n)}:${NOW_MONTH}`, { amounts: a, updated_at: ago(30 + n), updated_by: by + "@example.com" });
