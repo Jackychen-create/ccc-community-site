@@ -6,7 +6,7 @@ import { cleanTitle, cleanChapters, toInt, isDate } from "../server/lib/text.js"
 import http from "node:http";
 import { env } from "../server/lib/env.js";
 import { buildCanonical, hmacHex, parseSafe, dayChunks, summarize, checkInvite, fetchDaily } from "../server/lib/bingx.js";
-import { bybitSign, bybitQuery, capRange, checkBybitClient, fetchBybitVolumes } from "../server/lib/bybit.js";
+import { bybitSign, bybitQuery, capRange, checkBybitClient, fetchBybitVolumes, bybitProxyUrl } from "../server/lib/bybit.js";
 import { syncPeriods } from "../server/lib/volume.js";
 
 let pass = 0, fail = 0;
@@ -205,6 +205,43 @@ await atest("Bybit 交易量清單會翻頁抓完", async () => {
   assert.ok(Math.abs(m.get("77770002") - (2000 + 589.0958)) < 1e-6, "TradFi（黃金、股票）打一折算進去");
   assert.deepEqual(bseen.filter((x) => x.path.endsWith("/aff-user-list")).map((x) => new URLSearchParams(x.query).get("cursor") || ""), ["", "100"]);
 });
+// 東京轉送：網站把簽好名的請求交給 bybit-proxy，從東京送出
+const proxySeen = [];
+let proxyDown = false;
+const pfake = http.createServer((req, res) => {
+  let raw = ""; req.on("data", (c) => (raw += c)); req.on("end", async () => {
+    const b = JSON.parse(raw);
+    proxySeen.push({ region: req.headers["x-region"], path: b.path, signed: !!b.headers?.["X-BAPI-SIGN"] });
+    if (proxyDown) { res.writeHead(502); return res.end("{}"); }
+    const r = await fetch(`${b.base}${b.path}?${b.query}`, { headers: b.headers });
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ status: r.status, body: await r.text() }));
+  });
+});
+await new Promise((r) => pfake.listen(0, r));
+env.BYBIT_PROXY_URL = `http://127.0.0.1:${pfake.address().port}`;
+await atest("Bybit 改從東京轉送：帶 x-region、簽好名，結果一樣", async () => {
+  assert.equal((await checkBybitClient("77770001")).invited, true);
+  assert.equal((await checkBybitClient("12345")).invited, false);
+  assert.deepEqual(proxySeen.slice(-1)[0], { region: "ap-northeast-1", path: "/v5/user/aff-customer-info", signed: true });
+});
+await atest("轉送壞了就直接連 Bybit", async () => {
+  proxyDown = true;
+  const n = bseen.length;
+  assert.equal((await checkBybitClient("77770001")).invited, true);
+  assert.ok(bseen.length > n);
+  proxyDown = false;
+});
+await atest("沒有設定 Supabase 或用假的 Bybit 時不轉送", async () => {
+  const keep = env.BYBIT_PROXY_URL; delete env.BYBIT_PROXY_URL;
+  assert.equal(bybitProxyUrl(), null);
+  const base = env.BYBIT_BASE_URL; delete env.BYBIT_BASE_URL; env.SUPABASE_URL = "https://x.supabase.co/";
+  assert.equal(bybitProxyUrl(), "https://x.supabase.co/functions/v1/bybit-proxy");
+  env.BYBIT_PROXY = "off"; assert.equal(bybitProxyUrl(), null); delete env.BYBIT_PROXY;
+  env.BYBIT_BASE_URL = base; env.BYBIT_PROXY_URL = keep;
+});
+delete env.BYBIT_PROXY_URL;
+pfake.close();
 bfake.close();
 
 console.log(`\n單元測試：${pass} 項通過，${fail} 項失敗`);
