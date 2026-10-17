@@ -31,7 +31,7 @@ const errs = [];
   check("直接打網址去交易量也進不去（回到影片）", await p.isVisible("#v-videos") && !(await p.isVisible("#v-volumes")));
   await p.goto(BASE + "/admin#members"); await p.waitForSelector("#memberTableBox table"); await closeModals(p);
   check("研究員名單看得到", (await p.textContent("#memberTableBox")).includes("amy@example.com"));
-  check("不能改資格、重設密碼、停權", (await p.locator("#memberTableBox button:has-text('停權'), #memberTableBox button:has-text('重設密碼')").count()) === 0 && (await p.textContent("#memberTableBox")).includes("只能檢視"));
+  check("不能改資格、重設密碼、停權", (await p.locator("#memberTableBox table button:has-text('停權'), #memberTableBox table button:has-text('重設密碼')").count()) === 0 && (await p.textContent("#memberTableBox")).includes("只能檢視"));
   const api = await p.evaluate(async () => {
     const r = {};
     for (const [k, path, opt] of [["volumes", "/api/admin/volumes"], ["invites", "/api/admin/invites"], ["ban", "/api/admin/members", { method: "PATCH", body: { userId: "00000000-0000-4000-8000-000000000002", action: "ban" } }], ["videos", "/api/admin/videos"], ["stats", "/api/admin/stats"], ["feedback", "/api/admin/feedback"]]) {

@@ -237,6 +237,14 @@ async function login(page, email) {
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${OUT}/16-admin-invites.png`, fullPage: true });
   check("產生邀請碼與註冊連結", (await page.textContent(".new-code")).includes("?invite=NEW4-C0DE"));
+  const usable = await page.textContent("#inviteTableBox tbody");
+  check("可使用分組只有能用的", usable.includes("K7QM-2XPA") && !usable.includes("HW3N-8RTE") && !usable.includes("ZP4D-Y6UC"), usable.slice(0, 120));
+  await page.click("#inviteTableBox .vol-seg-btn[data-tab='used']");
+  check("用完的放在「已用完」", (await page.textContent("#inviteTableBox tbody")).includes("HW3N-8RTE"));
+  await page.click("#inviteTableBox .vol-seg-btn[data-tab='off']");
+  check("停用的放在「已停用」", (await page.textContent("#inviteTableBox tbody")).includes("ZP4D-Y6UC"));
+  await page.screenshot({ path: `${OUT}/16b-admin-invites-off.png` });
+  await page.click("#inviteTableBox .vol-seg-btn[data-tab='good']");
 
   // 研究員
   await page.click(".nav a[data-view=members]");
@@ -250,8 +258,11 @@ async function login(page, email) {
   await page.keyboard.press("Escape");
   await page.click("#memberTableBox tbody tr:has-text('amy@example.com') .btn:has-text('停權')");
   await page.click(".modal-foot .btn.danger-solid");
+  await page.waitForSelector(".toast:has-text('移到「已停權」')");
+  check("停權後從正常名單移走", !(await page.textContent("#memberTableBox tbody")).includes("amy@example.com"));
+  await page.click("#memberTableBox .vol-seg-btn[data-tab='banned']");
   await page.waitForSelector("#memberTableBox tbody tr:has-text('amy@example.com') .pill.warn");
-  check("停權研究員", true);
+  check("停權的放在「已停權」分組", (await page.textContent("#memberTableBox tbody")).includes("banned@example.com"));
   await ctx.close();
 
   // ── 管理員：手機 ──

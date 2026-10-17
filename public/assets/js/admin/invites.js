@@ -1,9 +1,10 @@
 // 實驗室密碼：產生、複製加入連結、停用
 import * as A from "../core/index.js";
 const { el, $, api, icon } = A;
-import { fail, loadingBox } from "./common.js";
+import { fail, loadingBox, segTabs } from "./common.js";
 
 let invites = [];
+let inviteTab = "good"; // good 可使用 | used 已用完 | off 已停用（分開放，不混在一起）
 
 // 實驗室密碼
 let invitesLoaded = false;
@@ -27,6 +28,8 @@ function inviteState(i) {
   if (i.used_count >= i.max_uses) return ["已用完", ""];
   return ["可使用", "good"];
 }
+const groupOf = (i) => (i.disabled ? "off" : i.used_count >= i.max_uses ? "used" : "good");
+const EMPTY = { good: "沒有可以用的實驗室密碼，在右邊產生一組。", used: "還沒有用完的實驗室密碼。", off: "沒有停用的實驗室密碼。" };
 
 function renderInvites() {
   $("#cInvites").textContent = invites.filter((i) => inviteState(i)[1] === "good").length || "";
@@ -35,12 +38,25 @@ function renderInvites() {
     box.replaceChildren(el("div", { class: "empty" }, el("h2", { text: "還沒有實驗室密碼" }), el("p", { class: "small", style: { marginTop: "6px" }, text: "在右邊產生第一組，把註冊連結傳給研究員。" })));
     return;
   }
+  const groups = { good: [], used: [], off: [] };
+  for (const i of invites) groups[groupOf(i)].push(i);
+  const tabs = segTabs([
+    { key: "good", label: "可使用", count: groups.good.length },
+    { key: "used", label: "已用完", count: groups.used.length },
+    { key: "off", label: "已停用", count: groups.off.length },
+  ], inviteTab, (k) => { inviteTab = k; renderInvites(); }, "實驗室密碼分組");
+  const list = groups[inviteTab];
+  if (!list.length) {
+    box.replaceChildren(tabs, el("div", { class: "empty" }, el("p", { text: EMPTY[inviteTab] })));
+    return;
+  }
   box.replaceChildren(
+    tabs,
     el("div", { class: "table-wrap" },
       el("table", { class: "table stack" },
         el("thead", null, el("tr", null, el("th", { text: "實驗室密碼" }), el("th", { text: "使用狀況" }), el("th", { class: "hide-sm", text: "備註" }), el("th", { text: "狀態" }), el("th", null, el("span", { class: "sr-only", text: "操作" })))),
         el("tbody", null,
-          invites.map((i) => {
+          list.map((i) => {
             const [label, kind] = inviteState(i);
             const pct = i.max_uses ? Math.min(100, (i.used_count / i.max_uses) * 100) : 0;
             return el("tr", null,
@@ -78,7 +94,7 @@ async function toggleInvite(i) {
     await api("/api/admin/invites", { method: "PATCH", body: { code: i.code, disabled: !i.disabled } });
     i.disabled = !i.disabled;
     renderInvites();
-    A.toast(i.disabled ? "已停用，這組實驗室密碼不能再註冊" : "已重新啟用");
+    A.toast(i.disabled ? "已停用，移到「已停用」，這組不能再註冊" : "已重新啟用，移回「可使用」");
   } catch (e) {
     fail(e);
   }
@@ -92,6 +108,7 @@ $("#invCreate").addEventListener("click", async () => {
   try {
     const r = await api("/api/admin/invites", { method: "POST", body: { max_uses: max, note: $("#invNote").value } });
     invites.unshift(r.invite);
+    inviteTab = "good";
     renderInvites();
     $("#invNote").value = "";
     const code = r.invite.code;

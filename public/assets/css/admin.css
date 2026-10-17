@@ -139,3 +139,7 @@
 .live-note { margin-top: 2px; white-space: pre-line; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .live-more summary { cursor: pointer; color: var(--ink-2); padding: 6px 0; }
 .live-more[open] summary { margin-bottom: 8px; }
+/* 列表分組切換（研究員：正常／已停權；實驗室密碼：可使用／已用完／已停用） */
+.list-seg { margin-bottom: 14px; max-width: 100%; overflow-x: auto; }
+.list-seg .vol-seg-btn { white-space: nowrap; }
+.list-seg .seg-n { opacity: .75; }
