@@ -341,6 +341,8 @@ await test("一鍵建立：分類＋三個頻道、權限、申請按鈕，不�
   assert.ok(BigInt(review.permission_overwrites.find((o) => o.id === GUILD_ID).deny) & (1n << 10n), "審核頻道 everyone 要看不到");
   const posts = calls.slice(before).filter((c) => c.method === "POST" && /\/messages$/.test(c.path));
   assert.ok(posts.some((c) => c.body.components?.[0]?.components?.[0]?.custom_id === "apply"), "沒有申請按鈕");
+  const signup = posts.find((c) => c.body.components?.[0]?.components?.[0]?.custom_id === "apply").body.components[1];
+  assert.deepEqual(signup.components.map((b) => [b.style, b.label, b.url]), [[5, "BingX 註冊", "https://bingx.com/invite/CCC"]], "有填邀請連結的交易所要有註冊按鈕");
   assert.equal(posts.length, 1, "只貼申請按鈕");
   assert.ok(!calls.slice(before).some((c) => c.method === "PUT" && /\/pins\//.test(c.path)), "不用釘選");
   const saved = db.settings.find((r) => r.key === "discord").value;
