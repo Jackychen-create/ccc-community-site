@@ -354,3 +354,34 @@ alter table public.discord_tickets enable row level security;
 -- 申請是在哪個申請頻道送的、通過後給他的專用實驗室密碼（只能用一次）
 alter table public.discord_applications add column if not exists channel_id text;
 alter table public.discord_applications add column if not exists invite_code text;
+
+-- ── v1.15：直播預告 ──
+-- 後台排好直播時間 → 機器人發到 Discord「🧪實驗室」頻道（提及實驗室研究員）；改時間、取消、開播前 30 分鐘提醒都回覆在公告下面
+create table if not exists public.lives (
+  id                  bigserial primary key,
+  title               text not null check (char_length(title) between 1 and 60),
+  starts_at           timestamptz not null,
+  note                text check (note is null or char_length(note) <= 500),
+  link                text check (link is null or link ~ '^https://'),
+  mention             boolean not null default true,          -- 公告時提及 @實驗室研究員
+  status              text not null default 'scheduled' check (status in ('scheduled', 'cancelled')),
+  discord_channel_id  text,
+  discord_message_id  text,
+  reminded_at         timestamptz,                             -- 開播前提醒發了沒
+  created_by          text,
+  created_at          timestamptz not null default now(),
+  updated_at          timestamptz not null default now()
+);
+create index if not exists lives_starts_idx on public.lives (starts_at);
+alter table public.lives enable row level security;
+-- 每 5 分鐘看有沒有 30 分鐘內要開始的直播，發提醒（密碼一樣用 Vault 的 cron_secret）
+select cron.unschedule(jobid) from cron.job where jobname = 'live-reminder';
+select cron.schedule('live-reminder', '*/5 * * * *', $cron$
+  select net.http_post(
+    url := 'https://ccc-community-site.pages.dev/api/cron/lives',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'X-Cron-Secret', s.decrypted_secret),
+    body := '{}'::jsonb,
+    timeout_milliseconds := 30000
+  )
+  from vault.decrypted_secrets s where s.name = 'cron_secret';
+$cron$);

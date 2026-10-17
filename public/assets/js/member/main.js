@@ -11,6 +11,7 @@ import { show, showBlocked, showUnavailable, leavePage } from "./views.js";
 import { showAuth, initAuth } from "./auth.js";
 import { renderMenu } from "./menu.js";
 import { renderAccessBanner, renderVolPanel, promptUidIfMissing } from "./account.js";
+import { renderLivePanel } from "./live.js";
 import { openList } from "./list.js";
 import { openWatch } from "./watch.js";
 import { openCourse } from "./course.js";
@@ -53,6 +54,7 @@ async function enterApp() {
   renderMenu();
   renderAccessBanner();
   renderVolPanel();
+  renderLivePanel();
   // 這個瀏覽器第一次進來：問要不要看使用教學（只問一次；老研究員看到的是「網站更新了」）
   const firstVisit = !store.get("seenVersion", null);
   whatsNew();

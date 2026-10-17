@@ -138,3 +138,11 @@
 }
 @media (prefers-reduced-motion: reduce) { .vthumb img { transition: none; } }
 .empty > span:first-child svg { width: 28px; height: 28px; }
+
+/* ── 右欄：下一場直播 ─────────────────── */
+.live-card { padding: 16px 18px 18px; }
+.live-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.live-when { margin-top: 10px; font-family: var(--f-num); font-size: 22px; font-weight: 600; line-height: 1.2; color: var(--amber); }
+.live-card .vtitle { margin-top: 4px; }
+.live-card .live-note { margin-top: 6px; white-space: pre-line; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.pill.live-on { color: var(--up); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--up) 50%, transparent); }

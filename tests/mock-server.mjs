@@ -67,6 +67,25 @@ let threshold = 1000000;
 const autoLinks = Object.fromEntries(EXCHANGES.map((ex) => [ex, new Map()])); // exchange → (user_id → uid)；OKX、UM 只是記下來
 const INVITED = { BingX: { "88880001": 3500000 }, Bybit: { "77770001": 1500000 } };
 const syncLast = {};
+// 直播預告（假的 Discord：只記下發了什麼）
+const lives = [];
+let liveSeq = 0;
+const liveNext = () => lives.filter((l) => l.status === "scheduled" && Date.parse(l.starts_at) >= Date.now() - 3 * 3600e3).sort((a, b) => a.starts_at.localeCompare(b.starts_at))[0] || null;
+const livesOut = (extra = {}) => ({ lives: lives.filter((l) => Date.parse(l.starts_at) >= Date.now() - 30 * 86400e3).sort((a, b) => a.starts_at.localeCompare(b.starts_at)), discord: { configured: true, channelId: "800000000000000004" }, ...extra });
+function liveClean(b, partial) {
+  const o = {};
+  if (!partial || b.title !== undefined) { o.title = String(b.title || "").trim().slice(0, 60); if (!o.title) return { error: "要填直播標題" }; }
+  if (!partial || b.startsAt !== undefined) {
+    const t = Date.parse(b.startsAt);
+    if (!Number.isFinite(t)) return { error: "直播時間格式不正確" };
+    if (t < Date.now() - 10 * 60e3) return { error: "直播時間已經過了" };
+    o.starts_at = new Date(t).toISOString();
+  }
+  if (!partial || b.note !== undefined) o.note = String(b.note || "").trim().slice(0, 500) || null;
+  if (!partial || b.link !== undefined) { const l = String(b.link || "").trim(); if (l && !/^https:\/\/\S{4,300}$/.test(l)) return { error: "直播連結要是 https:// 開頭的網址" }; o.link = l || null; }
+  return { row: o };
+}
+
 // Discord 審核機器人：設定和最近的申請
 const discordSettings = { roleId: "1560542923173400596", panelChannelId: "", reviewChannelId: "", invites: {} };
 let discordPanels = 0;
@@ -227,7 +246,7 @@ const server = http.createServer(async (req, res) => {
         mrow.notify = body.notify;
         return send(res, 200, { ok: true, notify: body.notify });
       }
-      return send(res, 200, { links: mrow ? EXCHANGES.map((ex) => ({ exchange: ex, auto: AUTO_EXCHANGES.includes(ex), enabled: true, uid: autoLinks[ex].get(mrow.user_id) || null, boundAt: null })) : null, feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, adminRole: admin ? role : null, accessUntil: mrow?.access_until || null, notify: mrow ? mrow.notify !== false : null, volume: mrow ? (() => { const p = curP(mrow); const v = vols.get(mrow.user_id + ":" + p.start); return { periodStart: p.start, periodEnd: p.end, exchanges: EX, threshold, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, qualified: v ? qualified(v.amounts) : false, qualifiedAt: v?.qualified_at || null, qualifiedUntil: v?.qualified_at ? nextPeriod(anchorOf(mrow), p).end : null }; })() : null });
+      return send(res, 200, { links: mrow ? EXCHANGES.map((ex) => ({ exchange: ex, auto: AUTO_EXCHANGES.includes(ex), enabled: true, uid: autoLinks[ex].get(mrow.user_id) || null, boundAt: null })) : null, feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, adminRole: admin ? role : null, accessUntil: mrow?.access_until || null, notify: mrow ? mrow.notify !== false : null, nextLive: (() => { const l = liveNext(); return l ? { title: l.title, startsAt: l.starts_at, note: l.note, link: l.link } : null; })(), volume: mrow ? (() => { const p = curP(mrow); const v = vols.get(mrow.user_id + ":" + p.start); return { periodStart: p.start, periodEnd: p.end, exchanges: EX, threshold, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, qualified: v ? qualified(v.amounts) : false, qualifiedAt: v?.qualified_at || null, qualifiedUntil: v?.qualified_at ? nextPeriod(anchorOf(mrow), p).end : null }; })() : null });
     }
     if (p === "/api/exchange-link") {
       const mrow = members.find((m) => m.user_id === u.id);
@@ -317,6 +336,31 @@ const server = http.createServer(async (req, res) => {
     if (!admin) return send(res, 403, { error: "只有管理員可以使用後台" });
     if (!canUseApi(role, p.replace(/^\/api\//, ""), req.method)) return send(res, 403, { error: "這個功能只有主要管理員可以使用", code: "owner_only" });
 
+    if (p === "/api/admin/lives") {
+      if (req.method === "GET") return send(res, 200, livesOut());
+      if (req.method === "POST") {
+        const { row, error } = liveClean(body, false);
+        if (error) return send(res, 400, { error });
+        const l = { id: ++liveSeq, ...row, mention: body.mention !== false, status: "scheduled", discord_message_id: "95000000000000000" + liveSeq, reminded_at: null, created_by: u.email };
+        lives.push(l);
+        return send(res, 200, livesOut({ id: l.id, announce: { posted: true } }));
+      }
+      if (req.method === "PATCH") {
+        const l = lives.find((x) => x.id === Number(body.id));
+        if (!l) return send(res, 404, { error: "找不到這場直播" });
+        if (l.status !== "scheduled") return send(res, 400, { error: "這場直播已經取消了" });
+        const { row, error } = liveClean(body, true);
+        if (error) return send(res, 400, { error });
+        Object.assign(l, row);
+        return send(res, 200, livesOut({ announce: { posted: true } }));
+      }
+      if (req.method === "DELETE") {
+        const l = lives.find((x) => x.id === Number(url.searchParams.get("id")) && x.status === "scheduled");
+        if (!l) return send(res, 404, { error: "找不到這場直播，或已經取消了" });
+        l.status = "cancelled";
+        return send(res, 200, livesOut({ announce: { posted: true } }));
+      }
+    }
     if (p === "/api/admin/videos") {
       if (req.method === "GET") return send(res, 200, { videos: videos.map((v) => ({ ...v, thumb_url: thumbUrl(v) })) });
       if (req.method === "POST") {
