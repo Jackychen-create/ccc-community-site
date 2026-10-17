@@ -70,7 +70,7 @@ async function enterApp() {
 async function offerTutorial() {
   store.set("tutorialOffered", true);
   const yes = await confirmDialog({
-    title: "歡迎加入交易實驗室",
+    title: "歡迎加入實驗室培訓計畫",
     message: "第一次來？花 2 分鐘看使用教學：怎麼找影片、接著看、章節、筆記和每月交易量。之後也可以在右上角選單打開。",
     confirmText: "看使用教學",
     cancelText: "之後再看",

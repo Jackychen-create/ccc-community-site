@@ -30,7 +30,7 @@ const errs = [];
   await a.goto(BASE + "/admin#lives"); await a.waitForSelector("#liveTableBox .empty"); await closeModals(a);
   check("側欄有直播預告", await a.isVisible(".nav a[data-view='lives']"));
   check("還沒排直播的說明", (await a.textContent("#liveTableBox")).includes("還沒有排直播"));
-  check("說明會發到實驗室頻道", (await a.textContent("#liveHint")).includes("🧪實驗室"));
+  check("說明會發到研究員專屬公告頻道", (await a.textContent("#liveHint")).includes("研究員專屬公告"));
   await a.click("#liveSave"); await a.waitForTimeout(300);
   check("沒標題會提醒", (await a.textContent(".toast:last-child")).includes("標題"));
   await a.fill("#liveTitle", "NQ 盤前直播");
@@ -43,7 +43,7 @@ const errs = [];
   const row = await a.textContent("#liveTableBox");
   check("列表出現這場、時間 20:00、已公告", row.includes("NQ 盤前直播") && row.includes("20:00") && row.includes("已公告"), row.slice(0, 200));
   check("表單清空", (await a.inputValue("#liveTitle")) === "");
-  check("排定後說明還是寫會發到實驗室頻道", (await a.textContent("#liveHint")).includes("🧪實驗室"), await a.textContent("#liveHint"));
+  check("排定後說明還是寫會發到研究員專屬公告頻道", (await a.textContent("#liveHint")).includes("研究員專屬公告"), await a.textContent("#liveHint"));
   await a.screenshot({ path: "output/shots/v22-admin.png" });
 
   // 修改時間

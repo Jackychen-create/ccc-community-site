@@ -432,11 +432,11 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { ok: true, settings: discordSettings, synced: null });
       }
       if (body.action === "setup") {
-        const created = discordSettings.labChannelId ? [] : ["🧪 CCC 交易實驗室", "📝申請加入實驗室", "🔒申請審核", "🧪實驗室", "🎫 實驗室申請"];
+        const created = discordSettings.labChannelId ? [] : ["🧪 CCC 交易實驗室", "📝報名培訓計畫", "🔒申請審核", "📢研究員專屬公告", "🎫 培訓計畫報名"];
         Object.assign(discordSettings, { guildId: "222222222222222222", categoryId: "800000000000000001", panelChannelId: "800000000000000002", reviewChannelId: "800000000000000003", labChannelId: "800000000000000004", ticketCategoryId: "800000000000000005" });
         return send(res, 200, { ok: true, guildName: "CCC 交易實驗室", hierarchyOk: false, roleName: "實驗室研究員", created, settings: discordSettings });
       }
-      if (!discordSettings.panelChannelId) return send(res, 400, { error: "先填申請頻道的 ID" });
+      if (!discordSettings.panelChannelId) return send(res, 400, { error: "先填報名頻道的 ID" });
       discordPanels++;
       return send(res, 200, { ok: true, messageId: "900000000000000001" });
     }

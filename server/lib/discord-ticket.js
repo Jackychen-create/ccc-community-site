@@ -1,5 +1,5 @@
-// Discord 私人申請頻道（像 Ticket Tool）：開頻道、權限、關頻道、每個人專用的實驗室密碼
-// 一個人同時只會有一個開著的申請頻道（discord_tickets，status = open）
+// Discord 私人報名頻道（像 Ticket Tool）：開頻道、權限、關頻道、每個人專用的實驗室密碼
+// 一個人同時只會有一個開著的報名頻道（discord_tickets，status = open）
 import { supabaseAdmin, env } from "./env.js";
 import { randomCode } from "./random.js";
 import {
@@ -11,7 +11,7 @@ import { ticketWelcome } from "./discord-flow.js";
 const B = { MANAGE_CHANNELS: 1n << 4n, VIEW: 1n << 10n, SEND: 1n << 11n, MANAGE_MESSAGES: 1n << 13n, EMBED: 1n << 14n, ATTACH: 1n << 15n, HISTORY: 1n << 16n };
 const bits = (...xs) => String(xs.reduce((a, b) => a | b, 0n));
 
-export const TICKET_CATEGORY = { name: "🎫 實驗室申請", type: 4 };
+export const TICKET_CATEGORY = { name: "🎫 培訓計畫報名", type: 4 };
 
 // 分類：只有機器人和客服身分組看得到（管理員本來就看得到全部）
 export function categoryOverwrites({ guildId, botId, staffRoleIds = [] }) {
@@ -22,7 +22,7 @@ export function categoryOverwrites({ guildId, botId, staffRoleIds = [] }) {
   ];
 }
 
-// 一個申請頻道：申請人、機器人、客服身分組看得到，其他人看不到
+// 一個報名頻道：申請人、機器人、客服身分組看得到，其他人看不到
 export function ticketOverwrites({ guildId, botId, userId, staffRoleIds = [] }) {
   return [
     ...categoryOverwrites({ guildId, botId, staffRoleIds }),
@@ -31,14 +31,14 @@ export function ticketOverwrites({ guildId, botId, userId, staffRoleIds = [] }) 
 }
 
 // 頻道名稱：申請-名字（Discord 會自動轉小寫、空白變 -）
-export const ticketName = (name) => `申請-${String(name || "研究員").replace(/[^\p{L}\p{N}_-]+/gu, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "研究員"}`;
+export const ticketName = (name) => `報名-${String(name || "研究員").replace(/[^\p{L}\p{N}_-]+/gu, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "研究員"}`;
 
 async function channelExists(id) {
   if (!id) return false;
   try { await getChannel(id); return true; } catch (e) { if (e.status === 404 || e.status === 403) return false; throw e; }
 }
 
-// 找（或建立）放申請頻道的分類
+// 找（或建立）放報名頻道的分類
 export async function ensureTicketCategory(guildId, s) {
   if (await channelExists(s.ticketCategoryId)) return s.ticketCategoryId;
   const cat = await createChannel(guildId, {
@@ -62,7 +62,7 @@ export async function ticketOf(channelId) {
 const markClosed = (channelId, by) => supabaseAdmin.from("discord_tickets")
   .update({ status: "closed", closed_at: new Date().toISOString(), closed_by: by || null }).eq("channel_id", channelId);
 
-// 幫這個人開一個申請頻道；已經有開著的就回傳那個（頻道被手動刪掉了就重開）
+// 幫這個人開一個報名頻道；已經有開著的就回傳那個（頻道被手動刪掉了就重開）
 export async function openTicket({ guildId, user, name, s }) {
   const existing = await openTicketOf(user.id);
   if (existing) {
@@ -73,7 +73,7 @@ export async function openTicket({ guildId, user, name, s }) {
   const parent = await ensureTicketCategory(guildId, s);
   const ch = await createChannel(guildId, {
     name: ticketName(name), type: 0, parent_id: parent,
-    topic: `${name || user.id} 的實驗室申請。選交易所、填 UID；完成後按「關閉這個頻道」。`,
+    topic: `${name || user.id} 的培訓計畫報名。選交易所、填 UID；完成後按「關閉這個頻道」。`,
     permission_overwrites: ticketOverwrites({ guildId, botId: env.DISCORD_APP_ID, userId: user.id, staffRoleIds }),
   });
   const { error } = await supabaseAdmin.from("discord_tickets").insert({ channel_id: ch.id, discord_user_id: user.id, discord_name: name || null, status: "open" });

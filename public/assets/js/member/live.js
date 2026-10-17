@@ -1,4 +1,4 @@
-// 右欄最上面：下一場直播（後台「直播預告」排的，Discord 實驗室頻道也會公告）
+// 右欄最上面：下一場直播（後台「直播預告」排的，Discord 研究員專屬公告頻道也會公告）
 import * as A from "../core/index.js";
 const { el, $, icon } = A;
 import { state } from "./state.js";

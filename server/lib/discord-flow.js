@@ -1,5 +1,5 @@
 // Discord 申請流程的訊息長相（按鈕、選單、表單、結果）。只組資料，不打 API，方便測試
-// 流程（像 Ticket Tool）：申請頻道按「申請加入實驗室」→ 機器人開一個只有他和管理員看得到的私人頻道
+// 流程（像 Ticket Tool）：報名頻道按「報名培訓計畫」→ 機器人開一個只有他和管理員看得到的私人頻道
 //   → 在私人頻道選交易所、填 UID
 //   → Bybit、BingX：機器人直接問交易所是不是 CCC 邀請的，是就給身分組，並在頻道裡給實驗室密碼
 //   → OKX、UM（或交易所暫時查不到）：在同一個頻道請管理員按「通過／不通過」，通過一樣自動給身分組和實驗室密碼
@@ -28,17 +28,17 @@ const exchangeRow = () => ({
   }],
 });
 
-// 申請頻道上的固定訊息
+// 報名頻道上的固定訊息
 export function panelMessage() {
   return {
     content: [
-      "## 申請加入 CCC 交易實驗室 🧪",
-      "按下面的按鈕，機器人會幫你開一個**只有你和管理員看得到的申請頻道**。",
+      "## 報名 CCC 實驗室培訓計畫 🧪",
+      "按下面的按鈕，機器人會幫你開一個**只有你和管理員看得到的報名頻道**。",
       "在頻道裡選你用 CCC 邀請連結註冊的交易所、填 UID：",
-      "• Bybit、BingX：幾秒鐘自動確認，通過就給你實驗室身分組和實驗室密碼",
+      "• Bybit、BingX：幾秒鐘自動確認，通過就給你研究員身分組和實驗室密碼",
       "• OKX、UM：管理員確認後通過，一樣在頻道裡給你",
     ].join("\n"),
-    components: [{ type: 1, components: [{ type: 2, style: 1, custom_id: "apply", label: "申請加入實驗室", emoji: { name: "🧪" } }] }],
+    components: [{ type: 1, components: [{ type: 2, style: 1, custom_id: "apply", label: "報名培訓計畫", emoji: { name: "🧪" } }] }],
     allowed_mentions: { parse: [] },
   };
 }
@@ -47,7 +47,7 @@ export function panelMessage() {
 export function ticketWelcome(userId) {
   return {
     content: [
-      `<@${userId}> 歡迎！這個頻道只有你和管理員看得到。`,
+      `<@${userId}> 歡迎報名實驗室培訓計畫！這個頻道只有你和管理員看得到。`,
       "請在下面選你用 **CCC 邀請連結**註冊的交易所，接著填 UID。",
     ].join("\n"),
     components: [exchangeRow(), { type: 1, components: [closeBtn] }],
@@ -61,7 +61,7 @@ export function uidModal(ex) {
     type: T.MODAL,
     data: {
       custom_id: `apply_uid:${ex}`,
-      title: `申請加入實驗室：${ex}`,
+      title: `報名培訓計畫：${ex}`,
       components: [{ type: 1, components: [{ type: 4, custom_id: "uid", style: 1, label: EX_HINT[ex] || `${ex} UID`, min_length: 5, max_length: 24, required: true, placeholder: "例如 12345678" }] }],
     },
   };
@@ -73,7 +73,7 @@ export const reply = (content, extra = {}) => ({ type: T.MESSAGE, data: { flags:
 // code：這個人專用的實驗室密碼（只能用一次）
 export function approvedMessage({ userId, roleId, code, by = "", labChannelId = "" }) {
   const lines = [
-    `✅ <@${userId}> 審核通過！已經給你 <@&${roleId}> 身分組。${by ? `（${by}）` : ""}`,
+    `✅ <@${userId}> 審核通過，歡迎加入實驗室培訓計畫！已經給你 <@&${roleId}> 身分組。${by ? `（${by}）` : ""}`,
   ];
   if (code) {
     lines.push(
@@ -106,7 +106,7 @@ export function notInvitedMessage({ ex, invite }) {
 export function rejectedMessage({ userId, ex, invite }) {
   return {
     content: [
-      `<@${userId}> 你的 ${exLabel(ex)} 申請沒有通過。請確認是用 CCC 的邀請連結註冊、UID 填對，再在下面重新選一次。`,
+      `<@${userId}> 你的培訓計畫報名（${exLabel(ex)}）沒有通過。請確認是用 CCC 的邀請連結註冊、UID 填對，再在下面重新選一次。`,
       invite ? `邀請連結：${invite}` : "",
     ].filter(Boolean).join("\n"),
     components: [exchangeRow(), { type: 1, components: [closeBtn] }],
@@ -119,14 +119,14 @@ const STATUS_TEXT = { pending: "⏳ 等待管理員審核", approved: "✅ 已�
 // 要管理員看的申請（OKX、UM，或自動確認不了的）：在私人頻道裡，附「通過／不通過」
 export function reviewMessage(app, { reason = "", reviewer = "" } = {}) {
   const lines = [
-    `**實驗室申請 #${app.id}**　${STATUS_TEXT[app.status] || app.status}`,
-    `申請人：<@${app.discord_user_id}>（${app.discord_name || "?"}）`,
+    `**培訓計畫報名 #${app.id}**　${STATUS_TEXT[app.status] || app.status}`,
+    `報名者：<@${app.discord_user_id}>（${app.discord_name || "?"}）`,
     `交易所：${exLabel(app.exchange)}`,
     `UID：\`${app.exchange_uid}\``,
   ];
   if (reason) lines.push(`說明：${reason}`);
   if (app.status !== "pending" && reviewer) lines.push(`審核：${reviewer}`);
-  if (app.status === "pending") lines.push("", "管理員請到交易所的代理後台確認這個 UID 是 CCC 邀請的，再按下面的按鈕。申請人請稍等，通過後會在這裡給你實驗室密碼。");
+  if (app.status === "pending") lines.push("", "管理員請到交易所的代理後台確認這個 UID 是 CCC 邀請的，再按下面的按鈕。報名的人請稍等，通過後會在這裡給你實驗室密碼。");
   return {
     content: lines.join("\n"),
     components: app.status === "pending"
@@ -139,11 +139,11 @@ export function reviewMessage(app, { reason = "", reviewer = "" } = {}) {
   };
 }
 
-// 通知管理員有人在等（審核頻道，沒設定就發在申請頻道裡）；有設定客服身分組就提及他們
+// 通知管理員有人在等（審核頻道，沒設定就發在報名頻道裡）；有設定客服身分組就提及他們
 export function reviewNotice(app, channelId, staffRoleIds = []) {
   const ping = staffRoleIds.length ? staffRoleIds.map((r) => `<@&${r}>`).join(" ") + " " : "";
   return {
-    content: `${ping}🔔 新的 ${exLabel(app.exchange)} 申請等待審核：<@${app.discord_user_id}> → <#${channelId}>`,
+    content: `${ping}🔔 新的 ${exLabel(app.exchange)} 報名等待審核：<@${app.discord_user_id}> → <#${channelId}>`,
     allowed_mentions: { roles: staffRoleIds },
   };
 }
@@ -153,19 +153,19 @@ export function resultText(kind, { ex, invite } = {}) {
   const inv = invite ? `\n邀請連結：${invite}` : "";
   switch (kind) {
     case "already_pending":
-      return "你已經有一筆申請在審核中了，請耐心等候。";
+      return "你已經有一筆報名在審核中了，請耐心等候。";
     case "already_member":
-      return "你已經有實驗室的身分組了，不用再申請 🙂";
+      return "你已經加入培訓計畫了，不用再報名 🙂";
     case "uid_taken":
-      return "這個 UID 已經被其他人用來申請過了。如果是你本人，請在頻道裡告訴管理員。";
+      return "這個 UID 已經被其他人用來報名過了。如果是你本人，請在頻道裡告訴管理員。";
     case "bad_uid":
       return "UID 是一串數字，請再確認一次。";
     case "not_owner":
-      return "這是別人的申請頻道，只有申請人可以操作。";
+      return "這是別人的報名頻道，只有報名的人可以操作。";
     case "no_ticket":
-      return "請先到申請頻道按「申請加入實驗室」，機器人會幫你開一個申請頻道。";
+      return "請先到報名頻道按「報名培訓計畫」，機器人會幫你開一個報名頻道。";
     case "rejected":
-      return `你的實驗室申請（${ex}）沒有通過。請確認是用 CCC 的邀請連結註冊、UID 填對，再重新申請。${inv}`;
+      return `你的培訓計畫報名（${ex}）沒有通過。請確認是用 CCC 的邀請連結註冊、UID 填對，再重新報名。${inv}`;
     default:
       return "發生錯誤，請稍後再試。";
   }

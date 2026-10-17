@@ -1,6 +1,6 @@
 // 後台：直播預告（主要管理員、協作管理員都可以用）
 // GET    /api/admin/lives                 最近 30 天到之後的直播、Discord 有沒有設定好
-// POST   /api/admin/lives { title, startsAt, note, link, mention }   新增，發到 Discord 實驗室頻道
+// POST   /api/admin/lives { title, startsAt, note, link, mention }   新增，發到 Discord 研究員專屬公告頻道
 // 回應都附上最新的列表；announce = { posted, error? } 是這次有沒有發到 Discord
 // PATCH  /api/admin/lives { id, title, startsAt, note, link }        修改；改了時間會在公告下面回覆通知
 // DELETE /api/admin/lives?id=1                                      取消（公告劃掉並回覆通知，紀錄保留）

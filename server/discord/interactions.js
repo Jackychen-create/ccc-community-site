@@ -2,8 +2,8 @@
 // POST /api/discord/interactions   （Discord Developer Portal 的 Interactions Endpoint URL 填這個網址）
 // 每個請求都先驗 Ed25519 簽名；3 秒內要回應，要開頻道或問交易所的先回「處理中」，背景做完再改訊息
 // 流程（像 Ticket Tool）：
-//   申請頻道按「申請加入實驗室」→ 開一個只有他和管理員看得到的申請頻道
-//   → 在申請頻道選交易所、填 UID → Bybit、BingX 自動確認；OKX、UM 由管理員在同一個頻道按通過
+//   報名頻道按「報名培訓計畫」→ 開一個只有他和管理員看得到的報名頻道
+//   → 在報名頻道選交易所、填 UID → Bybit、BingX 自動確認；OKX、UM 由管理員在同一個頻道按通過
 //   → 通過：給身分組，在頻道裡給他專用的實驗室密碼（也私訊一份）→ 按「關閉這個頻道」
 import {
   supabaseAdmin, route, AUTO_EXCHANGES, EXCHANGES, PROVIDERS,
@@ -45,18 +45,18 @@ async function grantCode(s, app) {
     console.error("discord personal code failed", e?.message);
     code = "";
   }
-  if (code) await dm(app.discord_user_id, `CCC 交易實驗室審核通過 🎉\n你的實驗室密碼：${code}（只能用一次）\n加入連結：https://ccc-community-site.pages.dev/?invite=${code}`);
+  if (code) await dm(app.discord_user_id, `CCC 實驗室培訓計畫審核通過 🎉\n你的實驗室密碼：${code}（只能用一次）\n加入連結：https://ccc-community-site.pages.dev/?invite=${code}`);
   return code;
 }
 
-// 按「申請加入實驗室」之後（背景）：開申請頻道，把連結回給他
+// 按「報名培訓計畫」之後（背景）：開報名頻道，把連結回給他
 async function processOpen({ i, s, user }) {
   try {
     const { channelId, created } = await openTicket({ guildId: i.guild_id, user, name: nameOf(user), s });
-    await editOriginal(i.token, { content: created ? `已經幫你開好申請頻道：<#${channelId}>，請到那裡選交易所、填 UID。` : `你已經有一個申請頻道了：<#${channelId}>`, allowed_mentions: { parse: [] } });
+    await editOriginal(i.token, { content: created ? `已經幫你開好報名頻道：<#${channelId}>，請到那裡選交易所、填 UID。` : `你已經有一個報名頻道了：<#${channelId}>`, allowed_mentions: { parse: [] } });
   } catch (e) {
     console.error("discord open ticket failed", e?.status, e?.message);
-    await editOriginal(i.token, { content: "開申請頻道失敗，請稍後再試，或私訊管理員。", allowed_mentions: { parse: [] } }).catch(() => {});
+    await editOriginal(i.token, { content: "開報名頻道失敗，請稍後再試，或私訊管理員。", allowed_mentions: { parse: [] } }).catch(() => {});
   }
 }
 
@@ -96,7 +96,7 @@ async function processApplication({ i, s, ex, uid, user, channelId }) {
     const app = await insertApp({ ...base, status: "pending", note: reason || null });
     const msg = await done(reviewMessage(app, { reason }));
     await supabaseAdmin.from("discord_applications").update({ review_message_id: msg?.id || null }).eq("id", app.id);
-    // 通知管理員：有審核頻道就發在那裡，不然發在申請頻道裡
+    // 通知管理員：有審核頻道就發在那裡，不然發在報名頻道裡
     const staff = s.staffRoleIds || [];
     if (s.reviewChannelId || staff.length) {
       await sendMessage(s.reviewChannelId || channelId, reviewNotice(app, channelId, staff)).catch((e) => console.error("discord notice failed", e?.message));
@@ -130,7 +130,7 @@ async function review(req, res, i, s, action, id) {
     const { data: now } = await supabaseAdmin.from("discord_applications").select("*").eq("id", id).maybeSingle();
     return res.status(200).json({ type: T.UPDATE, data: reviewMessage(now || app, { reviewer: now?.reviewed_by, reason: app.note }) });
   }
-  // 結果發在申請頻道裡（舊的申請沒有頻道就私訊）
+  // 結果發在報名頻道裡（舊的申請沒有頻道就私訊）
   const target = app.channel_id || i.channel_id;
   req.waitUntil?.((async () => {
     try {
@@ -164,7 +164,7 @@ export default route({
     const channelId = i.channel_id || i.channel?.id || "";
     const id = i.data?.custom_id || "";
 
-    // 申請頻道裡的操作：只有申請人可以（管理員也可以關頻道）
+    // 報名頻道裡的操作：只有申請人可以（管理員也可以關頻道）
     const ownTicket = async () => {
       const t = await ticketOf(channelId);
       if (!t || t.status !== "open") return { error: reply(resultText("no_ticket")) };
@@ -193,7 +193,7 @@ export default route({
         req.waitUntil?.(new Promise((r) => setTimeout(r, CLOSE_DELAY_MS.value))
           .then(() => closeTicket(channelId, nameOf(user)))
           .catch((e) => console.error("discord close failed", e?.message)));
-        return res.status(200).json({ type: T.MESSAGE, data: { content: `🔒 ${nameOf(user)} 關閉了這個申請頻道，幾秒後會刪除。`, allowed_mentions: { parse: [] } } });
+        return res.status(200).json({ type: T.MESSAGE, data: { content: `🔒 ${nameOf(user)} 關閉了這個報名頻道，幾秒後會刪除。`, allowed_mentions: { parse: [] } } });
       }
       const m = /^(approve|reject):(\d+)$/.exec(id);
       if (m) return review(req, res, i, s, m[1], Number(m[2]));
@@ -215,9 +215,9 @@ export default route({
       if (mine?.length) return res.status(200).json(reply(resultText("already_pending")));
       if (taken?.length) return res.status(200).json(reply(resultText("uid_taken")));
       req.waitUntil?.(processApplication({ i, s, ex, uid, user, channelId }));
-      return res.status(200).json({ type: T.DEFER }); // 大家都看得到的「處理中」，結果直接留在申請頻道
+      return res.status(200).json({ type: T.DEFER }); // 大家都看得到的「處理中」，結果直接留在報名頻道
     }
 
-    return res.status(200).json(reply("這個按鈕已經失效了，請重新按一次「申請加入實驗室」。"));
+    return res.status(200).json(reply("這個按鈕已經失效了，請重新按一次「報名培訓計畫」。"));
   },
 });

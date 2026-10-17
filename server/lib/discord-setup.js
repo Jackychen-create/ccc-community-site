@@ -1,8 +1,8 @@
-// Discord 一鍵建立：分類、三個頻道（權限設好）、放私人申請頻道的分類、申請按鈕
-// 實驗室密碼不貼在頻道裡：每個通過的人在自己的申請頻道拿到專用的一組
+// Discord 一鍵建立：分類、三個頻道（權限設好）、放私人報名頻道的分類、報名按鈕
+// 實驗室密碼不貼在頻道裡：每個通過的人在自己的報名頻道拿到專用的一組
 // 可以重複按：已經建好的頻道、已經貼過的訊息不會重複建立，只會把權限調回正確
 import {
-  getGuilds, getGuild, getRoles, getMember, getChannel, createChannel, editChannel, sendMessage,
+  getGuilds, getGuild, getRoles, getMember, getChannel, createChannel, editChannel, sendMessage, editMessage,
   getDiscordSettings, saveDiscordSettings,
 } from "./discord.js";
 import { env } from "./env.js";
@@ -19,11 +19,18 @@ const bits = (...xs) => String(xs.reduce((a, b) => a | b, 0n));
 export const BOT_PERMISSIONS = bits(P.MANAGE_CHANNELS, P.VIEW, P.SEND, P.MANAGE_MESSAGES, P.HISTORY, P.EMBED, P.MANAGE_ROLES);
 export const inviteUrl = (appId) => `https://discord.com/oauth2/authorize?client_id=${appId}&scope=bot&permissions=${BOT_PERMISSIONS}`;
 
+// 舊版的預設名稱：再按一次一鍵建立時改成新名稱（你自己改過的名字不會動）
+const OLD_NAMES = { panel: ["📝申請加入實驗室"], lab: ["🧪實驗室"], ticket: ["🎫 實驗室申請"] };
+async function renameIfOld(id, kind, def) {
+  const ch = await getChannel(id).catch(() => null);
+  return ch && OLD_NAMES[kind]?.includes(ch.name) ? { name: def.name, ...(def.topic ? { topic: def.topic } : {}) } : {};
+}
+
 export const CHANNELS = {
   category: { name: "🧪 CCC 交易實驗室", type: 4 },
-  panel: { name: "📝申請加入實驗室", type: 0, topic: "按下面的按鈕，機器人會幫你開一個私人申請頻道。Bybit、BingX 自動確認；OKX、UM 由管理員審核。" },
+  panel: { name: "📝報名培訓計畫", type: 0, topic: "按下面的按鈕，機器人會幫你開一個私人報名頻道。Bybit、BingX 自動確認；OKX、UM 由管理員審核。" },
   review: { name: "🔒申請審核", type: 0, topic: "有人在等管理員審核（OKX、UM）時會通知在這裡，點頻道連結過去按「通過」或「不通過」。只有管理員看得到。" },
-  lab: { name: "🧪實驗室", type: 0, topic: "實驗室研究員專用：公告" },
+  lab: { name: "📢研究員專屬公告", type: 0, topic: "實驗室研究員專屬：直播預告、公告" },
 };
 
 // 每個頻道的權限：everyone、實驗室身分組、機器人
@@ -76,28 +83,33 @@ export async function setupGuild() {
     const def = CHANNELS[kind];
     const po = overwrites(kind, ctx);
     if (await exists(ids[key])) {
-      await editChannel(ids[key], { permission_overwrites: po });
+      await editChannel(ids[key], { permission_overwrites: po, ...(await renameIfOld(ids[key], kind, def)) });
     } else {
       ids[key] = (await createChannel(guildId, { name: def.name, type: def.type, topic: def.topic, parent_id: ids.categoryId, permission_overwrites: po })).id;
       created.push(def.name);
     }
   }
 
-  // 私人申請頻道放的分類（只有機器人、客服身分組看得到）
+  // 私人報名頻道放的分類（只有機器人、客服身分組看得到）
   const tpo = categoryOverwrites({ guildId, botId, staffRoleIds });
   if (await exists(ids.ticketCategoryId)) {
-    await editChannel(ids.ticketCategoryId, { permission_overwrites: tpo });
+    await editChannel(ids.ticketCategoryId, { permission_overwrites: tpo, ...(await renameIfOld(ids.ticketCategoryId, "ticket", TICKET_CATEGORY)) });
   } else {
     ids.ticketCategoryId = (await createChannel(guildId, { ...TICKET_CATEGORY, permission_overwrites: tpo })).id;
     created.push(TICKET_CATEGORY.name);
   }
 
-  // 4. 申請按鈕（換了頻道才重貼）
+  // 4. 報名按鈕（換了頻道才重貼）
   const next = { ...s, guildId, ...ids };
   delete next.labCode; delete next.labMessageId; // 舊版會在實驗室頻道貼共用實驗室密碼，現在不用了
-  if (!s.panelMessageId || s.panelChannelId !== ids.panelChannelId) {
-    next.panelMessageId = (await sendMessage(ids.panelChannelId, panelMessage())).id;
+  let repost = !s.panelMessageId || s.panelChannelId !== ids.panelChannelId;
+  if (!repost) {
+    // 已經貼過：改成最新的文字（例如改名成「報名培訓計畫」）；被刪掉了就重貼
+    await editMessage(ids.panelChannelId, s.panelMessageId, panelMessage()).catch((e) => {
+      if (e.status === 404) repost = true; else throw e;
+    });
   }
+  if (repost) next.panelMessageId = (await sendMessage(ids.panelChannelId, panelMessage())).id;
   await saveDiscordSettings(next);
   return { ok: true, guildName: guild.name, hierarchyOk, roleName: role.name, created, settings: next };
 }

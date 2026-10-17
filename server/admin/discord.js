@@ -1,8 +1,8 @@
 // 後台：Discord 審核機器人
 // GET   /api/admin/discord                        設定好了沒、設定值、最近的申請
 // PATCH /api/admin/discord { roleId, panelChannelId, reviewChannelId, staffRoleIds, invites }   改設定
-// POST  /api/admin/discord { action: "panel" }    在申請頻道張貼「申請加入實驗室」按鈕
-// POST  /api/admin/discord { action: "setup" }  一鍵建立分類、頻道、權限、申請按鈕
+// POST  /api/admin/discord { action: "panel" }    在報名頻道張貼「報名培訓計畫」按鈕
+// POST  /api/admin/discord { action: "setup" }  一鍵建立分類、頻道、權限、報名按鈕
 import {
   supabaseAdmin, requireAdmin, readBody, route, EXCHANGES, env,
   discordConfigured, getDiscordSettings, saveDiscordSettings, isSnowflake, sendMessage, editChannel,
@@ -68,7 +68,7 @@ export default route({
       }
     }
     await saveDiscordSettings(next);
-    // 客服身分組改了：申請分類、審核頻道的權限一起更新（之後開的申請頻道會照新的設定）
+    // 客服身分組改了：申請分類、審核頻道的權限一起更新（之後開的報名頻道會照新的設定）
     let synced = null;
     if (JSON.stringify(cur.staffRoleIds || []) !== JSON.stringify(next.staffRoleIds || []) && discordConfigured() && next.guildId) {
       const ctx = { guildId: next.guildId, roleId: next.roleId, botId: env.DISCORD_APP_ID, staffRoleIds: next.staffRoleIds || [] };
@@ -98,7 +98,7 @@ export default route({
       }
     }
     const s = await getDiscordSettings();
-    if (!s.panelChannelId) return res.status(400).json({ error: "先填申請頻道的 ID" });
+    if (!s.panelChannelId) return res.status(400).json({ error: "先填報名頻道的 ID" });
     try {
       const msg = await sendMessage(s.panelChannelId, panelMessage());
       return res.status(200).json({ ok: true, messageId: msg?.id || null });
