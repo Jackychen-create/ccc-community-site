@@ -422,3 +422,8 @@ alter table public.discord_applications add column if not exists account_name te
 
 -- ── v1.16.14：直播預告加主講人（可以複選，選項跟影片一樣在 config.js 的 HOSTS）──
 alter table public.lives add column if not exists hosts text[] not null default '{}';
+
+-- ── v1.17.0：贈送名額（免綁交易所、觀看不限期）──
+-- 實驗室密碼標成 free → 用它註冊不用填交易所 UID，access_until 留空白（不限），研究員也標成 free
+alter table public.invite_codes add column if not exists free boolean not null default false;
+alter table public.members      add column if not exists free boolean not null default false;

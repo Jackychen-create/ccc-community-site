@@ -1,6 +1,7 @@
 // POST /api/register  { email, password, inviteCode, exchange, uid }
 // 用實驗室密碼建立研究員帳號，同時記下他用哪間交易所、UID 是多少（管理員才對得到交易量）
 // Bybit、BingX 有設定 API Key 的話，先跟交易所確認是 CCC 邀請的才讓他註冊
+// 贈送名額的實驗室密碼（invite_codes.free）：不用填交易所，觀看不限期
 import { supabaseAdmin, isAdminEmail, readBody, route, cycleEnd, todayTW, thisMonthTW, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, cleanExId, exIdOk, idLabel, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR } from "./lib/index.js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -27,29 +28,36 @@ export default route({
     if (isAdminEmail(email)) {
       return res.status(400).json({ error: "這個 Email 不能用用實驗室密碼加入" });
     }
-    if (!EXCHANGES.includes(exchange)) return res.status(400).json({ error: "請選擇你用 CCC 邀請連結註冊的交易所" });
-    if (!exIdOk(exchange, uid)) return res.status(400).json({ error: exchange === "UM" ? "請填 UM 的 MT5 帳號（一串數字）" : "請填交易所 UID（一串數字）" });
-    // UM 另外要填開戶的英文姓名（管理員對帳用）
-    const accountName = needsName(exchange) ? cleanAccountName(body.accountName) : null;
-    if (needsName(exchange) && !accountNameOk(accountName)) return res.status(400).json({ error: ACCOUNT_NAME_ERROR });
-
-    // 這個 UID 有沒有被別人填過
-    const { data: taken } = await supabaseAdmin.from("exchange_links").select("user_id").eq("exchange", exchange).eq("exchange_uid", uid).maybeSingle();
-    if (taken) return res.status(409).json({ error: `這個 ${exchange} ${idLabel(exchange)}已經被其他研究員填過了，有問題請聯絡管理員` });
-
-    // Bybit、BingX：先跟交易所確認（交易所暫時連不上就先讓他註冊，之後每天同步會再確認交易量）
+    // 贈送名額：交易所可以不填（有填還是照一般規則檢查、記下來）
+    const { data: inv } = await supabaseAdmin.from("invite_codes").select("free").eq("code", code).maybeSingle();
+    const free = !!inv?.free;
+    const withLink = !free || !!exchange;
     let verified = null;
     const p = PROVIDERS[exchange];
-    if (AUTO_EXCHANGES.includes(exchange) && p?.configured()) {
-      try {
-        const check = await p.check(uid);
-        if (!check.invited) {
-          const extra = exchange === "Bybit" ? "（Bybit 要填主帳號的 UID）" : "";
-          return res.status(400).json({ error: `這個 UID 不是用 CCC 的 ${exchange} 邀請連結註冊的${extra}。請確認 UID，或用邀請連結重新註冊`, code: "not_invited" });
+    let accountName = null;
+    if (withLink) {
+      if (!EXCHANGES.includes(exchange)) return res.status(400).json({ error: "請選擇你用 CCC 邀請連結註冊的交易所" });
+      if (!exIdOk(exchange, uid)) return res.status(400).json({ error: exchange === "UM" ? "請填 UM 的 MT5 帳號（一串數字）" : "請填交易所 UID（一串數字）" });
+      // UM 另外要填開戶的英文姓名（管理員對帳用）
+      accountName = needsName(exchange) ? cleanAccountName(body.accountName) : null;
+      if (needsName(exchange) && !accountNameOk(accountName)) return res.status(400).json({ error: ACCOUNT_NAME_ERROR });
+
+      // 這個 UID 有沒有被別人填過
+      const { data: taken } = await supabaseAdmin.from("exchange_links").select("user_id").eq("exchange", exchange).eq("exchange_uid", uid).maybeSingle();
+      if (taken) return res.status(409).json({ error: `這個 ${exchange} ${idLabel(exchange)}已經被其他研究員填過了，有問題請聯絡管理員` });
+
+      // Bybit、BingX：先跟交易所確認（交易所暫時連不上就先讓他註冊，之後每天同步會再確認交易量）
+      if (AUTO_EXCHANGES.includes(exchange) && p?.configured()) {
+        try {
+          const check = await p.check(uid);
+          if (!check.invited) {
+            const extra = exchange === "Bybit" ? "（Bybit 要填主帳號的 UID）" : "";
+            return res.status(400).json({ error: `這個 UID 不是用 CCC 的 ${exchange} 邀請連結註冊的${extra}。請確認 UID，或用邀請連結重新註冊`, code: "not_invited" });
+          }
+          verified = check;
+        } catch (e) {
+          console.error(`${exchange} check failed (register)`, e?.code, e?.message);
         }
-        verified = check;
-      } catch (e) {
-        console.error(`${exchange} check failed (register)`, e?.code, e?.message);
       }
     }
 
@@ -80,7 +88,9 @@ export default route({
       email,
       invite_code: code,
       // 新研究員先給加入那天起一個月（10/15 加入看到 11/14）；之後看交易量（任一間交易所達標）延長
-      access_until: cycleEnd(todayTW()),
+      // 贈送名額：不限期（空白），也不用看交易量
+      access_until: free ? null : cycleEnd(todayTW()),
+      free,
     });
     if (memberError) {
       // 研究員資料寫不進去就整個撤回，避免留下沒有權限的空帳號
@@ -88,6 +98,8 @@ export default route({
       await refund();
       throw memberError;
     }
+
+    if (!withLink) return res.status(200).json({ ok: true, free });
 
     // 記下交易所 UID（失敗也不影響註冊，登入後會請他補填）
     const { error: linkError } = await supabaseAdmin.from("exchange_links").insert({
@@ -98,6 +110,6 @@ export default route({
       try { await p.sync({ uid }); } catch (e) { console.error("register first sync failed", e?.message); }
     }
 
-    return res.status(200).json({ ok: true });
+    return res.status(200).json({ ok: true, free });
   },
 });

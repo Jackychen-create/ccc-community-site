@@ -60,7 +60,7 @@ function renderInvites() {
             const [label, kind] = inviteState(i);
             const pct = i.max_uses ? Math.min(100, (i.used_count / i.max_uses) * 100) : 0;
             return el("tr", null,
-              el("td", null, el("span", { class: "code num", text: i.code }), el("div", { class: "small muted num", text: A.fmtDate(i.created_at) })),
+              el("td", null, el("span", { class: "code num", text: i.code }), i.free ? el("span", { class: "pill brass", style: { marginLeft: "6px" }, text: "贈送名額" }) : null, el("div", { class: "small muted num", text: A.fmtDate(i.created_at) })),
               el("td", null, el("div", { class: "usage" }, el("span", { class: "track" }, el("i", { style: { width: pct + "%" } })), el("span", { class: "small num", text: `${i.used_count} / ${i.max_uses}` }))),
               el("td", { class: "small sub hide-sm", text: i.note || "—" }),
               el("td", null, el("span", { class: "pill " + kind }, el("span", { class: "dot" }), label)),
@@ -100,21 +100,25 @@ async function toggleInvite(i) {
   }
 }
 
+// 勾「贈送名額」時，次數預設改成 1（一人一組專屬連結）
+$("#invFree").addEventListener("change", () => { if ($("#invFree").checked && Number($("#invMax").value) > 1) $("#invMax").value = "1"; });
+
 $("#invCreate").addEventListener("click", async () => {
   const btn = $("#invCreate");
   const max = Number($("#invMax").value);
   if (!Number.isInteger(max) || max < 1 || max > 1000) return A.toast("可使用次數需要介於 1 到 1000", "err");
   A.setBusy(btn, true, "產生中…");
   try {
-    const r = await api("/api/admin/invites", { method: "POST", body: { max_uses: max, note: $("#invNote").value } });
+    const r = await api("/api/admin/invites", { method: "POST", body: { max_uses: max, note: $("#invNote").value, free: $("#invFree").checked } });
     invites.unshift(r.invite);
     inviteTab = "good";
     renderInvites();
     $("#invNote").value = "";
+    $("#invFree").checked = false;
     const code = r.invite.code;
     $("#invResult").replaceChildren(
       el("div", { class: "new-code" },
-        el("div", { class: "label", text: "新的實驗室密碼" }),
+        el("div", { class: "label", text: r.invite.free ? "新的實驗室密碼（贈送名額：免綁交易所、不限期）" : "新的實驗室密碼" }),
         el("div", { class: "big num", text: code }),
         el("div", { class: "small sub", style: { marginTop: "4px", wordBreak: "break-all" }, text: inviteLink(code) }),
         el("div", { style: { display: "flex", gap: "8px", marginTop: "12px", flexWrap: "wrap" } },

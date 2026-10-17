@@ -66,7 +66,7 @@ function renderMembers() {
             el("tr", null,
               el("td", null,
                 el("div", { class: "t-title", style: { wordBreak: "break-all" }, text: m.email }),
-                el("div", { class: "small muted num", text: m.invite_code ? `實驗室密碼 ${m.invite_code}` : "" }),
+                el("div", { class: "small muted num", text: m.invite_code ? `實驗室密碼 ${m.invite_code}` : "" }, m.free ? el("span", { class: "pill brass", style: { marginLeft: "6px" }, text: "贈送名額" }) : null),
                 m.discord ? el("div", { class: "small mem-dc", text: `Discord：${m.discord}` }) : null,
                 Object.keys(m.uids || {}).length ? el("div", { class: "mem-uids" }, ...Object.entries(m.uids).map(([ex, uid]) => el("span", { class: "mem-uid small num", title: `${ex} ${idLabel(ex)}` }, el("b", { text: ex }), uid + (m.account_names?.[ex] ? `・${m.account_names[ex]}` : "")))) : null),
               el("td", { class: "small num hide-sm", text: A.fmtDate(m.created_at) }),

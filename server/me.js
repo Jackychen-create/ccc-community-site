@@ -46,6 +46,7 @@ export default route({
       isAdmin: ctx.isAdmin,
       adminRole: role,
       accessUntil: ctx.member?.access_until || null,
+      free: !!ctx.member?.free, // 贈送名額：不用綁交易所、沒有交易量門檻
       notify: ctx.member ? ctx.member.notify !== false : null,
       volume,
       links,

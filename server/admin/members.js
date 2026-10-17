@@ -13,7 +13,7 @@ export default route({
 
     const { data: members, error } = await supabaseAdmin
       .from("members")
-      .select("user_id, email, invite_code, banned, created_at, access_until, note, notify")
+      .select("user_id, email, invite_code, banned, created_at, access_until, note, notify, free")
       .order("created_at", { ascending: false });
     if (error) throw error;
 
