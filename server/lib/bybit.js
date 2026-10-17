@@ -77,14 +77,15 @@ export async function checkBybitClient(uid) {
   }
 }
 
-// 所有被邀請人在 startDate～endDate（YYYY-MM-DD，含頭尾）的交易量（合約＋選擇權＋現貨，USDT）
+// 所有被邀請人在 startDate～endDate（YYYY-MM-DD，含頭尾）的交易量（USDT）
+// tradeVol 是合約＋選擇權＋現貨；TradFi（黃金、股票等）另外放在 tradfiTradeVol，兩個加起來才是後台看到的全部
 // Bybit 的交易量是隔天（T+1）才更新，所以 endDate 最多到昨天
 export async function fetchBybitVolumes(startDate, endDate) {
   const out = new Map();
   let cursor = "";
   for (let page = 0; page < 200; page++) {
     const r = await bybitGet("/v5/affiliate/aff-user-list", { size: 100, cursor, startDate, endDate });
-    for (const u of r?.list || []) out.set(String(u.userId), Number(u.tradeVol) || 0);
+    for (const u of r?.list || []) out.set(String(u.userId), (Number(u.tradeVol) || 0) + (Number(u.tradfiTradeVol) || 0));
     cursor = r?.nextPageCursor || "";
     if (!cursor || !(r?.list || []).length) break;
   }
