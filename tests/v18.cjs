@@ -103,6 +103,7 @@ const errs = [];
     check("沒填 UID 的人登入後會被請他補填", true);
     await q.selectOption(".modal select", "UM"); await q.fill(".modal input.num", "99990001"); await q.fill(".modal input[placeholder*='WANG']", "NO UID"); await q.click(".modal-foot .btn.primary");
     await q.waitForSelector(".toast:has-text('已記下你的 UM MT5 帳號')");
+    await q.waitForSelector("#volPanel .bx-text:has-text('99990001')", { timeout: 5000 }).catch(() => {});
     check("補填 UM 帳號", (await q.textContent("#volPanel")).includes("99990001"));
     await q.screenshot({ path: "output/shots/v18-uid-prompt-done.png" });
     await q.evaluate(() => sessionStorage.clear()); await q.reload(); await q.waitForSelector("#appView:not([hidden])"); await q.waitForTimeout(500); await news(); await q.waitForTimeout(1500);

@@ -105,11 +105,11 @@ export async function setupGuild() {
   let repost = !s.panelMessageId || s.panelChannelId !== ids.panelChannelId;
   if (!repost) {
     // 已經貼過：改成最新的文字（例如改名成「報名培訓計畫」）；被刪掉了就重貼
-    await editMessage(ids.panelChannelId, s.panelMessageId, panelMessage()).catch((e) => {
+    await editMessage(ids.panelChannelId, s.panelMessageId, panelMessage(s.invites)).catch((e) => {
       if (e.status === 404) repost = true; else throw e;
     });
   }
-  if (repost) next.panelMessageId = (await sendMessage(ids.panelChannelId, panelMessage())).id;
+  if (repost) next.panelMessageId = (await sendMessage(ids.panelChannelId, panelMessage(s.invites))).id;
   await saveDiscordSettings(next);
   return { ok: true, guildName: guild.name, hierarchyOk, roleName: role.name, created, settings: next };
 }

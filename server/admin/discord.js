@@ -5,7 +5,7 @@
 // POST  /api/admin/discord { action: "setup" }  一鍵建立分類、頻道、權限、報名按鈕
 import {
   supabaseAdmin, requireAdmin, readBody, route, EXCHANGES, env,
-  discordConfigured, getDiscordSettings, saveDiscordSettings, isSnowflake, sendMessage, editChannel,
+  discordConfigured, getDiscordSettings, saveDiscordSettings, isSnowflake, sendMessage, editChannel, editMessage,
 } from "../lib/index.js";
 import { panelMessage } from "../lib/discord-flow.js";
 import { setupGuild, inviteUrl, overwrites } from "../lib/discord-setup.js";
@@ -68,6 +68,17 @@ export default route({
       }
     }
     await saveDiscordSettings(next);
+    // 邀請連結改了：報名按鈕那則訊息跟著更新（下面那排註冊按鈕）
+    let panelUpdated = null;
+    if (JSON.stringify(cur.invites || {}) !== JSON.stringify(next.invites || {}) && discordConfigured() && next.panelChannelId && next.panelMessageId) {
+      try {
+        await editMessage(next.panelChannelId, next.panelMessageId, panelMessage(next.invites));
+        panelUpdated = true;
+      } catch (e) {
+        console.error("discord panel update failed", e?.message);
+        panelUpdated = false;
+      }
+    }
     // 客服身分組改了：申請分類、審核頻道的權限一起更新（之後開的報名頻道會照新的設定）
     let synced = null;
     if (JSON.stringify(cur.staffRoleIds || []) !== JSON.stringify(next.staffRoleIds || []) && discordConfigured() && next.guildId) {
@@ -81,7 +92,7 @@ export default route({
         synced = false;
       }
     }
-    return res.status(200).json({ ok: true, settings: next, synced });
+    return res.status(200).json({ ok: true, settings: next, synced, panelUpdated });
   },
 
   async POST(req, res) {
@@ -100,7 +111,9 @@ export default route({
     const s = await getDiscordSettings();
     if (!s.panelChannelId) return res.status(400).json({ error: "先填報名頻道的 ID" });
     try {
-      const msg = await sendMessage(s.panelChannelId, panelMessage());
+      const msg = await sendMessage(s.panelChannelId, panelMessage(s.invites));
+      // 記住新的這則，之後改邀請連結會更新它（舊的那則可以手動刪掉）
+      if (msg?.id) await saveDiscordSettings({ ...(await getDiscordSettings()), panelMessageId: msg.id });
       return res.status(200).json({ ok: true, messageId: msg?.id || null });
     } catch (e) {
       return res.status(502).json({ error: `張貼失敗：${discordMsg(e)}` });

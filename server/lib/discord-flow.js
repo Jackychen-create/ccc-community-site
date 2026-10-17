@@ -27,7 +27,15 @@ const exchangeRow = () => ({
 });
 
 // 報名頻道上的固定訊息
-export function panelMessage() {
+// invites：各交易所的邀請連結（後台「Discord 審核」→ 進階設定）；有填的會在下面多一排註冊按鈕
+const SIGNUP_LABEL = { OKX: "OKX 註冊", UM: "UM 開戶", Bybit: "Bybit 註冊", BingX: "BingX 註冊" };
+export function signupRow(invites = {}) {
+  const btns = EXCHANGES.filter((ex) => /^https:\/\//.test(invites?.[ex] || "")).map((ex) => ({ type: 2, style: 5, label: SIGNUP_LABEL[ex] || ex, url: invites[ex] }));
+  return btns.length ? { type: 1, components: btns.slice(0, 5) } : null;
+}
+
+export function panelMessage(invites = {}) {
+  const signup = signupRow(invites);
   return {
     content: [
       "## 報名 CCC 實驗室培訓計畫 🧪",
@@ -35,8 +43,9 @@ export function panelMessage() {
       "在頻道裡選你用 CCC 邀請連結註冊的交易所、填 UID（UM 填 MT5 帳號和開戶的英文姓名）：",
       "• Bybit、BingX：幾秒鐘自動確認，通過就給你研究員身分組和實驗室密碼",
       "• OKX、UM：管理員確認後通過，一樣在頻道裡給你",
-    ].join("\n"),
-    components: [{ type: 1, components: [{ type: 2, style: 1, custom_id: "apply", label: "報名培訓計畫", emoji: { name: "🧪" } }] }],
+      signup ? "\n還沒有交易所帳號？先用下面的 CCC 邀請連結註冊：" : "",
+    ].filter(Boolean).join("\n"),
+    components: [{ type: 1, components: [{ type: 2, style: 1, custom_id: "apply", label: "報名培訓計畫", emoji: { name: "🧪" } }] }, ...(signup ? [signup] : [])],
     allowed_mentions: { parse: [] },
   };
 }
