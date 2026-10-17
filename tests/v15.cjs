@@ -36,11 +36,14 @@ const end = (() => { const [y, m, dd] = today.split("-").map(Number); const last
   [c, p] = await ctx({ width: 1440, height: 900 });
   await login(p, "boss@gmail.com"); await p.waitForSelector("#appView:not([hidden])");
   await p.goto(BASE + "/admin#volumes"); await p.waitForSelector(".vol-table"); await p.waitForTimeout(400);
-  check("後台交易量頁", (await p.textContent("#volSub")).includes("0／2"), await p.textContent("#volSub"));
+  check("後台交易量頁（停權的不算進人數）", (await p.textContent("#volSub")).includes("0／1") && (await p.textContent("#volSub")).includes("不含 1 位已停權"), await p.textContent("#volSub"));
+  check("停權的人預設不顯示", !(await p.isVisible("tr:has-text('banned@example.com')")));
   check("門檻按鈕 100 萬", (await p.textContent("#volThreshold")).includes("100 萬"));
   const amy = "tr:has-text('amy@example.com')", ban = "tr:has-text('banned@example.com')";
   await p.fill(`${amy} input[aria-label$='OKX 交易量']`, "100萬");
   check("100萬 即時顯示達標", (await p.textContent(`${amy} .vol-result`)).includes("達標"));
+  await p.click("#volBox .vol-seg-btn[data-tab='banned']");
+  check("切到「已停權」看得到停權的人、看不到正常的", (await p.isVisible(ban)) && !(await p.isVisible(amy)));
   await p.fill(`${ban} input[aria-label$='OKX 交易量']`, "0.6m");
   check("0.6m 顯示還差 40 萬", (await p.textContent(`${ban} .vol-result`)).includes("還差 40 萬"), await p.textContent(`${ban} .vol-result`));
   await p.fill(`${ban} input[aria-label$='UM 交易量']`, "7");
@@ -54,6 +57,8 @@ const end = (() => { const [y, m, dd] = today.split("-").map(Number); const last
   await p.click(".vol-foot .btn.primary"); await p.waitForTimeout(300);
   check("有錯不能存", (await p.textContent(".toast:last-child")).includes("看不懂"));
   await p.fill(`${ban} input[aria-label$='OKX 交易量']`, "");
+  await p.click("#volBox .vol-seg-btn[data-tab='active']");
+  check("切回「正常」，剛剛填的數字還在", (await p.inputValue(`${amy} input[aria-label$='OKX 交易量']`)) === "1,000,000");
   await p.screenshot({ path: "output/shots/v15-admin-filled.png" });
   await p.click(".vol-foot .btn.primary"); await p.waitForTimeout(600);
   const toast = await p.textContent(".toast:last-child");
@@ -62,13 +67,13 @@ const end = (() => { const [y, m, dd] = today.split("-").map(Number); const last
   check("表格顯示新資格＝下一輪結束", (await p.textContent(amy)).includes(`到 ${amyRow.next_end}`) && amyRow.access_until === amyRow.next_end, JSON.stringify(amyRow));
   check("每個人顯示自己這一輪的日期", (await p.textContent(amy)).includes("這一輪 "));
   check("顯示誰更新", (await p.textContent(amy)).includes("由 boss 更新"));
-  check("達標人數 1／2", (await p.textContent("#volSub")).includes("1／2"));
+  check("達標人數 1／1（停權的不算）", (await p.textContent("#volSub")).includes("1／1"));
   check("輸入框格式化成千分位", (await p.inputValue(`${amy} input[aria-label$='OKX 交易量']`)) === "1,000,000");
   // 門檻
   await p.click("#volThreshold"); await p.waitForTimeout(200);
   await p.fill(".modal input", "500萬"); await p.click(".modal-foot .btn.primary"); await p.waitForTimeout(600);
   check("門檻改成 500 萬", (await p.textContent("#volThreshold")).includes("500 萬"));
-  check("新門檻重新判斷", (await p.textContent("#volSub")).includes("0／2") && (await p.textContent(`${amy} .vol-result`)).includes("還差 400 萬"));
+  check("新門檻重新判斷", (await p.textContent("#volSub")).includes("0／1") && (await p.textContent(`${amy} .vol-result`)).includes("還差 400 萬"));
   check("資格不會被收回", (await p.textContent(amy)).includes(`到 ${amyRow.next_end}`));
   // 貼上一整批
   await p.click("#volPaste"); await p.waitForTimeout(200);
@@ -82,7 +87,7 @@ const end = (() => { const [y, m, dd] = today.split("-").map(Number); const last
   check("貼上：千分位數字正確", (await p.inputValue(`${amy} input[aria-label$='OKX 交易量']`)) === "5,200,000");
   check("貼上：Tab 分隔正確", (await p.inputValue(`${ban} input[aria-label$='OKX 交易量']`)) === "6,000,000");
   await p.click(".vol-foot .btn.primary"); await p.waitForTimeout(600);
-  check("兩位都達標", (await p.textContent("#volSub")).includes("2／2"));
+  check("正常的都達標（1／1）", (await p.textContent("#volSub")).includes("1／1"));
   await p.screenshot({ path: "output/shots/v15-admin.png", fullPage: true });
   // 上一輪：兩位都還在第一輪
   await p.click("#volWhich .vol-seg-btn[data-which='previous']"); await p.waitForTimeout(500);
