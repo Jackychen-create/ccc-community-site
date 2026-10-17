@@ -202,7 +202,7 @@ await atest("Bybit 交易量清單會翻頁抓完", async () => {
   assert.equal(m.size, 150);
   assert.equal(m.get("77770001"), 1000);
   assert.equal(m.get("77770150"), 150000);
-  assert.equal(m.get("77770002"), 2000 + 5890.958, "TradFi（黃金、股票）也要算進去");
+  assert.ok(Math.abs(m.get("77770002") - (2000 + 589.0958)) < 1e-6, "TradFi（黃金、股票）打一折算進去");
   assert.deepEqual(bseen.filter((x) => x.path.endsWith("/aff-user-list")).map((x) => new URLSearchParams(x.query).get("cursor") || ""), ["", "100"]);
 });
 bfake.close();

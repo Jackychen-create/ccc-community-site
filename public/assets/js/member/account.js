@@ -2,7 +2,7 @@
 import { $, el, icons, fmtRel, api, modal, confirmDialog, setBusy, toast, cfg } from "../core/index.js";
 import { state } from "./state.js";
 import { DAY, md } from "./format.js";
-import { AUTO_EXCHANGES, goalOf, fmtAmount, gapText, ruleText, addDays } from "../shared/rules.js";
+import { AUTO_EXCHANGES, goalOf, fmtAmount, gapText, ruleText, addDays, TRADFI_NOTE } from "../shared/rules.js";
 
 // 每月資格：到期前 7 天提醒
 export function renderAccessBanner() {
@@ -52,7 +52,7 @@ export function renderVolPanel() {
           el("span", { class: "track" }, el("i", { style: { width: Math.min(100, (n / goal) * 100) + "%" } })));
       })),
     linkRows(),
-    el("p", { class: "small muted vol-note", text: (v.qualifiedAt ? `${md(v.qualifiedAt)} 達標，可以看到 ${md(v.qualifiedUntil)}。` : `從加入那天起算，每一輪一個月。${md(v.periodEnd)} 之前${ruleText(v.threshold, v.exchanges)}，就能看到下一輪結束；沒達標，${md(addDays(v.periodEnd, 1))} 起就不能看。`) + (v.updatedAt ? `上次更新：${fmtRel(v.updatedAt)}。` : `${v.exchanges.filter((ex) => !AUTO_EXCHANGES.includes(ex)).join("、")} 由管理員更新。`) }),
+    el("p", { class: "small muted vol-note", text: (v.qualifiedAt ? `${md(v.qualifiedAt)} 達標，可以看到 ${md(v.qualifiedUntil)}。` : `從加入那天起算，每一輪一個月。${md(v.periodEnd)} 之前${ruleText(v.threshold, v.exchanges)}，就能看到下一輪結束；沒達標，${md(addDays(v.periodEnd, 1))} 起就不能看。`) + (v.updatedAt ? `上次更新：${fmtRel(v.updatedAt)}。` : `${v.exchanges.filter((ex) => !AUTO_EXCHANGES.includes(ex)).join("、")} 由管理員更新。`) + (v.exchanges.includes("Bybit") ? TRADFI_NOTE : "") }),
   ].filter(Boolean));
 }
 
