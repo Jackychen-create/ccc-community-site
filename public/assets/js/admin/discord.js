@@ -1,5 +1,5 @@
-// Discord 審核：最近的申請、機器人設定（身分組、申請頻道、審核頻道、客服身分組、邀請連結）、張貼申請按鈕
-// 研究員按申請按鈕 → 機器人開一個私人申請頻道（像 Ticket Tool），在裡面選交易所、填 UID
+// Discord 審核：最近的申請、機器人設定（身分組、報名頻道、審核頻道、客服身分組、邀請連結）、張貼報名按鈕
+// 研究員按報名按鈕 → 機器人開一個私人報名頻道（像 Ticket Tool），在裡面選交易所、填 UID
 import * as A from "../core/index.js";
 const { el, $, api, icon } = A;
 import { fail, loadingBox } from "./common.js";
@@ -54,9 +54,9 @@ function renderApps() {
             el("td", { "data-label": "交易所／UID" }, el("span", { text: exName(a.exchange) }), el("div", { class: "small muted num", text: a.exchange_uid })),
             el("td", { "data-label": "結果" }, el("span", { class: "pill " + kind }, el("span", { class: "dot" }), label),
               a.invite_code ? el("div", { class: "small muted num", text: `實驗室密碼 ${a.invite_code}` }) : null),
-            el("td", { class: "small sub hide-sm", text: a.status === "pending" ? "到他的申請頻道按通過" : a.reviewed_by || "—" }));
+            el("td", { class: "small sub hide-sm", text: a.status === "pending" ? "到他的報名頻道按通過" : a.reviewed_by || "—" }));
         })))),
-    el("p", { class: "small muted", style: { marginTop: "10px" }, text: "只顯示最近 30 筆。等待審核的請到 Discord 的「🔒申請審核」點通知裡的頻道，在他的申請頻道按「通過」或「不通過」。通過的人會拿到一組只能用一次的實驗室密碼。" })
+    el("p", { class: "small muted", style: { marginTop: "10px" }, text: "只顯示最近 30 筆。等待審核的請到 Discord 的「🔒申請審核」點通知裡的頻道，在他的報名頻道按「通過」或「不通過」。通過的人會拿到一組只能用一次的實驗室密碼。" })
   );
 }
 
@@ -74,7 +74,7 @@ function renderSettings() {
   const invites = EXCHANGES.map((ex) => el("label", { class: "field" }, el("span", { class: "label", text: `${ex} 邀請連結` }),
     el("input", { class: "input", type: "url", "data-ex": ex, value: s.invites?.[ex] || "", placeholder: "https://…" })));
   const save = el("button", { class: "btn primary block", type: "button", text: "儲存設定", style: { marginTop: "16px" } });
-  const post = el("button", { class: "btn block", type: "button", style: { marginTop: "10px" } }, icon("upload"), "重新張貼申請按鈕");
+  const post = el("button", { class: "btn block", type: "button", style: { marginTop: "10px" } }, icon("upload"), "重新張貼報名按鈕");
   const setup = el("button", { class: "btn primary block", type: "button", id: "dcSetup", style: { marginTop: "12px" } }, "一鍵建立 Discord 頻道");
   const result = el("div", { id: "dcSetupResult" });
   box.replaceChildren(
@@ -85,14 +85,14 @@ function renderSettings() {
       dc.inviteUrl
         ? el("a", { class: "btn block", href: dc.inviteUrl, target: "_blank", rel: "noopener", id: "dcInvite" }, icon("ext"), "把機器人加進伺服器")
         : el("p", { class: "small muted", text: "設定好 Cloudflare 的 DISCORD_APP_ID 後這裡會出現邀請按鈕。" }),
-      el("p", { class: "small", style: { marginTop: "14px" }, text: "第 2 步：一鍵建立分類、申請頻道、審核頻道、實驗室頻道、放私人申請頻道的分類（權限都設好）。實驗室密碼不貼在頻道裡，通過的人會在自己的申請頻道拿到專用的一組。" }),
+      el("p", { class: "small", style: { marginTop: "14px" }, text: "第 2 步：一鍵建立分類、報名頻道、審核頻道、研究員專屬公告頻道、放私人報名頻道的分類（權限都設好）。實驗室密碼不貼在頻道裡，通過的人會在自己的報名頻道拿到專用的一組。" }),
       setup,
       result),
     el("details", { class: "dc-more" }, el("summary", { class: "small", text: "進階設定（頻道 ID、身分組、邀請連結）" }),
       el("label", { class: "field" }, el("span", { class: "label", text: "通過後給的身分組 ID" }), idInput("dcRole", s.roleId, "例如 1560542923173400596")),
-      el("label", { class: "field" }, el("span", { class: "label", text: "申請頻道 ID（放申請按鈕）" }), idInput("dcPanel", s.panelChannelId, "對頻道按右鍵 → 複製頻道 ID")),
+      el("label", { class: "field" }, el("span", { class: "label", text: "報名頻道 ID（放報名按鈕）" }), idInput("dcPanel", s.panelChannelId, "對頻道按右鍵 → 複製頻道 ID")),
       el("label", { class: "field" }, el("span", { class: "label", text: "審核頻道 ID（有人等審核時通知在這裡）" }), idInput("dcReview", s.reviewChannelId, "只有管理員看得到的頻道")),
-      el("label", { class: "field" }, el("span", { class: "label", text: "客服身分組 ID（選填，看得到申請頻道、可以按通過）" }),
+      el("label", { class: "field" }, el("span", { class: "label", text: "客服身分組 ID（選填，看得到報名頻道、可以按通過）" }),
         el("input", { class: "input num", id: "dcStaff", type: "text", autocomplete: "off", maxlength: "120", value: (s.staffRoleIds || []).join(", "), placeholder: "多個用逗號分開" })),
       el("p", { class: "small muted", style: { marginTop: "12px" }, text: "邀請連結（選填，沒通過時會附給申請人）" }),
       ...invites,
@@ -137,11 +137,11 @@ function renderSettings() {
     }
   });
   post.addEventListener("click", async () => {
-    if (!s.panelChannelId) return A.toast("先填申請頻道 ID 並儲存", "err");
+    if (!s.panelChannelId) return A.toast("先填報名頻道 ID 並儲存", "err");
     A.setBusy(post, true, "張貼中…");
     try {
       await api("/api/admin/discord", { method: "POST", body: { action: "panel" } });
-      A.toast("已經在申請頻道張貼申請按鈕");
+      A.toast("已經在報名頻道張貼報名按鈕");
     } catch (e) {
       fail(e);
     } finally {

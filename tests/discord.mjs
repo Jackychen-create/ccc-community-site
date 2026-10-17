@@ -88,7 +88,7 @@ const disc = http.createServer(async (req, res) => {
   if (req.method === "GET" && req.url === `/guilds/${GUILD_ID}/roles`) return send([{ id: GUILD_ID, name: "@everyone", position: 0 }, { id: "1560542923173400596", name: "實驗室研究員", position: 5 }, { id: "777", name: "CCC 小幫手", position: botRolePos }]);
   if (req.method === "GET" && /\/members\/111111111111111111$/.test(req.url)) return send({ roles: ["777"] });
   if (req.method === "POST" && req.url === `/guilds/${GUILD_ID}/channels`) { const id = String(800000000000000000n + BigInt(++chanSeq)); channels.set(id, body); return send({ id, ...body }); }
-  if (req.method === "GET" && /^\/channels\/\d+$/.test(req.url)) { const id = req.url.split("/")[2]; return channels.has(id) ? send({ id }) : send({ message: "Unknown Channel", code: 10003 }, 404); }
+  if (req.method === "GET" && /^\/channels\/\d+$/.test(req.url)) { const id = req.url.split("/")[2]; return channels.has(id) ? send({ id, ...channels.get(id) }) : send({ message: "Unknown Channel", code: 10003 }, 404); }
   if (req.method === "PATCH" && /^\/channels\/\d+$/.test(req.url)) return send({ id: req.url.split("/")[2] });
   if (req.method === "PUT" && /\/pins\//.test(req.url)) { res.writeHead(204); return res.end(); }
   if (req.method === "PATCH") return send({ id: "x" });
@@ -160,13 +160,13 @@ await test("按「申請」→ 開一個只有他和管理員看得到的申請�
   amyChan = await openFor(member(AMY, { name: "Amy 小美" }));
   assert.ok(amyChan, "沒有記下申請頻道");
   const ch = channels.get(amyChan);
-  assert.equal(ch.type, 0); assert.match(ch.name, /^申請-Amy-小美$/);
+  assert.equal(ch.type, 0); assert.match(ch.name, /^報名-Amy-小美$/);
   const everyone = ch.permission_overwrites.find((o) => o.id === GUILD);
   assert.ok(BigInt(everyone.deny) & (1n << 10n), "everyone 要看不到");
   const me = ch.permission_overwrites.find((o) => o.id === AMY);
   assert.equal(me.type, 1); assert.ok(BigInt(me.allow) & (1n << 10n) && BigInt(me.allow) & (1n << 11n), "申請人要看得到、能發言");
   const cat = channels.get(ch.parent_id);
-  assert.equal(cat.name, "🎫 實驗室申請"); assert.equal(cat.type, 4);
+  assert.equal(cat.name, "🎫 培訓計畫報名"); assert.equal(cat.type, 4);
   assert.equal(db.settings.find((r) => r.key === "discord").value.ticketCategoryId, ch.parent_id);
   const welcome = postsTo(amyChan, before)[0];
   assert.ok(welcome, "沒有歡迎訊息"); assert.match(welcome.body.content, new RegExp(`<@${AMY}>`));
@@ -178,7 +178,7 @@ await test("再按一次不會開第二個，給原本的頻道連結", async ()
   const n = channels.size;
   await openFor(member(AMY));
   assert.equal(channels.size, n);
-  assert.match(lastEdit().body.content, /已經有一個申請頻道/);
+  assert.match(lastEdit().body.content, /已經有一個報名頻道/);
 });
 await test("頻道被手動刪掉了 → 再按會重開一個", async () => {
   channels.delete(amyChan);
@@ -189,7 +189,7 @@ await test("頻道被手動刪掉了 → 再按會重開一個", async () => {
 });
 await test("已經有身分組的人不用再申請", async () => {
   const r = (await interact(at(PANEL, button("apply", member(AMY, { roles: [ROLE] }))))).body;
-  assert.match(r.data.content, /已經有實驗室的身分組/);
+  assert.match(r.data.content, /已經加入培訓計畫/);
 });
 await test("在申請頻道選 BingX → 跳出填 UID 的表單", async () => {
   const r = (await interact(at(amyChan, { ...button("apply_ex", member(AMY)), data: { custom_id: "apply_ex", values: ["BingX"] } }))).body;
@@ -197,10 +197,10 @@ await test("在申請頻道選 BingX → 跳出填 UID 的表單", async () => {
 });
 await test("別人不能在你的申請頻道操作", async () => {
   const r = (await interact(at(amyChan, { ...button("apply_ex", member(BOB)), data: { custom_id: "apply_ex", values: ["BingX"] } }))).body;
-  assert.match(r.data.content, /別人的申請頻道/);
-  assert.match((await interact(at(amyChan, modal("BingX", "88880001", member(BOB))))).body.data.content, /別人的申請頻道/);
+  assert.match(r.data.content, /別人的報名頻道/);
+  assert.match((await interact(at(amyChan, modal("BingX", "88880001", member(BOB))))).body.data.content, /別人的報名頻道/);
 });
-await test("不在申請頻道裡送 UID 會請他先開頻道", async () => assert.match((await interact(at(PANEL, modal("BingX", "88880001", member(AMY))))).body.data.content, /先到申請頻道/));
+await test("不在申請頻道裡送 UID 會請他先開頻道", async () => assert.match((await interact(at(PANEL, modal("BingX", "88880001", member(AMY))))).body.data.content, /先到報名頻道/));
 await test("UID 不是數字會提醒", async () => assert.match((await interact(at(amyChan, modal("BingX", "abc", member(AMY))))).body.data.content, /一串數字/));
 
 await test("BingX 是 CCC 邀請的 → 自動給身分組，在頻道裡給專用實驗室密碼", async () => {
@@ -299,7 +299,7 @@ await test("管理員按通過但機器人權限不夠 → 告訴管理員怎麼
   assert.equal(db.discord_applications.find((a) => a.id === id).status, "pending");
 });
 await test("別人不能關你的頻道；自己按關閉 → 刪掉頻道", async () => {
-  assert.match((await interact(at(amyChan, button("close_ticket", member(BOB))))).body.data.content, /別人的申請頻道/);
+  assert.match((await interact(at(amyChan, button("close_ticket", member(BOB))))).body.data.content, /別人的報名頻道/);
   const r = (await interact(at(amyChan, button("close_ticket", member(AMY))))).body;
   assert.equal(r.type, 4); assert.match(r.data.content, /關閉/);
   assert.ok(calls.some((c) => c.method === "DELETE" && c.path === `/channels/${amyChan}`));
@@ -322,9 +322,9 @@ await test("一鍵建立：分類＋三個頻道、權限、申請按鈕，不�
   db.settings.find((r) => r.key === "discord").value.labCode = "OLD1-CODE";
   firstRun = await setupGuild();
   assert.equal(firstRun.ok, true);
-  assert.deepEqual(firstRun.created, ["🧪 CCC 交易實驗室", "📝申請加入實驗室", "🔒申請審核", "🧪實驗室"], "申請分類前面已經開過，沿用");
+  assert.deepEqual(firstRun.created, ["🧪 CCC 交易實驗室", "📝報名培訓計畫", "🔒申請審核", "📢研究員專屬公告"], "申請分類前面已經開過，沿用");
   const made = [...channels.values()];
-  const lab = made.find((c) => c.name === "🧪實驗室");
+  const lab = made.find((c) => c.name === "📢研究員專屬公告");
   const everyoneLab = lab.permission_overwrites.find((o) => o.id === GUILD_ID);
   assert.ok(BigInt(everyoneLab.deny) & (1n << 10n), "實驗室頻道 everyone 要看不到");
   assert.ok(BigInt(lab.permission_overwrites.find((o) => o.id === ROLE).allow) & (1n << 10n), "實驗室身分組要看得到");
@@ -348,6 +348,22 @@ await test("再按一次不會重複建立、不會重貼", async () => {
   assert.ok(!calls.slice(before).some((c) => c.method === "POST"), "不應該再建立或貼訊息");
   assert.equal(calls.slice(before).filter((c) => c.method === "PATCH" && /^\/channels\/\d+$/.test(c.path)).length, 4, "三個頻道和申請分類的權限要調回正確");
 });
+await test("舊版預設的頻道名稱會改成新的、報名按鈕改成新文字（自己改過的名字不動）", async () => {
+  const st = db.settings.find((r) => r.key === "discord").value;
+  channels.get(st.panelChannelId).name = "📝申請加入實驗室";
+  channels.get(st.labChannelId).name = "研究員專屬公告";
+  const before = calls.length;
+  await setupGuild();
+  const c = calls.slice(before);
+  const panelPatch = c.find((x) => x.method === "PATCH" && x.path === `/channels/${st.panelChannelId}`);
+  assert.equal(panelPatch.body.name, "📝報名培訓計畫");
+  assert.equal(c.find((x) => x.method === "PATCH" && x.path === `/channels/${st.labChannelId}`).body.name, undefined, "自己改過的不動");
+  const edit = c.find((x) => x.method === "PATCH" && x.path === `/channels/${st.panelChannelId}/messages/${st.panelMessageId}`);
+  assert.ok(edit, "要把報名按鈕那則改成新文字");
+  assert.equal(edit.body.components[0].components[0].label, "報名培訓計畫");
+  assert.ok(!c.some((x) => x.method === "POST" && /\/messages$/.test(x.path)), "不用重貼");
+});
+
 supa.close(); disc.close(); bingx.close();
 console.log(`\nDiscord 機器人：${pass} 項通過，${fail} 項失敗`);
 process.exit(fail ? 1 : 0);

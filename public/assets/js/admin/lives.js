@@ -1,4 +1,4 @@
-// 直播預告：排直播時間 → 機器人發到 Discord「🧪實驗室」頻道；修改、取消會在公告下面通知
+// 直播預告：排直播時間 → 機器人發到 Discord「研究員專屬公告」頻道；修改、取消會在公告下面通知
 import * as A from "../core/index.js";
 const { el, $, api, icon } = A;
 import { fail, loadingBox } from "./common.js";
@@ -52,7 +52,7 @@ function renderHint() {
   const d = data.discord;
   $("#liveHint").textContent = !d.configured
     ? "Discord 機器人還沒設定，只會存在網站，不會發公告。"
-    : !d.channelId ? "還沒有實驗室頻道：到「Discord 審核」按一鍵建立，才會發公告。" : "會發到 Discord「🧪實驗室」頻道，開播前 30 分鐘自動提醒。";
+    : !d.channelId ? "還沒有研究員專屬公告頻道：到「Discord 審核」按一鍵建立，才會發公告。" : "會發到 Discord「研究員專屬公告」頻道，開播前 30 分鐘自動提醒。";
 }
 
 function table(list, active) {

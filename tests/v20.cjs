@@ -1,5 +1,5 @@
 // 執行方式：npm test（會自動開模擬伺服器）。單獨跑：node tests/mock-server.mjs &; node tests/v18.cjs
-// v1.10／v1.14：後台「Discord 審核」頁：最近的申請、機器人設定（含客服身分組）、張貼申請按鈕
+// v1.10／v1.14：後台「Discord 審核」頁：最近的申請、機器人設定（含客服身分組）、張貼報名按鈕
 const { chromium } = require("playwright");
 const BASE = "http://localhost:4321";
 const FONT_CSS = ["noto-sans-tc/400","noto-sans-tc/500","noto-sans-tc/700","sofia-sans-semi-condensed/500","sofia-sans-semi-condensed/600","sofia-sans-semi-condensed/700"].map((f) => `@import url("${BASE}/__fonts/${f}.css");`).join("\n");
@@ -51,8 +51,8 @@ const errs = [];
   const saved = await a.evaluate(() => App.api("/api/admin/discord").then((r) => r.settings));
   check("設定存起來", saved.panelChannelId === "444444444444444444" && saved.reviewChannelId === "333333333333333333" && saved.invites.OKX === "https://okx.com/join/CCC" && saved.staffRoleIds.join() === "666666666666666666,777777777777777777", JSON.stringify(saved));
   await a.click("#dcSettingsBox details summary");
-  await a.click("#dcSettingsBox .btn:has-text('重新張貼申請按鈕')"); await a.waitForSelector(".toast:has-text('已經在申請頻道張貼')");
-  check("張貼申請按鈕", true);
+  await a.click("#dcSettingsBox .btn:has-text('重新張貼報名按鈕')"); await a.waitForSelector(".toast:has-text('已經在報名頻道張貼')");
+  check("張貼報名按鈕", true);
   await a.screenshot({ path: "output/shots/v20-admin.png" });
 
   // ── 實驗室密碼：刪除 ──

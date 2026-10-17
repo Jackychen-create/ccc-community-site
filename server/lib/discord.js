@@ -69,9 +69,9 @@ export async function dm(userId, content) {
   }
 }
 
-// ── 設定：伺服器、身分組、申請頻道、審核頻道、各交易所邀請連結（後台「實驗室密碼」頁可以改）──
-// staffRoleIds：除了管理員之外，也看得到申請頻道、可以按通過的身分組（例如客服）
-// ticketCategoryId：私人申請頻道放在哪個分類（沒有會自動建立「🎫 實驗室申請」）
+// ── 設定：伺服器、身分組、報名頻道、審核頻道、各交易所邀請連結（後台「實驗室密碼」頁可以改）──
+// staffRoleIds：除了管理員之外，也看得到報名頻道、可以按通過的身分組（例如客服）
+// ticketCategoryId：私人報名頻道放在哪個分類（沒有會自動建立「🎫 培訓計畫報名」）
 export const DEFAULT_DISCORD = { guildId: "", roleId: "1560542923173400596", panelChannelId: "", reviewChannelId: "", ticketCategoryId: "", staffRoleIds: [], invites: {} };
 const SNOWFLAKE = /^\d{17,20}$/;
 export const isSnowflake = (v) => SNOWFLAKE.test(String(v || ""));

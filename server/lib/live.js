@@ -1,4 +1,4 @@
-// 直播預告：後台排好直播時間 → 機器人發到 Discord 的「🧪實驗室」頻道並提及實驗室研究員
+// 直播預告：後台排好直播時間 → 機器人發到 Discord 的「研究員專屬公告」頻道並提及實驗室研究員
 // 改時間、取消、開播前 30 分鐘提醒都回覆在同一則公告下面
 // Discord 的時間用 <t:秒數:F>，每個人看到的是自己的當地時間
 import { supabaseAdmin } from "./env.js";
@@ -53,7 +53,7 @@ export async function announceLive(live, kind) {
   if (!discordConfigured()) return { posted: false, error: "Discord 機器人還沒設定" };
   const s = await getDiscordSettings();
   const channel = live.discord_channel_id || s.labChannelId;
-  if (!channel) return { posted: false, error: "還沒有實驗室頻道（到「Discord 審核」按一鍵建立）" };
+  if (!channel) return { posted: false, error: "還沒有研究員專屬公告頻道（到「Discord 審核」按一鍵建立）" };
   const roleId = live.mention === false ? "" : s.roleId; // 新增時可以選要不要提及實驗室研究員
   try {
     if (kind === "new") {
