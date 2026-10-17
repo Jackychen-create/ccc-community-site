@@ -59,7 +59,7 @@ export function renderVolPanel() {
 // ── Bybit、BingX：綁定 UID 後每天自動更新交易量 ──
 const LINK_INFO = {
   OKX: { hint: "UID 在 OKX 的個人中心。填了之後，管理員才對得到你的交易量。", invite: "", lag: "" },
-  UM: { hint: "UM（Ultima Markets）的 MT5 帳號（一串數字），再加上你在 UM 開戶的英文姓名。填了之後，管理員才對得到你的手數。", invite: "", lag: "", label: "MT5 帳號" },
+  UM: { hint: "UM（Ultima Markets）的 MT5 帳號：UM App 最上面「Live」旁邊那串數字（例如 35904693），再加上你在 UM 開戶的英文姓名。填了之後，管理員才對得到你的手數。", invite: "", lag: "", label: "MT5 帳號" },
   Bybit: { hint: "UID 在 Bybit 的個人頁面，請填主帳號的 UID。要用 CCC 的 Bybit 邀請連結註冊的帳號才能綁定。", invite: "BYBIT_INVITE_URL", lag: "Bybit 的數字隔天才會更新。" },
   BingX: { hint: "UID 在 BingX 的個人頁面。要用 CCC 的 BingX 邀請連結註冊的帳號才能綁定。", invite: "BINGX_INVITE_URL", lag: "" },
 };
@@ -77,10 +77,10 @@ function linkRows() {
       el("span", { class: "bx-ex", text: l.exchange }),
       l.uid
         ? el("span", { class: "bx-text" }, el("b", { class: "num", text: l.uid }), l.auto ? el("span", { class: "muted", text: "・每天自動更新" }) : null,
-          l.needsName ? el("span", { class: "muted bx-mail", text: l.accountName ? `・${l.accountName}` : "・還沒填姓名" }) : null)
+          l.needsName ? el("span", { class: "muted bx-mail", text: l.accountName ? `・${l.accountName}` : "・請重新填 MT5 帳號和姓名" }) : null)
         : el("span", { class: "bx-text muted", text: l.auto ? "綁定後每天自動更新" : `還沒填${uidLabel(l.exchange)}` }),
       l.uid && l.needsName && !l.accountName
-        ? el("button", { class: "btn sm", type: "button", text: "補填姓名", "aria-label": `補填 ${l.exchange} 姓名`, onclick: () => bindLink(l.exchange, l.auto, { uid: l.uid }) })
+        ? el("button", { class: "btn sm", type: "button", text: "重新填寫", "aria-label": `重新填寫 ${l.exchange}`, onclick: () => bindLink(l.exchange, l.auto, UM_REDO) })
         : l.uid
         ? el("button", { class: "btn sm ghost", type: "button", text: "解除", "aria-label": `解除 ${l.exchange}`, onclick: () => unbindLink(l.exchange, l.auto) })
         : el("button", { class: "btn sm", type: "button", text: l.auto ? "綁定" : "填寫", "aria-label": `${l.auto ? "綁定" : "填寫"} ${l.exchange}`, onclick: () => bindLink(l.exchange, l.auto) }))));
@@ -156,9 +156,16 @@ function bindLink(ex = null, auto = true, { title, intro, uid: prefill = "" } = 
 }
 
 // 登入後：一間交易所 UID 都還沒填，就請他補填（每次開網站提醒一次，有別的視窗開著就等它關掉）
+// UM 改成填 MT5 帳號＋開戶英文姓名（2026-10-17）之前填的 UM 號碼可能不是 MT5 帳號，沒有姓名的請他重填
+const umNeedsRedo = (me) => (me?.links || []).some((l) => l.exchange === "UM" && l.uid && l.needsName && !l.accountName);
+const UM_REDO = { title: "請重新填 UM 的 MT5 帳號", intro: "UM 改成填 MT5 帳號（UM App 最上面「Live」旁邊那串數字）和你在 UM 開戶的英文姓名，管理員才對得到你的手數。請重新填一次。" };
+
 export function promptUidIfMissing() {
   const me = state.me;
-  if (!me?.links || me.isAdmin || me.links.some((l) => l.uid)) return;
+  if (!me?.links || me.isAdmin) return;
+  const missing = !me.links.some((l) => l.uid);
+  const redoUm = !missing && umNeedsRedo(me);
+  if (!missing && !redoUm) return;
   try {
     if (sessionStorage.getItem("uidPrompted")) return;
     sessionStorage.setItem("uidPrompted", "1");
@@ -166,6 +173,7 @@ export function promptUidIfMissing() {
   let tries = 0;
   const open = () => {
     if (document.querySelector(".modal-back")) return ++tries < 120 && setTimeout(open, 1000);
+    if (redoUm) return bindLink("UM", false, UM_REDO);
     bindLink(null, false, { title: "填寫你的交易所 UID", intro: "請填你用 CCC 邀請連結註冊的交易所 UID，管理員才對得到你的交易量。用好幾間的話，之後可以在右邊「本月交易量」再加。" });
   };
   setTimeout(open, 800);

@@ -107,6 +107,14 @@ const errs = [];
     await q.screenshot({ path: "output/shots/v18-uid-prompt-done.png" });
     await q.evaluate(() => sessionStorage.clear()); await q.reload(); await q.waitForSelector("#appView:not([hidden])"); await q.waitForTimeout(500); await news(); await q.waitForTimeout(1500);
     check("填過之後不會再跳出來", !(await q.isVisible(".modal:has-text('填寫你的交易所 UID')")));
+    // 舊版填的 UM 號碼（沒有姓名）：登入後請他重新填 MT5 帳號和姓名
+    await q.evaluate(() => App.api("/api/exchange-link", { method: "POST", body: { exchange: "UM", uid: "1327127", legacy: true } }));
+    await q.evaluate(() => sessionStorage.clear()); await q.reload(); await q.waitForSelector("#appView:not([hidden])"); await q.waitForTimeout(500); await news();
+    await q.waitForSelector(".modal:has-text('請重新填 UM 的 MT5 帳號')", { timeout: 8000 });
+    check("舊的 UM 號碼會請他重新填", (await q.textContent(".modal")).includes("Live"));
+    await q.fill(".modal input.num", "35904693"); await q.fill(".modal input[placeholder*='WANG']", "chun chen chia"); await q.click(".modal-foot .btn.primary");
+    await q.waitForSelector("#volPanel .bx-text:has-text('CHUN CHEN CHIA')");
+    check("重新填好後顯示新的 MT5 帳號和姓名", (await q.textContent("#volPanel")).includes("35904693"));
     await c4.close();
   }
 

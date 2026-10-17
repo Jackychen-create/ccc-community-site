@@ -11,7 +11,7 @@ export const SITE_URL = "https://ccc-community-site.pages.dev";
 
 const EX_HINT = {
   OKX: "OKX 的 UID（個人中心可以看到）",
-  UM: "UM 的 MT5 帳號",
+  UM: "MT5 帳號（UM App 上方 Live 旁的數字）",
   Bybit: "Bybit 主帳號的 UID",
   BingX: "BingX 的 UID",
 };

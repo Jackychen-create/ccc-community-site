@@ -74,7 +74,7 @@ function loginErrorText(err) {
 
 const UID_HINT = {
   OKX: "OKX 的 UID 在個人中心。",
-  UM: "UM 請填 MT5 帳號（一串數字），下面再填你在 UM 開戶的英文姓名，管理員對帳比較準。",
+  UM: "UM 請填 MT5 帳號（UM App 最上面「Live」旁邊那串數字），下面再填你在 UM 開戶的英文姓名。",
   Bybit: "Bybit 請填主帳號的 UID。網站會跟 Bybit 確認是不是用 CCC 邀請連結註冊的。",
   BingX: "BingX 的 UID 在個人頁面。網站會跟 BingX 確認是不是用 CCC 邀請連結註冊的。",
 };

@@ -258,6 +258,8 @@ const server = http.createServer(async (req, res) => {
       const ex = req.method === "DELETE" ? url.searchParams.get("exchange") : body.exchange;
       if (!EXCHANGES.includes(ex)) return send(res, 400, { error: "不支援這間交易所" });
       if (req.method === "DELETE") { autoLinks[ex].delete(u.id); return send(res, 200, { ok: true }); }
+      // 測試用：模擬舊版填的 UM 號碼（沒有姓名）
+      if (body.legacy && ex === "UM") { autoLinks.UM.set(u.id, String(body.uid)); accNames.delete(`UM:${u.id}`); return send(res, 200, { ok: true }); }
       const uid = cleanExId(ex, body.uid);
       if (!exIdOk(ex, uid)) return send(res, 400, { error: exIdError(ex) });
       if ([...autoLinks[ex]].some(([k, v]) => v === uid && k !== u.id)) return send(res, 409, { error: "這個 UID 已經被其他研究員綁定了，有問題請聯絡管理員" });
