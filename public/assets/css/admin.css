@@ -144,3 +144,11 @@
 .list-seg .vol-seg-btn { white-space: nowrap; }
 .list-seg .seg-n { opacity: .75; }
 .live-hosts { margin-top: 2px; color: var(--amber); }
+
+/* 備註：研究員、實驗室密碼列表裡的一行，旁邊鉛筆可以改 */
+.note-line { display: flex; align-items: center; gap: 4px; margin-top: 4px; color: var(--ink-2); max-width: 32ch; }
+.note-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.note-btn { display: inline-flex; align-items: center; gap: 3px; flex: none; padding: 2px 4px; border: 0; border-radius: 6px; background: none; color: var(--ink-3, var(--ink-2)); font: inherit; cursor: pointer; }
+.note-btn svg { width: 13px; height: 13px; }
+.note-btn:hover, .note-btn:focus-visible { color: var(--amber); background: color-mix(in srgb, var(--amber) 12%, transparent); }
+.note-line.empty .note-btn { padding-left: 0; }

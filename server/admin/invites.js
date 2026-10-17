@@ -1,7 +1,7 @@
 // 後台：實驗室密碼
 // GET   /api/admin/invites
 // POST  /api/admin/invites   { max_uses, note, free }  產生一組新實驗室密碼；free = 贈送名額（免綁交易所、觀看不限期）
-// PATCH /api/admin/invites   { code, disabled }  停用／重新啟用
+// PATCH /api/admin/invites   { code, disabled }  停用／重新啟用；{ code, note } 改備註
 // DELETE /api/admin/invites?code=XXXX-XXXX       刪除（用這組加入的研究員不受影響）
 import { supabaseAdmin, requireAdmin, readBody, cleanText, randomCode, route } from "../lib/index.js";
 
@@ -43,12 +43,15 @@ export default route({
     if (!(await requireAdmin(req, res))) return;
     const b = readBody(req);
     const code = String(b.code || "").trim().toUpperCase();
-    if (!code || typeof b.disabled !== "boolean") {
+    const patch = {};
+    if (typeof b.disabled === "boolean") patch.disabled = b.disabled;
+    if (b.note !== undefined) patch.note = cleanText(b.note, 100) || null;
+    if (!code || !Object.keys(patch).length) {
       return res.status(400).json({ error: "資料不正確" });
     }
     const { data, error } = await supabaseAdmin
       .from("invite_codes")
-      .update({ disabled: b.disabled })
+      .update(patch)
       .eq("code", code)
       .select("code")
       .maybeSingle();

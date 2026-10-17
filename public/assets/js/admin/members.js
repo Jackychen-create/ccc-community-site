@@ -2,7 +2,7 @@
 import * as A from "../core/index.js";
 const { el, $, api, icon } = A;
 import { cycleEnd, idLabel } from "../shared/rules.js";
-import { fail, loadingBox, segTabs } from "./common.js";
+import { fail, loadingBox, segTabs, noteLine } from "./common.js";
 import { state } from "./state.js";
 import { canManageMembers } from "../shared/roles.js";
 
@@ -38,7 +38,7 @@ function renderMembers() {
   $("#cMembers").textContent = members.length || "";
   const active = members.filter((m) => !m.banned).length;
   $("#memberSub").textContent = members.length ? `共 ${members.length} 位，${active} 位可觀看` : "用實驗室密碼加入的研究員";
-  const hit = members.filter((m) => !memberQuery || `${m.email} ${m.invite_code || ""} ${Object.values(m.uids || {}).join(" ")} ${Object.values(m.account_names || {}).join(" ")} ${m.discord || ""}`.toLowerCase().includes(memberQuery));
+  const hit = members.filter((m) => !memberQuery || `${m.email} ${m.invite_code || ""} ${Object.values(m.uids || {}).join(" ")} ${Object.values(m.account_names || {}).join(" ")} ${m.discord || ""} ${m.note || ""}`.toLowerCase().includes(memberQuery));
   const groups = { active: hit.filter((m) => !m.banned), banned: hit.filter((m) => m.banned) };
   // 停權的都恢復了，就回到「正常」
   if (memberTab === "banned" && !members.some((m) => m.banned)) memberTab = "active";
@@ -68,6 +68,11 @@ function renderMembers() {
                 el("div", { class: "t-title", style: { wordBreak: "break-all" }, text: m.email }),
                 el("div", { class: "small muted num", text: m.invite_code ? `實驗室密碼 ${m.invite_code}` : "" }, m.free ? el("span", { class: "pill brass", style: { marginLeft: "6px" }, text: "贈送名額" }) : null),
                 m.discord ? el("div", { class: "small mem-dc", text: `Discord：${m.discord}` }) : null,
+                noteLine(m.note, {
+                  title: m.email, sub: m.email, placeholder: "例如：小明，朋友介紹", editable: canManageMembers(state.me?.adminRole),
+                  onSave: async (t) => { await api("/api/admin/members", { method: "PATCH", body: { userId: m.user_id, action: "access", note: t } }); m.note = t || null; membersLoaded = false; },
+                  onDone: () => renderMembers(),
+                }),
                 Object.keys(m.uids || {}).length ? el("div", { class: "mem-uids" }, ...Object.entries(m.uids).map(([ex, uid]) => el("span", { class: "mem-uid small num", title: `${ex} ${idLabel(ex)}` }, el("b", { text: ex }), uid + (m.account_names?.[ex] ? `・${m.account_names[ex]}` : "")))) : null),
               el("td", { class: "small num hide-sm", text: A.fmtDate(m.created_at) }),
               el("td", { class: "small", text: A.fmtRel(m.last_sign_in_at) }),
@@ -105,7 +110,7 @@ function accessCell(m) {
     : until < today
       ? el("span", { class: "pill warn" }, el("span", { class: "dot" }), `已過期 ${until.slice(5).replace("-", "/")}`)
       : el("span", { class: "pill" + ((Date.parse(until) - Date.parse(today)) / 86400000 <= 7 ? " brass" : "") }, `到 ${until.slice(5).replace("-", "/")}`);
-  return el("div", null, label, m.note ? el("div", { class: "small muted", style: { marginTop: "4px", maxWidth: "22ch", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, title: m.note, text: m.note }) : null);
+  return el("div", null, label);
 }
 export function editAccess(m, onDone) {
   const date = el("input", { class: "input", type: "date", value: m.access_until || "" });

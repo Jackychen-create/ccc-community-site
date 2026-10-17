@@ -30,6 +30,17 @@ const errs = [];
   check("產生結果寫贈送名額", (await a.textContent("#invResult")).includes("贈送名額"));
   check("產生後取消勾選", !(await a.isChecked("#invFree")));
   await a.screenshot({ path: "output/shots/v23-admin.png" });
+  // 實驗室密碼備註：直接在列表改
+  const row = a.locator("#inviteTableBox tr", { hasText: "GF7T-2FRE" });
+  await row.locator(".note-btn").click(); await a.waitForSelector(".modal-back textarea");
+  check("備註視窗帶入原本的備註", (await a.inputValue(".modal-back textarea")) === "贈送：小明");
+  await a.fill(".modal-back textarea", "送給小明（Threads 粉絲）"); await a.click(".modal-back button:has-text('儲存')");
+  await a.waitForSelector(".toast:has-text('備註已儲存')");
+  check("實驗室密碼備註更新", (await row.textContent()).includes("送給小明（Threads 粉絲）"));
+  const k7 = a.locator("#inviteTableBox tr", { hasText: "K7QM-2XPA" });
+  await k7.locator(".note-btn").click(); await a.fill(".modal-back textarea", ""); await a.click(".modal-back button:has-text('儲存')");
+  await a.waitForSelector(".toast:has-text('備註已清除')");
+  check("清掉備註後顯示「備註」按鈕", (await k7.locator(".note-btn").textContent()).includes("備註") && !(await k7.textContent()).includes("第一批研究員"));
   await c.close();
 
   // 一般實驗室密碼：還是要填交易所
@@ -75,6 +86,15 @@ const errs = [];
   await a.waitForTimeout(300);
   const body = await a.textContent("#memberTableBox");
   check("研究員列表標出贈送名額", body.includes("gift@example.com") && body.includes("贈送名額"));
+  // 研究員備註：名字旁邊直接改
+  const gr = a.locator("#memberTableBox tr", { hasText: "gift@example.com" });
+  await gr.locator(".note-btn").click(); await a.fill(".modal-back textarea", "小明，朋友介紹");
+  await a.click(".modal-back button:has-text('儲存')"); await a.waitForSelector(".toast:has-text('備註已儲存')");
+  check("研究員備註顯示在名字下面", (await gr.locator("td").first().textContent()).includes("小明，朋友介紹"));
+  await a.fill("#memberSearch", "朋友介紹"); await a.waitForTimeout(200);
+  check("可以用備註搜尋研究員", (await a.textContent("#memberTableBox")).includes("gift@example.com") && !(await a.textContent("#memberTableBox")).includes("amy@example.com"));
+  await a.fill("#memberSearch", "");
+  await a.screenshot({ path: "output/shots/v23-members.png" });
   await c.close();
 
   check("沒有頁面錯誤", !errs.length, errs.join(" | "));

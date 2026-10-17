@@ -1,7 +1,7 @@
 // 實驗室密碼：產生、複製加入連結、停用
 import * as A from "../core/index.js";
 const { el, $, api, icon } = A;
-import { fail, loadingBox, segTabs } from "./common.js";
+import { fail, loadingBox, segTabs, noteLine } from "./common.js";
 
 let invites = [];
 let inviteTab = "good"; // good 可使用 | used 已用完 | off 已停用（分開放，不混在一起）
@@ -54,15 +54,19 @@ function renderInvites() {
     tabs,
     el("div", { class: "table-wrap" },
       el("table", { class: "table stack" },
-        el("thead", null, el("tr", null, el("th", { text: "實驗室密碼" }), el("th", { text: "使用狀況" }), el("th", { class: "hide-sm", text: "備註" }), el("th", { text: "狀態" }), el("th", null, el("span", { class: "sr-only", text: "操作" })))),
+        el("thead", null, el("tr", null, el("th", { text: "實驗室密碼" }), el("th", { text: "使用狀況" }), el("th", { text: "狀態" }), el("th", null, el("span", { class: "sr-only", text: "操作" })))),
         el("tbody", null,
           list.map((i) => {
             const [label, kind] = inviteState(i);
             const pct = i.max_uses ? Math.min(100, (i.used_count / i.max_uses) * 100) : 0;
             return el("tr", null,
-              el("td", null, el("span", { class: "code num", text: i.code }), i.free ? el("span", { class: "pill brass", style: { marginLeft: "6px" }, text: "贈送名額" }) : null, el("div", { class: "small muted num", text: A.fmtDate(i.created_at) })),
+              el("td", null, el("span", { class: "code num", text: i.code }), i.free ? el("span", { class: "pill brass", style: { marginLeft: "6px" }, text: "贈送名額" }) : null, el("div", { class: "small muted num", text: A.fmtDate(i.created_at) }),
+                noteLine(i.note, {
+                  title: i.code, sub: `實驗室密碼 ${i.code}`, max: 100, placeholder: "例如：送給小明",
+                  onSave: async (t) => { await api("/api/admin/invites", { method: "PATCH", body: { code: i.code, note: t } }); i.note = t || null; },
+                  onDone: () => renderInvites(),
+                })),
               el("td", null, el("div", { class: "usage" }, el("span", { class: "track" }, el("i", { style: { width: pct + "%" } })), el("span", { class: "small num", text: `${i.used_count} / ${i.max_uses}` }))),
-              el("td", { class: "small sub hide-sm", text: i.note || "—" }),
               el("td", null, el("span", { class: "pill " + kind }, el("span", { class: "dot" }), label)),
               el("td", null, el("div", { class: "actions" },
                 el("button", { class: "btn sm", type: "button", onclick: () => A.copyText(shareText(i.code)) }, icon("copy"), "複製連結"),
