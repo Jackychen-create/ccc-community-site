@@ -48,6 +48,9 @@ export const EXCHANGES = ["OKX", "UM", "Bybit", "BingX"];
 export const AUTO_EXCHANGES = ["Bybit", "BingX"];
 export const LOT_GOALS = { UM: 10 }; // 一個月 10 手（2026-10-16 確定）
 export const DEFAULT_THRESHOLD = 1000000;
+// Bybit 的 TradFi（黃金、股票等）交易量打一折算：100 萬 TradFi ≈ 10 萬加密貨幣（2026-10-17 確定）
+export const TRADFI_WEIGHT = 0.1;
+export const TRADFI_NOTE = "Bybit 的 TradFi（黃金、股票等）交易量以十分之一計算。";
 export const unitOf = (ex) => (ex in LOT_GOALS ? "手" : "USDT");
 export const goalOf = (ex, threshold) => LOT_GOALS[ex] ?? threshold;
 // 達標進度：各交易所「交易量 ÷ 門檻」最高的那間，回傳 { ex, n, goal, ratio }

@@ -6,6 +6,7 @@
 // 注意：美國、中國大陸的 IP 會被 Bybit 擋（403），所以每天的排程從東京發出（見 supabase/schema.sql v1.9）
 import { env } from "./env.js";
 import { hmacHex } from "./bingx.js";
+import { TRADFI_WEIGHT } from "../../public/assets/js/shared/rules.js";
 
 const BASES = ["https://api.bybit.com", "https://api.bytick.com"]; // 第二個只在連不上第一個時用
 const RECV_WINDOW = 5000;
@@ -78,14 +79,14 @@ export async function checkBybitClient(uid) {
 }
 
 // 所有被邀請人在 startDate～endDate（YYYY-MM-DD，含頭尾）的交易量（USDT）
-// tradeVol 是合約＋選擇權＋現貨；TradFi（黃金、股票等）另外放在 tradfiTradeVol，兩個加起來才是後台看到的全部
+// tradeVol 是合約＋選擇權＋現貨；TradFi（黃金、股票等）另外放在 tradfiTradeVol，照規則打折後加進來（TRADFI_WEIGHT 在 rules.js）
 // Bybit 的交易量是隔天（T+1）才更新，所以 endDate 最多到昨天
 export async function fetchBybitVolumes(startDate, endDate) {
   const out = new Map();
   let cursor = "";
   for (let page = 0; page < 200; page++) {
     const r = await bybitGet("/v5/affiliate/aff-user-list", { size: 100, cursor, startDate, endDate });
-    for (const u of r?.list || []) out.set(String(u.userId), (Number(u.tradeVol) || 0) + (Number(u.tradfiTradeVol) || 0));
+    for (const u of r?.list || []) out.set(String(u.userId), (Number(u.tradeVol) || 0) + (Number(u.tradfiTradeVol) || 0) * TRADFI_WEIGHT);
     cursor = r?.nextPageCursor || "";
     if (!cursor || !(r?.list || []).length) break;
   }
