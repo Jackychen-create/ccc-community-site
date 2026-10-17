@@ -43,7 +43,7 @@ async function grantCode(s, app) {
     await supabaseAdmin.from("discord_applications").update({ invite_code: code }).eq("id", app.id);
   } catch (e) {
     console.error("discord personal code failed", e?.message);
-    code = s.labCode || "";
+    code = "";
   }
   if (code) await dm(app.discord_user_id, `CCC 交易實驗室審核通過 🎉\n你的實驗室密碼：${code}（只能用一次）\n加入連結：https://ccc-community-site.pages.dev/?invite=${code}`);
   return code;

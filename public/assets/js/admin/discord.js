@@ -75,7 +75,6 @@ function renderSettings() {
     el("input", { class: "input", type: "url", "data-ex": ex, value: s.invites?.[ex] || "", placeholder: "https://…" })));
   const save = el("button", { class: "btn primary block", type: "button", text: "儲存設定", style: { marginTop: "16px" } });
   const post = el("button", { class: "btn block", type: "button", style: { marginTop: "10px" } }, icon("upload"), "重新張貼申請按鈕");
-  const codeInput = el("input", { class: "input num", id: "dcCode", type: "text", autocomplete: "off", maxlength: "9", value: s.labCode || dc.suggestCode || "", placeholder: "例如 V3QK-88R7" });
   const setup = el("button", { class: "btn primary block", type: "button", id: "dcSetup", style: { marginTop: "12px" } }, "一鍵建立 Discord 頻道");
   const result = el("div", { id: "dcSetupResult" });
   box.replaceChildren(
@@ -86,8 +85,7 @@ function renderSettings() {
       dc.inviteUrl
         ? el("a", { class: "btn block", href: dc.inviteUrl, target: "_blank", rel: "noopener", id: "dcInvite" }, icon("ext"), "把機器人加進伺服器")
         : el("p", { class: "small muted", text: "設定好 Cloudflare 的 DISCORD_APP_ID 後這裡會出現邀請按鈕。" }),
-      el("p", { class: "small", style: { marginTop: "14px" }, text: "第 2 步：一鍵建立分類、申請頻道、審核頻道、實驗室頻道、放私人申請頻道的分類（權限都設好），實驗室頻道會釘選這組實驗室密碼" }),
-      el("label", { class: "field" }, el("span", { class: "label", text: "放在實驗室頻道的實驗室密碼" }), codeInput),
+      el("p", { class: "small", style: { marginTop: "14px" }, text: "第 2 步：一鍵建立分類、申請頻道、審核頻道、實驗室頻道、放私人申請頻道的分類（權限都設好）。實驗室密碼不貼在頻道裡，通過的人會在自己的申請頻道拿到專用的一組。" }),
       setup,
       result),
     el("details", { class: "dc-more" }, el("summary", { class: "small", text: "進階設定（頻道 ID、身分組、邀請連結）" }),
@@ -108,7 +106,7 @@ function renderSettings() {
   setup.addEventListener("click", async () => {
     A.setBusy(setup, true, "建立中…");
     try {
-      const r = await api("/api/admin/discord", { method: "POST", body: { action: "setup", code: codeInput.value.trim() } });
+      const r = await api("/api/admin/discord", { method: "POST", body: { action: "setup" } });
       dc.settings = r.settings;
       A.toast(r.created.length ? `已在「${r.guildName}」建立 ${r.created.length} 個頻道` : `「${r.guildName}」的頻道和權限都已經設定好`);
       renderSettings();
@@ -116,8 +114,7 @@ function renderSettings() {
         el("p", { class: "small", text: r.created.length ? `建立了：${r.created.join("、")}` : "頻道都在，權限已經調好。" }),
         r.hierarchyOk
           ? el("p", { class: "small dc-ok" }, icon("ok"), `機器人可以給「${r.roleName}」身分組`)
-          : el("p", { class: "small warn-text", text: `還差一步：到 Discord 伺服器設定 → 身分組，把機器人的身分組拖到「${r.roleName}」上面，機器人才能給別人這個身分組。` }),
-        r.pinned === false ? el("p", { class: "small warn-text", text: "實驗室密碼已經貼上，但沒辦法釘選，請手動釘選。" }) : null));
+          : el("p", { class: "small warn-text", text: `還差一步：到 Discord 伺服器設定 → 身分組，把機器人的身分組拖到「${r.roleName}」上面，機器人才能給別人這個身分組。` })));
     } catch (e) {
       A.setBusy(setup, false);
       fail(e);

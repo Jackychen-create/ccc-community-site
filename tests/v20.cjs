@@ -33,10 +33,8 @@ const errs = [];
   check("顯示 Interactions Endpoint URL", (await a.textContent(".dc-endpoint")).includes("/api/discord/interactions"));
 
   check("有把機器人加進伺服器的按鈕", (await a.getAttribute("#dcInvite", "href")).includes("scope=bot"));
-  check("實驗室密碼預設帶入可用的一組", (await a.inputValue("#dcCode")) === "K7QM-2XPA");
-  await a.fill("#dcCode", "NOPE-0000"); await a.click("#dcSetup"); await a.waitForTimeout(400);
-  check("實驗室密碼不存在會擋", (await a.textContent(".toast:last-child")).includes("找不到這組實驗室密碼"));
-  await a.fill("#dcCode", "K7QM-2XPA"); await a.click("#dcSetup"); await a.waitForSelector(".toast:has-text('建立 5 個頻道')");
+  check("不用選放在頻道的實驗室密碼", !(await a.$("#dcCode")));
+  await a.click("#dcSetup"); await a.waitForSelector(".toast:has-text('建立 5 個頻道')");
   check("一鍵建立頻道", true);
   check("提醒把機器人身分組拖到上面", (await a.textContent("#dcSetupResult")).includes("拖到「實驗室研究員」上面"), await a.textContent("#dcSetupResult"));
   await a.screenshot({ path: "output/shots/v20-setup.png" });
@@ -59,12 +57,8 @@ const errs = [];
 
   // ── 實驗室密碼：刪除 ──
   await a.goto(BASE + "/admin#invites"); await a.waitForSelector("#inviteTableBox table"); await closeModals(a);
-  await a.click("tr:has-text('K7QM-2XPA') button:has-text('刪除')"); await a.waitForSelector(".modal:has-text('刪除實驗室密碼')");
-  check("刪除前會確認，說明已加入的人不受影響", (await a.textContent(".modal")).includes("不受影響"));
-  await a.click(".modal-foot .btn.danger-solid"); await a.waitForTimeout(400);
-  check("放在 Discord 實驗室頻道的那組不能刪", (await a.textContent(".toast:last-child")).includes("Discord"), await a.textContent(".toast:last-child"));
-  check("沒刪掉", (await a.textContent("#inviteTableBox")).includes("K7QM-2XPA"));
   await a.click("tr:has-text('HW3N-8RTE') button:has-text('刪除')"); await a.waitForSelector(".modal:has-text('刪除實驗室密碼')");
+  check("刪除前會確認，說明已加入的人不受影響", (await a.textContent(".modal")).includes("不受影響"));
   await a.click(".modal-foot .btn.danger-solid"); await a.waitForSelector(".toast:has-text('已刪除 HW3N-8RTE')");
   check("刪除後從列表消失", !(await a.textContent("#inviteTableBox")).includes("HW3N-8RTE"));
   const left = await a.evaluate(() => App.api("/api/admin/invites").then((r) => r.invites.map((x) => x.code)));
