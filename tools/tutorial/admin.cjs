@@ -89,24 +89,24 @@ const UP = (f) => ({ name: f, mimeType: f.endsWith(".pdf") ? "application/pdf" :
 
   // 6 交易量
   await t.scrollTop();
-  await t.say(S(6, "交易量"), "每個月在「交易量」填研究員的成交金額", { ms: 300 });
+  await t.say(S(6, "交易量"), "「交易量」看每位研究員這一輪的成交金額", { ms: 300 });
   await t.click(".nav a[data-view=volumes]", 1000);
   await page.waitForSelector(".vol-table");
-  await t.say(S(6, "交易量"), "OKX、Bybit、UM 任選一間，當月達 330 萬 USDT 就算達標，從達標那天起可以看一個月", { ms: 300 });
+  await t.say(S(6, "交易量"), "這一輪內任一間交易所達到交易量條件就算達標，可以看到下一輪結束", { ms: 300 });
   await t.hl("#volSub", 3200); await t.unhl(200);
   await t.say(S(6, "交易量"), "「達標日」預設今天；隔幾天才補登的話，改成實際達標那天", { ms: 300 });
   await t.hl(".vol-qual", 3000); await t.unhl(200);
   const row = "#volBox tr:has-text('member@example.com')";
-  await t.say(S(6, "交易量"), "可以打 3500000、3,500,000、350萬 或 3.5m，馬上顯示達標或還差多少", { ms: 300 });
-  await t.type(`${row} input[aria-label$='UM 交易量']`, "350萬", 160);
+  await t.say(S(6, "交易量"), "金額可以打 1000000、1,000,000、100萬 或 1m，馬上顯示達標或還差多少", { ms: 300 });
+  await t.type(`${row} input[aria-label$='OKX 交易量']`, "120萬", 160);
   await t.wait(500);
   await t.hl(`${row} .vol-result`, 2400); await t.unhl(200);
   await t.say(S(6, "交易量"), "很多人要填的話，按「貼上一整批」，從試算表複製貼上", { ms: 300 });
   await t.click("#volPaste", 700);
-  await t.type(".modal textarea", "alex.t@example.com Bybit 3,400,000\nkevin.l@example.com OKX 120萬", 45);
+  await t.type(".modal textarea", "alex.t@example.com UM 12\nkevin.l@example.com OKX 150萬", 45);
   await t.wait(600);
   await t.click(".modal-foot .btn.primary", 900);
-  await t.say(S(6, "交易量"), "檢查一下，按「儲存」。新達標的人資格自動延長一個月", { ms: 300 });
+  await t.say(S(6, "交易量"), "檢查一下，按「儲存」。新達標的人資格自動延長到下一輪結束", { ms: 300 });
   await t.click(".vol-foot .btn.primary", 600);
   await page.waitForSelector(".toast:has-text('已儲存')");
   await t.wait(2600);
@@ -117,7 +117,7 @@ const UP = (f) => ({ name: f, mimeType: f.endsWith(".pdf") ? "application/pdf" :
   await t.click(".nav a[data-view=members]", 1000);
   await page.waitForSelector("#memberTableBox table");
   await t.wait(1200);
-  await t.say(S(7, "研究員"), "要手動調整資格，按「資格」，有這個月底、下個月底、不限可以選", { ms: 300 });
+  await t.say(S(7, "研究員"), "要手動調整資格，按「資格」，可以選今天起一個月、這個月底或不限", { ms: 300 });
   await t.click("#memberTableBox tbody tr:has-text('jay.h@example.com') .btn:has-text('資格')", 2800);
   await t.click(".modal-foot .btn:has-text('取消')", 600);
   await t.scrollTop();

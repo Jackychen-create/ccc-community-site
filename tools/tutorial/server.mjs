@@ -3,6 +3,7 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { EXCHANGES, AUTO_EXCHANGES, goalOf, periodOf, nextPeriod, prevPeriod, needsName, cleanExId, cleanAccountName } from "../../public/assets/js/shared/rules.js";
 
 const PORT = Number(process.env.PORT || 4321);
 const HERE = path.dirname(new URL(import.meta.url).pathname);
@@ -73,7 +74,7 @@ const clientErrors = [];
   [2, 3, 4, 5, 6, 7, 8, 9].forEach((n, i) => {
     const end = stopsAt[i]; const bk = {};
     for (let b = 0; b * 30 < end; b++) { if (rnd() < 0.08 && b > 6) continue; bk[b] = 1 + (b >= 80 && b <= 86 && rnd() < 0.8 ? 1 + Math.floor(rnd() * 2) : 0) + (b >= 36 && b <= 40 && rnd() < 0.3 ? 1 : 0); }
-    progress.set(`${uid(n)}:6`, { position_sec: Math.min(end, 3720), duration_sec: 3720, updated_at: ago(5 + i * 9), buckets: bk });
+    progress.set(`${uid(n)}:6`, { position_sec: Math.min(end, 3720), duration_sec: 3720, updated_at: ago(n === 2 ? 48 : 5 + i * 9), buckets: bk });
   });
   feedback.push(
     { id: fbId++, user_id: uid(3), email: "trader.lin@example.com", video_id: 6, t: 2475, kind: "question", body: "實盤回放 41 分那筆，為什麼不在第一次回測就進？", status: "open", reply: null, replied_by: null, replied_at: null, seen_reply: true, created_at: ago(3) },
@@ -87,22 +88,34 @@ const clientErrors = [];
   E("mei.c@example.com", "api", "GET /api/videos → 連線失敗", { path: "/#/" , ua: "Windows Chrome" }, 70);
   for (const [q, n] of [["布林通道", 4], ["ICT", 3], ["資金費率", 2], ["期權", 1]]) for (let i = 0; i < n; i++) E(["wang.k@example.com", "jay.h@example.com", "mei.c@example.com"][i % 3], "search_empty", q, { q }, 10 + i * 7);
 }
-const EX = ["OKX", "Bybit", "UM"];
-let threshold = 3300000;
-const vols = new Map(); // `${user_id}:${month}` → {amounts, updated_at, updated_by}
-for (const [n, a, by] of [[2, { OKX: 1850000, Bybit: 2960000 }, "x"], [3, { OKX: 4120000 }, "oc"], [4, { UM: 3380000 }, "oc"], [5, { Bybit: 5260000, UM: 800000 }, "x"], [7, { OKX: 3510000 }, "x"], [8, { Bybit: 950000 }, "x"]])
-  vols.set(`${uid(n)}:${NOW_MONTH}`, { amounts: a, updated_at: ago(30 + n), updated_by: by + "@example.com" });
+const EX = EXCHANGES;
+let threshold = 1000000;
+// 每人一輪：從加入那天（台灣日期）起算一個月；vols 用 `${user_id}:${這一輪第一天}` 存
+const twDay = (ts) => new Date(new Date(ts).getTime() + 8 * 3600e3).toISOString().slice(0, 10);
+const anchorOf = (mm) => twDay(mm.created_at);
+const curP = (mm) => periodOf(anchorOf(mm), new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10));
+const periodFor = (mm, which) => (which === "previous" ? prevPeriod(anchorOf(mm), curP(mm)) : curP(mm));
+const vols = new Map();
+for (const [n, a, by] of [[2, { OKX: 850000, Bybit: 1260000 }, "x"], [3, { OKX: 1120000 }, "oc"], [4, { UM: 12 }, "oc"], [5, { Bybit: 1460000, UM: 4 }, "x"], [7, { OKX: 1510000 }, "x"], [8, { Bybit: 450000 }, "x"]]) {
+  const mm = members.find((x) => x.user_id === uid(n)); if (!mm) continue;
+  vols.set(`${uid(n)}:${curP(mm).start}`, { amounts: a, updated_at: ago(30 + n), updated_by: by + "@example.com" });
+}
+// 研究員填的交易所 UID（UM 是 MT5 帳號＋開戶英文姓名）
+const links = new Map(); // user_id → { ex: { uid, name } }
+for (const [n, ex, id, name] of [[2, "Bybit", "594320471"], [3, "OKX", "701045615417133677"], [4, "UM", "35908033", "TSAI TZU HSU"], [5, "Bybit", "594325795"], [7, "OKX", "884811020408438914"], [8, "BingX", "39104531"]])
+  links.set(uid(n), { ...(links.get(uid(n)) || {}), [ex]: { uid: id, name: name || null } });
+const linkOf = (id) => Object.fromEntries(Object.entries(links.get(id) || {}).map(([ex, l]) => [ex, l.name ? `${l.uid}・${l.name}` : l.uid]));
 const monthNow = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 7);
 const monthEnd = (m) => { const [y, mo] = m.split("-").map(Number); return new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10); };
-const qualified = (a) => EX.some((e) => Number(a?.[e] || 0) >= threshold);
+const qualified = (a) => EX.some((e) => Number(a?.[e] || 0) >= goalOf(e, threshold));
 const TODAY = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
 const addDays = (date, n) => { const x = new Date(date + "T00:00:00Z"); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
 const cycleEnd = (date) => { const [y, m, dd] = date.split("-").map(Number); const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate(); return addDays(new Date(Date.UTC(y, m, Math.min(dd, last))).toISOString().slice(0, 10), -1); };
 const twDate = (ts) => new Date(new Date(ts).getTime() + 8 * 3600e3).toISOString().slice(0, 10);
 const CH = ["CCC", "OC", "X"];
 const unlockOn = (start, h, part) => addDays(start, ((part - 1) * 4 + CH.indexOf(h)) * 7);
-function volSnap(month) {
-  return { month, monthEnd: monthEnd(month), exchanges: EX, threshold, rows: [...members].reverse().map((m) => { const v = vols.get(m.user_id + ":" + month); return { user_id: m.user_id, email: m.email, banned: m.banned, access_until: m.access_until, note: m.note, amounts: v?.amounts || {}, updated_at: v?.updated_at || null, updated_by: v?.updated_by || null, qualified: v ? qualified(v.amounts) : false, qualified_at: v?.qualified_at || null, qualified_until: v?.qualified_at ? cycleEnd(v.qualified_at) : null }; }) };
+function volSnap(which) {
+  return { which, today: TODAY(), exchanges: EX, autoExchanges: AUTO_EXCHANGES, threshold, rows: [...members].reverse().map((mm) => ({ mm, p: periodFor(mm, which) })).filter((x) => x.p).map(({ mm, p }) => { const v = vols.get(mm.user_id + ":" + p.start); return { user_id: mm.user_id, email: mm.email, banned: mm.banned, access_until: mm.access_until, note: mm.note, period_start: p.start, period_end: p.end, next_end: nextPeriod(anchorOf(mm), p).end, amounts: v?.amounts || {}, updated_at: v?.updated_at || null, updated_by: v?.updated_by || null, qualified: v ? qualified(v.amounts) : false, qualified_at: v?.qualified_at || null, links: linkOf(mm.user_id) }; }) };
 }
 
 function send(res, code, body, headers = {}) {
@@ -204,6 +217,7 @@ const server = http.createServer(async (req, res) => {
       const id = crypto.randomUUID();
       users[body.email] = { id, password: body.password };
       members.unshift({ user_id: id, email: body.email, invite_code: inv.code, banned: false, created_at: new Date().toISOString(), last_sign_in_at: null, watched_count: 0, access_until: cycleEnd(TODAY()), notify: true });
+      if (EX.includes(body.exchange) && body.uid) links.set(id, { [body.exchange]: { uid: cleanExId(body.exchange, body.uid), name: needsName(body.exchange) ? cleanAccountName(body.accountName) : null } });
       return send(res, 200, { ok: true });
     }
     if (p === "/api/stats") {
@@ -221,7 +235,19 @@ const server = http.createServer(async (req, res) => {
         mrow.notify = body.notify;
         return send(res, 200, { ok: true, notify: body.notify });
       }
-      return send(res, 200, { feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, accessUntil: mrow?.access_until || null, notify: mrow ? mrow.notify !== false : null, volume: mrow ? (() => { const v = vols.get(mrow.user_id + ":" + monthNow()); return { month: monthNow(), exchanges: EX, threshold, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, qualified: v ? qualified(v.amounts) : false, qualifiedAt: v?.qualified_at || null, qualifiedUntil: v?.qualified_at ? cycleEnd(v.qualified_at) : null }; })() : null });
+      const mine = mrow ? links.get(mrow.user_id) || {} : {};
+      const volume = mrow ? (() => { const pp = curP(mrow); const v = vols.get(mrow.user_id + ":" + pp.start); return { periodStart: pp.start, periodEnd: pp.end, exchanges: EX, threshold, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, qualified: v ? qualified(v.amounts) : false, qualifiedAt: v?.qualified_at || null, qualifiedUntil: v?.qualified_at ? nextPeriod(anchorOf(mrow), pp).end : null }; })() : null;
+      return send(res, 200, { feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, adminRole: admin ? "owner" : null, accessUntil: mrow?.access_until || null, notify: mrow ? mrow.notify !== false : null, nextLive: null, volume,
+        links: mrow ? EX.map((ex) => ({ exchange: ex, auto: AUTO_EXCHANGES.includes(ex), enabled: true, uid: mine[ex]?.uid || null, accountName: mine[ex]?.name || null, needsName: needsName(ex), boundAt: null })) : null });
+    }
+    if (p === "/api/exchange-link") {
+      if (!mrow) return send(res, 400, { error: "管理員帳號不用綁定交易所" });
+      const ex = req.method === "DELETE" ? url.searchParams.get("exchange") : body.exchange;
+      const cur = { ...(links.get(mrow.user_id) || {}) };
+      if (req.method === "DELETE") { delete cur[ex]; links.set(mrow.user_id, cur); return send(res, 200, { ok: true }); }
+      cur[ex] = { uid: cleanExId(ex, body.uid), name: needsName(ex) ? cleanAccountName(body.accountName) : null };
+      links.set(mrow.user_id, cur);
+      return send(res, 200, { ok: true, exchange: ex, uid: cur[ex].uid, synced: AUTO_EXCHANGES.includes(ex) });
     }
     if (p === "/api/feedback") {
       if (req.method === "POST") {
@@ -341,19 +367,29 @@ const server = http.createServer(async (req, res) => {
       inv.disabled = body.disabled;
       return send(res, 200, { ok: true });
     }
+    if (p === "/api/admin/sync") {
+      const overview = { Bybit: { configured: true, linked: 2, last: { at: ago(3), ok: true, users: 2, saved: 2, extended: 0 } }, BingX: { configured: true, linked: 1, last: { at: ago(3), ok: true, users: 1, saved: 1, extended: 0 } } };
+      return send(res, 200, req.method === "GET" ? { exchanges: overview } : { ok: true, exchanges: overview });
+    }
     if (p === "/api/admin/volumes") {
-      if (req.method === "GET") return send(res, 200, volSnap(url.searchParams.get("month") || monthNow()));
+      const which = (req.method === "GET" ? url.searchParams.get("which") : body.which) === "previous" ? "previous" : "current";
+      if (req.method === "GET") return send(res, 200, volSnap(which));
       if (req.method === "PATCH") { threshold = Math.round(Number(body.threshold)); return send(res, 200, { ok: true, threshold }); }
-      const qOn = body.qualifiedOn || TODAY(); let saved = 0, extended = 0;
+      let saved = 0, extended = 0;
       for (const r of body.rows || []) {
-        const m = members.find((x) => x.user_id === r.userId); if (!m) continue;
-        const amounts = {}; for (const e of EX) if (r.amounts?.[e] != null && r.amounts[e] !== "") amounts[e] = Math.round(Number(r.amounts[e]) * 100) / 100;
-        const prevQ = vols.get(m.user_id + ":" + body.month)?.qualified_at || null;
+        const mm = members.find((x) => x.user_id === r.userId); if (!mm) continue;
+        const pp = periodFor(mm, which); if (!pp) continue;
+        let qOn = body.qualifiedOn || TODAY(); if (qOn < pp.start) qOn = pp.start; if (qOn > pp.end) qOn = pp.end;
+        const prevRow = vols.get(mm.user_id + ":" + pp.start);
+        const amounts = {}; for (const e of EX) if (!AUTO_EXCHANGES.includes(e) && r.amounts?.[e] != null && r.amounts[e] !== "") amounts[e] = Math.round(Number(r.amounts[e]) * 100) / 100;
+        for (const e of AUTO_EXCHANGES) if (prevRow?.amounts?.[e] != null) amounts[e] = prevRow.amounts[e];
+        const prevQ = prevRow?.qualified_at || null;
         const ok = qualified(amounts);
-        vols.set(m.user_id + ":" + body.month, { amounts, qualified_at: ok ? prevQ || qOn : null, updated_at: new Date().toISOString(), updated_by: u.email }); saved++;
-        if (ok && !prevQ && m.access_until && m.access_until < cycleEnd(qOn)) { m.access_until = cycleEnd(qOn); extended++; }
+        vols.set(mm.user_id + ":" + pp.start, { amounts, qualified_at: ok ? prevQ || qOn : null, updated_at: new Date().toISOString(), updated_by: u.email }); saved++;
+        const until = nextPeriod(anchorOf(mm), pp).end;
+        if (ok && !prevQ && mm.access_until && mm.access_until < until) { mm.access_until = until; extended++; }
       }
-      return send(res, 200, { ...volSnap(body.month), saved, extended, until: cycleEnd(qOn) });
+      return send(res, 200, { ...volSnap(which), saved, extended });
     }
     if (p === "/api/admin/notify" && videos.find((x) => x.id === body.videoId)?.course_host) return send(res, 400, { error: "教學課程依每個人的加入日期解鎖，不寄全體通知" });
     if (p === "/api/admin/notify") return send(res, 200, { ok: true, sent: members.filter((m) => !m.banned && m.notify !== false).length });
@@ -389,7 +425,7 @@ const server = http.createServer(async (req, res) => {
         const reasons = []; const prog = [...progress.entries()].filter(([k]) => k.startsWith(m.user_id + ":")).map(([k, v]) => ({ video_id: Number(k.split(":")[1]), ...v }));
         if (m.access_until && m.access_until < today) reasons.push({ key: "expired", label: `已過期（${m.access_until.slice(5)}）`, level: 3 });
         else if (m.access_until && m.access_until <= addDays(today, 7)) reasons.push({ key: "expiring", label: `${m.access_until.slice(5).replace("-", "/")} 到期`, level: 2 });
-        const vv = vols.get(m.user_id + ":" + monthNow());
+        const vv = vols.get(m.user_id + ":" + curP(m).start);
         if (m.access_until && !(vv && qualified(vv.amounts))) reasons.push({ key: "volume", label: vv ? "這個月還差一點" : "這個月還沒有交易量", level: 1 });
         const last = prog.map((x) => x.updated_at).sort().pop() || null;
         const away = last ? Math.floor((Date.now() - new Date(last).getTime()) / 864e5) : null;
@@ -422,7 +458,7 @@ const server = http.createServer(async (req, res) => {
       });
     }
     if (p === "/api/admin/members") {
-      if (req.method === "GET") return send(res, 200, { members });
+      if (req.method === "GET") return send(res, 200, { members: members.map((mm) => ({ ...mm, uids: Object.fromEntries(Object.entries(links.get(mm.user_id) || {}).map(([ex, l]) => [ex, l.uid])), account_names: Object.fromEntries(Object.entries(links.get(mm.user_id) || {}).filter(([, l]) => l.name).map(([ex, l]) => [ex, l.name])) })) });
       const m = members.find((x) => x.user_id === body.userId);
       if (body.action === "reset") return send(res, 200, { password: "Tq8mWz3kPa7c" });
       if (body.action === "access") {
