@@ -1,7 +1,7 @@
 // 研究員：列表、搜尋、觀看資格、停權、重設密碼
 import * as A from "../core/index.js";
 const { el, $, api, icon } = A;
-import { cycleEnd } from "../shared/rules.js";
+import { cycleEnd, idLabel } from "../shared/rules.js";
 import { fail, loadingBox, segTabs } from "./common.js";
 import { state } from "./state.js";
 import { canManageMembers } from "../shared/roles.js";
@@ -68,7 +68,7 @@ function renderMembers() {
                 el("div", { class: "t-title", style: { wordBreak: "break-all" }, text: m.email }),
                 el("div", { class: "small muted num", text: m.invite_code ? `實驗室密碼 ${m.invite_code}` : "" }),
                 m.discord ? el("div", { class: "small mem-dc", text: `Discord：${m.discord}` }) : null,
-                Object.keys(m.uids || {}).length ? el("div", { class: "mem-uids" }, ...Object.entries(m.uids).map(([ex, uid]) => el("span", { class: "mem-uid small num", title: `${ex} UID` }, el("b", { text: ex }), uid + (m.account_names?.[ex] ? `・${m.account_names[ex]}` : "")))) : null),
+                Object.keys(m.uids || {}).length ? el("div", { class: "mem-uids" }, ...Object.entries(m.uids).map(([ex, uid]) => el("span", { class: "mem-uid small num", title: `${ex} ${idLabel(ex)}` }, el("b", { text: ex }), uid + (m.account_names?.[ex] ? `・${m.account_names[ex]}` : "")))) : null),
               el("td", { class: "small num hide-sm", text: A.fmtDate(m.created_at) }),
               el("td", { class: "small", text: A.fmtRel(m.last_sign_in_at) }),
               el("td", { class: "small num hide-sm", text: `${m.watched_count} 支` }),

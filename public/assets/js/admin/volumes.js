@@ -1,7 +1,7 @@
 // 每月交易量：逐筆填、貼上一整批、改門檻；新達標的人資格自動延長（規則在 shared/rules.js）
 import * as A from "../core/index.js";
 const { el, $, api, icon } = A;
-import { goalOf, unitOf, bestProgress, gapText, ruleText } from "../shared/rules.js";
+import { goalOf, unitOf, bestProgress, gapText, ruleText, idLabel } from "../shared/rules.js";
 import { fail, loadingBox } from "./common.js";
 import { markMembersStale } from "./members.js";
 
@@ -95,9 +95,9 @@ function renderVolumes() {
         if (n !== null && !Number.isNaN(n)) inp.value = fmtUsd(n);
       });
       map[ex] = inp;
-      // 填過 UID 就顯示在下面，對交易所後台時用；自動同步的沒綁就寫「未綁定」
+      // 填過 UID（UM 是 MT5 帳號）就顯示在下面，對交易所後台時用；自動同步的沒綁就寫「未綁定」
       const uid = r.links?.[ex];
-      return el("td", { "data-label": ex }, inp, uid || auto ? el("div", { class: "small muted vol-uid", text: uid ? `UID ${uid}` : "未綁定" }) : null);
+      return el("td", { "data-label": ex }, inp, uid || auto ? el("div", { class: "small muted vol-uid", text: uid ? `${idLabel(ex)} ${uid}` : "未綁定" }) : null);
     });
     inputs.set(r.user_id, map);
     resultCell(r, result);
