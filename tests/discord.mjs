@@ -322,13 +322,13 @@ await test("一鍵建立：分類＋三個頻道、權限、申請按鈕，不�
   db.settings.find((r) => r.key === "discord").value.labCode = "OLD1-CODE";
   firstRun = await setupGuild();
   assert.equal(firstRun.ok, true);
-  assert.deepEqual(firstRun.created, ["🧪 CCC 交易實驗室", "📝報名培訓計畫", "🔒申請審核", "📢研究員專屬公告"], "申請分類前面已經開過，沿用");
+  assert.deepEqual(firstRun.created, ["🧪 CCC 交易實驗室", "📝報名培訓計畫", "🔒報名審核", "📢研究員專屬公告"], "申請分類前面已經開過，沿用");
   const made = [...channels.values()];
   const lab = made.find((c) => c.name === "📢研究員專屬公告");
   const everyoneLab = lab.permission_overwrites.find((o) => o.id === GUILD_ID);
   assert.ok(BigInt(everyoneLab.deny) & (1n << 10n), "實驗室頻道 everyone 要看不到");
   assert.ok(BigInt(lab.permission_overwrites.find((o) => o.id === ROLE).allow) & (1n << 10n), "實驗室身分組要看得到");
-  const review = made.find((c) => c.name === "🔒申請審核");
+  const review = made.find((c) => c.name === "🔒報名審核");
   assert.ok(BigInt(review.permission_overwrites.find((o) => o.id === GUILD_ID).deny) & (1n << 10n), "審核頻道 everyone 要看不到");
   const posts = calls.slice(before).filter((c) => c.method === "POST" && /\/messages$/.test(c.path));
   assert.ok(posts.some((c) => c.body.components?.[0]?.components?.[0]?.custom_id === "apply"), "沒有申請按鈕");
@@ -351,12 +351,14 @@ await test("再按一次不會重複建立、不會重貼", async () => {
 await test("舊版預設的頻道名稱會改成新的、報名按鈕改成新文字（自己改過的名字不動）", async () => {
   const st = db.settings.find((r) => r.key === "discord").value;
   channels.get(st.panelChannelId).name = "📝申請加入實驗室";
+  channels.get(st.reviewChannelId).name = "🔒申請審核";
   channels.get(st.labChannelId).name = "研究員專屬公告";
   const before = calls.length;
   await setupGuild();
   const c = calls.slice(before);
   const panelPatch = c.find((x) => x.method === "PATCH" && x.path === `/channels/${st.panelChannelId}`);
   assert.equal(panelPatch.body.name, "📝報名培訓計畫");
+  assert.equal(c.find((x) => x.method === "PATCH" && x.path === `/channels/${st.reviewChannelId}`).body.name, "🔒報名審核");
   assert.equal(c.find((x) => x.method === "PATCH" && x.path === `/channels/${st.labChannelId}`).body.name, undefined, "自己改過的不動");
   const edit = c.find((x) => x.method === "PATCH" && x.path === `/channels/${st.panelChannelId}/messages/${st.panelMessageId}`);
   assert.ok(edit, "要把報名按鈕那則改成新文字");

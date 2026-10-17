@@ -56,7 +56,7 @@ function renderApps() {
               a.invite_code ? el("div", { class: "small muted num", text: `實驗室密碼 ${a.invite_code}` }) : null),
             el("td", { class: "small sub hide-sm", text: a.status === "pending" ? "到他的報名頻道按通過" : a.reviewed_by || "—" }));
         })))),
-    el("p", { class: "small muted", style: { marginTop: "10px" }, text: "只顯示最近 30 筆。等待審核的請到 Discord 的「🔒申請審核」點通知裡的頻道，在他的報名頻道按「通過」或「不通過」。通過的人會拿到一組只能用一次的實驗室密碼。" })
+    el("p", { class: "small muted", style: { marginTop: "10px" }, text: "只顯示最近 30 筆。等待審核的請到 Discord 的「🔒報名審核」點通知裡的頻道，在他的報名頻道按「通過」或「不通過」。通過的人會拿到一組只能用一次的實驗室密碼。" })
   );
 }
 
