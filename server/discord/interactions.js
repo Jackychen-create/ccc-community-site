@@ -7,10 +7,10 @@
 //   → 通過：給身分組，在頻道裡給他專用的實驗室密碼（也私訊一份）→ 按「關閉這個頻道」
 import {
   supabaseAdmin, route, AUTO_EXCHANGES, EXCHANGES, PROVIDERS,
-  discordConfigured, verifyDiscord, getDiscordSettings, addRole, sendMessage, editOriginal, dm, canReview,
+  discordConfigured, verifyDiscord, getDiscordSettings, addRole, sendMessage, editOriginal, dm, canReview, cleanExId, exIdOk,
 } from "../lib/index.js";
 import {
-  T, EPHEMERAL, APP_UID_RE, cleanUid, uidModal, reply, reviewMessage, reviewNotice, resultText,
+  T, EPHEMERAL, uidModal, reply, reviewMessage, reviewNotice, resultText,
   approvedMessage, notInvitedMessage, rejectedMessage,
 } from "../lib/discord-flow.js";
 import { openTicket, ticketOf, closeTicket, personalCode } from "../lib/discord-ticket.js";
@@ -205,8 +205,8 @@ export default route({
       if (!EXCHANGES.includes(ex)) return res.status(200).json(reply("請重新選一次交易所。"));
       const { error } = await ownTicket();
       if (error) return res.status(200).json(error);
-      const uid = cleanUid(fieldValue(i.data.components, "uid"));
-      if (!APP_UID_RE.test(uid)) return res.status(200).json(reply(resultText("bad_uid")));
+      const uid = cleanExId(ex, fieldValue(i.data.components, "uid"));
+      if (!exIdOk(ex, uid)) return res.status(200).json(reply(resultText("bad_uid")));
       if (hasRole) return res.status(200).json(reply(resultText("already_member")));
       const [{ data: mine }, { data: taken }] = await Promise.all([
         supabaseAdmin.from("discord_applications").select("id").eq("discord_user_id", user.id).eq("status", "pending").limit(1),

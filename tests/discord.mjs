@@ -202,6 +202,11 @@ await test("別人不能在你的申請頻道操作", async () => {
 });
 await test("不在申請頻道裡送 UID 會請他先開頻道", async () => assert.match((await interact(at(PANEL, modal("BingX", "88880001", member(AMY))))).body.data.content, /先到報名頻道/));
 await test("UID 不是數字會提醒", async () => assert.match((await interact(at(amyChan, modal("BingX", "abc", member(AMY))))).body.data.content, /一串數字/));
+await test("UM 的表單寫帳號或名字，可以填中文", async () => {
+  const r = (await interact(at(amyChan, { ...button("apply_ex", member(AMY)), data: { custom_id: "apply_ex", values: ["UM"] } }))).body;
+  const input = r.data.components[0].components[0];
+  assert.match(input.label, /帳號或名字/); assert.equal(input.min_length, 2);
+});
 
 await test("BingX 是 CCC 邀請的 → 自動給身分組，在頻道裡給專用實驗室密碼", async () => {
   const before = calls.length;
@@ -270,7 +275,9 @@ await test("客服身分組也可以審核、也看得到申請分類", async ()
   st.staffRoleIds = [STAFF];
   const danChan = await openFor(member(DAN));
   assert.ok(BigInt(channels.get(danChan).permission_overwrites.find((o) => o.id === STAFF).allow) & (1n << 10n), "客服身分組要看得到申請頻道");
-  await interact(at(danChan, modal("UM", "556677", member(DAN))));
+  await interact(at(danChan, modal("UM", "  王  小明 ", member(DAN))));
+  assert.match(lastEdit().body.content, /帳號或名字：`王 小明`/, "UM 可以填名字");
+  assert.equal(db.discord_applications.find((a) => a.discord_user_id === DAN).exchange_uid, "王 小明");
   const id = db.discord_applications.find((a) => a.discord_user_id === DAN).id;
   const before = calls.length;
   const r = (await interact(at(danChan, button(`reject:${id}`, member(BOSS.replace(/9$/, "8"), { roles: [STAFF], name: "客服" }))))).body;

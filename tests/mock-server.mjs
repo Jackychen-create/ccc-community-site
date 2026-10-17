@@ -5,7 +5,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 // 規則跟正式網站讀同一份
 import { canUseApi } from "../public/assets/js/shared/roles.js";
-import { EXCHANGES, AUTO_EXCHANGES, isQualified, addDays, cycleEnd, periodOf, nextPeriod, prevPeriod, COURSE_HOSTS as CH, courseUnlockDate } from "../public/assets/js/shared/rules.js";
+import { EXCHANGES, AUTO_EXCHANGES, isQualified, addDays, cycleEnd, periodOf, nextPeriod, prevPeriod, COURSE_HOSTS as CH, courseUnlockDate, cleanExId, exIdOk, exIdError } from "../public/assets/js/shared/rules.js";
 
 const PORT = Number(process.env.PORT || 4321);
 const ROOT = path.join(path.dirname(new URL(import.meta.url).pathname), "..");
@@ -218,9 +218,9 @@ const server = http.createServer(async (req, res) => {
       const inv = invites.find((i) => i.code === body.inviteCode && !i.disabled && i.used_count < i.max_uses);
       if (!inv) return send(res, 400, { error: "邀請碼無效、已停用或已被用完" });
       if (users[body.email]) return send(res, 400, { error: "這個 Email 已經註冊過了，請直接登入" });
-      const rex = String(body.exchange || ""), ruid = String(body.uid || "").replace(/\s/g, "");
+      const rex = String(body.exchange || ""), ruid = cleanExId(rex, body.uid);
       if (!EXCHANGES.includes(rex)) return send(res, 400, { error: "請選擇你用 CCC 邀請連結註冊的交易所" });
-      if (!/^\d{5,20}$/.test(ruid)) return send(res, 400, { error: "請填交易所 UID（一串數字）" });
+      if (!exIdOk(rex, ruid)) return send(res, 400, { error: rex === "UM" ? exIdError("UM") : "請填交易所 UID（一串數字）" });
       if ([...autoLinks[rex].values()].includes(ruid)) return send(res, 409, { error: `這個 ${rex} UID 已經被其他研究員填過了，有問題請聯絡管理員` });
       if (AUTO_EXCHANGES.includes(rex) && !(ruid in INVITED[rex])) return send(res, 400, { error: `這個 UID 不是用 CCC 的 ${rex} 邀請連結註冊的。請確認 UID，或用邀請連結重新註冊`, code: "not_invited" });
       inv.used_count++;
@@ -255,8 +255,8 @@ const server = http.createServer(async (req, res) => {
       const ex = req.method === "DELETE" ? url.searchParams.get("exchange") : body.exchange;
       if (!EXCHANGES.includes(ex)) return send(res, 400, { error: "不支援這間交易所" });
       if (req.method === "DELETE") { autoLinks[ex].delete(u.id); return send(res, 200, { ok: true }); }
-      const uid = String(body.uid || "").replace(/\s/g, "");
-      if (!/^\d{5,20}$/.test(uid)) return send(res, 400, { error: "UID 是一串數字，請再確認一次" });
+      const uid = cleanExId(ex, body.uid);
+      if (!exIdOk(ex, uid)) return send(res, 400, { error: exIdError(ex) });
       if ([...autoLinks[ex]].some(([k, v]) => v === uid && k !== u.id)) return send(res, 409, { error: "這個 UID 已經被其他研究員綁定了，有問題請聯絡管理員" });
       if (!AUTO_EXCHANGES.includes(ex)) { autoLinks[ex].set(u.id, uid); return send(res, 200, { ok: true, exchange: ex, uid, synced: false }); }
       if (!(uid in INVITED[ex])) return send(res, 400, { error: `這個 UID 不是用 CCC 的 ${ex} 邀請碼註冊的${ex === "Bybit" ? "（Bybit 要填主帳號的 UID）" : ""}。請確認 UID，或用我們的邀請連結註冊`, code: "not_invited" });

@@ -1,7 +1,7 @@
 // POST /api/register  { email, password, inviteCode, exchange, uid }
 // 用實驗室密碼建立研究員帳號，同時記下他用哪間交易所、UID 是多少（管理員才對得到交易量）
 // Bybit、BingX 有設定 API Key 的話，先跟交易所確認是 CCC 邀請的才讓他註冊
-import { supabaseAdmin, isAdminEmail, readBody, route, cycleEnd, todayTW, thisMonthTW, EXCHANGES, AUTO_EXCHANGES, PROVIDERS } from "./lib/index.js";
+import { supabaseAdmin, isAdminEmail, readBody, route, cycleEnd, todayTW, thisMonthTW, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, cleanExId, exIdOk, idLabel } from "./lib/index.js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -12,7 +12,7 @@ export default route({
     const password = typeof body.password === "string" ? body.password : "";
     const code = String(body.inviteCode || "").trim().toUpperCase();
     const exchange = String(body.exchange || "");
-    const uid = String(body.uid ?? "").replace(/\s/g, "");
+    const uid = cleanExId(body.exchange, body.uid);
 
     if (!email || !password || !code) {
       return res.status(400).json({ error: "請填寫 Email、密碼與實驗室密碼" });
@@ -28,11 +28,11 @@ export default route({
       return res.status(400).json({ error: "這個 Email 不能用用實驗室密碼加入" });
     }
     if (!EXCHANGES.includes(exchange)) return res.status(400).json({ error: "請選擇你用 CCC 邀請連結註冊的交易所" });
-    if (!/^\d{5,20}$/.test(uid)) return res.status(400).json({ error: "請填交易所 UID（一串數字）" });
+    if (!exIdOk(exchange, uid)) return res.status(400).json({ error: exchange === "UM" ? "請填 UM 的 MT5 帳號或名字（2～40 個字）" : "請填交易所 UID（一串數字）" });
 
     // 這個 UID 有沒有被別人填過
     const { data: taken } = await supabaseAdmin.from("exchange_links").select("user_id").eq("exchange", exchange).eq("exchange_uid", uid).maybeSingle();
-    if (taken) return res.status(409).json({ error: `這個 ${exchange} UID 已經被其他研究員填過了，有問題請聯絡管理員` });
+    if (taken) return res.status(409).json({ error: `這個 ${exchange} ${idLabel(exchange)}已經被其他研究員填過了，有問題請聯絡管理員` });
 
     // Bybit、BingX：先跟交易所確認（交易所暫時連不上就先讓他註冊，之後每天同步會再確認交易量）
     let verified = null;
