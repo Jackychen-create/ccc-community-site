@@ -48,15 +48,16 @@ export const EXCHANGES = ["OKX", "UM", "Bybit", "BingX"];
 export const AUTO_EXCHANGES = ["Bybit", "BingX"];
 export const LOT_GOALS = { UM: 10 }; // 一個月 10 手（2026-10-16 確定）
 export const DEFAULT_THRESHOLD = 1000000;
-// 交易所帳號：OKX、Bybit、BingX 填 UID（一串數字）；UM 填 MT5 帳號或名字（2026-10-17）
-export const idLabel = (ex) => (ex === "UM" ? "帳號或名字" : "UID");
-export function cleanExId(ex, v) {
-  const s = String(v ?? "").normalize("NFKC").trim();
-  return ex === "UM" ? s.replace(/\s+/g, " ") : s.replace(/\s/g, "");
-}
-// UM：2～40 個字，不能有換行、` < > @（會弄亂 Discord 的訊息）
-export const exIdOk = (ex, v) => (ex === "UM" ? /^[^\r\n`<>@]{2,40}$/u.test(v) : /^\d{5,20}$/.test(v));
-export const exIdError = (ex) => (ex === "UM" ? "請填 UM 的 MT5 帳號或名字（2～40 個字）" : "UID 是一串數字，請再確認一次");
+// 交易所帳號：四間都填 UID（一串數字）；UM 另外要填註冊 UM 用的 Email，管理員對帳比較準（2026-10-17）
+export const idLabel = () => "UID";
+export const cleanExId = (ex, v) => String(v ?? "").normalize("NFKC").replace(/\s/g, "");
+export const exIdOk = (ex, v) => /^\d{5,20}$/.test(v);
+export const exIdError = () => "UID 是一串數字，請再確認一次";
+export const NEEDS_EMAIL = ["UM"];
+export const needsEmail = (ex) => NEEDS_EMAIL.includes(ex);
+export const cleanAccountEmail = (v) => String(v ?? "").normalize("NFKC").trim().toLowerCase();
+export const accountEmailOk = (v) => v.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
+export const ACCOUNT_EMAIL_ERROR = "請填你註冊 UM 用的 Email";
 // Bybit 的 TradFi（黃金、股票等）交易量打一折算：100 萬 TradFi ≈ 10 萬加密貨幣（2026-10-17 確定）
 export const TRADFI_WEIGHT = 0.1;
 export const TRADFI_NOTE = "Bybit 的 TradFi（黃金、股票等）交易量以十分之一計算。";

@@ -406,3 +406,11 @@ alter table public.exchange_links add constraint exchange_links_exchange_uid_che
 alter table public.discord_applications drop constraint if exists discord_applications_exchange_uid_check;
 alter table public.discord_applications add constraint discord_applications_exchange_uid_check
   check ((exchange = 'UM' and char_length(exchange_uid) between 2 and 40) or exchange_uid ~ '^\d{5,20}$');
+
+-- ── v1.16.5：UM 改回填 UID，另外填註冊 UM 用的 Email（管理員對帳用）──
+alter table public.exchange_links add column if not exists account_email text check (account_email is null or char_length(account_email) <= 254);
+alter table public.discord_applications add column if not exists account_email text check (account_email is null or char_length(account_email) <= 254);
+alter table public.exchange_links drop constraint if exists exchange_links_exchange_uid_check;
+alter table public.exchange_links add constraint exchange_links_exchange_uid_check check (exchange_uid ~ '^\d{5,20}$');
+alter table public.discord_applications drop constraint if exists discord_applications_exchange_uid_check;
+alter table public.discord_applications add constraint discord_applications_exchange_uid_check check (exchange_uid ~ '^\d{5,20}$');
