@@ -38,7 +38,7 @@ function renderMembers() {
   $("#cMembers").textContent = members.length || "";
   const active = members.filter((m) => !m.banned).length;
   $("#memberSub").textContent = members.length ? `共 ${members.length} 位，${active} 位可觀看` : "用實驗室密碼加入的研究員";
-  const hit = members.filter((m) => !memberQuery || `${m.email} ${m.invite_code || ""} ${Object.values(m.uids || {}).join(" ")} ${Object.values(m.account_emails || {}).join(" ")} ${m.discord || ""}`.toLowerCase().includes(memberQuery));
+  const hit = members.filter((m) => !memberQuery || `${m.email} ${m.invite_code || ""} ${Object.values(m.uids || {}).join(" ")} ${Object.values(m.account_names || {}).join(" ")} ${m.discord || ""}`.toLowerCase().includes(memberQuery));
   const groups = { active: hit.filter((m) => !m.banned), banned: hit.filter((m) => m.banned) };
   // 停權的都恢復了，就回到「正常」
   if (memberTab === "banned" && !members.some((m) => m.banned)) memberTab = "active";
@@ -68,7 +68,7 @@ function renderMembers() {
                 el("div", { class: "t-title", style: { wordBreak: "break-all" }, text: m.email }),
                 el("div", { class: "small muted num", text: m.invite_code ? `實驗室密碼 ${m.invite_code}` : "" }),
                 m.discord ? el("div", { class: "small mem-dc", text: `Discord：${m.discord}` }) : null,
-                Object.keys(m.uids || {}).length ? el("div", { class: "mem-uids" }, ...Object.entries(m.uids).map(([ex, uid]) => el("span", { class: "mem-uid small num", title: `${ex} UID` }, el("b", { text: ex }), uid + (m.account_emails?.[ex] ? `・${m.account_emails[ex]}` : "")))) : null),
+                Object.keys(m.uids || {}).length ? el("div", { class: "mem-uids" }, ...Object.entries(m.uids).map(([ex, uid]) => el("span", { class: "mem-uid small num", title: `${ex} UID` }, el("b", { text: ex }), uid + (m.account_names?.[ex] ? `・${m.account_names[ex]}` : "")))) : null),
               el("td", { class: "small num hide-sm", text: A.fmtDate(m.created_at) }),
               el("td", { class: "small", text: A.fmtRel(m.last_sign_in_at) }),
               el("td", { class: "small num hide-sm", text: `${m.watched_count} 支` }),

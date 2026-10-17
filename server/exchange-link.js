@@ -1,9 +1,9 @@
 // 研究員填自己的交易所 UID：Bybit、BingX 會先跟交易所確認是 CCC 邀請的，之後每天自動抓交易量；
-// OKX、UM 不驗證，只是讓管理員對得到「這個 UID 是哪個 Email」
+// OKX、UM 不驗證，只是讓管理員對得到「這個 UID 是哪個 Email」（UM 是 MT5 帳號＋開戶英文姓名）
 // GET    /api/exchange-link                       我綁定的帳號、哪幾間已經可以綁
 // POST   /api/exchange-link { exchange, uid }     綁定：先問交易所這個 UID 是不是用我們的邀請碼註冊的，是才綁，並馬上同步這個月的交易量
 // DELETE /api/exchange-link?exchange=Bybit        解除綁定（之後不再自動同步，已經記下的交易量保留）
-import { supabaseAdmin, requireMember, readBody, route, thisMonthTW, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, cleanExId, exIdOk, exIdError, idLabel, needsEmail, cleanAccountEmail, accountEmailOk, ACCOUNT_EMAIL_ERROR } from "./lib/index.js";
+import { supabaseAdmin, requireMember, readBody, route, thisMonthTW, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, cleanExId, exIdOk, exIdError, idLabel, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR } from "./lib/index.js";
 
 export default route({
   async GET(req, res) {
@@ -26,8 +26,8 @@ export default route({
     const p = PROVIDERS[ex];
     const uid = cleanExId(ex, b.uid);
     if (!exIdOk(ex, uid)) return res.status(400).json({ error: exIdError(ex) });
-    const accountEmail = needsEmail(ex) ? cleanAccountEmail(b.accountEmail) : null;
-    if (needsEmail(ex) && !accountEmailOk(accountEmail)) return res.status(400).json({ error: ACCOUNT_EMAIL_ERROR });
+    const accountName = needsName(ex) ? cleanAccountName(b.accountName) : null;
+    if (needsName(ex) && !accountNameOk(accountName)) return res.status(400).json({ error: ACCOUNT_NAME_ERROR });
     if (auto && !p.configured()) return res.status(503).json({ error: `${ex} 串接還沒設定好，請聯絡管理員` });
 
     const { data: taken } = await supabaseAdmin.from("exchange_links").select("user_id").eq("exchange", ex).eq("exchange_uid", uid).maybeSingle();
@@ -35,9 +35,9 @@ export default route({
 
     // OKX、UM：直接記下來
     if (!auto) {
-      const { error } = await supabaseAdmin.from("exchange_links").upsert({ user_id: ctx.user.id, exchange: ex, exchange_uid: uid, account_email: accountEmail, direct: null, bound_at: new Date().toISOString() });
+      const { error } = await supabaseAdmin.from("exchange_links").upsert({ user_id: ctx.user.id, exchange: ex, exchange_uid: uid, account_name: accountName, direct: null, bound_at: new Date().toISOString() });
       if (error) throw error;
-      return res.status(200).json({ ok: true, exchange: ex, uid, accountEmail, synced: false });
+      return res.status(200).json({ ok: true, exchange: ex, uid, accountName, synced: false });
     }
 
     let check;

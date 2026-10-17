@@ -1,7 +1,7 @@
 // POST /api/register  { email, password, inviteCode, exchange, uid }
 // 用實驗室密碼建立研究員帳號，同時記下他用哪間交易所、UID 是多少（管理員才對得到交易量）
 // Bybit、BingX 有設定 API Key 的話，先跟交易所確認是 CCC 邀請的才讓他註冊
-import { supabaseAdmin, isAdminEmail, readBody, route, cycleEnd, todayTW, thisMonthTW, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, cleanExId, exIdOk, idLabel, needsEmail, cleanAccountEmail, accountEmailOk, ACCOUNT_EMAIL_ERROR } from "./lib/index.js";
+import { supabaseAdmin, isAdminEmail, readBody, route, cycleEnd, todayTW, thisMonthTW, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, cleanExId, exIdOk, idLabel, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR } from "./lib/index.js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -28,10 +28,10 @@ export default route({
       return res.status(400).json({ error: "這個 Email 不能用用實驗室密碼加入" });
     }
     if (!EXCHANGES.includes(exchange)) return res.status(400).json({ error: "請選擇你用 CCC 邀請連結註冊的交易所" });
-    if (!exIdOk(exchange, uid)) return res.status(400).json({ error: "請填交易所 UID（一串數字）" });
-    // UM 另外要填註冊 UM 用的 Email（管理員對帳用）
-    const accountEmail = needsEmail(exchange) ? cleanAccountEmail(body.accountEmail) : null;
-    if (needsEmail(exchange) && !accountEmailOk(accountEmail)) return res.status(400).json({ error: ACCOUNT_EMAIL_ERROR });
+    if (!exIdOk(exchange, uid)) return res.status(400).json({ error: exchange === "UM" ? "請填 UM 的 MT5 帳號（一串數字）" : "請填交易所 UID（一串數字）" });
+    // UM 另外要填開戶的英文姓名（管理員對帳用）
+    const accountName = needsName(exchange) ? cleanAccountName(body.accountName) : null;
+    if (needsName(exchange) && !accountNameOk(accountName)) return res.status(400).json({ error: ACCOUNT_NAME_ERROR });
 
     // 這個 UID 有沒有被別人填過
     const { data: taken } = await supabaseAdmin.from("exchange_links").select("user_id").eq("exchange", exchange).eq("exchange_uid", uid).maybeSingle();
@@ -91,7 +91,7 @@ export default route({
 
     // 記下交易所 UID（失敗也不影響註冊，登入後會請他補填）
     const { error: linkError } = await supabaseAdmin.from("exchange_links").insert({
-      user_id: created.user.id, exchange, exchange_uid: uid, account_email: accountEmail, direct: verified ? verified.direct : null, bound_at: new Date().toISOString(),
+      user_id: created.user.id, exchange, exchange_uid: uid, account_name: accountName, direct: verified ? verified.direct : null, bound_at: new Date().toISOString(),
     });
     if (linkError) console.error("register link failed", linkError.message);
     else if (verified) {

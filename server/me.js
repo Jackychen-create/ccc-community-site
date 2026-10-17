@@ -1,6 +1,6 @@
 // GET   /api/me            目前登入者的身分、觀看資格到期日、通知設定、下一場直播
 // PATCH /api/me { notify }  研究員自己開關「新影片寄信通知」
-import { supabaseAdmin, adminRole, requireMember, readBody, route, nextLive, needsEmail, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, getThreshold, isQualified, periodFor, nextPeriod, anchorOf } from "./lib/index.js";
+import { supabaseAdmin, adminRole, requireMember, readBody, route, nextLive, needsName, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, getThreshold, isQualified, periodFor, nextPeriod, anchorOf } from "./lib/index.js";
 
 export default route({
   async GET(req, res) {
@@ -10,11 +10,11 @@ export default route({
     let links = null;
     if (ctx.member) {
       // 四間交易所的 UID：自動同步的（Bybit、BingX）有沒有設定好、這位研究員填了哪個 UID
-      const { data: rows } = await supabaseAdmin.from("exchange_links").select("exchange, exchange_uid, account_email, bound_at").eq("user_id", ctx.user.id);
+      const { data: rows } = await supabaseAdmin.from("exchange_links").select("exchange, exchange_uid, account_name, bound_at").eq("user_id", ctx.user.id);
       links = EXCHANGES.map((ex) => {
         const l = (rows || []).find((r) => r.exchange === ex);
         const auto = AUTO_EXCHANGES.includes(ex);
-        return { exchange: ex, auto, enabled: auto ? PROVIDERS[ex].configured() : true, uid: l?.exchange_uid || null, accountEmail: l?.account_email || null, needsEmail: needsEmail(ex), boundAt: l?.bound_at || null };
+        return { exchange: ex, auto, enabled: auto ? PROVIDERS[ex].configured() : true, uid: l?.exchange_uid || null, accountName: l?.account_name || null, needsName: needsName(ex), boundAt: l?.bound_at || null };
       });
       // 這一輪：從加入那天起算，每一輪一個月
       const period = periodFor({ created_at: ctx.member.created_at || ctx.user.created_at });

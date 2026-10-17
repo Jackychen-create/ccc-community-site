@@ -36,14 +36,14 @@ export default route({
     // 每個人看過幾支影片；填過的交易所 UID；用同一個 UID 在 Discord 通過申請的人（對得到 Discord 名稱）
     const [{ data: prog }, { data: links }, { data: apps }] = await Promise.all([
       supabaseAdmin.from("watch_progress").select("user_id"),
-      supabaseAdmin.from("exchange_links").select("user_id, exchange, exchange_uid, account_email"),
+      supabaseAdmin.from("exchange_links").select("user_id, exchange, exchange_uid, account_name"),
       supabaseAdmin.from("discord_applications").select("exchange, exchange_uid, discord_name, discord_user_id").eq("status", "approved"),
     ]);
     const uids = new Map();
-    const accountEmails = new Map(); // UM 註冊用的 Email
+    const accountNames = new Map(); // UM 開戶的英文姓名
     for (const l of links || []) {
       uids.set(l.user_id, { ...(uids.get(l.user_id) || {}), [l.exchange]: l.exchange_uid });
-      if (l.account_email) accountEmails.set(l.user_id, { ...(accountEmails.get(l.user_id) || {}), [l.exchange]: l.account_email });
+      if (l.account_name) accountNames.set(l.user_id, { ...(accountNames.get(l.user_id) || {}), [l.exchange]: l.account_name });
     }
     const dcBy = new Map((apps || []).map((a) => [`${a.exchange}:${a.exchange_uid}`, a.discord_name || a.discord_user_id]));
     const watched = new Map();
@@ -56,7 +56,7 @@ export default route({
         last_sign_in_at: lastSeen.get(m.user_id) || null,
         watched_count: watched.get(m.user_id) || 0,
         uids: uids.get(m.user_id) || {},
-        account_emails: accountEmails.get(m.user_id) || {},
+        account_names: accountNames.get(m.user_id) || {},
         discord: Object.entries(uids.get(m.user_id) || {}).map(([ex, uid]) => dcBy.get(`${ex}:${uid}`)).find(Boolean) || null,
       })),
     });

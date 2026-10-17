@@ -16,7 +16,7 @@ async function snapshot(which) {
   const [threshold, { data: members, error: e1 }, { data: links }] = await Promise.all([
     getThreshold(),
     supabaseAdmin.from("members").select("user_id, email, banned, access_until, note, created_at").order("created_at", { ascending: true }),
-    supabaseAdmin.from("exchange_links").select("user_id, exchange, exchange_uid, account_email"),
+    supabaseAdmin.from("exchange_links").select("user_id, exchange, exchange_uid, account_name"),
   ]);
   if (e1) throw e1;
   const today = todayTW();
@@ -28,8 +28,8 @@ async function snapshot(which) {
   if (e2) throw e2;
   const byKey = new Map((vols || []).map((v) => [`${v.user_id}:${v.period_start}`, v]));
   const linkMap = new Map();
-  // UM 的格子下面也寫註冊 UM 用的 Email，對帳比較準
-  for (const l of links || []) linkMap.set(l.user_id, { ...(linkMap.get(l.user_id) || {}), [l.exchange]: l.account_email ? `${l.exchange_uid}・${l.account_email}` : l.exchange_uid });
+  // UM 的格子下面也寫開戶的英文姓名，對帳比較準
+  for (const l of links || []) linkMap.set(l.user_id, { ...(linkMap.get(l.user_id) || {}), [l.exchange]: l.account_name ? `${l.exchange_uid}・${l.account_name}` : l.exchange_uid });
   return {
     which,
     today,

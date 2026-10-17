@@ -48,16 +48,18 @@ export const EXCHANGES = ["OKX", "UM", "Bybit", "BingX"];
 export const AUTO_EXCHANGES = ["Bybit", "BingX"];
 export const LOT_GOALS = { UM: 10 }; // 一個月 10 手（2026-10-16 確定）
 export const DEFAULT_THRESHOLD = 1000000;
-// 交易所帳號：四間都填 UID（一串數字）；UM 另外要填註冊 UM 用的 Email，管理員對帳比較準（2026-10-17）
-export const idLabel = () => "UID";
+// 交易所帳號：OKX、Bybit、BingX 填 UID；UM 填 MT5 帳號（一樣是一串數字），另外填在 UM 開戶的英文姓名，
+// 跟 UM 代理後台「近期新開戶」的帳號、姓名對得起來（2026-10-17）
+export const idLabel = (ex) => (ex === "UM" ? "MT5 帳號" : "UID");
 export const cleanExId = (ex, v) => String(v ?? "").normalize("NFKC").replace(/\s/g, "");
 export const exIdOk = (ex, v) => /^\d{5,20}$/.test(v);
-export const exIdError = () => "UID 是一串數字，請再確認一次";
-export const NEEDS_EMAIL = ["UM"];
-export const needsEmail = (ex) => NEEDS_EMAIL.includes(ex);
-export const cleanAccountEmail = (v) => String(v ?? "").normalize("NFKC").trim().toLowerCase();
-export const accountEmailOk = (v) => v.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
-export const ACCOUNT_EMAIL_ERROR = "請填你註冊 UM 用的 Email";
+export const exIdError = (ex) => (ex === "UM" ? "MT5 帳號是一串數字，請再確認一次" : "UID 是一串數字，請再確認一次");
+export const NEEDS_NAME = ["UM"];
+export const needsName = (ex) => NEEDS_NAME.includes(ex);
+// 姓名：去掉前後空白、多個空白變一個，英文轉大寫（UM 後台大小寫不一，比對比較準）
+export const cleanAccountName = (v) => String(v ?? "").normalize("NFKC").trim().replace(/\s+/g, " ").toUpperCase();
+export const accountNameOk = (v) => /^[^\r\n`<>@]{2,60}$/u.test(v);
+export const ACCOUNT_NAME_ERROR = "請填你在 UM 開戶的英文姓名（跟護照一樣，例如 WANG XIAO MING）";
 // Bybit 的 TradFi（黃金、股票等）交易量打一折算：100 萬 TradFi ≈ 10 萬加密貨幣（2026-10-17 確定）
 export const TRADFI_WEIGHT = 0.1;
 export const TRADFI_NOTE = "Bybit 的 TradFi（黃金、股票等）交易量以十分之一計算。";
