@@ -432,7 +432,7 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { ok: true, settings: discordSettings, synced: null });
       }
       if (body.action === "setup") {
-        const created = discordSettings.labChannelId ? [] : ["🧪 CCC 交易實驗室", "📝報名培訓計畫", "🔒申請審核", "📢研究員專屬公告", "🎫 培訓計畫報名"];
+        const created = discordSettings.labChannelId ? [] : ["🧪 CCC 交易實驗室", "📝報名培訓計畫", "🔒報名審核", "📢研究員專屬公告", "🎫 培訓計畫報名"];
         Object.assign(discordSettings, { guildId: "222222222222222222", categoryId: "800000000000000001", panelChannelId: "800000000000000002", reviewChannelId: "800000000000000003", labChannelId: "800000000000000004", ticketCategoryId: "800000000000000005" });
         return send(res, 200, { ok: true, guildName: "CCC 交易實驗室", hierarchyOk: false, roleName: "實驗室研究員", created, settings: discordSettings });
       }

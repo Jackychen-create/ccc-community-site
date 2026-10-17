@@ -20,7 +20,7 @@ export const BOT_PERMISSIONS = bits(P.MANAGE_CHANNELS, P.VIEW, P.SEND, P.MANAGE_
 export const inviteUrl = (appId) => `https://discord.com/oauth2/authorize?client_id=${appId}&scope=bot&permissions=${BOT_PERMISSIONS}`;
 
 // 舊版的預設名稱：再按一次一鍵建立時改成新名稱（你自己改過的名字不會動）
-const OLD_NAMES = { panel: ["📝申請加入實驗室"], lab: ["🧪實驗室"], ticket: ["🎫 實驗室申請"] };
+const OLD_NAMES = { panel: ["📝申請加入實驗室"], review: ["🔒申請審核"], lab: ["🧪實驗室"], ticket: ["🎫 實驗室申請"] };
 async function renameIfOld(id, kind, def) {
   const ch = await getChannel(id).catch(() => null);
   return ch && OLD_NAMES[kind]?.includes(ch.name) ? { name: def.name, ...(def.topic ? { topic: def.topic } : {}) } : {};
@@ -29,7 +29,7 @@ async function renameIfOld(id, kind, def) {
 export const CHANNELS = {
   category: { name: "🧪 CCC 交易實驗室", type: 4 },
   panel: { name: "📝報名培訓計畫", type: 0, topic: "按下面的按鈕，機器人會幫你開一個私人報名頻道。Bybit、BingX 自動確認；OKX、UM 由管理員審核。" },
-  review: { name: "🔒申請審核", type: 0, topic: "有人在等管理員審核（OKX、UM）時會通知在這裡，點頻道連結過去按「通過」或「不通過」。只有管理員看得到。" },
+  review: { name: "🔒報名審核", type: 0, topic: "有人在等管理員審核（OKX、UM）時會通知在這裡，點頻道連結過去按「通過」或「不通過」。只有管理員看得到。" },
   lab: { name: "📢研究員專屬公告", type: 0, topic: "實驗室研究員專屬：直播預告、公告" },
 };
 
