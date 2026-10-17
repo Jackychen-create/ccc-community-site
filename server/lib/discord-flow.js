@@ -3,7 +3,7 @@
 //   → 在私人頻道選交易所、填 UID
 //   → Bybit、BingX：機器人直接問交易所是不是 CCC 邀請的，是就給身分組，並在頻道裡給實驗室密碼
 //   → OKX、UM（或交易所暫時查不到）：在同一個頻道請管理員按「通過／不通過」，通過一樣自動給身分組和實驗室密碼
-import { EXCHANGES, needsEmail } from "../../public/assets/js/shared/rules.js";
+import { EXCHANGES, needsName } from "../../public/assets/js/shared/rules.js";
 
 export const T = { PONG: 1, MESSAGE: 4, DEFER: 5, UPDATE: 7, MODAL: 9 }; // 回應類型
 export const EPHEMERAL = 64; // 只有按的人看得到
@@ -11,7 +11,7 @@ export const SITE_URL = "https://ccc-community-site.pages.dev";
 
 const EX_HINT = {
   OKX: "OKX 的 UID（個人中心可以看到）",
-  UM: "UM 的 UID",
+  UM: "UM 的 MT5 帳號",
   Bybit: "Bybit 主帳號的 UID",
   BingX: "BingX 的 UID",
 };
@@ -32,7 +32,7 @@ export function panelMessage() {
     content: [
       "## 報名 CCC 實驗室培訓計畫 🧪",
       "按下面的按鈕，機器人會幫你開一個**只有你和管理員看得到的報名頻道**。",
-      "在頻道裡選你用 CCC 邀請連結註冊的交易所、填 UID（UM 再加註冊 UM 的 Email）：",
+      "在頻道裡選你用 CCC 邀請連結註冊的交易所、填 UID（UM 填 MT5 帳號和開戶的英文姓名）：",
       "• Bybit、BingX：幾秒鐘自動確認，通過就給你研究員身分組和實驗室密碼",
       "• OKX、UM：管理員確認後通過，一樣在頻道裡給你",
     ].join("\n"),
@@ -62,8 +62,8 @@ export function uidModal(ex) {
       title: `報名培訓計畫：${ex}`,
       components: [
         { type: 1, components: [{ type: 4, custom_id: "uid", style: 1, label: EX_HINT[ex] || `${ex} UID`, min_length: 5, max_length: 24, required: true, placeholder: "例如 12345678" }] },
-        // UM 另外填註冊 UM 用的 Email，管理員對帳比較準
-        ...(needsEmail(ex) ? [{ type: 1, components: [{ type: 4, custom_id: "account_email", style: 1, label: "註冊 UM 用的 Email", min_length: 6, max_length: 254, required: true, placeholder: "例如 name@gmail.com" }] }] : []),
+        // UM 另外填開戶的英文姓名，跟 UM 代理後台對得起來
+        ...(needsName(ex) ? [{ type: 1, components: [{ type: 4, custom_id: "account_name", style: 1, label: "UM 開戶的英文姓名（跟護照一樣）", min_length: 2, max_length: 60, required: true, placeholder: "例如 WANG XIAO MING" }] }] : []),
       ],
     },
   };
@@ -124,9 +124,9 @@ export function reviewMessage(app, { reason = "", reviewer = "" } = {}) {
     `**培訓計畫報名 #${app.id}**　${STATUS_TEXT[app.status] || app.status}`,
     `報名者：<@${app.discord_user_id}>（${app.discord_name || "?"}）`,
     `交易所：${exLabel(app.exchange)}`,
-    `UID：\`${app.exchange_uid}\``,
+    `${app.exchange === "UM" ? "MT5 帳號" : "UID"}：\`${app.exchange_uid}\``,
   ];
-  if (app.account_email) lines.push(`Email：\`${app.account_email}\``);
+  if (app.account_name) lines.push(`姓名：\`${app.account_name}\``);
   if (reason) lines.push(`說明：${reason}`);
   if (app.status !== "pending" && reviewer) lines.push(`審核：${reviewer}`);
   if (app.status === "pending") lines.push("", "管理員請到交易所的代理後台確認這個 UID 是 CCC 邀請的，再按下面的按鈕。報名的人請稍等，通過後會在這裡給你實驗室密碼。");
@@ -161,8 +161,8 @@ export function resultText(kind, { ex, invite } = {}) {
       return "你已經加入培訓計畫了，不用再報名 🙂";
     case "uid_taken":
       return "這個 UID 已經被其他人用來報名過了。如果是你本人，請在頻道裡告訴管理員。";
-    case "bad_email":
-      return "請填你註冊 UM 用的 Email。";
+    case "bad_name":
+      return "請填你在 UM 開戶的英文姓名（跟護照一樣，例如 WANG XIAO MING）。";
     case "bad_uid":
       return "UID 是一串數字，請再確認一次。";
     case "not_owner":

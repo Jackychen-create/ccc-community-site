@@ -414,3 +414,8 @@ alter table public.exchange_links drop constraint if exists exchange_links_excha
 alter table public.exchange_links add constraint exchange_links_exchange_uid_check check (exchange_uid ~ '^\d{5,20}$');
 alter table public.discord_applications drop constraint if exists discord_applications_exchange_uid_check;
 alter table public.discord_applications add constraint discord_applications_exchange_uid_check check (exchange_uid ~ '^\d{5,20}$');
+
+-- ── v1.16.7：UM 改填 MT5 帳號＋開戶的英文姓名（UM 代理後台只看得到帳號和姓名，看不到 Email）──
+-- account_email 留著（之前填過的不刪），之後不再用
+alter table public.exchange_links add column if not exists account_name text check (account_name is null or char_length(account_name) <= 60);
+alter table public.discord_applications add column if not exists account_name text check (account_name is null or char_length(account_name) <= 60);

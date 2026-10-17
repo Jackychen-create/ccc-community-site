@@ -3,7 +3,7 @@
 import { supabaseAdmin } from "./env.js";
 import { twDate, todayTW } from "./dates.js";
 import { EXCHANGES, AUTO_EXCHANGES, DEFAULT_THRESHOLD, isQualified, periodOf, nextPeriod, prevPeriod, addDays } from "../../public/assets/js/shared/rules.js";
-export { EXCHANGES, AUTO_EXCHANGES, LOT_GOALS, DEFAULT_THRESHOLD, isQualified, goalOf, unitOf, gapText, ruleText, periodOf, nextPeriod, prevPeriod, addMonths, idLabel, cleanExId, exIdOk, exIdError, needsEmail, cleanAccountEmail, accountEmailOk, ACCOUNT_EMAIL_ERROR } from "../../public/assets/js/shared/rules.js";
+export { EXCHANGES, AUTO_EXCHANGES, LOT_GOALS, DEFAULT_THRESHOLD, isQualified, goalOf, unitOf, gapText, ruleText, periodOf, nextPeriod, prevPeriod, addMonths, idLabel, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR } from "../../public/assets/js/shared/rules.js";
 
 export async function getThreshold() {
   const { data } = await supabaseAdmin.from("settings").select("value").eq("key", "volume_threshold").maybeSingle();
