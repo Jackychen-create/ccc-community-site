@@ -32,6 +32,7 @@
     <a class="brand" href="#videos"><span class="mark">CCC</span><span>後台管理</span></a>
     <nav class="nav" aria-label="後台">
       <a href="#videos" data-view="videos"><span data-ico="video"></span>影片<span class="count num" id="cVideos"></span></a>
+      <a href="#lives" data-view="lives"><span data-ico="calendar"></span>直播預告<span class="count num" id="cLives"></span></a>
       <a href="#invites" data-view="invites"><span data-ico="ticket"></span>實驗室密碼<span class="count num" id="cInvites"></span></a>
       <a href="#discord" data-view="discord"><span data-ico="shield"></span>Discord 審核<span class="count num" id="cDiscord"></span></a>
       <a href="#members" data-view="members"><span data-ico="users"></span>研究員<span class="count num" id="cMembers"></span></a>
@@ -65,6 +66,38 @@
       </div>
       <div class="uploads" id="uploads"></div>
       <div style="margin-top: 22px" id="videoTableBox"></div>
+    </section>
+
+    <!-- 直播預告 -->
+    <section id="v-lives" data-view-panel="lives" hidden>
+      <div class="page-head">
+        <div>
+          <h1>直播預告</h1>
+          <p>排好直播時間，機器人會發到 Discord「🧪實驗室」頻道；改時間、取消、開播前 30 分鐘提醒都會自動通知</p>
+        </div>
+      </div>
+      <div class="cols">
+        <div class="wide" id="liveTableBox"></div>
+        <div class="narrow card" id="liveFormBox">
+          <h2 id="liveFormTitle">排一場直播</h2>
+          <label class="field"><span class="label">標題</span>
+            <input class="input" id="liveTitle" type="text" maxlength="60" placeholder="例如：NQ 盤前直播">
+          </label>
+          <label class="field"><span class="label">時間（台灣時間）</span>
+            <input class="input num" id="liveAt" type="datetime-local">
+          </label>
+          <label class="field"><span class="label">說明（選填）</span>
+            <textarea class="textarea" id="liveNote" maxlength="500" placeholder="這場要聊什麼"></textarea>
+          </label>
+          <label class="field"><span class="label">直播連結（選填）</span>
+            <input class="input" id="liveLink" type="url" maxlength="300" placeholder="https://…">
+          </label>
+          <label class="check" id="liveMentionRow" style="margin-top: 14px"><input type="checkbox" id="liveMention" checked>公告時提及 @實驗室研究員</label>
+          <button class="btn primary block" type="button" id="liveSave" style="margin-top: 18px">排定並發公告</button>
+          <button class="btn ghost block" type="button" id="liveCancelEdit" style="margin-top: 8px" hidden>不改了</button>
+          <p class="small muted" id="liveHint" style="margin-top: 12px"></p>
+        </div>
+      </div>
     </section>
 
     <!-- 實驗室密碼 -->

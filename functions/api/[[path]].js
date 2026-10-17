@@ -15,6 +15,8 @@ import adminSync from "../../server/admin/sync.js";
 import adminDiscord from "../../server/admin/discord.js";
 import discordInteractions from "../../server/discord/interactions.js";
 import cronSync from "../../server/cron/sync.js";
+import cronLives from "../../server/cron/lives.js";
+import adminLives from "../../server/admin/lives.js";
 import adminFeedback from "../../server/admin/feedback.js";
 import adminErrors from "../../server/admin/errors.js";
 import adminFollowup from "../../server/admin/followup.js";
@@ -40,6 +42,8 @@ const ROUTES = {
   "exchange-link": exchangeLink,
   "admin/sync": adminSync,
   "cron/sync": cronSync,
+  "cron/lives": cronLives,
+  "admin/lives": adminLives,
   "discord/interactions": discordInteractions,
   "admin/discord": adminDiscord,
   "cron/bingx": cronSync, // 舊網址，保留給還沒更新的排程

@@ -1,6 +1,7 @@
 // 後台的進入點（admin.html 載入這一支）：開機確認管理員、側欄分頁（#videos、#invites…）
 //
 //   #videos   影片        videos.js、editor.js、upload.js
+//   #lives    直播預告    lives.js
 //   #invites  實驗室密碼  invites.js
 //   #discord  Discord 審核  discord.js
 //   #members  研究員      members.js
@@ -17,6 +18,7 @@ import { loadVideos } from "./videos.js";
 import { activeUploads } from "./upload.js";
 import { loadInvites } from "./invites.js";
 import { loadDiscord } from "./discord.js";
+import { loadLives } from "./lives.js";
 import { loadMembers } from "./members.js";
 import { loadVolumes } from "./volumes.js";
 import { loadStats } from "./stats.js";
@@ -86,7 +88,7 @@ function loadBadges() {
 
 function route() {
   loadBadges();
-  const VIEWS = ["videos", "invites", "discord", "members", "volumes", "stats", "feedback", "followup", "health"];
+  const VIEWS = ["videos", "lives", "invites", "discord", "members", "volumes", "stats", "feedback", "followup", "health"];
   const want = location.hash.slice(1);
   const view = VIEWS.includes(want) && canSeeView(state.me?.adminRole, want) ? want : "videos";
   document.querySelectorAll("[data-view-panel]").forEach((p) => (p.hidden = p.dataset.viewPanel !== view));
@@ -98,8 +100,9 @@ function route() {
     }
     else a.removeAttribute("aria-current");
   });
-  document.title = { videos: "影片", invites: "實驗室密碼", discord: "Discord 審核", members: "研究員", volumes: "交易量", stats: "觀看統計", feedback: "提問回報", followup: "待跟進", health: "網站狀況" }[view] + "｜後台管理";
+  document.title = { videos: "影片", lives: "直播預告", invites: "實驗室密碼", discord: "Discord 審核", members: "研究員", volumes: "交易量", stats: "觀看統計", feedback: "提問回報", followup: "待跟進", health: "網站狀況" }[view] + "｜後台管理";
   if (view === "videos") loadVideos();
+  if (view === "lives") loadLives();
   if (view === "invites") loadInvites();
   if (view === "discord") loadDiscord();
   if (view === "members") loadMembers();

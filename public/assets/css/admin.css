@@ -135,3 +135,7 @@
 .mem-uid { display: inline-flex; gap: 5px; padding: 0 7px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink-2); }
 .mem-uid b { color: var(--amber); font-weight: 600; }
 .dc-email { color: var(--ink-2); word-break: break-all; }
+/* 直播預告 */
+.live-note { margin-top: 2px; white-space: pre-line; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.live-more summary { cursor: pointer; color: var(--ink-2); padding: 6px 0; }
+.live-more[open] summary { margin-bottom: 8px; }

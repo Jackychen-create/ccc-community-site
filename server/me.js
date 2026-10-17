@@ -1,6 +1,6 @@
-// GET   /api/me            目前登入者的身分、觀看資格到期日、通知設定
+// GET   /api/me            目前登入者的身分、觀看資格到期日、通知設定、下一場直播
 // PATCH /api/me { notify }  研究員自己開關「新影片寄信通知」
-import { supabaseAdmin, adminRole, requireMember, readBody, route, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, getThreshold, isQualified, periodFor, nextPeriod, anchorOf } from "./lib/index.js";
+import { supabaseAdmin, adminRole, requireMember, readBody, route, nextLive, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, getThreshold, isQualified, periodFor, nextPeriod, anchorOf } from "./lib/index.js";
 
 export default route({
   async GET(req, res) {
@@ -38,6 +38,8 @@ export default route({
     const { count: unread } = await supabaseAdmin.from("feedback").select("id", { count: "exact", head: true }).eq("user_id", ctx.user.id).eq("seen_reply", false);
     // 管理員是主要管理員（owner）還是協作管理員（editor）
     const role = ctx.isAdmin ? await adminRole(ctx.user.email) : null;
+    // 下一場直播（後台「直播預告」排的）；表還沒建立時當作沒有
+    const live = await nextLive().catch(() => null);
     return res.status(200).json({
       email: ctx.user.email,
       feedbackUnread: unread || 0,
@@ -47,6 +49,7 @@ export default route({
       notify: ctx.member ? ctx.member.notify !== false : null,
       volume,
       links,
+      nextLive: live ? { title: live.title, startsAt: live.starts_at, note: live.note, link: live.link } : null,
     });
   },
 
