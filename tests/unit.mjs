@@ -178,7 +178,7 @@ const bfake = http.createServer(async (req, res) => {
   }
   if (u.pathname === "/v5/affiliate/aff-user-list") {
     const cursor = u.searchParams.get("cursor") || "0";
-    const all = Array.from({ length: 150 }, (_, i) => ({ userId: String(77770001 + i), tradeVol: String(1000 * (i + 1)) }));
+    const all = Array.from({ length: 150 }, (_, i) => ({ userId: String(77770001 + i), tradeVol: String(1000 * (i + 1)), ...(i === 1 ? { tradfiTradeVol: "5890.958" } : {}) }));
     const start = Number(cursor);
     return send({ retCode: 0, retMsg: "OK", result: { list: all.slice(start, start + 100), nextPageCursor: start + 100 < all.length ? String(start + 100) : "" } });
   }
@@ -202,6 +202,7 @@ await atest("Bybit 交易量清單會翻頁抓完", async () => {
   assert.equal(m.size, 150);
   assert.equal(m.get("77770001"), 1000);
   assert.equal(m.get("77770150"), 150000);
+  assert.equal(m.get("77770002"), 2000 + 5890.958, "TradFi（黃金、股票）也要算進去");
   assert.deepEqual(bseen.filter((x) => x.path.endsWith("/aff-user-list")).map((x) => new URLSearchParams(x.query).get("cursor") || ""), ["", "100"]);
 });
 bfake.close();

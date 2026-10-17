@@ -385,3 +385,16 @@ select cron.schedule('live-reminder', '*/5 * * * *', $cron$
   )
   from vault.decrypted_secrets s where s.name = 'cron_secret';
 $cron$);
+
+-- ── v1.16.2：每天同步交易量改成兩次（台灣 10:17、18:17）──
+-- Bybit 的交易量隔天（T+1）才更新，原本台灣半夜 02:17 跑太早，前一天的還沒出來
+select cron.unschedule(jobid) from cron.job where jobname = 'daily-volume-sync';
+select cron.schedule('daily-volume-sync', '17 2,10 * * *', $cron$
+  select net.http_post(
+    url := 'https://ccc-community-site.pages.dev/api/cron/sync',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'X-Cron-Secret', s.decrypted_secret),
+    body := '{}'::jsonb,
+    timeout_milliseconds := 60000
+  )
+  from vault.decrypted_secrets s where s.name = 'cron_secret';
+$cron$);
