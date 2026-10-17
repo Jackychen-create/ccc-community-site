@@ -2,7 +2,7 @@
 import * as A from "../core/index.js";
 const { el, $, api, icon } = A;
 import { goalOf, unitOf, bestProgress, gapText, ruleText, idLabel } from "../shared/rules.js";
-import { fail, loadingBox } from "./common.js";
+import { fail, loadingBox, segTabs } from "./common.js";
 import { markMembersStale } from "./members.js";
 
 // 每月交易量（任一間達標 → 從達標日起看一個月）；Bybit、BingX 是自動同步的，這裡只顯示不能改
@@ -24,6 +24,7 @@ const shortUsd = (n) => (n >= 1e4 ? `${Math.round((n / 1e4) * 10) / 10} 萬` : f
 
 // 這一輪／上一輪（每個人的一輪不一樣，從加入那天起算）
 let which = "current";
+let volTab = "active"; // active 正常 | banned 已停權（停權的人分開放，不算進達標人數）
 document.querySelectorAll("#volWhich .vol-seg-btn").forEach((b) => b.addEventListener("click", () => {
   which = b.dataset.which;
   document.querySelectorAll("#volWhich .vol-seg-btn").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
@@ -51,8 +52,11 @@ export async function loadVolumes() {
 function renderVolumes() {
   const { exchanges, threshold, rows } = vol;
   $("#volThreshold").replaceChildren(icon("edit"), `門檻 ${shortUsd(threshold)} USDT`);
-  const passed = rows.filter((r) => r.qualified).length;
-  $("#volSub").textContent = `每人從加入那天起算，每一輪一個月（10/16 加入 → 10/16～11/15）。${ruleText(threshold, exchanges)}，就可以看到下一輪結束；沒達標，下一輪第一天就不能看。${which === "previous" ? "上一輪" : "這一輪"} ${passed}／${rows.length} 位達標。`;
+  const active = rows.filter((r) => !r.banned);
+  const bannedCount = rows.length - active.length;
+  if (!bannedCount) volTab = "active";
+  const passed = active.filter((r) => r.qualified).length;
+  $("#volSub").textContent = `每人從加入那天起算，每一輪一個月（10/16 加入 → 10/16～11/15）。${ruleText(threshold, exchanges)}，就可以看到下一輪結束；沒達標，下一輪第一天就不能看。${which === "previous" ? "上一輪" : "這一輪"} ${passed}／${active.length} 位達標${bannedCount ? `（不含 ${bannedCount} 位已停權）` : ""}。`;
   const box = $("#volBox");
   if (!rows.length) {
     box.replaceChildren(el("div", { class: "empty" }, el("h2", { text: which === "previous" ? "大家都還在第一輪，沒有上一輪" : "還沒有研究員" })));
@@ -102,7 +106,7 @@ function renderVolumes() {
     inputs.set(r.user_id, map);
     resultCell(r, result);
     refreshers.push(() => resultCell(r, result));
-    return el("tr", null,
+    return el("tr", { "data-group": r.banned ? "banned" : "active", hidden: (r.banned ? "banned" : "active") !== volTab },
       el("td", null, el("div", { class: "t-title", style: { wordBreak: "break-all" }, text: r.email }),
         el("div", { class: "small vol-period num", text: `${which === "previous" ? "上一輪" : "這一輪"} ${mdv(r.period_start)}～${mdv(r.period_end)}` }),
         r.banned ? el("span", { class: "pill warn", style: { marginTop: "6px" } }, "已停權") : null,
@@ -111,16 +115,28 @@ function renderVolumes() {
       result,
       el("td", { class: "small hide-sm", text: accessText(r) }));
   });
+  // 正常／已停權分開看（切換不會弄掉還沒存的數字）
+  const empty = el("div", { class: "empty", hidden: true }, el("p", { text: "這一組沒有研究員" }));
+  const showTab = () => {
+    trs.forEach((tr) => (tr.hidden = tr.dataset.group !== volTab));
+    empty.hidden = trs.some((tr) => !tr.hidden);
+  };
+  const tabs = bannedCount ? segTabs([{ key: "active", label: "正常", count: active.length }, { key: "banned", label: "已停權", count: bannedCount }], volTab, (k) => {
+    volTab = k;
+    tabs.querySelectorAll(".vol-seg-btn").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.tab === k)));
+    showTab();
+  }, "研究員分組") : null;
   box.replaceChildren(
-    syncBar(),
+    ...[syncBar(), tabs].filter(Boolean),
     el("div", { class: "table-wrap" },
       el("table", { class: "table stack vol-table" },
         el("thead", null, el("tr", null, el("th", { text: "研究員" }), ...exchanges.map((ex) => el("th", { text: isAuto(ex) ? `${ex}（自動）` : `${ex}（${unitOf(ex)}）` })), el("th", { text: "結果" }), el("th", { class: "hide-sm", text: "觀看資格" }))),
-        el("tbody", null, trs))),
+        el("tbody", null, trs)), empty),
     el("div", { class: "vol-foot" },
       el("p", { class: "small muted", text: "USDT 可以打 1000000、1,000,000、100萬 或 1m；UM 填手數，例如 10 或 2.5。每個人填的是他自己那一輪（名字下面的日期）的交易量。這次新達標的人，資格延長到下一輪結束；同一輪已經達標過的不會再延；「不限」的研究員不會被改。" }),
       saveBtn)
   );
+  showTab();
   vol._inputs = inputs;
   vol._dirty = dirty;
   vol._refresh = () => refreshers.forEach((f) => f());
