@@ -34,6 +34,7 @@ export function renderLivePanel() {
         el("span", { class: "pill" + (soon === "直播中" ? " live-on" : "") }, el("span", { class: "dot" }), soon)),
       el("div", { class: "live-when num", text: when(l.startsAt) }),
       el("div", { class: "vtitle", text: l.title }),
+      l.hosts?.length ? el("div", { class: "small live-host", text: `主講：${l.hosts.join("、")}` }) : null,
       l.note ? el("p", { class: "small muted live-note", text: l.note }) : null,
       l.link ? el("a", { class: "btn primary block", href: l.link, target: "_blank", rel: "noopener", style: { marginTop: "12px" } }, icon("ext"), "前往直播") : null));
 }

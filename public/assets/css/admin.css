@@ -143,3 +143,4 @@
 .list-seg { margin-bottom: 14px; max-width: 100%; overflow-x: auto; }
 .list-seg .vol-seg-btn { white-space: nowrap; }
 .list-seg .seg-n { opacity: .75; }
+.live-hosts { margin-top: 2px; color: var(--amber); }

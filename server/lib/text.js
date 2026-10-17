@@ -36,3 +36,15 @@ export function cleanText(v, max = 500) {
 export function isDate(v) {
   return typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(Date.parse(v));
 }
+
+// 主講人：最多 5 個、每個最多 12 字，去掉重複和空白
+export function cleanHosts(v) {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const h of v) {
+    const t = String(h || "").trim().slice(0, 12);
+    if (t && !out.includes(t)) out.push(t);
+    if (out.length >= 5) break;
+  }
+  return out;
+}

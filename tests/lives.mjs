@@ -112,7 +112,7 @@ const live = (id) => db.lives.find((l) => l.id === id);
 let id1;
 await test("新增直播 → 存起來、發到實驗室頻道並提及實驗室研究員", async () => {
   const before = calls.length;
-  const r = await call(adminLives, { method: "POST", body: { title: "NQ 盤前直播", startsAt: inHours(48), note: "聊這週的 FOMC", link: "https://youtube.com/live/abc" } });
+  const r = await call(adminLives, { method: "POST", body: { title: "NQ 盤前直播", startsAt: inHours(48), hosts: ["CCC", " OC ", "CCC"], note: "聊這週的 FOMC", link: "https://youtube.com/live/abc" } });
   assert.equal(r.statusCode, 200, JSON.stringify(r.body));
   assert.equal(r.body.announce.posted, true);
   assert.equal(r.body.discord.configured, true); assert.equal(r.body.discord.channelId, LAB);
@@ -121,6 +121,8 @@ await test("新增直播 → 存起來、發到實驗室頻道並提及實驗室
   assert.ok(post, "沒有發到實驗室頻道");
   assert.ok(post.body.content.startsWith(`<@&${ROLE}>`));
   assert.match(post.body.content, /直播預告：NQ 盤前直播/);
+  assert.match(post.body.content, /🎙 主講：CCC、OC/, "公告要寫主講人");
+  assert.deepEqual(live(id1).hosts, ["CCC", "OC"], "主講人去掉重複和空白");
   assert.match(post.body.content, /<t:\d+:F>/); assert.match(post.body.content, /FOMC/); assert.match(post.body.content, /youtube\.com\/live\/abc/);
   assert.deepEqual(post.body.allowed_mentions, { roles: [ROLE] });
   assert.ok(live(id1).discord_message_id, "要記下公告的訊息 ID");

@@ -49,7 +49,7 @@ export default route({
       notify: ctx.member ? ctx.member.notify !== false : null,
       volume,
       links,
-      nextLive: live ? { title: live.title, startsAt: live.starts_at, note: live.note, link: live.link } : null,
+      nextLive: live ? { title: live.title, startsAt: live.starts_at, hosts: live.hosts || [], note: live.note, link: live.link } : null,
     });
   },
 

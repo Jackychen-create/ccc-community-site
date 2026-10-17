@@ -419,3 +419,6 @@ alter table public.discord_applications add constraint discord_applications_exch
 -- account_email 留著（之前填過的不刪），之後不再用
 alter table public.exchange_links add column if not exists account_name text check (account_name is null or char_length(account_name) <= 60);
 alter table public.discord_applications add column if not exists account_name text check (account_name is null or char_length(account_name) <= 60);
+
+-- ── v1.16.14：直播預告加主講人（可以複選，選項跟影片一樣在 config.js 的 HOSTS）──
+alter table public.lives add column if not exists hosts text[] not null default '{}';

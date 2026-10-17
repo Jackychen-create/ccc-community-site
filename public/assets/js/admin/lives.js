@@ -6,6 +6,18 @@ import { fail, loadingBox } from "./common.js";
 let data = null; // { lives, discord: { configured, channelId } }
 let loaded = false;
 let editing = null; // 正在修改的那場
+// 主講人：可以複選，選項跟影片一樣在 config.js 的 HOSTS
+const hostSet = new Set();
+function renderHosts() {
+  const opts = [...new Set([...(A.cfg.HOSTS || []), ...hostSet])];
+  $("#liveHosts").replaceChildren(...opts.map((h) => {
+    const b = el("button", { class: "chip", type: "button", "aria-pressed": String(hostSet.has(h)), text: h });
+    b.addEventListener("click", () => { hostSet.has(h) ? hostSet.delete(h) : hostSet.add(h); b.setAttribute("aria-pressed", String(hostSet.has(h))); });
+    return b;
+  }));
+}
+const pickedHosts = () => [...new Set([...(A.cfg.HOSTS || []), ...hostSet])].filter((h) => hostSet.has(h));
+renderHosts();
 
 export async function loadLives() {
   if (!loaded) $("#liveTableBox").replaceChildren(loadingBox());
@@ -65,6 +77,7 @@ function table(list, active) {
         return el("tr", { "data-live": l.id },
           el("td", { "data-label": "時間" }, el("b", { class: "num", text: when(l.starts_at) })),
           el("td", { "data-label": "直播" }, el("span", { text: l.title }),
+            l.hosts?.length ? el("div", { class: "small live-hosts", text: `主講：${l.hosts.join("、")}` }) : null,
             l.note ? el("div", { class: "small muted live-note", text: l.note }) : null,
             l.link ? el("a", { class: "small", href: l.link, target: "_blank", rel: "noopener", text: "直播連結" }) : null),
           el("td", { "data-label": "Discord" }, el("span", { class: "pill " + dc[1] }, el("span", { class: "dot" }), dc[0])),
@@ -81,6 +94,7 @@ function resetForm() {
   $("#liveCancelEdit").hidden = true;
   $("#liveMentionRow").hidden = false;
   for (const id of ["#liveTitle", "#liveAt", "#liveNote", "#liveLink"]) $(id).value = "";
+  hostSet.clear(); renderHosts();
 }
 
 function startEdit(l) {
@@ -93,6 +107,7 @@ function startEdit(l) {
   $("#liveAt").value = toInput(l.starts_at);
   $("#liveNote").value = l.note || "";
   $("#liveLink").value = l.link || "";
+  hostSet.clear(); (l.hosts || []).forEach((h) => hostSet.add(h)); renderHosts();
   $("#liveFormBox").scrollIntoView({ block: "start", behavior: A.reduceMotion() ? "auto" : "smooth" }); // 手機上表單在下面
   $("#liveTitle").focus({ preventScroll: true });
 }
@@ -123,7 +138,7 @@ $("#liveSave").addEventListener("click", async () => {
   if (!title) return A.toast("要填直播標題", "err");
   if (!at) return A.toast("要選直播時間", "err");
   const startsAt = new Date(at).toISOString();
-  const body = { title, startsAt, note: $("#liveNote").value, link: $("#liveLink").value.trim() };
+  const body = { title, startsAt, hosts: pickedHosts(), note: $("#liveNote").value, link: $("#liveLink").value.trim() };
   A.setBusy(btn, true, editing ? "儲存中…" : "排定中…");
   try {
     if (editing) {

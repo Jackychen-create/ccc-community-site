@@ -15,7 +15,7 @@ import {
   isIssuedKey,
   cleanTitle,
   cleanChapters,
-  COURSE_HOSTS,
+  COURSE_HOSTS, cleanHosts,
   COURSE_PARTS,
   route,
 } from "../lib/index.js";
@@ -161,17 +161,6 @@ export default route({
   },
 });
 
-// 主講人：最多 5 個、每個最多 12 字，去掉重複和空白
-function cleanHosts(v) {
-  if (!Array.isArray(v)) return [];
-  const out = [];
-  for (const h of v) {
-    const t = String(h || "").trim().slice(0, 12);
-    if (t && !out.includes(t)) out.push(t);
-    if (out.length >= 5) break;
-  }
-  return out;
-}
 
 function posInt(v) {
   const n = Math.round(Number(v));

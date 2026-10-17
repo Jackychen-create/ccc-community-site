@@ -1,15 +1,15 @@
 // 後台：直播預告（主要管理員、協作管理員都可以用）
 // GET    /api/admin/lives                 最近 30 天到之後的直播、Discord 有沒有設定好
-// POST   /api/admin/lives { title, startsAt, note, link, mention }   新增，發到 Discord 研究員專屬公告頻道
+// POST   /api/admin/lives { title, startsAt, hosts, note, link, mention }   新增，發到 Discord 研究員專屬公告頻道
 // 回應都附上最新的列表；announce = { posted, error? } 是這次有沒有發到 Discord
 // PATCH  /api/admin/lives { id, title, startsAt, note, link }        修改；改了時間會在公告下面回覆通知
 // DELETE /api/admin/lives?id=1                                      取消（公告劃掉並回覆通知，紀錄保留）
 import {
   supabaseAdmin, requireAdmin, readBody, route, toInt, cleanText, discordConfigured, getDiscordSettings,
-  announceLive, LIVE_TITLE_MAX, LIVE_NOTE_MAX,
+  announceLive, LIVE_TITLE_MAX, LIVE_NOTE_MAX, cleanHosts,
 } from "../lib/index.js";
 
-const FIELDS = "id, title, starts_at, note, link, mention, status, discord_channel_id, discord_message_id, reminded_at, created_by, created_at, updated_at";
+const FIELDS = "id, title, starts_at, note, link, hosts, mention, status, discord_channel_id, discord_message_id, reminded_at, created_by, created_at, updated_at";
 const DAY = 86400e3;
 
 // 檢查並整理表單；partial=true 時只檢查有給的欄位
@@ -26,6 +26,7 @@ function clean(b, { partial = false } = {}) {
     if (t > Date.now() + 366 * DAY) return { error: "只能排一年內的直播" };
     out.starts_at = new Date(t).toISOString();
   }
+  if (!partial || b.hosts !== undefined) out.hosts = cleanHosts(b.hosts); // 主講人，可以複選
   if (!partial || b.note !== undefined) out.note = String(b.note || "").trim().slice(0, LIVE_NOTE_MAX) || null;
   if (!partial || b.link !== undefined) {
     const link = String(b.link || "").trim();
