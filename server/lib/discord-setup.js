@@ -1,13 +1,13 @@
-// Discord 一鍵建立：分類、三個頻道（權限設好）、放私人申請頻道的分類、申請按鈕、實驗室頻道釘選實驗室密碼
+// Discord 一鍵建立：分類、三個頻道（權限設好）、放私人申請頻道的分類、申請按鈕
+// 實驗室密碼不貼在頻道裡：每個通過的人在自己的申請頻道拿到專用的一組
 // 可以重複按：已經建好的頻道、已經貼過的訊息不會重複建立，只會把權限調回正確
 import {
-  getGuilds, getGuild, getRoles, getMember, getChannel, createChannel, editChannel, sendMessage, pinMessage,
+  getGuilds, getGuild, getRoles, getMember, getChannel, createChannel, editChannel, sendMessage,
   getDiscordSettings, saveDiscordSettings,
 } from "./discord.js";
 import { env } from "./env.js";
 import { panelMessage } from "./discord-flow.js";
 import { TICKET_CATEGORY, categoryOverwrites } from "./discord-ticket.js";
-import { ruleText, DEFAULT_THRESHOLD } from "../../public/assets/js/shared/rules.js";
 
 // 權限位元（https://discord.com/developers/docs/topics/permissions）
 export const P = {
@@ -23,7 +23,7 @@ export const CHANNELS = {
   category: { name: "🧪 CCC 交易實驗室", type: 4 },
   panel: { name: "📝申請加入實驗室", type: 0, topic: "按下面的按鈕，機器人會幫你開一個私人申請頻道。Bybit、BingX 自動確認；OKX、UM 由管理員審核。" },
   review: { name: "🔒申請審核", type: 0, topic: "有人在等管理員審核（OKX、UM）時會通知在這裡，點頻道連結過去按「通過」或「不通過」。只有管理員看得到。" },
-  lab: { name: "🧪實驗室", type: 0, topic: "實驗室研究員專用：網站實驗室密碼、公告" },
+  lab: { name: "🧪實驗室", type: 0, topic: "實驗室研究員專用：公告" },
 };
 
 // 每個頻道的權限：everyone、實驗室身分組、機器人
@@ -39,31 +39,13 @@ export function overwrites(kind, { guildId, roleId, botId, staffRoleIds = [] }) 
   return [];
 }
 
-export function labMessage(code, origin, threshold = DEFAULT_THRESHOLD) {
-  return {
-    content: [
-      "## 歡迎加入 CCC 交易實驗室 🧪",
-      "研究員專區（直播留檔、教學課程）用下面的實驗室密碼註冊：",
-      "",
-      `實驗室密碼：**${code}**`,
-      `加入連結：${origin}/?invite=${code}`,
-      "",
-      "點連結，實驗室密碼會自動帶入，用 Email 設定密碼就完成了。",
-      `加入後一個月內都可以看。之後每個月${ruleText(threshold)}，就能繼續看。`,
-      "Bybit、BingX 在網站右邊綁定 UID，交易量會每天自動更新。",
-      "⚠️ 實驗室密碼請不要外流。",
-    ].join("\n"),
-    allowed_mentions: { parse: [] },
-  };
-}
-
 async function exists(id) {
   if (!id) return false;
   try { await getChannel(id); return true; } catch (e) { if (e.status === 404 || e.status === 403) return false; throw e; }
 }
 
 // 主流程；回傳結果和需要人處理的問題
-export async function setupGuild({ code, origin, threshold }) {
+export async function setupGuild() {
   const s = await getDiscordSettings();
   const botId = env.DISCORD_APP_ID;
   // 1. 找伺服器：機器人只在一個伺服器就用那個
@@ -110,18 +92,12 @@ export async function setupGuild({ code, origin, threshold }) {
     created.push(TICKET_CATEGORY.name);
   }
 
-  // 4. 申請按鈕、實驗室密碼（換了頻道或換了密碼才重貼）
+  // 4. 申請按鈕（換了頻道才重貼）
   const next = { ...s, guildId, ...ids };
+  delete next.labCode; delete next.labMessageId; // 舊版會在實驗室頻道貼共用實驗室密碼，現在不用了
   if (!s.panelMessageId || s.panelChannelId !== ids.panelChannelId) {
     next.panelMessageId = (await sendMessage(ids.panelChannelId, panelMessage())).id;
   }
-  let pinned = true;
-  if (code && (!s.labMessageId || s.labCode !== code || s.labChannelId !== ids.labChannelId)) {
-    const msg = await sendMessage(ids.labChannelId, labMessage(code, origin, threshold));
-    next.labMessageId = msg.id;
-    next.labCode = code;
-    try { await pinMessage(ids.labChannelId, msg.id); } catch { pinned = false; }
-  }
   await saveDiscordSettings(next);
-  return { ok: true, guildName: guild.name, hierarchyOk, roleName: role.name, created, pinned, settings: next };
+  return { ok: true, guildName: guild.name, hierarchyOk, roleName: role.name, created, settings: next };
 }
