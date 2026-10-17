@@ -77,8 +77,10 @@ const supa = http.createServer(async (req, res) => {
 let bingxRows = [];
 const bingx = http.createServer((req, res) => {
   const sp = new URL(req.url, "http://x").searchParams;
-  const s = sp.get("startTime"), e = sp.get("endTime"), uid = sp.get("uid");
-  const ymd = (ms) => new Date(ms + 8 * 3600e3).toISOString().slice(0, 10).replaceAll("-", "");
+  const ymd = (ms) => new Date(Number(ms) + 8 * 3600e3).toISOString().slice(0, 10).replaceAll("-", "");
+  // 真的 BingX 要毫秒時間戳；傳 YYYYMMDD 會回 beginTime-over-366
+  if (!/^\d{13}$/.test(sp.get("startTime") || "")) { res.writeHead(200, { "Content-Type": "application/json" }); return res.end(JSON.stringify({ code: 100400, msg: "beginTime-over-366. The query time range cannot exceed 366 days" })); }
+  const s = ymd(sp.get("startTime")), e = ymd(sp.get("endTime")), uid = sp.get("uid");
   const list = bingxRows.filter((r) => ymd(r.commissionTime) >= s && ymd(r.commissionTime) <= e && (!uid || String(r.uid) === uid));
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end(JSON.stringify({ code: 0, data: { list, total: list.length } }));

@@ -128,12 +128,15 @@ const fake = http.createServer(async (req, res) => {
   if (!okSig) return send({ code: 100001, msg: "signature" });
   if (u.pathname.endsWith("/inviteRelationCheck")) return send({ code: 0, data: { uid: Number(params.uid), inviteResult: params.uid === "88880001", directInvitation: true } });
   if (u.pathname.endsWith("/commissionDataList")) {
+    if (bingxWants === "ms" && !/^\d{13}$/.test(params.startTime)) return send({ code: 100400, msg: "beginTime-over-366. The query time range cannot exceed 366 days" });
+    if (bingxWants === "ymd" && !/^\d{8}$/.test(params.startTime)) return send({ code: 100400, msg: "startTime format error" });
     const page = Number(params.pageIndex);
     const all = Array.from({ length: 130 }, (_, i) => ({ uid: 88880001, commissionTime: Date.UTC(2026, 9, 1 + (i % 10)), tradingVolume: "100" }));
     return send({ code: 0, data: { list: all.slice((page - 1) * 100, page * 100), total: all.length } });
   }
   send({ code: 404, msg: "?" });
 });
+let bingxWants = "ms";
 await new Promise((r) => fake.listen(0, r));
 Object.assign(env, { BINGX_API_KEY: "test-key", BINGX_SECRET_KEY: "test-secret", BINGX_BASE_URL: `http://127.0.0.1:${fake.address().port}` });
 await atest("BingX 查邀請關係：簽名正確、帶 API Key", async () => {
@@ -141,10 +144,23 @@ await atest("BingX 查邀請關係：簽名正確、帶 API Key", async () => {
   assert.deepEqual(await checkInvite("12345"), { invited: false, direct: true });
   assert.ok(seen.every((x) => x.okSig && x.key === "test-key" && x.params.timestamp && x.params.recvWindow === "5000"));
 });
-await atest("BingX 每日交易量會翻頁抓完", async () => {
+await atest("BingX 每日交易量會翻頁抓完（時間用毫秒，台灣那天的 00:00～23:59）", async () => {
   const list = await fetchDaily("20261001", "20261012");
   assert.equal(list.length, 130);
-  assert.deepEqual(seen.filter((x) => x.path.endsWith("/commissionDataList")).map((x) => x.params.pageIndex), ["1", "2"]);
+  const calls = seen.filter((x) => x.path.endsWith("/commissionDataList"));
+  assert.deepEqual(calls.map((x) => x.params.pageIndex), ["1", "2"]);
+  assert.equal(calls[0].params.startTime, String(Date.parse("2026-10-01T00:00:00+08:00")));
+  assert.equal(calls[0].params.endTime, String(Date.parse("2026-10-12T23:59:59.999+08:00")));
+});
+await atest("BingX 如果要 YYYYMMDD 會自動改用，之後記住", async () => {
+  bingxWants = "ymd";
+  const n = seen.length;
+  assert.equal((await fetchDaily("20261001", "20261012")).length, 130);
+  assert.equal((await fetchDaily("20261001", "20261012")).length, 130);
+  const tries = seen.slice(n).filter((x) => x.path.endsWith("/commissionDataList")).map((x) => x.params.startTime);
+  assert.deepEqual(tries, [String(Date.parse("2026-10-01T00:00:00+08:00")), "20261001", "20261001", "20261001", "20261001"]);
+  bingxWants = "ms";
+  assert.equal((await fetchDaily("20261001", "20261012")).length, 130, "再換回毫秒也可以");
 });
 await atest("BingX 回錯誤代碼會丟出來", async () => {
   env.BINGX_SECRET_KEY = "wrong";
