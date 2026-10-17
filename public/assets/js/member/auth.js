@@ -7,6 +7,26 @@ import { cleanExId, exIdOk, needsName, cleanAccountName, accountNameOk, ACCOUNT_
 
 let mode = "login";
 let onLogin = async () => {};
+let freeInvite = false; // 這組實驗室密碼是贈送名額：不用填交易所
+
+// 問伺服器這組實驗室密碼是不是贈送名額，是的話把交易所欄位收起來
+let checkSeq = 0;
+async function checkInvite() {
+  const code = $("#invite").value.trim().toUpperCase();
+  const seq = ++checkSeq;
+  let free = false;
+  if (/^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(code)) {
+    try { free = !!(await api(`/api/invite?code=${encodeURIComponent(code)}`)).free; } catch {}
+  }
+  if (seq !== checkSeq) return;
+  freeInvite = free;
+  applyFree();
+}
+function applyFree() {
+  const reg = mode === "register";
+  $("#uidRow").hidden = !reg || freeInvite;
+  $("#freeNote").hidden = !reg || !freeInvite;
+}
 
 export function showAuth() {
   show("authView");
@@ -16,6 +36,7 @@ export function showAuth() {
   if (invite) {
     $("#invite").value = invite.toUpperCase();
     setMode("register");
+    checkInvite();
   } else {
     setMode(mode);
   }
@@ -47,7 +68,7 @@ function setMode(m) {
   $("#tabLogin").setAttribute("aria-selected", String(!reg));
   $("#tabRegister").setAttribute("aria-selected", String(reg));
   $("#inviteRow").hidden = !reg;
-  $("#uidRow").hidden = !reg;
+  applyFree();
   $("#invite").required = reg;
   $("#authTitle").textContent = reg ? "加入培訓計畫" : "歡迎回來";
   $("#authSub").textContent = reg ? "輸入實驗室密碼，建立你的帳號" : "用你的 Email 和密碼登入";
@@ -84,6 +105,8 @@ export function initAuth(afterLogin) {
   onLogin = afterLogin;
   $("#tabLogin").addEventListener("click", () => setMode("login"));
   $("#tabRegister").addEventListener("click", () => setMode("register"));
+  $("#invite").addEventListener("change", checkInvite);
+  $("#invite").addEventListener("input", () => { if (/^[A-Za-z0-9]{4}-[A-Za-z0-9]{4}$/.test($("#invite").value.trim())) checkInvite(); else if (freeInvite) { freeInvite = false; applyFree(); } });
   $("#regEx").addEventListener("change", () => {
     setAuthError("");
     const ex = $("#regEx").value;
@@ -119,19 +142,21 @@ export function initAuth(afterLogin) {
     if (!password) return setAuthError("請輸入密碼");
     if (mode === "register" && password.length < 8) return setAuthError("密碼至少需要 8 個字元");
     if (mode === "register" && !invite) return setAuthError("請輸入實驗室密碼");
-    const exchange = $("#regEx").value;
+    // 贈送名額不用填交易所
+    const exchange = freeInvite ? "" : $("#regEx").value;
     const uid = cleanExId(exchange, $("#regUid").value);
-    if (mode === "register" && !exchange) return setAuthError("請選擇你用 CCC 邀請連結註冊的交易所");
-    if (mode === "register" && !exIdOk(exchange, uid)) return setAuthError(exchange === "UM" ? "請填 UM 的 MT5 帳號（一串數字）" : "請填交易所 UID（一串數字）");
+    const needEx = mode === "register" && !freeInvite;
+    if (needEx && !exchange) return setAuthError("請選擇你用 CCC 邀請連結註冊的交易所");
+    if (needEx && !exIdOk(exchange, uid)) return setAuthError(exchange === "UM" ? "請填 UM 的 MT5 帳號（一串數字）" : "請填交易所 UID（一串數字）");
     const accountName = needsName(exchange) ? cleanAccountName($("#regAccName").value) : undefined;
-    if (mode === "register" && needsName(exchange) && !accountNameOk(accountName)) return setAuthError(ACCOUNT_NAME_ERROR);
+    if (needEx && needsName(exchange) && !accountNameOk(accountName)) return setAuthError(ACCOUNT_NAME_ERROR);
 
     const btn = $("#authSubmit");
     setBusy(btn, true, mode === "register" ? "建立帳號中…" : "登入中…");
     setAuthError("");
     try {
       if (mode === "register") {
-        await api("/api/register", { method: "POST", body: { email, password, inviteCode: invite, exchange, uid, accountName } });
+        await api("/api/register", { method: "POST", body: freeInvite ? { email, password, inviteCode: invite } : { email, password, inviteCode: invite, exchange, uid, accountName } });
       }
       const { error } = await sb.auth.signInWithPassword({ email, password });
       if (error) throw new Error(loginErrorText(error));

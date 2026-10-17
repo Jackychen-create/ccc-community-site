@@ -32,7 +32,7 @@ function adminEligible(user) {
 async function memberRow(userId) {
   const { data, error } = await supabaseAdmin
     .from("members")
-    .select("user_id, banned, access_until, notify, created_at")
+    .select("user_id, banned, access_until, notify, created_at, free")
     .eq("user_id", userId)
     .maybeSingle();
   if (error) throw error;

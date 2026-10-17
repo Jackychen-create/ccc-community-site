@@ -36,6 +36,16 @@ export function renderVolPanel() {
   const v = state.me?.volume;
   if (!v) return (box.hidden = true);
   box.hidden = false;
+  // 贈送名額：沒有交易量門檻；交易所 UID 想填再填
+  if (state.me.free && !state.me.accessUntil) {
+    return box.replaceChildren(...[
+      el("div", { class: "panel-head", style: { padding: "14px 18px" } },
+        el("div", null, el("h2", { text: "觀看資格" })),
+        el("span", { class: "pill good" }, el("span", { class: "dot" }), "贈送名額")),
+      el("p", { class: "small muted vol-note", text: "你是贈送名額，不用綁交易所，也沒有交易量條件，觀看不限期。" }),
+      state.me.links?.some((l) => l.uid) ? linkRows() : null,
+    ].filter(Boolean));
+  }
   box.replaceChildren(...[
     el("div", { class: "panel-head", style: { padding: "14px 18px" } },
       el("div", null, el("h2", { text: "這一輪交易量" }), el("div", { class: "small muted num vol-range", text: `${md(v.periodStart)}～${md(v.periodEnd)}` })),
@@ -162,7 +172,7 @@ const UM_REDO = { title: "請重新填 UM 的 MT5 帳號", intro: "UM 改成填 
 
 export function promptUidIfMissing() {
   const me = state.me;
-  if (!me?.links || me.isAdmin) return;
+  if (!me?.links || me.isAdmin || me.free) return; // 贈送名額不用填
   const missing = !me.links.some((l) => l.uid);
   const redoUm = !missing && umNeedsRedo(me);
   if (!missing && !redoUm) return;

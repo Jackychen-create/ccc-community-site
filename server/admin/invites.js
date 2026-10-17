@@ -1,6 +1,6 @@
 // 後台：實驗室密碼
 // GET   /api/admin/invites
-// POST  /api/admin/invites   { max_uses, note }  產生一組新實驗室密碼
+// POST  /api/admin/invites   { max_uses, note, free }  產生一組新實驗室密碼；free = 贈送名額（免綁交易所、觀看不限期）
 // PATCH /api/admin/invites   { code, disabled }  停用／重新啟用
 // DELETE /api/admin/invites?code=XXXX-XXXX       刪除（用這組加入的研究員不受影響）
 import { supabaseAdmin, requireAdmin, readBody, cleanText, randomCode, route } from "../lib/index.js";
@@ -10,7 +10,7 @@ export default route({
     if (!(await requireAdmin(req, res))) return;
     const { data, error } = await supabaseAdmin
       .from("invite_codes")
-      .select("code, max_uses, used_count, note, disabled, created_at")
+      .select("code, max_uses, used_count, note, disabled, free, created_at")
       .order("created_at", { ascending: false });
     if (error) throw error;
     return res.status(200).json({ invites: data || [] });
@@ -24,13 +24,14 @@ export default route({
       return res.status(400).json({ error: "可使用次數需要介於 1 到 1000" });
     }
     const note = cleanText(b.note, 100) || null;
+    const free = b.free === true;
 
     for (let attempt = 0; attempt < 5; attempt++) {
       const code = randomCode();
       const { data, error } = await supabaseAdmin
         .from("invite_codes")
-        .insert({ code, max_uses: max, note })
-        .select("code, max_uses, used_count, note, disabled, created_at")
+        .insert({ code, max_uses: max, note, free })
+        .select("code, max_uses, used_count, note, disabled, free, created_at")
         .single();
       if (!error) return res.status(200).json({ invite: data });
       if (error.code !== "23505") throw error; // 23505 = 撞號，再產生一次

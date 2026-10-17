@@ -48,6 +48,7 @@ const invites = [
   { code: "K7QM-2XPA", max_uses: 30, used_count: 12, note: "第一批研究員", disabled: false, created_at: new Date(Date.now() - 20 * 86400e3).toISOString() },
   { code: "HW3N-8RTE", max_uses: 5, used_count: 5, note: "朋友", disabled: false, created_at: new Date(Date.now() - 10 * 86400e3).toISOString() },
   { code: "ZP4D-Y6UC", max_uses: 10, used_count: 1, note: null, disabled: true, created_at: new Date(Date.now() - 3 * 86400e3).toISOString() },
+  { code: "GF7T-2FRE", max_uses: 1, used_count: 0, note: "贈送：小明", disabled: false, free: true, created_at: new Date(Date.now() - 1 * 86400e3).toISOString() },
 ];
 const members = [
   { user_id: users["amy@example.com"].id, email: "amy@example.com", invite_code: "K7QM-2XPA", banned: false, created_at: new Date(Date.now() - 18 * 86400e3).toISOString(), last_sign_in_at: new Date(Date.now() - 3600e3).toISOString(), watched_count: 2, access_until: d(-5), note: "10 月交易量 120 口", notify: true },
@@ -221,6 +222,14 @@ const server = http.createServer(async (req, res) => {
       if (!inv) return send(res, 400, { error: "邀請碼無效、已停用或已被用完" });
       if (users[body.email]) return send(res, 400, { error: "這個 Email 已經註冊過了，請直接登入" });
       const rex = String(body.exchange || ""), ruid = cleanExId(rex, body.uid);
+      // 贈送名額：不用填交易所，不限期
+      if (inv.free && !rex) {
+        inv.used_count++;
+        const id = crypto.randomUUID();
+        users[body.email] = { id, password: body.password };
+        members.unshift({ user_id: id, email: body.email, invite_code: inv.code, banned: false, created_at: new Date().toISOString(), last_sign_in_at: null, watched_count: 0, access_until: null, free: true, notify: true });
+        return send(res, 200, { ok: true, free: true });
+      }
       if (!EXCHANGES.includes(rex)) return send(res, 400, { error: "請選擇你用 CCC 邀請連結註冊的交易所" });
       if (!exIdOk(rex, ruid)) return send(res, 400, { error: "請填交易所 UID（一串數字）" });
       const racc = needsName(rex) ? cleanAccountName(body.accountName) : null;
@@ -233,6 +242,11 @@ const server = http.createServer(async (req, res) => {
       members.unshift({ user_id: id, email: body.email, invite_code: inv.code, banned: false, created_at: new Date().toISOString(), last_sign_in_at: null, watched_count: 0, access_until: cycleEnd(TODAY()), notify: true });
       autoLinks[rex].set(id, ruid); if (racc) accNames.set(`${rex}:${id}`, racc); if (AUTO_EXCHANGES.includes(rex)) autoSyncUser(rex, id);
       return send(res, 200, { ok: true });
+    }
+    if (p === "/api/invite") {
+      const c = String(url.searchParams.get("code") || "").toUpperCase();
+      const i = invites.find((x) => x.code === c);
+      return send(res, 200, { free: !!(i?.free && !i.disabled && i.used_count < i.max_uses) });
     }
     if (p === "/api/stats") {
       const pub = videos.filter((v) => v.is_published && !v.course_host).sort((a, b) => String(b.published_at).localeCompare(a.published_at));
@@ -250,7 +264,7 @@ const server = http.createServer(async (req, res) => {
         mrow.notify = body.notify;
         return send(res, 200, { ok: true, notify: body.notify });
       }
-      return send(res, 200, { links: mrow ? EXCHANGES.map((ex) => ({ exchange: ex, auto: AUTO_EXCHANGES.includes(ex), enabled: true, uid: autoLinks[ex].get(mrow.user_id) || null, accountName: accNames.get(`${ex}:${mrow.user_id}`) || null, needsName: needsName(ex), boundAt: null })) : null, feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, adminRole: admin ? role : null, accessUntil: mrow?.access_until || null, notify: mrow ? mrow.notify !== false : null, nextLive: (() => { const l = liveNext(); return l ? { title: l.title, startsAt: l.starts_at, hosts: l.hosts || [], note: l.note, link: l.link } : null; })(), volume: mrow ? (() => { const p = curP(mrow); const v = vols.get(mrow.user_id + ":" + p.start); return { periodStart: p.start, periodEnd: p.end, exchanges: EX, threshold, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, qualified: v ? qualified(v.amounts) : false, qualifiedAt: v?.qualified_at || null, qualifiedUntil: v?.qualified_at ? nextPeriod(anchorOf(mrow), p).end : null }; })() : null });
+      return send(res, 200, { links: mrow ? EXCHANGES.map((ex) => ({ exchange: ex, auto: AUTO_EXCHANGES.includes(ex), enabled: true, uid: autoLinks[ex].get(mrow.user_id) || null, accountName: accNames.get(`${ex}:${mrow.user_id}`) || null, needsName: needsName(ex), boundAt: null })) : null, feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, adminRole: admin ? role : null, accessUntil: mrow?.access_until || null, free: !!mrow?.free, notify: mrow ? mrow.notify !== false : null, nextLive: (() => { const l = liveNext(); return l ? { title: l.title, startsAt: l.starts_at, hosts: l.hosts || [], note: l.note, link: l.link } : null; })(), volume: mrow ? (() => { const p = curP(mrow); const v = vols.get(mrow.user_id + ":" + p.start); return { periodStart: p.start, periodEnd: p.end, exchanges: EX, threshold, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, qualified: v ? qualified(v.amounts) : false, qualifiedAt: v?.qualified_at || null, qualifiedUntil: v?.qualified_at ? nextPeriod(anchorOf(mrow), p).end : null }; })() : null });
     }
     if (p === "/api/exchange-link") {
       const mrow = members.find((m) => m.user_id === u.id);
@@ -407,7 +421,7 @@ const server = http.createServer(async (req, res) => {
     if (p === "/api/admin/invites") {
       if (req.method === "GET") return send(res, 200, { invites });
       if (req.method === "POST") {
-        const inv = { code: "NEW4-C0DE", max_uses: body.max_uses, used_count: 0, note: body.note || null, disabled: false, created_at: new Date().toISOString() };
+        const inv = { code: body.free ? "NEW4-FREE" : "NEW4-C0DE", max_uses: body.max_uses, used_count: 0, note: body.note || null, disabled: false, free: body.free === true, created_at: new Date().toISOString() };
         invites.unshift(inv);
         return send(res, 200, { invite: inv });
       }
