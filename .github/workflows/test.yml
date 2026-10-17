@@ -27,6 +27,9 @@ jobs:
         run: npm test
       - name: 發布前檢查
         run: npm run check
+      - name: 失敗時把壞掉的項目列在 PR 上
+        if: failure()
+        run: grep -h -E "^FAIL|FAIL |TEST CRASHED|沒有正常跑完" tests/output/*.log | head -20 | sed 's/^/::error::/' || true
       - name: 失敗時保留紀錄
         if: failure()
         uses: actions/upload-artifact@v4
