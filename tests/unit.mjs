@@ -1,6 +1,6 @@
 // 規則和伺服器小工具的單元測試（不用瀏覽器，幾秒鐘跑完）。npm test 會先跑這一支。
 import assert from "node:assert/strict";
-import { addDays, cycleEnd, periodOf, nextPeriod, prevPeriod, addMonths, courseWeek, courseUnlockDate, isQualified, COURSE_HOSTS, COURSE_PARTS, EXCHANGES, AUTO_EXCHANGES, DEFAULT_THRESHOLD, gapText, ruleText } from "../public/assets/js/shared/rules.js";
+import { addDays, cycleEnd, periodOf, nextPeriod, prevPeriod, addMonths, courseWeek, courseUnlockDate, isQualified, COURSE_HOSTS, COURSE_PARTS, EXCHANGES, AUTO_EXCHANGES, DEFAULT_THRESHOLD, gapText, ruleText, milestoneOf, MILESTONES } from "../public/assets/js/shared/rules.js";
 import { mergeBuckets } from "../server/lib/buckets.js";
 import { cleanTitle, cleanChapters, toInt, isDate } from "../server/lib/text.js";
 import http from "node:http";
@@ -53,6 +53,15 @@ test("還差多少：挑最接近的那間", () => {
   assert.equal(gapText({ UM: 7, OKX: 100000 }, 1000000), "UM 還差 3 手");
   assert.equal(gapText({ UM: 1, OKX: 600000 }, 1000000), "還差 40 萬");
   assert.equal(gapText({}, 1000000), "還差 100 萬");
+});
+test("里程碑：25／50／75／100，看最接近達標的那間", () => {
+  assert.deepEqual(MILESTONES, [25, 50, 75, 100]);
+  assert.equal(milestoneOf({}, 1000000), 0);
+  assert.equal(milestoneOf({ OKX: 249999 }, 1000000), 0);
+  assert.equal(milestoneOf({ OKX: 250000 }, 1000000), 25);
+  assert.equal(milestoneOf({ OKX: 600000, UM: 8 }, 1000000), 75);
+  assert.equal(milestoneOf({ OKX: 999999 }, 1000000), 75);
+  assert.equal(milestoneOf({ UM: 10 }, 1000000), 100);
 });
 test("規則文字", () => assert.equal(ruleText(1000000), "OKX、Bybit、BingX 任一間這一輪成交金額達 100 萬 USDT，或 UM 這一輪達 10 手"));
 test("預設門檻 100 萬", () => assert.equal(DEFAULT_THRESHOLD, 1000000));

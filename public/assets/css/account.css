@@ -92,3 +92,21 @@
 .bx-text b { color: var(--amber); font-weight: 600; }
 .bx-row .btn { flex: none; }
 .bx-nudge { margin: 2px 0 4px; padding: 6px 10px; border-radius: var(--r-md); background: color-mix(in srgb, var(--amber) 12%, transparent); color: var(--ink); line-height: 1.6; }
+
+/* 進度里程碑：25／50／75%／達標 四格，走到哪亮到哪 */
+.ms-strip { list-style: none; display: grid; grid-template-columns: repeat(4, 1fr); margin: 0; padding: 12px 18px 2px; position: relative; }
+.ms-step { display: grid; justify-items: center; gap: 4px; position: relative; }
+.ms-step + .ms-step::before { content: ""; position: absolute; top: 5px; right: 50%; width: 100%; height: 2px; background: var(--line); z-index: 0; }
+.ms-step.on + .ms-step.on::before { background: var(--amber); }
+.ms-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line); background: var(--bg); position: relative; z-index: 1; }
+.ms-step.on .ms-dot { border-color: var(--amber); background: var(--amber); }
+.ms-step.now .ms-dot { box-shadow: 0 0 0 4px color-mix(in srgb, var(--amber) 25%, transparent); }
+.ms-step:last-child.on .ms-dot { border-color: var(--down); background: var(--down); }
+.ms-label { font-size: 11px; color: var(--ink-3); }
+.ms-step.on .ms-label { color: var(--ink-2); }
+/* 恭喜視窗 */
+.ms-pop { display: grid; gap: 10px; text-align: center; padding-top: 6px; }
+.ms-big { font-size: 44px; font-weight: 700; color: var(--amber); line-height: 1.1; }
+.ms-track { height: 8px; }
+.ms-track i { transition: width .8s cubic-bezier(.2,.8,.2,1); }
+@media (prefers-reduced-motion: reduce) { .ms-track i { transition: none; } }

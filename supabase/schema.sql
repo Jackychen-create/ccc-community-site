@@ -427,3 +427,15 @@ alter table public.lives add column if not exists hosts text[] not null default 
 -- 實驗室密碼標成 free → 用它註冊不用填交易所 UID，access_until 留空白（不限），研究員也標成 free
 alter table public.invite_codes add column if not exists free boolean not null default false;
 alter table public.members      add column if not exists free boolean not null default false;
+
+-- ── v1.18.0：進度里程碑（這一輪交易量跨過 25／50／75／100% 各通知一次）──
+create table if not exists public.milestones (
+  user_id      uuid not null references public.members(user_id) on delete cascade,
+  period_start date not null,
+  level        int  not null check (level in (25, 50, 75, 100)),
+  reached_at   timestamptz not null default now(),
+  dm_sent      boolean not null default false,   -- Discord 私訊送出了
+  seen         boolean not null default false,   -- 研究員在網站上看過恭喜了
+  primary key (user_id, period_start, level)
+);
+alter table public.milestones enable row level security;

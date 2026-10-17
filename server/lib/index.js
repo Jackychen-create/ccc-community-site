@@ -18,3 +18,4 @@ export * from "./autosync.js";
 export * from "./discord.js";
 export * from "./cron.js";
 export * from "./live.js";
+export * from "./milestone.js";

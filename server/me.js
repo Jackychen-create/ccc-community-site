@@ -1,6 +1,7 @@
 // GET   /api/me            目前登入者的身分、觀看資格到期日、通知設定、下一場直播
 // PATCH /api/me { notify }  研究員自己開關「新影片寄信通知」
-import { supabaseAdmin, adminRole, requireMember, readBody, route, nextLive, needsName, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, getThreshold, isQualified, periodFor, nextPeriod, anchorOf } from "./lib/index.js";
+// PATCH /api/me { milestoneSeen: true }  看過里程碑恭喜了（不再跳）
+import { supabaseAdmin, adminRole, unseenMilestone, markMilestonesSeen, requireMember, readBody, route, nextLive, needsName, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, getThreshold, isQualified, periodFor, nextPeriod, anchorOf } from "./lib/index.js";
 
 export default route({
   async GET(req, res) {
@@ -32,6 +33,9 @@ export default route({
         qualified: row ? isQualified(row.amounts, threshold) : false,
         qualifiedAt: row?.qualified_at || null,
         qualifiedUntil: row?.qualified_at ? nextPeriod(anchorOf({ created_at: ctx.member.created_at || ctx.user.created_at }), period).end : null,
+        // 這一輪還沒看過的里程碑（25／50／75／100%），首頁跳一次恭喜；表還沒建立時當作沒有
+        milestone: ctx.member.free ? null : await unseenMilestone(ctx.user.id, period.start).catch(() => null),
+        nextEnd: nextPeriod(anchorOf({ created_at: ctx.member.created_at || ctx.user.created_at }), period).end,
       };
     }
     // 有沒有還沒看的提問回覆（右上角選單會亮一個點）
@@ -59,6 +63,10 @@ export default route({
     if (!ctx) return;
     if (!ctx.member) return res.status(400).json({ error: "管理員帳號沒有這個設定" });
     const b = readBody(req);
+    if (b.milestoneSeen === true) {
+      await markMilestonesSeen(ctx.user.id);
+      return res.status(200).json({ ok: true });
+    }
     if (typeof b.notify !== "boolean") return res.status(400).json({ error: "資料不正確" });
     const { error } = await supabaseAdmin.from("members").update({ notify: b.notify }).eq("user_id", ctx.user.id);
     if (error) throw error;
