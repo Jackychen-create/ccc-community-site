@@ -433,7 +433,8 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { ok: true });
       }
       const inv = invites.find((i) => i.code === body.code);
-      inv.disabled = body.disabled;
+      if (typeof body.disabled === "boolean") inv.disabled = body.disabled;
+      if (body.note !== undefined) inv.note = String(body.note || "").trim().slice(0, 100) || null;
       return send(res, 200, { ok: true });
     }
     if (p === "/api/admin/discord") {
