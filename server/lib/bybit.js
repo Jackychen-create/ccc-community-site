@@ -34,6 +34,41 @@ export async function bybitSign(secret, timestamp, apiKey, query) {
   return hmacHex(secret, `${timestamp}${apiKey}${RECV_WINDOW}${query}`);
 }
 
+// Bybit 擋美國 IP；Discord 的請求常從美國的 Cloudflare 進來，所以預設改從東京送出：
+// 這裡簽好名，交給 Supabase 的 bybit-proxy（Edge Function，用 x-region 固定在東京）轉送，轉送那邊不放金鑰
+// 轉送本身壞了（不是 Bybit 回的錯）才改成直接連；BYBIT_PROXY=off 可以關掉
+const PROXY_REGION = "ap-northeast-1";
+export function bybitProxyUrl() {
+  if (env.BYBIT_PROXY === "off") return null;
+  if (env.BYBIT_PROXY_URL) return env.BYBIT_PROXY_URL;
+  if (env.BYBIT_BASE_URL || !env.SUPABASE_URL) return null; // 測試用假的 Bybit 時不轉送
+  return `${String(env.SUPABASE_URL).replace(/\/$/, "")}/functions/v1/bybit-proxy`;
+}
+
+// 送出去，回傳 { status, text }
+async function send(base, path, query, headers) {
+  const proxy = bybitProxyUrl();
+  if (proxy) {
+    try {
+      const res = await fetch(proxy, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-region": PROXY_REGION },
+        body: JSON.stringify({ base, path, query, headers }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (res.ok) {
+        const r = await res.json();
+        if (typeof r?.status === "number") return { status: r.status, text: r.body };
+      }
+      console.error("bybit proxy failed", res.status);
+    } catch (e) {
+      console.error("bybit proxy failed", e?.message);
+    }
+  }
+  const res = await fetch(`${base}${path}${query ? "?" + query : ""}`, { headers, signal: AbortSignal.timeout(10000) });
+  return { status: res.status, text: await res.text() };
+}
+
 // 送一個簽好名的 GET；回傳 result。連不上主網址才換備用網址
 export async function bybitGet(path, params = {}) {
   if (!bybitConfigured()) throw new BybitError("not_configured", "還沒設定 Bybit API Key");
@@ -44,17 +79,14 @@ export async function bybitGet(path, params = {}) {
     try {
       const ts = String(Date.now());
       const sign = await bybitSign(env.BYBIT_SECRET_KEY, ts, env.BYBIT_API_KEY, query);
-      const res = await fetch(`${base}${path}${query ? "?" + query : ""}`, {
-        headers: {
-          "X-BAPI-API-KEY": env.BYBIT_API_KEY,
-          "X-BAPI-TIMESTAMP": ts,
-          "X-BAPI-RECV-WINDOW": String(RECV_WINDOW),
-          "X-BAPI-SIGN": sign,
-        },
-        signal: AbortSignal.timeout(10000),
+      const res = await send(base, path, query, {
+        "X-BAPI-API-KEY": env.BYBIT_API_KEY,
+        "X-BAPI-TIMESTAMP": ts,
+        "X-BAPI-RECV-WINDOW": String(RECV_WINDOW),
+        "X-BAPI-SIGN": sign,
       });
       if (res.status === 403) throw new BybitError("blocked", "Bybit 擋下了這個地區的連線（美國、中國大陸的 IP 不能用）");
-      const json = JSON.parse(await res.text());
+      const json = JSON.parse(res.text);
       if (json.retCode !== 0) throw new BybitError(json.retCode, json.retMsg || "未知錯誤");
       return json.result;
     } catch (e) {
