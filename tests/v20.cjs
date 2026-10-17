@@ -1,5 +1,5 @@
 // 執行方式：npm test（會自動開模擬伺服器）。單獨跑：node tests/mock-server.mjs &; node tests/v18.cjs
-// v1.10：後台「Discord 審核」頁：最近的申請、機器人設定、張貼申請按鈕
+// v1.10／v1.14：後台「Discord 審核」頁：最近的申請、機器人設定（含客服身分組）、張貼申請按鈕
 const { chromium } = require("playwright");
 const BASE = "http://localhost:4321";
 const FONT_CSS = ["noto-sans-tc/400","noto-sans-tc/500","noto-sans-tc/700","sofia-sans-semi-condensed/500","sofia-sans-semi-condensed/600","sofia-sans-semi-condensed/700"].map((f) => `@import url("${BASE}/__fonts/${f}.css");`).join("\n");
@@ -23,10 +23,11 @@ const errs = [];
   const [c, a] = await ctx({ width: 1440, height: 900 });
   await login(a, "boss@gmail.com"); await a.waitForSelector("#appView:not([hidden])");
   await a.goto(BASE + "/admin#discord"); await a.waitForSelector("#dcAppsBox table"); await closeModals(a);
-  check("側欄先不顯示 Discord 審核（改回人工）", !(await a.isVisible(".nav a[data-view='discord']")));
+  check("側欄顯示 Discord 審核", await a.isVisible(".nav a[data-view='discord']"));
   const apps = await a.textContent("#dcAppsBox");
   check("列出最近的申請", apps.includes("小明") && apps.includes("123456789012345678") && apps.includes("BingX 自動確認"), apps);
   check("三種狀態都有", ["等待審核", "已通過", "不通過"].every((t) => apps.includes(t)));
+  check("通過的人顯示他的專用實驗室密碼", apps.includes("實驗室密碼 Q7MZ-4KPA"), apps);
   check("機器人已連上", (await a.textContent("#dcSettingsBox")).includes("機器人已連上"));
   check("身分組預設是你的身分組", (await a.inputValue("#dcRole")) === "1560542923173400596");
   check("顯示 Interactions Endpoint URL", (await a.textContent(".dc-endpoint")).includes("/api/discord/interactions"));
@@ -35,7 +36,7 @@ const errs = [];
   check("實驗室密碼預設帶入可用的一組", (await a.inputValue("#dcCode")) === "K7QM-2XPA");
   await a.fill("#dcCode", "NOPE-0000"); await a.click("#dcSetup"); await a.waitForTimeout(400);
   check("實驗室密碼不存在會擋", (await a.textContent(".toast:last-child")).includes("找不到這組實驗室密碼"));
-  await a.fill("#dcCode", "K7QM-2XPA"); await a.click("#dcSetup"); await a.waitForSelector(".toast:has-text('建立 4 個頻道')");
+  await a.fill("#dcCode", "K7QM-2XPA"); await a.click("#dcSetup"); await a.waitForSelector(".toast:has-text('建立 5 個頻道')");
   check("一鍵建立頻道", true);
   check("提醒把機器人身分組拖到上面", (await a.textContent("#dcSetupResult")).includes("拖到「實驗室研究員」上面"), await a.textContent("#dcSetupResult"));
   await a.screenshot({ path: "output/shots/v20-setup.png" });
@@ -44,10 +45,13 @@ const errs = [];
   await a.fill("#dcPanel", "abc"); await a.click("#dcSettingsBox details .btn.primary"); await a.waitForTimeout(400);
   check("ID 格式不對會擋", (await a.textContent(".toast:last-child")).includes("17–20 位數字"));
   await a.fill("#dcPanel", "444444444444444444"); await a.fill("#dcReview", "333333333333333333");
+  await a.fill("#dcStaff", "12"); await a.click("#dcSettingsBox details .btn.primary"); await a.waitForTimeout(400);
+  check("客服身分組 ID 格式不對會擋", (await a.textContent(".toast:last-child")).includes("客服身分組"));
+  await a.fill("#dcStaff", "666666666666666666, 777777777777777777");
   await a.fill("#dcSettingsBox input[data-ex='OKX']", "https://okx.com/join/CCC");
   await a.click("#dcSettingsBox details .btn.primary"); await a.waitForSelector(".toast:has-text('已儲存 Discord 設定')");
   const saved = await a.evaluate(() => App.api("/api/admin/discord").then((r) => r.settings));
-  check("設定存起來", saved.panelChannelId === "444444444444444444" && saved.reviewChannelId === "333333333333333333" && saved.invites.OKX === "https://okx.com/join/CCC", JSON.stringify(saved));
+  check("設定存起來", saved.panelChannelId === "444444444444444444" && saved.reviewChannelId === "333333333333333333" && saved.invites.OKX === "https://okx.com/join/CCC" && saved.staffRoleIds.join() === "666666666666666666,777777777777777777", JSON.stringify(saved));
   await a.click("#dcSettingsBox details summary");
   await a.click("#dcSettingsBox .btn:has-text('重新張貼申請按鈕')"); await a.waitForSelector(".toast:has-text('已經在申請頻道張貼')");
   check("張貼申請按鈕", true);

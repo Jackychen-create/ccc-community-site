@@ -1,14 +1,15 @@
 // 後台：Discord 審核機器人
 // GET   /api/admin/discord                        設定好了沒、設定值、最近的申請
-// PATCH /api/admin/discord { roleId, panelChannelId, reviewChannelId, invites }   改設定
+// PATCH /api/admin/discord { roleId, panelChannelId, reviewChannelId, staffRoleIds, invites }   改設定
 // POST  /api/admin/discord { action: "panel" }    在申請頻道張貼「申請加入實驗室」按鈕
 // POST  /api/admin/discord { action: "setup", code }  一鍵建立分類、頻道、權限、申請按鈕，實驗室頻道釘選實驗室密碼
 import {
   supabaseAdmin, requireAdmin, readBody, route, EXCHANGES, env, getThreshold,
-  discordConfigured, getDiscordSettings, saveDiscordSettings, isSnowflake, sendMessage,
+  discordConfigured, getDiscordSettings, saveDiscordSettings, isSnowflake, sendMessage, editChannel,
 } from "../lib/index.js";
 import { panelMessage } from "../lib/discord-flow.js";
-import { setupGuild, inviteUrl } from "../lib/discord-setup.js";
+import { setupGuild, inviteUrl, overwrites } from "../lib/discord-setup.js";
+import { categoryOverwrites } from "../lib/discord-ticket.js";
 
 const discordMsg = (e) => {
   if (e?.code === 50013) return "機器人的權限不夠（要有管理頻道、管理身分組、傳送訊息），請用後台的「把機器人加進伺服器」重新邀請一次";
@@ -23,7 +24,7 @@ export default route({
     if (!(await requireAdmin(req, res))) return;
     const [settings, { data: apps }, { data: codes }] = await Promise.all([
       getDiscordSettings(),
-      supabaseAdmin.from("discord_applications").select("id, discord_name, exchange, exchange_uid, status, auto, reviewed_by, created_at, reviewed_at").order("created_at", { ascending: false }).limit(30),
+      supabaseAdmin.from("discord_applications").select("id, discord_name, exchange, exchange_uid, status, auto, reviewed_by, created_at, reviewed_at, channel_id, invite_code").order("created_at", { ascending: false }).limit(30),
       supabaseAdmin.from("invite_codes").select("code, max_uses, used_count, disabled, note").eq("disabled", false).order("created_at", { ascending: false }).limit(20),
     ]);
     // 每筆申請對到網站上的哪個 Email（研究員在網站填了同一個交易所 UID）
@@ -56,6 +57,12 @@ export default route({
       if (k === "roleId" && !v) return res.status(400).json({ error: "要填身分組 ID" });
       next[k] = v;
     }
+    if (b.staffRoleIds !== undefined) {
+      const list = (Array.isArray(b.staffRoleIds) ? b.staffRoleIds : String(b.staffRoleIds || "").split(/[\s,，、]+/)).map((v) => String(v).trim()).filter(Boolean);
+      if (list.some((v) => !isSnowflake(v))) return res.status(400).json({ error: "客服身分組 ID 是 17–20 位數字，多個用逗號分開" });
+      if (list.length > 5) return res.status(400).json({ error: "客服身分組最多 5 個" });
+      next.staffRoleIds = [...new Set(list)];
+    }
     if (b.invites && typeof b.invites === "object") {
       next.invites = {};
       for (const ex of EXCHANGES) {
@@ -65,7 +72,20 @@ export default route({
       }
     }
     await saveDiscordSettings(next);
-    return res.status(200).json({ ok: true, settings: next });
+    // 客服身分組改了：申請分類、審核頻道的權限一起更新（之後開的申請頻道會照新的設定）
+    let synced = null;
+    if (JSON.stringify(cur.staffRoleIds || []) !== JSON.stringify(next.staffRoleIds || []) && discordConfigured() && next.guildId) {
+      const ctx = { guildId: next.guildId, roleId: next.roleId, botId: env.DISCORD_APP_ID, staffRoleIds: next.staffRoleIds || [] };
+      try {
+        if (next.ticketCategoryId) await editChannel(next.ticketCategoryId, { permission_overwrites: categoryOverwrites(ctx) });
+        if (next.reviewChannelId) await editChannel(next.reviewChannelId, { permission_overwrites: overwrites("review", ctx) });
+        synced = true;
+      } catch (e) {
+        console.error("discord staff sync failed", e?.message);
+        synced = false;
+      }
+    }
+    return res.status(200).json({ ok: true, settings: next, synced });
   },
 
   async POST(req, res) {

@@ -1,4 +1,5 @@
-// Discord 審核：最近的申請、機器人設定（身分組、申請頻道、審核頻道、邀請連結）、張貼申請按鈕
+// Discord 審核：最近的申請、機器人設定（身分組、申請頻道、審核頻道、客服身分組、邀請連結）、張貼申請按鈕
+// 研究員按申請按鈕 → 機器人開一個私人申請頻道（像 Ticket Tool），在裡面選交易所、填 UID
 import * as A from "../core/index.js";
 const { el, $, api, icon } = A;
 import { fail, loadingBox } from "./common.js";
@@ -25,7 +26,7 @@ const STATUS = { pending: ["等待審核", "brass"], approved: ["已通過", "go
 const exName = (ex) => (ex === "UM" ? "UM" : ex);
 
 function render() {
-  const badge = $("#cDiscord"); // 側欄的 Discord 審核先關掉了
+  const badge = $("#cDiscord");
   if (badge) badge.textContent = dc.applications.filter((a) => a.status === "pending").length || "";
   renderApps();
   renderSettings();
@@ -37,7 +38,7 @@ function renderApps() {
   if (!apps.length) {
     box.replaceChildren(el("div", { class: "empty" },
       el("h2", { text: "還沒有人申請" }),
-      el("p", { class: "small", style: { marginTop: "6px" }, text: "設定好右邊的頻道，按「張貼申請按鈕」，研究員就能在 Discord 申請。" })));
+      el("p", { class: "small", style: { marginTop: "6px" }, text: "照右邊的步驟把機器人加進伺服器、按「一鍵建立 Discord 頻道」，研究員就能在 Discord 申請。" })));
     return;
   }
   box.replaceChildren(
@@ -51,10 +52,11 @@ function renderApps() {
               el("div", { class: "small " + (a.site_email ? "dc-email" : "muted"), text: a.site_email ? `網站：${a.site_email}` : "網站還沒填這個 UID" }),
               el("div", { class: "small muted num", text: A.fmtRel(a.created_at) })),
             el("td", { "data-label": "交易所／UID" }, el("span", { text: exName(a.exchange) }), el("div", { class: "small muted num", text: a.exchange_uid })),
-            el("td", { "data-label": "結果" }, el("span", { class: "pill " + kind }, el("span", { class: "dot" }), label)),
-            el("td", { class: "small sub hide-sm", text: a.status === "pending" ? "到 Discord 審核頻道按通過" : a.reviewed_by || "—" }));
+            el("td", { "data-label": "結果" }, el("span", { class: "pill " + kind }, el("span", { class: "dot" }), label),
+              a.invite_code ? el("div", { class: "small muted num", text: `實驗室密碼 ${a.invite_code}` }) : null),
+            el("td", { class: "small sub hide-sm", text: a.status === "pending" ? "到他的申請頻道按通過" : a.reviewed_by || "—" }));
         })))),
-    el("p", { class: "small muted", style: { marginTop: "10px" }, text: "只顯示最近 30 筆。等待審核的請到 Discord 的審核頻道按「通過」或「不通過」。" })
+    el("p", { class: "small muted", style: { marginTop: "10px" }, text: "只顯示最近 30 筆。等待審核的請到 Discord 的「🔒申請審核」點通知裡的頻道，在他的申請頻道按「通過」或「不通過」。通過的人會拿到一組只能用一次的實驗室密碼。" })
   );
 }
 
@@ -84,14 +86,16 @@ function renderSettings() {
       dc.inviteUrl
         ? el("a", { class: "btn block", href: dc.inviteUrl, target: "_blank", rel: "noopener", id: "dcInvite" }, icon("ext"), "把機器人加進伺服器")
         : el("p", { class: "small muted", text: "設定好 Cloudflare 的 DISCORD_APP_ID 後這裡會出現邀請按鈕。" }),
-      el("p", { class: "small", style: { marginTop: "14px" }, text: "第 2 步：一鍵建立分類、申請頻道、審核頻道、實驗室頻道（權限都設好），實驗室頻道會釘選這組實驗室密碼" }),
+      el("p", { class: "small", style: { marginTop: "14px" }, text: "第 2 步：一鍵建立分類、申請頻道、審核頻道、實驗室頻道、放私人申請頻道的分類（權限都設好），實驗室頻道會釘選這組實驗室密碼" }),
       el("label", { class: "field" }, el("span", { class: "label", text: "放在實驗室頻道的實驗室密碼" }), codeInput),
       setup,
       result),
     el("details", { class: "dc-more" }, el("summary", { class: "small", text: "進階設定（頻道 ID、身分組、邀請連結）" }),
       el("label", { class: "field" }, el("span", { class: "label", text: "通過後給的身分組 ID" }), idInput("dcRole", s.roleId, "例如 1560542923173400596")),
       el("label", { class: "field" }, el("span", { class: "label", text: "申請頻道 ID（放申請按鈕）" }), idInput("dcPanel", s.panelChannelId, "對頻道按右鍵 → 複製頻道 ID")),
-      el("label", { class: "field" }, el("span", { class: "label", text: "審核頻道 ID（OKX、UM 送到這裡）" }), idInput("dcReview", s.reviewChannelId, "只有管理員看得到的頻道")),
+      el("label", { class: "field" }, el("span", { class: "label", text: "審核頻道 ID（有人等審核時通知在這裡）" }), idInput("dcReview", s.reviewChannelId, "只有管理員看得到的頻道")),
+      el("label", { class: "field" }, el("span", { class: "label", text: "客服身分組 ID（選填，看得到申請頻道、可以按通過）" }),
+        el("input", { class: "input num", id: "dcStaff", type: "text", autocomplete: "off", maxlength: "120", value: (s.staffRoleIds || []).join(", "), placeholder: "多個用逗號分開" })),
       el("p", { class: "small muted", style: { marginTop: "12px" }, text: "邀請連結（選填，沒通過時會附給申請人）" }),
       ...invites,
       save,
@@ -125,10 +129,10 @@ function renderSettings() {
       const inv = {};
       box.querySelectorAll("input[data-ex]").forEach((i) => { if (i.value.trim()) inv[i.dataset.ex] = i.value.trim(); });
       const r = await api("/api/admin/discord", { method: "PATCH", body: {
-        roleId: $("#dcRole").value.trim(), panelChannelId: $("#dcPanel").value.trim(), reviewChannelId: $("#dcReview").value.trim(), invites: inv,
+        roleId: $("#dcRole").value.trim(), panelChannelId: $("#dcPanel").value.trim(), reviewChannelId: $("#dcReview").value.trim(), staffRoleIds: $("#dcStaff").value.trim(), invites: inv,
       } });
       dc.settings = r.settings;
-      A.toast("已儲存 Discord 設定");
+      A.toast(r.synced === false ? "已儲存，但客服身分組的頻道權限沒更新成功，請按一次「一鍵建立 Discord 頻道」" : "已儲存 Discord 設定");
       renderSettings();
     } catch (e) {
       A.setBusy(save, false);
