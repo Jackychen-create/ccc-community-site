@@ -27,6 +27,7 @@ export function liveAnnouncement(live, { roleId } = {}) {
     roleId ? `<@&${roleId}>` : "",
     `## 📡 直播預告：${live.title}`,
     `🗓 <t:${t}:F>（<t:${t}:R>）`,
+    live.hosts?.length ? `🎙 主講：${live.hosts.join("、")}` : "",
     live.note ? `\n${live.note}` : "",
     live.link ? `\n🔗 ${live.link}` : "",
   ].filter(Boolean);
@@ -40,7 +41,7 @@ export function liveReply(live, kind, { roleId } = {}) {
   const text = {
     moved: `${ping}⏰ 「${live.title}」改時間了：<t:${t}:F>（<t:${t}:R>）`,
     cancelled: `${ping}❌ 「${live.title}」取消了，之後的時間會再公告。`,
-    reminder: `${ping}🔴 「${live.title}」<t:${t}:R>開始！${live.link ? `\n🔗 ${live.link}` : ""}`,
+    reminder: `${ping}🔴 「${live.title}」${live.hosts?.length ? `（${live.hosts.join("、")}）` : ""}<t:${t}:R>開始！${live.link ? `\n🔗 ${live.link}` : ""}`,
   }[kind];
   const out = { content: text, allowed_mentions: { roles: roleId ? [roleId] : [] } };
   if (live.discord_message_id) out.message_reference = { message_id: live.discord_message_id, fail_if_not_exists: false };
@@ -77,7 +78,7 @@ export async function announceLive(live, kind) {
 
 // 研究員首頁的「下一場直播」：還沒開始的、或開始不到 3 小時的
 export async function nextLive(now = Date.now()) {
-  const { data } = await supabaseAdmin.from("lives").select("id, title, starts_at, note, link")
+  const { data } = await supabaseAdmin.from("lives").select("id, title, starts_at, note, link, hosts")
     .eq("status", "scheduled").gte("starts_at", new Date(now - 3 * 3600e3).toISOString())
     .order("starts_at", { ascending: true }).limit(1);
   return data?.[0] || null;

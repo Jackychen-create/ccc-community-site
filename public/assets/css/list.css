@@ -146,3 +146,4 @@
 .live-card .vtitle { margin-top: 4px; }
 .live-card .live-note { margin-top: 6px; white-space: pre-line; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .pill.live-on { color: var(--up); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--up) 50%, transparent); }
+.live-card .live-host { margin-top: 2px; color: var(--ink-2); }
