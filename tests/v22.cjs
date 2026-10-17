@@ -54,7 +54,9 @@ const errs = [];
   await a.click("#liveSave"); await a.waitForSelector(".toast:has-text('已改時間')");
   check("改時間後列表更新", (await a.textContent("#liveTableBox")).includes("21:30"));
   await a.fill("#liveTitle", "加開：選擇權入門"); await a.fill("#liveAt", local(new Date(day3.getTime() + 86400e3)));
-  await a.click("#liveSave"); await a.waitForSelector(".toast:has-text('已排定')");
+  await a.click("#liveSave");
+  // 前一則「已排定」的提示可能還在，等列表真的多一場
+  await a.waitForFunction(() => document.querySelector("#cLives").textContent.trim() === "2", null, { timeout: 5000 }).catch(() => {});
   check("側欄數字是 2 場", (await a.textContent("#cLives")).trim() === "2");
 
   // 研究員首頁

@@ -2,12 +2,13 @@
 import * as A from "../core/index.js";
 const { el, $, api, icon } = A;
 import { cycleEnd } from "../shared/rules.js";
-import { fail, loadingBox } from "./common.js";
+import { fail, loadingBox, segTabs } from "./common.js";
 import { state } from "./state.js";
 import { canManageMembers } from "../shared/roles.js";
 
 let members = [];
 let memberQuery = "";
+let memberTab = "active"; // active 正常 | banned 已停權（分開放，不混在一起）
 
 // 其他頁改了研究員資料（例如交易量延長資格），下次進「研究員」重新抓
 export function markMembersStale() {
@@ -37,17 +38,26 @@ function renderMembers() {
   $("#cMembers").textContent = members.length || "";
   const active = members.filter((m) => !m.banned).length;
   $("#memberSub").textContent = members.length ? `共 ${members.length} 位，${active} 位可觀看` : "用實驗室密碼加入的研究員";
-  const list = members.filter((m) => !memberQuery || `${m.email} ${m.invite_code || ""} ${Object.values(m.uids || {}).join(" ")} ${m.discord || ""}`.toLowerCase().includes(memberQuery));
+  const hit = members.filter((m) => !memberQuery || `${m.email} ${m.invite_code || ""} ${Object.values(m.uids || {}).join(" ")} ${m.discord || ""}`.toLowerCase().includes(memberQuery));
+  const groups = { active: hit.filter((m) => !m.banned), banned: hit.filter((m) => m.banned) };
+  // 停權的都恢復了，就回到「正常」
+  if (memberTab === "banned" && !members.some((m) => m.banned)) memberTab = "active";
+  const list = groups[memberTab];
   const box = $("#memberTableBox");
   if (!members.length) {
     box.replaceChildren(el("div", { class: "empty" }, el("h2", { text: "還沒有研究員" }), el("p", { class: "small", style: { marginTop: "6px" }, text: "到「實驗室密碼」產生一組，把註冊連結傳出去。" })));
     return;
   }
+  const tabs = members.some((m) => m.banned)
+    ? segTabs([{ key: "active", label: "正常", count: groups.active.length }, { key: "banned", label: "已停權", count: groups.banned.length }], memberTab, (k) => { memberTab = k; renderMembers(); }, "研究員分組")
+    : null;
   if (!list.length) {
-    box.replaceChildren(el("div", { class: "empty" }, el("p", { text: "找不到符合的研究員" })));
+    const other = memberTab === "active" ? groups.banned.length : groups.active.length;
+    box.replaceChildren(...[tabs, el("div", { class: "empty" }, el("p", { text: memberQuery ? `這一組沒有符合的研究員${other ? `（「${memberTab === "active" ? "已停權" : "正常"}」有 ${other} 位）` : ""}` : "這一組沒有研究員" }))].filter(Boolean));
     return;
   }
   box.replaceChildren(
+    ...[tabs].filter(Boolean),
     el("div", { class: "table-wrap" },
       el("table", { class: "table stack" },
         el("thead", null, el("tr", null, el("th", { text: "Email" }), el("th", { class: "hide-sm", text: "加入" }), el("th", { text: "最近登入" }), el("th", { class: "hide-sm", text: "看過" }), el("th", { text: "資格" }), el("th", { text: "狀態" }), el("th", null, el("span", { class: "sr-only", text: "操作" })))),
@@ -148,7 +158,7 @@ async function setBan(m, ban) {
     await api("/api/admin/members", { method: "PATCH", body: { userId: m.user_id, action: ban ? "ban" : "unban" } });
     m.banned = ban;
     renderMembers();
-    A.toast(ban ? "已停權" : "已恢復觀看權限");
+    A.toast(ban ? "已停權，移到「已停權」" : "已恢復觀看權限，移回「正常」");
   } catch (e) {
     fail(e);
   }

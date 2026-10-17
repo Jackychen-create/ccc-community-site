@@ -20,3 +20,12 @@ export function fail(e) {
 export function loadingBox() {
   return el("div", { class: "skel", style: { height: "220px" }, "aria-hidden": "true" });
 }
+
+// 列表上方的分組切換（例如 正常／已停權）：tabs = [{ key, label, count }]
+export function segTabs(tabs, current, onPick, label) {
+  return el("div", { class: "vol-seg list-seg", role: "tablist", "aria-label": label },
+    ...tabs.map((t) => el("button", {
+      type: "button", class: "vol-seg-btn", "data-tab": t.key, "aria-pressed": String(t.key === current),
+      onclick: () => onPick(t.key),
+    }, t.label, el("span", { class: "num seg-n", text: ` ${t.count}` }))));
+}

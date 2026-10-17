@@ -57,6 +57,7 @@ const errs = [];
 
   // ── 實驗室密碼：刪除 ──
   await a.goto(BASE + "/admin#invites"); await a.waitForSelector("#inviteTableBox table"); await closeModals(a);
+  await a.click("#inviteTableBox .vol-seg-btn[data-tab='used']");
   await a.click("tr:has-text('HW3N-8RTE') button:has-text('刪除')"); await a.waitForSelector(".modal:has-text('刪除實驗室密碼')");
   check("刪除前會確認，說明已加入的人不受影響", (await a.textContent(".modal")).includes("不受影響"));
   await a.click(".modal-foot .btn.danger-solid"); await a.waitForSelector(".toast:has-text('已刪除 HW3N-8RTE')");
