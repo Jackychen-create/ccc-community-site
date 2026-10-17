@@ -2,7 +2,7 @@
 import { $, el, icons, fmtRel, api, modal, confirmDialog, setBusy, toast, cfg } from "../core/index.js";
 import { state } from "./state.js";
 import { DAY, md } from "./format.js";
-import { AUTO_EXCHANGES, goalOf, fmtAmount, gapText, ruleText, addDays, TRADFI_NOTE, cleanExId, exIdOk, exIdError } from "../shared/rules.js";
+import { AUTO_EXCHANGES, goalOf, fmtAmount, gapText, ruleText, addDays, TRADFI_NOTE, cleanExId, exIdOk, exIdError, needsEmail, cleanAccountEmail, accountEmailOk, ACCOUNT_EMAIL_ERROR } from "../shared/rules.js";
 
 // 每月資格：到期前 7 天提醒
 export function renderAccessBanner() {
@@ -59,7 +59,7 @@ export function renderVolPanel() {
 // ── Bybit、BingX：綁定 UID 後每天自動更新交易量 ──
 const LINK_INFO = {
   OKX: { hint: "UID 在 OKX 的個人中心。填了之後，管理員才對得到你的交易量。", invite: "", lag: "" },
-  UM: { hint: "UM（Ultima Markets）的 MT5 交易帳號，或你在 UM 的名字。填了之後，管理員才對得到你的手數。", invite: "", lag: "", label: "帳號或名字" },
+  UM: { hint: "UM（Ultima Markets）的 UID，再加上你註冊 UM 用的 Email。填了之後，管理員才對得到你的手數。", invite: "", lag: "" },
   Bybit: { hint: "UID 在 Bybit 的個人頁面，請填主帳號的 UID。要用 CCC 的 Bybit 邀請連結註冊的帳號才能綁定。", invite: "BYBIT_INVITE_URL", lag: "Bybit 的數字隔天才會更新。" },
   BingX: { hint: "UID 在 BingX 的個人頁面。要用 CCC 的 BingX 邀請連結註冊的帳號才能綁定。", invite: "BINGX_INVITE_URL", lag: "" },
 };
@@ -76,9 +76,12 @@ function linkRows() {
     ...links.map((l) => el("div", { class: "bx-row" },
       el("span", { class: "bx-ex", text: l.exchange }),
       l.uid
-        ? el("span", { class: "bx-text" }, el("b", { class: "num", text: l.uid }), l.auto ? el("span", { class: "muted", text: "・每天自動更新" }) : null)
+        ? el("span", { class: "bx-text" }, el("b", { class: "num", text: l.uid }), l.auto ? el("span", { class: "muted", text: "・每天自動更新" }) : null,
+          l.needsEmail ? el("span", { class: "muted bx-mail", text: l.accountEmail ? `・${l.accountEmail}` : "・還沒填 Email" }) : null)
         : el("span", { class: "bx-text muted", text: l.auto ? "綁定後每天自動更新" : `還沒填${uidLabel(l.exchange)}` }),
-      l.uid
+      l.uid && l.needsEmail && !l.accountEmail
+        ? el("button", { class: "btn sm", type: "button", text: "補填 Email", "aria-label": `補填 ${l.exchange} Email`, onclick: () => bindLink(l.exchange, l.auto, { uid: l.uid }) })
+        : l.uid
         ? el("button", { class: "btn sm ghost", type: "button", text: "解除", "aria-label": `解除 ${l.exchange}`, onclick: () => unbindLink(l.exchange, l.auto) })
         : el("button", { class: "btn sm", type: "button", text: l.auto ? "綁定" : "填寫", "aria-label": `${l.auto ? "綁定" : "填寫"} ${l.exchange}`, onclick: () => bindLink(l.exchange, l.auto) }))));
 }
@@ -92,13 +95,16 @@ async function refreshMe() {
 }
 
 // 填交易所 UID 的視窗；ex 沒給就讓他先選交易所（登入後提醒補填用）
-function bindLink(ex = null, auto = true, { title, intro } = {}) {
+function bindLink(ex = null, auto = true, { title, intro, uid: prefill = "" } = {}) {
   const opts = (state.me?.links || []).filter((l) => l.enabled);
   let cur = ex || "";
   const isAuto = () => opts.find((l) => l.exchange === cur)?.auto ?? auto;
   const pick = ex ? null : el("select", { class: "select", "aria-label": "交易所" },
     el("option", { value: "", text: "選擇交易所" }), ...opts.map((l) => el("option", { value: l.exchange, text: l.exchange === "UM" ? "UM（Ultima Markets）" : l.exchange })));
   const input = el("input", { class: "input num", type: "text", inputmode: "numeric", autocomplete: "off", maxlength: "30", placeholder: "例如 12345678" });
+  input.value = prefill;
+  const emailInput = el("input", { class: "input", type: "email", inputmode: "email", autocomplete: "off", maxlength: "254", placeholder: "例如 name@gmail.com" });
+  const emailRow = el("label", { class: "field", hidden: true }, el("span", { class: "label", text: "你註冊 UM 用的 Email" }), emailInput);
   const label = el("span", { class: "label" });
   const hint = el("span", { class: "hint" });
   const inviteBox = el("p", { class: "small", style: { marginTop: "12px" }, hidden: true });
@@ -106,10 +112,8 @@ function bindLink(ex = null, auto = true, { title, intro } = {}) {
   const save = el("button", { class: "btn primary", type: "button", text: ex && auto ? "綁定" : "儲存" });
   const refresh = () => {
     const info = LINK_INFO[cur] || { hint: "先選你用 CCC 邀請連結註冊的交易所。", invite: "" };
-    // UM 可以填名字，不限數字
-    input.inputMode = cur === "UM" ? "text" : "numeric";
-    input.placeholder = cur === "UM" ? "例如 1327127 或 王小明" : "例如 12345678";
-    input.maxLength = cur === "UM" ? 40 : 30;
+    // UM 另外填註冊 UM 用的 Email
+    emailRow.hidden = !needsEmail(cur);
     label.textContent = cur ? `你的 ${cur} ${uidLabel(cur)}` : "UID";
     hint.textContent = info.hint;
     const invite = cfg[info.invite];
@@ -123,6 +127,7 @@ function bindLink(ex = null, auto = true, { title, intro } = {}) {
       intro ? el("p", { class: "small", style: { marginTop: "12px" }, text: intro }) : null,
       pick ? el("label", { class: "field" }, el("span", { class: "label", text: "交易所" }), pick) : null,
       el("label", { class: "field" }, label, input, hint),
+      emailRow,
       inviteBox,
       err),
     actions: [el("button", { class: "btn", type: "button", text: ex ? "取消" : "之後再說", onclick: () => m.close() }), save],
@@ -134,10 +139,12 @@ function bindLink(ex = null, auto = true, { title, intro } = {}) {
     if (!cur) return fail("請先選交易所");
     const uid = cleanExId(cur, input.value);
     if (!exIdOk(cur, uid)) return fail(exIdError(cur));
+    const accountEmail = needsEmail(cur) ? cleanAccountEmail(emailInput.value) : undefined;
+    if (needsEmail(cur) && !accountEmailOk(accountEmail)) return fail(ACCOUNT_EMAIL_ERROR);
     const a = isAuto();
     setBusy(save, true, a ? `向 ${cur} 確認中…` : "儲存中…");
     try {
-      const r = await api("/api/exchange-link", { method: "POST", body: { exchange: cur, uid } });
+      const r = await api("/api/exchange-link", { method: "POST", body: { exchange: cur, uid, accountEmail } });
       m.close();
       toast(!a ? `已記下你的 ${cur} ${uidLabel(cur)}` : r.synced ? `已綁定，這個月的 ${cur} 交易量已經更新。${LINK_INFO[cur]?.lag || ""}` : "已綁定，交易量稍後自動更新");
       refreshMe();

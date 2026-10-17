@@ -7,7 +7,7 @@
 //   → 通過：給身分組，在頻道裡給他專用的實驗室密碼（也私訊一份）→ 按「關閉這個頻道」
 import {
   supabaseAdmin, route, AUTO_EXCHANGES, EXCHANGES, PROVIDERS,
-  discordConfigured, verifyDiscord, getDiscordSettings, addRole, sendMessage, editOriginal, dm, canReview, cleanExId, exIdOk,
+  discordConfigured, verifyDiscord, getDiscordSettings, addRole, sendMessage, editOriginal, dm, canReview, cleanExId, exIdOk, needsEmail, cleanAccountEmail, accountEmailOk,
 } from "../lib/index.js";
 import {
   T, EPHEMERAL, uidModal, reply, reviewMessage, reviewNotice, resultText,
@@ -61,8 +61,8 @@ async function processOpen({ i, s, user }) {
 }
 
 // 送出 UID 之後（背景）：Bybit、BingX 先自動確認；其他、或自動確認不了的，交給管理員
-async function processApplication({ i, s, ex, uid, user, channelId }) {
-  const base = { discord_user_id: user.id, discord_name: nameOf(user), exchange: ex, exchange_uid: uid, channel_id: channelId };
+async function processApplication({ i, s, ex, uid, accountEmail, user, channelId }) {
+  const base = { discord_user_id: user.id, discord_name: nameOf(user), exchange: ex, exchange_uid: uid, account_email: accountEmail || null, channel_id: channelId };
   const done = (payload) => editOriginal(i.token, payload).catch((e) => console.error("discord edit failed", e?.message));
   try {
     let reason = "";
@@ -207,6 +207,8 @@ export default route({
       if (error) return res.status(200).json(error);
       const uid = cleanExId(ex, fieldValue(i.data.components, "uid"));
       if (!exIdOk(ex, uid)) return res.status(200).json(reply(resultText("bad_uid")));
+      const accountEmail = needsEmail(ex) ? cleanAccountEmail(fieldValue(i.data.components, "account_email")) : null;
+      if (needsEmail(ex) && !accountEmailOk(accountEmail)) return res.status(200).json(reply(resultText("bad_email")));
       if (hasRole) return res.status(200).json(reply(resultText("already_member")));
       const [{ data: mine }, { data: taken }] = await Promise.all([
         supabaseAdmin.from("discord_applications").select("id").eq("discord_user_id", user.id).eq("status", "pending").limit(1),
@@ -214,7 +216,7 @@ export default route({
       ]);
       if (mine?.length) return res.status(200).json(reply(resultText("already_pending")));
       if (taken?.length) return res.status(200).json(reply(resultText("uid_taken")));
-      req.waitUntil?.(processApplication({ i, s, ex, uid, user, channelId }));
+      req.waitUntil?.(processApplication({ i, s, ex, uid, accountEmail, user, channelId }));
       return res.status(200).json({ type: T.DEFER }); // 大家都看得到的「處理中」，結果直接留在報名頻道
     }
 

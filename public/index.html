@@ -55,7 +55,7 @@
             <span class="hint">實驗室密碼由管理員提供，每組有使用次數限制</span>
           </label>
           <div class="field" id="uidRow" hidden>
-            <span class="label" id="regUidLabel">你用 CCC 邀請連結註冊的交易所和 UID（UM 填帳號或名字）</span>
+            <span class="label" id="regUidLabel">你用 CCC 邀請連結註冊的交易所和 UID</span>
             <div class="uid-pair">
               <select class="select" id="regEx" aria-label="交易所">
                 <option value="">選擇交易所</option>
@@ -66,6 +66,7 @@
               </select>
               <input class="input num" id="regUid" type="text" inputmode="numeric" autocomplete="off" maxlength="30" placeholder="UID" aria-labelledby="regUidLabel">
             </div>
+            <input class="input" id="regAccEmail" type="email" inputmode="email" autocomplete="off" maxlength="254" placeholder="註冊 UM 用的 Email" aria-label="註冊 UM 用的 Email" style="margin-top: 8px" hidden>
             <span class="hint" id="regUidHint">管理員要靠 UID 對到你的交易量。用好幾間的話，登入後可以再加。</span>
           </div>
           <div id="authError" class="form-error" role="alert" hidden></div>
