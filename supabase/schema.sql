@@ -337,3 +337,20 @@ alter table public.volumes alter column period_start set not null;
 alter table public.volumes alter column period_end set not null;
 alter table public.volumes add primary key (user_id, period_start);
 alter table public.volumes drop column if exists month;
+
+-- ── v1.14：Discord 私人申請頻道（像 Ticket Tool）──
+-- 按「申請加入實驗室」→ 機器人開一個只有申請人和管理員看得到的頻道；一個人同時只有一個開著的
+create table if not exists public.discord_tickets (
+  channel_id       text primary key check (channel_id ~ '^\d{17,20}$'),
+  discord_user_id  text not null check (discord_user_id ~ '^\d{17,20}$'),
+  discord_name     text,
+  status           text not null default 'open' check (status in ('open', 'closed')),
+  created_at       timestamptz not null default now(),
+  closed_at        timestamptz,
+  closed_by        text
+);
+create unique index if not exists discord_tickets_one_open on public.discord_tickets (discord_user_id) where status = 'open';
+alter table public.discord_tickets enable row level security;
+-- 申請是在哪個申請頻道送的、通過後給他的專用實驗室密碼（只能用一次）
+alter table public.discord_applications add column if not exists channel_id text;
+alter table public.discord_applications add column if not exists invite_code text;

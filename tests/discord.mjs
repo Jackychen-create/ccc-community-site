@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import http from "node:http";
 import { setEnv } from "../server/lib/env.js";
-import handler from "../server/discord/interactions.js";
+import handler, { CLOSE_DELAY_MS } from "../server/discord/interactions.js";
 import { setupGuild, BOT_PERMISSIONS, inviteUrl } from "../server/lib/discord-setup.js";
 
 let pass = 0, fail = 0;
@@ -14,7 +14,7 @@ const listen = (srv) => new Promise((r) => srv.listen(0, "127.0.0.1", () => r(`h
 const readJson = (req) => new Promise((r) => { let b = ""; req.on("data", (c) => (b += c)); req.on("end", () => { try { r(b ? JSON.parse(b) : null); } catch { r(null); } }); });
 
 // ── 假的 Supabase：只做這個流程會用到的 select / insert / update / upsert ──
-const db = { discord_applications: [], settings: [] };
+const db = { discord_applications: [], settings: [], discord_tickets: [], invite_codes: [] };
 let nextId = 1;
 const filtersOf = (sp) => [...sp].filter(([k]) => !["select", "order", "limit", "on_conflict"].includes(k)).map(([col, v]) => {
   const [op, ...rest] = v.split(".");
@@ -39,6 +39,10 @@ const supa = http.createServer(async (req, res) => {
     const items = Array.isArray(body) ? body : [body];
     const out = [];
     for (const it of items) {
+      if (table === "discord_tickets" && rows.some((r) => r.status === "open" && r.discord_user_id === it.discord_user_id)) {
+        res.writeHead(409, { "Content-Type": "application/json" }); return res.end(JSON.stringify({ code: "23505", message: "duplicate" }));
+      }
+      if (table === "discord_tickets" || table === "invite_codes") { const row = { status: "open", used_count: 0, ...it }; rows.push(row); out.push(row); continue; }
       if (table === "settings") {
         const i = rows.findIndex((r) => r.key === it.key);
         if (i >= 0) rows[i] = { ...rows[i], ...it }; else rows.push(it);
@@ -64,7 +68,7 @@ const supa = http.createServer(async (req, res) => {
 const calls = [];
 const GUILD_ID = "222222222222222222";
 const channels = new Map();
-let chanSeq = 0, botRolePos = 3;
+let chanSeq = 0, botRolePos = 3, msgSeq = 0;
 let roleFail = false;
 const disc = http.createServer(async (req, res) => {
   const body = await readJson(req);
@@ -75,7 +79,9 @@ const disc = http.createServer(async (req, res) => {
     res.writeHead(204); return res.end();
   }
   if (req.method === "POST" && req.url === "/users/@me/channels") return send({ id: "dm-" + body.recipient_id });
-  if (req.method === "POST" && /\/channels\/\d+\/messages/.test(req.url)) return send({ id: "900000000000000001" });
+  if (req.method === "POST" && /\/channels\/\d+\/messages/.test(req.url)) return send({ id: String(900000000000000000n + BigInt(++msgSeq)) });
+  if (req.method === "DELETE" && /^\/channels\/\d+$/.test(req.url)) { channels.delete(req.url.split("/")[2]); return send({}); }
+  if (req.method === "PATCH" && req.url.includes("/webhooks/")) return send({ id: "910000000000000001" });
   // 一鍵建立用
   if (req.method === "GET" && req.url === "/users/@me/guilds") return send([{ id: GUILD_ID, name: "CCC 交易實驗室" }]);
   if (req.method === "GET" && req.url === `/guilds/${GUILD_ID}`) return send({ id: GUILD_ID, name: "CCC 交易實驗室" });
@@ -136,85 +142,153 @@ const AMY = "500000000000000001", BOB = "500000000000000002", CAT = "50000000000
 await test("簽名不對就擋掉", async () => assert.equal((await interact({ type: 1 }, { badSig: true })).statusCode, 401));
 await test("Discord 驗證網址時的 PING", async () => assert.deepEqual((await interact({ type: 1 })).body, { type: 1 }));
 
-await test("按「申請」→ 選交易所（只有自己看得到）", async () => {
-  const r = (await interact(button("apply", member(AMY)))).body;
-  assert.equal(r.type, 4); assert.equal(r.data.flags, 64);
-  assert.deepEqual(r.data.components[0].components[0].options.map((o) => o.value), ["OKX", "UM", "Bybit", "BingX"]);
+CLOSE_DELAY_MS.value = 0;
+const PANEL = "444444444444444444";
+const ticketOfUser = (uid) => db.discord_tickets.find((t) => t.discord_user_id === uid && t.status === "open");
+const at = (chan, p) => ({ ...p, channel_id: chan });
+// 按「申請」開頻道，回傳頻道 ID
+async function openFor(m) {
+  const r = await interact(at(PANEL, button("apply", m)));
+  assert.equal(r.body.type, 5); assert.equal(r.body.data.flags, 64);
+  return ticketOfUser(m.user.id)?.channel_id;
+}
+const postsTo = (chan, from = 0) => calls.slice(from).filter((c) => c.method === "POST" && c.path === `/channels/${chan}/messages`);
+
+let amyChan;
+await test("按「申請」→ 開一個只有他和管理員看得到的申請頻道", async () => {
+  const before = calls.length;
+  amyChan = await openFor(member(AMY, { name: "Amy 小美" }));
+  assert.ok(amyChan, "沒有記下申請頻道");
+  const ch = channels.get(amyChan);
+  assert.equal(ch.type, 0); assert.match(ch.name, /^申請-Amy-小美$/);
+  const everyone = ch.permission_overwrites.find((o) => o.id === GUILD);
+  assert.ok(BigInt(everyone.deny) & (1n << 10n), "everyone 要看不到");
+  const me = ch.permission_overwrites.find((o) => o.id === AMY);
+  assert.equal(me.type, 1); assert.ok(BigInt(me.allow) & (1n << 10n) && BigInt(me.allow) & (1n << 11n), "申請人要看得到、能發言");
+  const cat = channels.get(ch.parent_id);
+  assert.equal(cat.name, "🎫 實驗室申請"); assert.equal(cat.type, 4);
+  assert.equal(db.settings.find((r) => r.key === "discord").value.ticketCategoryId, ch.parent_id);
+  const welcome = postsTo(amyChan, before)[0];
+  assert.ok(welcome, "沒有歡迎訊息"); assert.match(welcome.body.content, new RegExp(`<@${AMY}>`));
+  assert.equal(welcome.body.components[0].components[0].custom_id, "apply_ex");
+  assert.deepEqual(welcome.body.components[0].components[0].options.map((o) => o.value), ["OKX", "UM", "Bybit", "BingX"]);
+  assert.match(lastEdit().body.content, new RegExp(`<#${amyChan}>`));
+});
+await test("再按一次不會開第二個，給原本的頻道連結", async () => {
+  const n = channels.size;
+  await openFor(member(AMY));
+  assert.equal(channels.size, n);
+  assert.match(lastEdit().body.content, /已經有一個申請頻道/);
+});
+await test("頻道被手動刪掉了 → 再按會重開一個", async () => {
+  channels.delete(amyChan);
+  const again = await openFor(member(AMY));
+  assert.notEqual(again, amyChan);
+  assert.equal(db.discord_tickets.find((t) => t.channel_id === amyChan).status, "closed");
+  amyChan = again;
 });
 await test("已經有身分組的人不用再申請", async () => {
-  const r = (await interact(button("apply", member(AMY, { roles: [ROLE] })))).body;
+  const r = (await interact(at(PANEL, button("apply", member(AMY, { roles: [ROLE] }))))).body;
   assert.match(r.data.content, /已經有實驗室的身分組/);
 });
-await test("選 BingX → 跳出填 UID 的表單", async () => {
-  const r = (await interact({ ...button("apply_ex", member(AMY)), data: { custom_id: "apply_ex", values: ["BingX"] } })).body;
+await test("在申請頻道選 BingX → 跳出填 UID 的表單", async () => {
+  const r = (await interact(at(amyChan, { ...button("apply_ex", member(AMY)), data: { custom_id: "apply_ex", values: ["BingX"] } }))).body;
   assert.equal(r.type, 9); assert.equal(r.data.custom_id, "apply_uid:BingX");
 });
-await test("UID 不是數字會提醒", async () => assert.match((await interact(modal("BingX", "abc", member(AMY)))).body.data.content, /一串數字/));
+await test("別人不能在你的申請頻道操作", async () => {
+  const r = (await interact(at(amyChan, { ...button("apply_ex", member(BOB)), data: { custom_id: "apply_ex", values: ["BingX"] } }))).body;
+  assert.match(r.data.content, /別人的申請頻道/);
+  assert.match((await interact(at(amyChan, modal("BingX", "88880001", member(BOB))))).body.data.content, /別人的申請頻道/);
+});
+await test("不在申請頻道裡送 UID 會請他先開頻道", async () => assert.match((await interact(at(PANEL, modal("BingX", "88880001", member(AMY))))).body.data.content, /先到申請頻道/));
+await test("UID 不是數字會提醒", async () => assert.match((await interact(at(amyChan, modal("BingX", "abc", member(AMY))))).body.data.content, /一串數字/));
 
-await test("BingX 是 CCC 邀請的 → 自動給身分組", async () => {
-  const r = await interact(modal("BingX", "8888 0001", member(AMY)));
-  assert.equal(r.body.type, 5);
-  const put = calls.find((c) => c.method === "PUT");
+await test("BingX 是 CCC 邀請的 → 自動給身分組，在頻道裡給專用實驗室密碼", async () => {
+  const before = calls.length;
+  const r = await interact(at(amyChan, modal("BingX", "8888 0001", member(AMY))));
+  assert.equal(r.body.type, 5); assert.equal(r.body.data, undefined, "結果要留在頻道裡，大家看得到");
+  const put = calls.slice(before).find((c) => c.method === "PUT");
   assert.equal(put.path, `/guilds/${GUILD}/members/${AMY}/roles/${ROLE}`);
   assert.equal(put.auth, "Bot bot-token");
-  assert.match(lastEdit().body.content, /審核通過/);
   const row = db.discord_applications.find((a) => a.discord_user_id === AMY);
-  assert.equal(row.status, "approved"); assert.equal(row.auto, true); assert.equal(row.exchange_uid, "88880001");
+  assert.equal(row.status, "approved"); assert.equal(row.auto, true); assert.equal(row.exchange_uid, "88880001"); assert.equal(row.channel_id, amyChan);
+  const inv = db.invite_codes.at(-1);
+  assert.equal(inv.max_uses, 1); assert.match(inv.note, /BingX 88880001/); assert.equal(row.invite_code, inv.code);
+  const msg = lastEdit().body.content;
+  assert.match(msg, /審核通過/); assert.ok(msg.includes(inv.code)); assert.ok(msg.includes(`invite=${inv.code}`));
+  assert.equal(lastEdit().body.components[0].components[0].custom_id, "close_ticket");
+  assert.ok(calls.slice(before).some((c) => c.path === `/channels/dm-${AMY}/messages` && c.body.content.includes(inv.code)), "要私訊一份實驗室密碼");
 });
-await test("同一個 UID 不能給第二個人用", async () => assert.match((await interact(modal("BingX", "88880001", member(BOB)))).body.data.content, /已經被其他人/));
-await test("BingX 不是 CCC 邀請的 → 不給，附邀請連結", async () => {
-  await interact(modal("BingX", "12345678", member(BOB)));
-  assert.match(lastEdit().body.content, /不是用 CCC 的 BingX 邀請連結/);
-  assert.match(lastEdit().body.content, /bingx\.com\/invite\/CCC/);
+let bobChan;
+await test("同一個 UID 不能給第二個人用", async () => {
+  bobChan = await openFor(member(BOB));
+  assert.match((await interact(at(bobChan, modal("BingX", "88880001", member(BOB))))).body.data.content, /已經被其他人/);
+});
+await test("BingX 不是 CCC 邀請的 → 不給，附邀請連結，可以重選", async () => {
+  await interact(at(bobChan, modal("BingX", "12345678", member(BOB))));
+  const e = lastEdit().body;
+  assert.match(e.content, /不是用 CCC 的 BingX 邀請連結/);
+  assert.match(e.content, /bingx\.com\/invite\/CCC/);
+  assert.equal(e.components[0].components[0].custom_id, "apply_ex");
   assert.equal(db.discord_applications.find((a) => a.discord_user_id === BOB).status, "rejected");
 });
 
-let okxId;
-await test("OKX → 送到審核頻道等管理員", async () => {
+let okxId, catChan;
+await test("OKX → 在申請頻道等管理員，審核頻道收到通知", async () => {
+  catChan = await openFor(member(CAT));
   const before = calls.length;
-  await interact(modal("OKX", "123456789012345678", member(CAT)));
-  const post = calls.slice(before).find((c) => c.method === "POST" && c.path === `/channels/${REVIEW}/messages`);
-  assert.ok(post, "沒有送到審核頻道");
-  assert.match(post.body.content, /123456789012345678/);
+  await interact(at(catChan, modal("OKX", "123456789012345678", member(CAT))));
   okxId = db.discord_applications.find((a) => a.discord_user_id === CAT).id;
-  assert.deepEqual(post.body.components[0].components.map((b) => b.custom_id), [`approve:${okxId}`, `reject:${okxId}`]);
-  assert.match(lastEdit().body.content, /已經送出申請/);
-  assert.equal(db.discord_applications.find((a) => a.id === okxId).review_message_id, "900000000000000001");
+  const e = lastEdit().body;
+  assert.match(e.content, /123456789012345678/); assert.match(e.content, /等待管理員審核/);
+  assert.deepEqual(e.components[0].components.map((b) => b.custom_id), [`approve:${okxId}`, `reject:${okxId}`]);
+  assert.equal(db.discord_applications.find((a) => a.id === okxId).review_message_id, "910000000000000001");
+  const notice = postsTo(REVIEW, before)[0];
+  assert.ok(notice, "審核頻道沒有通知"); assert.ok(notice.body.content.includes(`<#${catChan}>`));
 });
-await test("審核中不能再送一次", async () => assert.match((await interact(modal("UM", "556677", member(CAT)))).body.data.content, /審核中/));
-await test("不是管理員按不了通過", async () => assert.match((await interact(button(`approve:${okxId}`, member(DAN)))).body.data.content, /只有管理員/));
-await test("管理員按通過 → 給身分組、更新訊息、私訊通知", async () => {
+await test("審核中不能再送一次", async () => assert.match((await interact(at(catChan, modal("UM", "556677", member(CAT))))).body.data.content, /審核中/));
+await test("不是管理員按不了通過", async () => assert.match((await interact(at(catChan, button(`approve:${okxId}`, member(DAN))))).body.data.content, /只有管理員/));
+await test("管理員按通過 → 給身分組、更新訊息、頻道裡給實驗室密碼", async () => {
   const before = calls.length;
-  const r = (await interact(button(`approve:${okxId}`, member(BOSS, { perms: ADMIN_PERMS, name: "CCC" })))).body;
+  const r = (await interact(at(catChan, button(`approve:${okxId}`, member(BOSS, { perms: ADMIN_PERMS, name: "CCC" }))))).body;
   assert.equal(r.type, 7); assert.match(r.data.content, /已通過/); assert.match(r.data.content, /審核：CCC/); assert.deepEqual(r.data.components, []);
   assert.ok(calls.slice(before).some((c) => c.method === "PUT" && c.path.endsWith(`/members/${CAT}/roles/${ROLE}`)));
-  assert.ok(calls.slice(before).some((c) => c.path === `/channels/dm-${CAT}/messages` && /審核通過/.test(c.body.content)));
+  const code = db.discord_applications.find((a) => a.id === okxId).invite_code;
+  assert.ok(code, "沒有產生實驗室密碼");
+  assert.ok(postsTo(catChan, before).some((c) => /審核通過/.test(c.body.content) && c.body.content.includes(code)));
   assert.equal(db.discord_applications.find((a) => a.id === okxId).status, "approved");
 });
 await test("重複按通過不會再給一次", async () => {
   const before = calls.length;
-  const r = (await interact(button(`approve:${okxId}`, member(BOSS, { perms: ADMIN_PERMS })))).body;
+  const r = (await interact(at(catChan, button(`approve:${okxId}`, member(BOSS, { perms: ADMIN_PERMS }))))).body;
   assert.equal(r.type, 7);
   assert.ok(!calls.slice(before).some((c) => c.method === "PUT"));
 });
-await test("UM 不通過 → 更新訊息、私訊原因", async () => {
-  await interact(modal("UM", "556677", member(DAN)));
+await test("客服身分組也可以審核、也看得到申請分類", async () => {
+  const STAFF = "666666666666666666";
+  const st = db.settings.find((r) => r.key === "discord").value;
+  st.staffRoleIds = [STAFF];
+  const danChan = await openFor(member(DAN));
+  assert.ok(BigInt(channels.get(danChan).permission_overwrites.find((o) => o.id === STAFF).allow) & (1n << 10n), "客服身分組要看得到申請頻道");
+  await interact(at(danChan, modal("UM", "556677", member(DAN))));
   const id = db.discord_applications.find((a) => a.discord_user_id === DAN).id;
   const before = calls.length;
-  const r = (await interact(button(`reject:${id}`, member(BOSS, { perms: ADMIN_PERMS })))).body;
+  const r = (await interact(at(danChan, button(`reject:${id}`, member(BOSS.replace(/9$/, "8"), { roles: [STAFF], name: "客服" }))))).body;
   assert.match(r.data.content, /不通過/);
-  assert.ok(calls.slice(before).some((c) => c.path === `/channels/dm-${DAN}/messages` && /沒有通過/.test(c.body.content)));
+  const back = postsTo(danChan, before).find((c) => /沒有通過/.test(c.body.content));
+  assert.ok(back, "頻道裡要告訴他沒通過"); assert.equal(back.body.components[0].components[0].custom_id, "apply_ex");
   assert.ok(!calls.slice(before).some((c) => c.method === "PUT"));
+  st.staffRoleIds = [];
 });
 await test("機器人給不了身分組（權限不夠）→ 轉人工審核並寫原因", async () => {
   roleFail = true;
   db.discord_applications = db.discord_applications.filter((a) => a.exchange_uid !== "88880001");
-  const before = calls.length;
-  await interact(modal("BingX", "88880001", member("500000000000000005")));
+  const EVE = "500000000000000005";
+  const eveChan = await openFor(member(EVE));
+  await interact(at(eveChan, modal("BingX", "88880001", member(EVE))));
   roleFail = false;
-  const post = calls.slice(before).find((c) => c.path === `/channels/${REVIEW}/messages`);
-  assert.ok(post); assert.match(post.body.content, /給身分組失敗/);
-  assert.match(lastEdit().body.content, /已經送出申請/);
+  assert.match(lastEdit().body.content, /給身分組失敗/);
+  assert.match(lastEdit().body.content, /等待管理員審核/);
 });
 await test("管理員按通過但機器人權限不夠 → 告訴管理員怎麼修", async () => {
   const id = db.discord_applications.find((a) => a.discord_user_id === "500000000000000005").id;
@@ -223,6 +297,18 @@ await test("管理員按通過但機器人權限不夠 → 告訴管理員怎麼
   roleFail = false;
   assert.equal(r.type, 4); assert.match(r.data.content, /管理身分組/);
   assert.equal(db.discord_applications.find((a) => a.id === id).status, "pending");
+});
+await test("別人不能關你的頻道；自己按關閉 → 刪掉頻道", async () => {
+  assert.match((await interact(at(amyChan, button("close_ticket", member(BOB))))).body.data.content, /別人的申請頻道/);
+  const r = (await interact(at(amyChan, button("close_ticket", member(AMY))))).body;
+  assert.equal(r.type, 4); assert.match(r.data.content, /關閉/);
+  assert.ok(calls.some((c) => c.method === "DELETE" && c.path === `/channels/${amyChan}`));
+  assert.equal(db.discord_tickets.find((t) => t.channel_id === amyChan).status, "closed");
+  assert.ok(!channels.has(amyChan));
+});
+await test("管理員可以關別人的頻道", async () => {
+  await interact(at(bobChan, button("close_ticket", member(BOSS, { perms: ADMIN_PERMS }))));
+  assert.equal(db.discord_tickets.find((t) => t.channel_id === bobChan).status, "closed");
 });
 
 // ── 一鍵建立頻道 ──
@@ -235,7 +321,7 @@ await test("一鍵建立：分類＋三個頻道、權限、申請按鈕、釘�
   const before = calls.length;
   firstRun = await setupGuild({ code: "V3QK-88R7", origin: "https://ccc-community-site.pages.dev", threshold: 1000000 });
   assert.equal(firstRun.ok, true);
-  assert.equal(firstRun.created.length, 4);
+  assert.deepEqual(firstRun.created, ["🧪 CCC 交易實驗室", "📝申請加入實驗室", "🔒申請審核", "🧪實驗室"], "申請分類前面已經開過，沿用");
   const made = [...channels.values()];
   const lab = made.find((c) => c.name === "🧪實驗室");
   const everyoneLab = lab.permission_overwrites.find((o) => o.id === GUILD_ID);
@@ -259,7 +345,7 @@ await test("再按一次不會重複建立、不會重貼", async () => {
   assert.equal(r.created.length, 0);
   assert.equal(r.hierarchyOk, true);
   assert.ok(!calls.slice(before).some((c) => c.method === "POST"), "不應該再建立或貼訊息");
-  assert.equal(calls.slice(before).filter((c) => c.method === "PATCH" && /^\/channels\/\d+$/.test(c.path)).length, 3, "三個頻道的權限要調回正確");
+  assert.equal(calls.slice(before).filter((c) => c.method === "PATCH" && /^\/channels\/\d+$/.test(c.path)).length, 4, "三個頻道和申請分類的權限要調回正確");
 });
 await test("換實驗室密碼會重貼並釘選", async () => {
   const before = calls.length;

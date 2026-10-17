@@ -1,4 +1,4 @@
-// Discord 一鍵建立：分類、三個頻道（權限設好）、申請按鈕、實驗室頻道釘選實驗室密碼
+// Discord 一鍵建立：分類、三個頻道（權限設好）、放私人申請頻道的分類、申請按鈕、實驗室頻道釘選實驗室密碼
 // 可以重複按：已經建好的頻道、已經貼過的訊息不會重複建立，只會把權限調回正確
 import {
   getGuilds, getGuild, getRoles, getMember, getChannel, createChannel, editChannel, sendMessage, pinMessage,
@@ -6,6 +6,7 @@ import {
 } from "./discord.js";
 import { env } from "./env.js";
 import { panelMessage } from "./discord-flow.js";
+import { TICKET_CATEGORY, categoryOverwrites } from "./discord-ticket.js";
 import { ruleText, DEFAULT_THRESHOLD } from "../../public/assets/js/shared/rules.js";
 
 // 權限位元（https://discord.com/developers/docs/topics/permissions）
@@ -20,16 +21,16 @@ export const inviteUrl = (appId) => `https://discord.com/oauth2/authorize?client
 
 export const CHANNELS = {
   category: { name: "🧪 CCC 交易實驗室", type: 4 },
-  panel: { name: "📝申請加入實驗室", type: 0, topic: "按下面的按鈕，選交易所、填 UID 就可以申請。Bybit、BingX 自動確認；OKX、UM 由管理員審核。" },
-  review: { name: "🔒申請審核", type: 0, topic: "OKX、UM 的申請會送到這裡。到交易所代理後台確認後按「通過」或「不通過」。只有管理員看得到。" },
+  panel: { name: "📝申請加入實驗室", type: 0, topic: "按下面的按鈕，機器人會幫你開一個私人申請頻道。Bybit、BingX 自動確認；OKX、UM 由管理員審核。" },
+  review: { name: "🔒申請審核", type: 0, topic: "有人在等管理員審核（OKX、UM）時會通知在這裡，點頻道連結過去按「通過」或「不通過」。只有管理員看得到。" },
   lab: { name: "🧪實驗室", type: 0, topic: "實驗室研究員專用：網站實驗室密碼、公告" },
 };
 
 // 每個頻道的權限：everyone、實驗室身分組、機器人
-export function overwrites(kind, { guildId, roleId, botId }) {
+export function overwrites(kind, { guildId, roleId, botId, staffRoleIds = [] }) {
   const bot = { id: botId, type: 1, allow: bits(P.VIEW, P.SEND, P.HISTORY, P.EMBED, P.MANAGE_MESSAGES), deny: "0" };
   if (kind === "panel") return [{ id: guildId, type: 0, allow: bits(P.VIEW, P.HISTORY), deny: bits(P.SEND, P.THREADS) }, bot];
-  if (kind === "review") return [{ id: guildId, type: 0, allow: "0", deny: bits(P.VIEW) }, bot];
+  if (kind === "review") return [{ id: guildId, type: 0, allow: "0", deny: bits(P.VIEW) }, bot, ...staffRoleIds.map((id) => ({ id, type: 0, allow: bits(P.VIEW, P.HISTORY), deny: "0" }))];
   if (kind === "lab") return [
     { id: guildId, type: 0, allow: "0", deny: bits(P.VIEW) },
     { id: roleId, type: 0, allow: bits(P.VIEW, P.HISTORY, P.ADD_REACTIONS), deny: bits(P.SEND, P.THREADS) },
@@ -81,8 +82,9 @@ export async function setupGuild({ code, origin, threshold }) {
   const hierarchyOk = botTop > role.position;
 
   // 3. 分類和頻道（已經有就沿用，權限調回正確）
-  const ctx = { guildId, roleId: s.roleId, botId };
-  const ids = { categoryId: s.categoryId, panelChannelId: s.panelChannelId, reviewChannelId: s.reviewChannelId, labChannelId: s.labChannelId };
+  const staffRoleIds = s.staffRoleIds || [];
+  const ctx = { guildId, roleId: s.roleId, botId, staffRoleIds };
+  const ids = { categoryId: s.categoryId, panelChannelId: s.panelChannelId, reviewChannelId: s.reviewChannelId, labChannelId: s.labChannelId, ticketCategoryId: s.ticketCategoryId };
   const created = [];
   if (!(await exists(ids.categoryId))) {
     ids.categoryId = (await createChannel(guildId, { ...CHANNELS.category })).id;
@@ -97,6 +99,15 @@ export async function setupGuild({ code, origin, threshold }) {
       ids[key] = (await createChannel(guildId, { name: def.name, type: def.type, topic: def.topic, parent_id: ids.categoryId, permission_overwrites: po })).id;
       created.push(def.name);
     }
+  }
+
+  // 私人申請頻道放的分類（只有機器人、客服身分組看得到）
+  const tpo = categoryOverwrites({ guildId, botId, staffRoleIds });
+  if (await exists(ids.ticketCategoryId)) {
+    await editChannel(ids.ticketCategoryId, { permission_overwrites: tpo });
+  } else {
+    ids.ticketCategoryId = (await createChannel(guildId, { ...TICKET_CATEGORY, permission_overwrites: tpo })).id;
+    created.push(TICKET_CATEGORY.name);
   }
 
   // 4. 申請按鈕、實驗室密碼（換了頻道或換了密碼才重貼）

@@ -70,7 +70,9 @@ export async function dm(userId, content) {
 }
 
 // ── 設定：伺服器、身分組、申請頻道、審核頻道、各交易所邀請連結（後台「實驗室密碼」頁可以改）──
-export const DEFAULT_DISCORD = { guildId: "", roleId: "1560542923173400596", panelChannelId: "", reviewChannelId: "", invites: {} };
+// staffRoleIds：除了管理員之外，也看得到申請頻道、可以按通過的身分組（例如客服）
+// ticketCategoryId：私人申請頻道放在哪個分類（沒有會自動建立「🎫 實驗室申請」）
+export const DEFAULT_DISCORD = { guildId: "", roleId: "1560542923173400596", panelChannelId: "", reviewChannelId: "", ticketCategoryId: "", staffRoleIds: [], invites: {} };
 const SNOWFLAKE = /^\d{17,20}$/;
 export const isSnowflake = (v) => SNOWFLAKE.test(String(v || ""));
 
@@ -85,8 +87,9 @@ export async function saveDiscordSettings(v) {
   return v;
 }
 
-// 按的人能不能審核：有「管理身分組」或「管理員」權限
-export function canReview(member) {
+// 按的人能不能審核：有「管理身分組」或「管理員」權限，或是有設定的客服身分組
+export function canReview(member, staffRoleIds = []) {
+  if ((member?.roles || []).some((r) => staffRoleIds.includes(r))) return true;
   try {
     const p = BigInt(member?.permissions || "0");
     return (p & (1n << 3n)) !== 0n || (p & (1n << 28n)) !== 0n;
@@ -103,4 +106,5 @@ export const getMember = (g, u) => discordApi("GET", `/guilds/${g}/members/${u}`
 export const getChannel = (c) => discordApi("GET", `/channels/${c}`);
 export const createChannel = (g, payload) => discordApi("POST", `/guilds/${g}/channels`, payload);
 export const editChannel = (c, payload) => discordApi("PATCH", `/channels/${c}`, payload);
+export const deleteChannel = (c) => discordApi("DELETE", `/channels/${c}`);
 export const pinMessage = (c, m) => discordApi("PUT", `/channels/${c}/pins/${m}`);

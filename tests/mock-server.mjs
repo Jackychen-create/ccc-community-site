@@ -72,7 +72,7 @@ const discordSettings = { roleId: "1560542923173400596", panelChannelId: "", rev
 let discordPanels = 0;
 const discordApps = [
   { id: 3, discord_name: "小明", exchange: "OKX", exchange_uid: "123456789012345678", status: "pending", auto: false, reviewed_by: null, created_at: new Date(Date.now() - 600e3).toISOString(), reviewed_at: null },
-  { id: 2, discord_name: "阿美", exchange: "BingX", exchange_uid: "88880001", status: "approved", auto: true, reviewed_by: "BingX 自動確認", created_at: new Date(Date.now() - 3600e3).toISOString(), reviewed_at: new Date(Date.now() - 3600e3).toISOString() },
+  { id: 2, discord_name: "阿美", exchange: "BingX", exchange_uid: "88880001", status: "approved", invite_code: "Q7MZ-4KPA", auto: true, reviewed_by: "BingX 自動確認", created_at: new Date(Date.now() - 3600e3).toISOString(), reviewed_at: new Date(Date.now() - 3600e3).toISOString() },
   { id: 1, discord_name: "Bob", exchange: "Bybit", exchange_uid: "12345678", status: "rejected", auto: true, reviewed_by: "Bybit 自動確認", created_at: new Date(Date.now() - 86400e3).toISOString(), reviewed_at: new Date(Date.now() - 86400e3).toISOString() },
 ];
 const vols = new Map(); // `${user_id}:${month}` → {amounts, updated_at, updated_by}
@@ -380,13 +380,18 @@ const server = http.createServer(async (req, res) => {
           if (v && !/^\d{17,20}$/.test(v)) return send(res, 400, { error: "ID 是 17–20 位數字，請在 Discord 對頻道或身分組按右鍵「複製 ID」" });
           discordSettings[k] = v;
         }
+        if (body.staffRoleIds !== undefined) {
+          const list = String(body.staffRoleIds || "").split(/[\s,，、]+/).filter(Boolean);
+          if (list.some((v) => !/^\d{17,20}$/.test(v))) return send(res, 400, { error: "客服身分組 ID 是 17–20 位數字，多個用逗號分開" });
+          discordSettings.staffRoleIds = list;
+        }
         if (body.invites) discordSettings.invites = body.invites;
-        return send(res, 200, { ok: true, settings: discordSettings });
+        return send(res, 200, { ok: true, settings: discordSettings, synced: null });
       }
       if (body.action === "setup") {
         if (body.code && !invites.some((x) => x.code === body.code && !x.disabled)) return send(res, 400, { error: "找不到這組實驗室密碼，或已經停用" });
-        const created = discordSettings.labChannelId ? [] : ["🧪 CCC 交易實驗室", "📝申請加入實驗室", "🔒申請審核", "🧪實驗室"];
-        Object.assign(discordSettings, { guildId: "222222222222222222", categoryId: "800000000000000001", panelChannelId: "800000000000000002", reviewChannelId: "800000000000000003", labChannelId: "800000000000000004", labCode: body.code || discordSettings.labCode });
+        const created = discordSettings.labChannelId ? [] : ["🧪 CCC 交易實驗室", "📝申請加入實驗室", "🔒申請審核", "🧪實驗室", "🎫 實驗室申請"];
+        Object.assign(discordSettings, { guildId: "222222222222222222", categoryId: "800000000000000001", panelChannelId: "800000000000000002", reviewChannelId: "800000000000000003", labChannelId: "800000000000000004", ticketCategoryId: "800000000000000005", labCode: body.code || discordSettings.labCode });
         return send(res, 200, { ok: true, guildName: "CCC 交易實驗室", hierarchyOk: false, roleName: "實驗室研究員", created, pinned: true, settings: discordSettings });
       }
       if (!discordSettings.panelChannelId) return send(res, 400, { error: "先填申請頻道的 ID" });
