@@ -71,12 +71,31 @@ export async function checkInvite(uid) {
   return { invited: d?.inviteResult === true, direct: d?.directInvitation === true };
 }
 
+// startTime、endTime 的格式：BingX 文件寫 YYYYMMDD，實際上線的版本要毫秒時間戳（傳 YYYYMMDD 會被當成 1970 年，回「beginTime-over-366」）
+// 預設用毫秒（台灣時間那天的 00:00～23:59:59.999）；BingX 說格式不對才改用 YYYYMMDD，之後就記住
+let timeFormat = "ms";
+const twMs = (ymd, endOfDay) => Date.parse(`${ymd.slice(0, 4)}-${ymd.slice(4, 6)}-${ymd.slice(6, 8)}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}+08:00`);
+const isFormatError = (e) => Number(e?.code) === 100400 || /beginTime|startTime|endTime|time range|format/i.test(String(e?.message || ""));
+
 // 被邀請人每天的交易量（commissionDataList，一次最多 30 天，每頁最多 100 筆）
-// start、end：YYYYMMDD；uid 給了就只查那個人
+// start、end：YYYYMMDD（台灣日期）；uid 給了就只查那個人
 export async function fetchDaily(start, end, uid) {
+  try {
+    return await fetchDailyAs(timeFormat, start, end, uid);
+  } catch (e) {
+    if (!isFormatError(e)) throw e;
+    const other = timeFormat === "ms" ? "ymd" : "ms";
+    const r = await fetchDailyAs(other, start, end, uid);
+    timeFormat = other;
+    return r;
+  }
+}
+
+async function fetchDailyAs(format, start, end, uid) {
   const out = [];
+  const range = format === "ms" ? { startTime: twMs(start, false), endTime: twMs(end, true) } : { startTime: start, endTime: end };
   for (let page = 1; page <= 200; page++) {
-    const params = { startTime: start, endTime: end, pageIndex: page, pageSize: 100 };
+    const params = { ...range, pageIndex: page, pageSize: 100 };
     if (uid) params.uid = uid;
     const d = await bingxGet("/openApi/agent/v2/reward/commissionDataList", params);
     const list = d?.list || [];
