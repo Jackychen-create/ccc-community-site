@@ -2,7 +2,8 @@
 // 每人從加入那天起算，每一輪剛好一個月；這一輪達標 → 可以看到下一輪結束；沒達標 → 下一輪第一天就不能看
 import { supabaseAdmin } from "./env.js";
 import { twDate, todayTW } from "./dates.js";
-import { EXCHANGES, AUTO_EXCHANGES, DEFAULT_THRESHOLD, isQualified, periodOf, nextPeriod, prevPeriod, addDays } from "../../public/assets/js/shared/rules.js";
+import { EXCHANGES, AUTO_EXCHANGES, DEFAULT_THRESHOLD, isQualified, milestoneOf, periodOf, nextPeriod, prevPeriod, addDays } from "../../public/assets/js/shared/rules.js";
+import { notifyMilestones } from "./milestone.js";
 export { EXCHANGES, AUTO_EXCHANGES, LOT_GOALS, DEFAULT_THRESHOLD, isQualified, goalOf, unitOf, gapText, ruleText, periodOf, nextPeriod, prevPeriod, addMonths, idLabel, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR } from "../../public/assets/js/shared/rules.js";
 
 export async function getThreshold() {
@@ -58,6 +59,7 @@ export async function saveVolumes({ entries, updatedBy, merge = false, keepAuto 
   const upserts = [];
   const extend = new Map(); // 新的到期日 → [user_id]
   const newlyQualified = [];
+  const hits = []; // 這次跨過的里程碑（25／50／75／100%）
   for (const e of entries) {
     const m = known.get(e.user_id);
     if (!m) continue;
@@ -76,6 +78,11 @@ export async function saveVolumes({ entries, updatedBy, merge = false, keepAuto 
     if (qOn < e.period.start) qOn = e.period.start;
     if (qOn > e.period.end) qOn = e.period.end;
     const qualified_at = ok ? old?.qualified_at || qOn : null;
+    // 進度里程碑：只看這一輪（和剛結束 3 天內的上一輪），跨過新的一格才通知
+    const lvl = milestoneOf(amounts, threshold);
+    if (lvl > milestoneOf(cleanAmounts(old?.amounts || {}), threshold) && addDays(e.period.end, 3) >= todayTW()) {
+      hits.push({ user_id: m.user_id, period: e.period, level: lvl, amounts, nextEnd: nextPeriod(anchorOf(m), e.period).end });
+    }
     upserts.push({ user_id: m.user_id, period_start: e.period.start, period_end: e.period.end, amounts, qualified_at, updated_at: new Date().toISOString(), updated_by: updatedBy });
     if (ok && !old?.qualified_at) {
       newlyQualified.push(m.user_id);
@@ -95,5 +102,8 @@ export async function saveVolumes({ entries, updatedBy, merge = false, keepAuto 
     if (exErr) throw exErr;
     extended += list.length;
   }
-  return { saved: upserts.length, extended, newlyQualified };
+  // 通知失敗不影響存檔
+  let milestones = { recorded: 0, sent: 0 };
+  try { milestones = await notifyMilestones(hits, threshold); } catch (err) { console.error("milestone notify failed", err?.message); }
+  return { saved: upserts.length, extended, newlyQualified, milestones };
 }

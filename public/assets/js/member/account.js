@@ -2,7 +2,7 @@
 import { $, el, icons, fmtRel, api, modal, confirmDialog, setBusy, toast, cfg } from "../core/index.js";
 import { state } from "./state.js";
 import { DAY, md } from "./format.js";
-import { AUTO_EXCHANGES, goalOf, fmtAmount, gapText, ruleText, addDays, TRADFI_NOTE, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR } from "../shared/rules.js";
+import { AUTO_EXCHANGES, goalOf, fmtAmount, gapText, ruleText, addDays, TRADFI_NOTE, MILESTONES, milestoneOf, bestProgress, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR } from "../shared/rules.js";
 
 // 每月資格：到期前 7 天提醒
 export function renderAccessBanner() {
@@ -51,6 +51,7 @@ export function renderVolPanel() {
       el("div", null, el("h2", { text: "這一輪交易量" }), el("div", { class: "small muted num vol-range", text: `${md(v.periodStart)}～${md(v.periodEnd)}` })),
       v.qualified ? el("span", { class: "pill good" }, el("span", { class: "dot" }), "已達標")
         : el("span", { class: "pill" }, v.amounts ? gapText(v.amounts, v.threshold, v.exchanges) : "尚未更新")),
+    milestoneStrip(v),
     // 還沒填數字就不放空的進度條，標題旁的「尚未更新」已經說明了
     !v.amounts ? null : el("div", { class: "vol-rows" },
       ...v.exchanges.map((ex) => {
@@ -64,6 +65,42 @@ export function renderVolPanel() {
     linkRows(),
     el("p", { class: "small muted vol-note", text: (v.qualifiedAt ? `${md(v.qualifiedAt)} 達標，可以看到 ${md(v.qualifiedUntil)}。` : `從加入那天起算，每一輪一個月。${md(v.periodEnd)} 之前${ruleText(v.threshold, v.exchanges)}，就能看到下一輪結束；沒達標，${md(addDays(v.periodEnd, 1))} 起就不能看。`) + (v.updatedAt ? `上次更新：${fmtRel(v.updatedAt)}。` : `${v.exchanges.filter((ex) => !AUTO_EXCHANGES.includes(ex)).join("、")} 由管理員更新。`) + (v.exchanges.includes("Bybit") ? TRADFI_NOTE : "") }),
   ].filter(Boolean));
+}
+
+// ── 進度里程碑：25／50／75%／達標，走到哪一格就亮到哪一格 ──
+function milestoneStrip(v) {
+  const lvl = v.amounts ? milestoneOf(v.amounts, v.threshold, v.exchanges) : 0;
+  return el("ol", { class: "ms-strip", "aria-label": `這一輪進度：${lvl ? (lvl >= 100 ? "已達標" : lvl + "%") : "還沒到 25%"}` },
+    ...MILESTONES.map((m) => el("li", { class: "ms-step" + (lvl >= m ? " on" : "") + (lvl === m ? " now" : "") },
+      el("span", { class: "ms-dot", "aria-hidden": "true" }), el("span", { class: "ms-label num", text: m >= 100 ? "達標" : `${m}%` }))));
+}
+
+// 跨過新的里程碑：首頁跳一次恭喜（Discord 也會私訊一份）
+export function celebrateMilestone() {
+  const v = state.me?.volume;
+  const ms = v?.milestone;
+  if (!ms || state.me.isAdmin) return;
+  let tries = 0;
+  const open = () => {
+    if (document.querySelector(".modal-back")) return ++tries < 120 && setTimeout(open, 1000);
+    const done = ms.level >= 100;
+    const b = v.amounts ? bestProgress(v.amounts, v.threshold, v.exchanges) : null;
+    const pct = b ? Math.min(100, Math.round(b.ratio * 100)) : ms.level;
+    const ok = el("button", { class: "btn primary", type: "button", text: done ? "太好了" : "繼續衝" });
+    const mm = modal({
+      title: done ? "🎉 這一輪達標了！" : `🎯 跨過 ${ms.level}%！`,
+      body: el("div", { class: "ms-pop" },
+        el("div", { class: "ms-big num", text: done ? "100%" : `${pct}%` }),
+        el("div", { class: "track ms-track" }, el("i", { style: { width: pct + "%" } })),
+        b ? el("p", { class: "small sub", text: `${b.ex}：${fmtAmount(b.ex, b.n)}／${fmtAmount(b.ex, b.goal)}${b.ex === "UM" ? "" : " USDT"}` }) : null,
+        el("p", { text: done ? `觀看資格延長到 ${md(v.qualifiedUntil || v.nextEnd)}。下一輪繼續保持！` : `${gapText(v.amounts, v.threshold, v.exchanges)}，${md(v.periodEnd)} 前達標就能看到 ${md(v.nextEnd)}。` })),
+      actions: [ok],
+      onClose: () => api("/api/me", { method: "PATCH", body: { milestoneSeen: true } }).catch(() => {}),
+    });
+    ok.addEventListener("click", () => mm.close());
+    v.milestone = null;
+  };
+  setTimeout(open, 600);
 }
 
 // ── Bybit、BingX：綁定 UID 後每天自動更新交易量 ──

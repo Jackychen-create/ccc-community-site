@@ -9,6 +9,7 @@ import { todayTW } from "../server/lib/dates.js";
 import followup from "../server/admin/followup.js";
 import adminVolumes from "../server/admin/volumes.js";
 import me from "../server/me.js";
+import { milestoneText } from "../server/lib/milestone.js";
 
 let pass = 0, fail = 0;
 async function test(name, fn) {
@@ -18,7 +19,7 @@ const listen = (srv) => new Promise((r) => srv.listen(0, "127.0.0.1", () => r(`h
 const readJson = (req) => new Promise((r) => { let b = ""; req.on("data", (c) => (b += c)); req.on("end", () => { try { r(b ? JSON.parse(b) : null); } catch { r(null); } }); });
 
 // ── 假的 Supabase（PostgREST）──
-const db = { members: [], exchange_links: [], volumes: [], videos: [], feedback: [], watch_progress: [], settings: [{ key: "volume_threshold", value: 1000000 }] };
+const db = { members: [], exchange_links: [], volumes: [], milestones: [], discord_applications: [], videos: [], feedback: [], watch_progress: [], settings: [{ key: "volume_threshold", value: 1000000 }] };
 const tokens = { "tok-admin": { id: "admin-1", email: "boss@gmail.com", email_confirmed_at: "2026-01-01T00:00:00Z" } };
 const writes = [];
 function parseFilters(sp) {
@@ -225,6 +226,40 @@ await test("後台「交易量」手動填 OKX：新達標延長到下一輪結�
   assert.equal(c.amounts.OKX, 1200000); assert.equal(c.amounts.Bybit, undefined);
   assert.ok(db.members.find((m) => m.email === "u-c@example.com").access_until > before);
 });
+await test("里程碑：自動同步、手動填跨過門檻都記一次 100%，同樣數字再存不重複", async () => {
+  const a = db.milestones.filter((r) => r.user_id === "u-a");
+  assert.deepEqual(a.map((r) => r.level), [100], JSON.stringify(db.milestones));
+  const c = db.milestones.filter((r) => r.user_id === "00000000-0000-4000-8000-00000000000c");
+  assert.deepEqual(c.map((r) => r.level), [100]);
+  const n = db.milestones.length;
+  await call(adminVolumes, { method: "POST", body: { which: "current", qualifiedOn: today, rows: [{ userId: "00000000-0000-4000-8000-00000000000c", amounts: { OKX: 1300000 } }] } });
+  assert.equal(db.milestones.length, n);
+});
+await test("里程碑：從 0 填到 60 萬只通知最高的 50%，之後到 80 萬再通知 75%", async () => {
+  const id = "00000000-0000-4000-8000-0000000000f1";
+  db.members.push({ ...member("u-f", today, periodOf(today, today).end), user_id: id, email: "u-f@example.com" });
+  await call(adminVolumes, { method: "POST", body: { which: "current", qualifiedOn: today, rows: [{ userId: id, amounts: { OKX: 600000 } }] } });
+  assert.deepEqual(db.milestones.filter((r) => r.user_id === id).map((r) => r.level), [50]);
+  await call(adminVolumes, { method: "POST", body: { which: "current", qualifiedOn: today, rows: [{ userId: id, amounts: { OKX: 620000 } }] } });
+  assert.deepEqual(db.milestones.filter((r) => r.user_id === id).map((r) => r.level), [50]);
+  await call(adminVolumes, { method: "POST", body: { which: "current", qualifiedOn: today, rows: [{ userId: id, amounts: { OKX: 800000 } }] } });
+  assert.deepEqual(db.milestones.filter((r) => r.user_id === id).map((r) => r.level).sort(), [50, 75]);
+});
+await test("里程碑：Discord 私訊內容", async () => {
+  const period = { start: "2026-10-18", end: "2026-11-17" };
+  const t50 = milestoneText({ level: 50, amounts: { OKX: 600000 }, threshold: 1000000, period, nextEnd: "2026-12-17" });
+  assert.ok(t50.includes("跨過 50%") && t50.includes("OKX 60 萬 USDT／100 萬 USDT") && t50.includes("還差 40 萬") && t50.includes("12/17"), t50);
+  const um = milestoneText({ level: 75, amounts: { UM: 8 }, threshold: 1000000, period, nextEnd: "2026-12-17" });
+  assert.ok(um.includes("UM 8 手／10 手") && um.includes("UM 還差 2 手"), um);
+  const done = milestoneText({ level: 100, amounts: { Bybit: 1100000 }, threshold: 1000000, period, nextEnd: "2026-12-17" });
+  assert.ok(done.includes("達標了") && done.includes("延長到 **12/17**"), done);
+});
+await test("里程碑：贈送名額不記", async () => {
+  const id = "00000000-0000-4000-8000-0000000000f2";
+  db.members.push({ ...member("u-g", today, null), user_id: id, email: "u-g@example.com", free: true });
+  await call(adminVolumes, { method: "POST", body: { which: "current", qualifiedOn: today, rows: [{ userId: id, amounts: { OKX: 900000 } }] } });
+  assert.equal(db.milestones.filter((r) => r.user_id === id).length, 0);
+});
 await test("後台「交易量」上一輪：第一輪的人不列", async () => {
   const r = await call(adminVolumes, { query: { which: "previous" } });
   assert.equal(r.statusCode, 200);
@@ -236,6 +271,11 @@ await test("研究員 /api/me：這一輪的日期和交易量", async () => {
   assert.equal(r.statusCode, 200, JSON.stringify(r.body));
   assert.equal(r.body.volume.periodStart, aJoin); assert.equal(r.body.volume.periodEnd, aP.end);
   assert.equal(r.body.volume.qualified, true); assert.equal(r.body.volume.qualifiedUntil, nextPeriod(aJoin, aP).end);
+  assert.equal(r.body.volume.milestone?.level, 100, JSON.stringify(r.body.volume.milestone));
+  const seen = await call(me, { token: "tok-a", method: "PATCH", body: { milestoneSeen: true } });
+  assert.equal(seen.statusCode, 200);
+  const r2 = await call(me, { token: "tok-a" });
+  assert.equal(r2.body.volume.milestone, null);
 });
 
 await test("協作管理員：交易量、待跟進被擋，主要管理員不受影響", async () => {

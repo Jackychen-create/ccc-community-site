@@ -5,7 +5,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 // 規則跟正式網站讀同一份
 import { canUseApi } from "../public/assets/js/shared/roles.js";
-import { EXCHANGES, AUTO_EXCHANGES, isQualified, addDays, cycleEnd, periodOf, nextPeriod, prevPeriod, COURSE_HOSTS as CH, courseUnlockDate, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR } from "../public/assets/js/shared/rules.js";
+import { EXCHANGES, AUTO_EXCHANGES, isQualified, addDays, cycleEnd, periodOf, nextPeriod, prevPeriod, COURSE_HOSTS as CH, courseUnlockDate, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR, milestoneOf } from "../public/assets/js/shared/rules.js";
 
 const PORT = Number(process.env.PORT || 4321);
 const ROOT = path.join(path.dirname(new URL(import.meta.url).pathname), "..");
@@ -110,6 +110,14 @@ const anchorOf = (m) => twDate(m.created_at);
 const curP = (m) => periodOf(anchorOf(m), TODAY());
 const periodFor = (m, which) => (which === "previous" ? prevPeriod(anchorOf(m), curP(m)) : curP(m));
 const clampDay = (d, p) => (d < p.start ? p.start : d > p.end ? p.end : d);
+// 進度里程碑：`${user_id}:${period_start}:${level}` → { seen }
+const msRows = new Map();
+function msHit(m, p, before, after) {
+  if (m.free) return;
+  const lvl = milestoneOf(after, threshold);
+  if (lvl > milestoneOf(before || {}, threshold) && !msRows.has(`${m.user_id}:${p.start}:${lvl}`)) msRows.set(`${m.user_id}:${p.start}:${lvl}`, { level: lvl, seen: false });
+}
+const msUnseen = (m, p) => [...msRows.entries()].filter(([k, v]) => k.startsWith(`${m.user_id}:${p.start}:`) && !v.seen).map(([, v]) => v).sort((a, b) => b.level - a.level)[0] || null;
 function autoSyncUser(ex, userId) {
   const uid = autoLinks[ex].get(userId); if (!uid) return 0;
   const m = members.find((x) => x.user_id === userId); if (!m) return 0;
@@ -118,6 +126,7 @@ function autoSyncUser(ex, userId) {
   const ok = qualified(amounts);
   const qOn = clampDay(ex === "Bybit" ? addDays(TODAY(), -1) : addDays(p.start, 3), p);
   vols.set(key, { amounts, qualified_at: ok ? prev?.qualified_at || qOn : null, updated_at: new Date().toISOString(), updated_by: `${ex} 自動同步` });
+  msHit(m, p, prev?.amounts, amounts);
   const until = nextPeriod(anchorOf(m), p).end;
   if (ok && !prev?.qualified_at && m.access_until && m.access_until < until) { m.access_until = until; return 1; }
   return 0;
@@ -261,10 +270,11 @@ const server = http.createServer(async (req, res) => {
     if (mrow?.access_until && mrow.access_until < d(0)) return send(res, 403, { error: `你的觀看資格到 ${mrow.access_until} 為止，請聯絡管理員更新`, code: "expired" });
     if (p === "/api/me") {
       if (req.method === "PATCH") {
+        if (body.milestoneSeen) { for (const [k, v] of msRows) if (k.startsWith(mrow.user_id + ":")) v.seen = true; return send(res, 200, { ok: true }); }
         mrow.notify = body.notify;
         return send(res, 200, { ok: true, notify: body.notify });
       }
-      return send(res, 200, { links: mrow ? EXCHANGES.map((ex) => ({ exchange: ex, auto: AUTO_EXCHANGES.includes(ex), enabled: true, uid: autoLinks[ex].get(mrow.user_id) || null, accountName: accNames.get(`${ex}:${mrow.user_id}`) || null, needsName: needsName(ex), boundAt: null })) : null, feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, adminRole: admin ? role : null, accessUntil: mrow?.access_until || null, free: !!mrow?.free, notify: mrow ? mrow.notify !== false : null, nextLive: (() => { const l = liveNext(); return l ? { title: l.title, startsAt: l.starts_at, hosts: l.hosts || [], note: l.note, link: l.link } : null; })(), volume: mrow ? (() => { const p = curP(mrow); const v = vols.get(mrow.user_id + ":" + p.start); return { periodStart: p.start, periodEnd: p.end, exchanges: EX, threshold, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, qualified: v ? qualified(v.amounts) : false, qualifiedAt: v?.qualified_at || null, qualifiedUntil: v?.qualified_at ? nextPeriod(anchorOf(mrow), p).end : null }; })() : null });
+      return send(res, 200, { links: mrow ? EXCHANGES.map((ex) => ({ exchange: ex, auto: AUTO_EXCHANGES.includes(ex), enabled: true, uid: autoLinks[ex].get(mrow.user_id) || null, accountName: accNames.get(`${ex}:${mrow.user_id}`) || null, needsName: needsName(ex), boundAt: null })) : null, feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, adminRole: admin ? role : null, accessUntil: mrow?.access_until || null, free: !!mrow?.free, notify: mrow ? mrow.notify !== false : null, nextLive: (() => { const l = liveNext(); return l ? { title: l.title, startsAt: l.starts_at, hosts: l.hosts || [], note: l.note, link: l.link } : null; })(), volume: mrow ? (() => { const p = curP(mrow); const v = vols.get(mrow.user_id + ":" + p.start); return { periodStart: p.start, periodEnd: p.end, exchanges: EX, threshold, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, qualified: v ? qualified(v.amounts) : false, qualifiedAt: v?.qualified_at || null, qualifiedUntil: v?.qualified_at ? nextPeriod(anchorOf(mrow), p).end : null, milestone: mrow.free ? null : msUnseen(mrow, p), nextEnd: nextPeriod(anchorOf(mrow), p).end }; })() : null });
     }
     if (p === "/api/exchange-link") {
       const mrow = members.find((m) => m.user_id === u.id);
@@ -487,6 +497,7 @@ const server = http.createServer(async (req, res) => {
         const prevQ = prevRow?.qualified_at || null;
         const ok = qualified(amounts);
         vols.set(m.user_id + ":" + pp.start, { amounts, qualified_at: ok ? prevQ || qOn : null, updated_at: new Date().toISOString(), updated_by: u.email }); saved++;
+        msHit(m, pp, prevRow?.amounts, amounts);
         const until = nextPeriod(anchorOf(m), pp).end;
         if (ok && !prevQ && m.access_until && m.access_until < until) { m.access_until = until; extended++; }
       }

@@ -78,6 +78,14 @@ export function bestProgress(amounts, threshold, exchanges = EXCHANGES) {
 export function isQualified(amounts, threshold) {
   return EXCHANGES.some((ex) => Number(amounts?.[ex] || 0) >= goalOf(ex, threshold));
 }
+// ── 進度里程碑（2026-10-18）──
+// 這一輪的進度（最接近達標的那間交易所）跨過 25%、50%、75%、100% 時，私訊（Discord）和網站上各通知一次
+export const MILESTONES = [25, 50, 75, 100];
+export function milestoneOf(amounts, threshold, exchanges = EXCHANGES) {
+  if (isQualified(amounts, threshold)) return 100;
+  const pct = bestProgress(amounts, threshold, exchanges).ratio * 100;
+  return MILESTONES.filter((m) => m < 100 && pct >= m).pop() || 0;
+}
 // 顯示用：UM「3.5 手」；USDT「120 萬」（不到 1 萬就直接寫數字）
 export function fmtAmount(ex, n) {
   n = Number(n) || 0;
