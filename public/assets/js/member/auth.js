@@ -101,7 +101,24 @@ const UID_HINT = {
 };
 
 // 掛上表單事件；登入成功後呼叫 afterLogin
+// 網站剛更新時，瀏覽器可能拿到舊的頁面配新的程式（或反過來），找不到欄位就重新整理一次拿新的
+const AUTH_IDS = ["tabLogin", "tabRegister", "invite", "regEx", "regUidHint", "authForm", "authError", "email", "password"];
+function reloadIfStale() {
+  const missing = AUTH_IDS.filter((id) => !document.getElementById(id));
+  if (!missing.length) {
+    try { sessionStorage.removeItem("staleReload"); } catch {}
+    return false;
+  }
+  try {
+    if (sessionStorage.getItem("staleReload")) return false; // 已經重新整理過一次，就不要一直重來
+    sessionStorage.setItem("staleReload", "1");
+  } catch { return false; }
+  location.reload();
+  return true;
+}
+
 export function initAuth(afterLogin) {
+  if (reloadIfStale()) return;
   onLogin = afterLogin;
   $("#tabLogin").addEventListener("click", () => setMode("login"));
   $("#tabRegister").addEventListener("click", () => setMode("register"));
