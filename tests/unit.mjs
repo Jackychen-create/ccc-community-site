@@ -47,13 +47,14 @@ test("資格一輪：12/20 跨年 → 1/19", () => assert.equal(cycleEnd("2026-1
 test("日期加減跨月", () => assert.equal(addDays("2026-10-30", 3), "2026-11-02"));
 
 test("交易所：OKX、UM 手填，Bybit、BingX 自動同步", () => { assert.deepEqual(EXCHANGES, ["OKX", "UM", "Bybit", "BingX"]); assert.deepEqual(AUTO_EXCHANGES, ["Bybit", "BingX"]); });
-test("三級門檻：1 萬／0.1 手、20 萬／2 手、150 萬／15 手", () => {
-  assert.deepEqual(TIERS.map((t) => [t.tier, t.usdt, t.lots]), [[1, 10000, 0.1], [2, 200000, 2], [3, 1500000, 15]]);
+test("三級門檻：1 萬／0.01 手、20 萬／2 手、150 萬／15 手", () => {
+  assert.deepEqual(TIERS.map((t) => [t.tier, t.usdt, t.lots]), [[1, 10000, 0.01], [2, 200000, 2], [3, 1500000, 15]]);
   assert.equal(tierOf({}), 0);
   assert.equal(tierOf(null), 0);
   assert.equal(tierOf({ OKX: 9999 }), 0);
   assert.equal(tierOf({ OKX: 10000 }), 1);
-  assert.equal(tierOf({ UM: 0.1 }), 1);
+  assert.equal(tierOf({ UM: 0.01 }), 1);
+  assert.equal(tierOf({ UM: 0.009 }), 0);
   assert.equal(tierOf({ OKX: 199999, UM: 1.9 }), 1);
   assert.equal(tierOf({ BingX: 200000 }), 2);
   assert.equal(tierOf({ OKX: 100, UM: 2 }), 2);
