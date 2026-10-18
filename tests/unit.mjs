@@ -8,7 +8,7 @@ import { mergeBuckets } from "../server/lib/buckets.js";
 import { cleanTitle, cleanChapters, toInt, isDate } from "../server/lib/text.js";
 import http from "node:http";
 import { env } from "../server/lib/env.js";
-import { buildCanonical, hmacHex, parseSafe, dayChunks, summarize, checkInvite, fetchDaily } from "../server/lib/bingx.js";
+import { buildCanonical, hmacHex, parseSafe, dayChunks, summarize, checkInvite, fetchDaily, commissionDay } from "../server/lib/bingx.js";
 import { bybitSign, bybitQuery, capRange, checkBybitClient, fetchBybitVolumes, bybitProxyUrl } from "../server/lib/bybit.js";
 import { syncPeriods } from "../server/lib/volume.js";
 
@@ -198,6 +198,16 @@ test("BingX 達標日＝累計第一次跨過門檻那天", () => {
   ], 3300000, toDay);
   assert.deepEqual(s.get("111"), { total: 3500000.5, qualifiedOn: "2026-10-09" });
   assert.deepEqual(s.get("222"), { total: 10, qualifiedOn: null });
+});
+
+test("BingX commissionTime：毫秒、秒、YYYYMMDD 都看得懂（台灣日期）", () => {
+  assert.equal(commissionDay(Date.UTC(2026, 9, 18)), "2026-10-18");
+  assert.equal(commissionDay(String(Date.UTC(2026, 9, 18, 17))), "2026-10-19");
+  assert.equal(commissionDay(Date.UTC(2026, 9, 18) / 1000), "2026-10-18");
+  assert.equal(commissionDay("20261018"), "2026-10-18");
+  assert.equal(commissionDay(20261018), "2026-10-18");
+  assert.equal(commissionDay("2026-10-18"), "2026-10-18");
+  assert.equal(commissionDay(""), null);
 });
 
 // 假的 BingX 伺服器：檢查簽名、分頁

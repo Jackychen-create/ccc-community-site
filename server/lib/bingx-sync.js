@@ -2,10 +2,10 @@
 // BingX 給每天的明細，所以每個人的一輪各自加總，累計第一次跨過門檻的那天就是達標日
 // 觸發：見 autosync.js
 import { supabaseAdmin } from "./env.js";
-import { todayTW, twDate } from "./dates.js";
+import { todayTW } from "./dates.js";
 import { saveVolumes, syncPeriods } from "./volume.js";
 import { goalFor, SITE_TIER } from "../../public/assets/js/shared/rules.js";
-import { fetchDaily, dayChunks, summarize } from "./bingx.js";
+import { fetchDaily, dayChunks, summarize, commissionDay, bingxTimeFormat } from "./bingx.js";
 
 export const SYNC_BY = "BingX 自動同步";
 
@@ -32,10 +32,32 @@ export async function syncBingx({ uid } = {}) {
   const list = [];
   for (const [a, b] of dayChunks(from, today, 30)) list.push(...(await fetchDaily(a, b, uid)));
   const entries = plans.map(({ l, p, to }) => {
-    const rows = list.filter((r) => String(r.uid) === String(l.exchange_uid)).filter((r) => { const d = twDate(Number(r.commissionTime)); return d >= p.start && d <= to; });
-    const s = summarize(rows, goalFor("BingX", SITE_TIER), (ms) => twDate(ms)).get(String(l.exchange_uid)) || { total: 0, qualifiedOn: null };
+    const rows = list.filter((r) => String(r.uid) === String(l.exchange_uid)).filter((r) => { const d = commissionDay(r.commissionTime); return d && d >= p.start && d <= to; });
+    const s = summarize(rows, goalFor("BingX", SITE_TIER)).get(String(l.exchange_uid)) || { total: 0, qualifiedOn: null };
     return { user_id: l.user_id, period: p, amounts: { BingX: s.total }, qualifiedOn: s.qualifiedOn || today };
   });
   const r = await saveVolumes({ entries, updatedBy: SYNC_BY, merge: true });
-  return { ...result, saved: r.saved, tierUps: r.tierUps || 0 };
+  return { ...result, saved: r.saved, tierUps: r.tierUps || 0, diag: diagnose(list, links, plans, from, today) };
+}
+
+// 給後台看的檢查資料：BingX 回了幾筆、最新到哪天、每個綁定的 UID 有幾筆、加總多少、算進這一輪多少
+// 用來分辨「BingX 還沒出資料（隔天才結算）」「交易在加入網站之前」「日期格式看不懂」
+export function diagnose(list, links, plans, from, today) {
+  const days = list.map((r) => commissionDay(r.commissionTime)).filter(Boolean).sort();
+  const perUid = {};
+  for (const l of links) {
+    const uid = String(l.exchange_uid);
+    const mine = list.filter((r) => String(r.uid) === uid);
+    const md = mine.map((r) => commissionDay(r.commissionTime)).filter(Boolean).sort();
+    const sum = (rs) => Math.round(rs.reduce((a, r) => a + (Number(r.tradingVolume) || 0), 0) * 100) / 100;
+    const ps = plans.filter((x) => x.l === l).map((x) => x.p);
+    const inPeriod = mine.filter((r) => { const d = commissionDay(r.commissionTime); return d && ps.some((p) => d >= p.start && d <= today); });
+    perUid[uid] = { rows: mine.length, total: sum(mine), inPeriod: sum(inPeriod), first: md[0] || null, last: md.at(-1) || null, periodStart: ps.map((p) => p.start).sort()[0] || null };
+  }
+  return {
+    range: [from, today], format: bingxTimeFormat(), fetched: list.length,
+    latest: days.at(-1) || null, badTime: list.length - days.length,
+    sample: list[0] ? { commissionTime: list[0].commissionTime, tradingVolume: list[0].tradingVolume } : null,
+    perUid,
+  };
 }

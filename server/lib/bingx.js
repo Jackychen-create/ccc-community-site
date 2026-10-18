@@ -74,6 +74,7 @@ export async function checkInvite(uid) {
 // startTime、endTime 的格式：BingX 文件寫 YYYYMMDD，實際上線的版本要毫秒時間戳（傳 YYYYMMDD 會被當成 1970 年，回「beginTime-over-366」）
 // 預設用毫秒（台灣時間那天的 00:00～23:59:59.999）；BingX 說格式不對才改用 YYYYMMDD，之後就記住
 let timeFormat = "ms";
+export const bingxTimeFormat = () => timeFormat;
 const twMs = (ymd, endOfDay) => Date.parse(`${ymd.slice(0, 4)}-${ymd.slice(4, 6)}-${ymd.slice(6, 8)}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}+08:00`);
 const isFormatError = (e) => Number(e?.code) === 100400 || /beginTime|startTime|endTime|time range|format/i.test(String(e?.message || ""));
 
@@ -122,14 +123,25 @@ export function dayChunks(from, to, days = 30) {
   return out;
 }
 
+// commissionTime 轉成台灣日期 YYYY-MM-DD。文件寫毫秒，但也接受秒、YYYYMMDD、"YYYY-MM-DD"，看不懂回 null
+export function commissionDay(v) {
+  const t = String(v ?? "").trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(t)) return t.slice(0, 10);
+  if (/^20\d{6}$/.test(t)) return `${t.slice(0, 4)}-${t.slice(4, 6)}-${t.slice(6, 8)}`;
+  const n = Number(t);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const ms = n < 1e11 ? n * 1000 : n; // 10 位數是秒
+  return new Date(ms + 8 * 3600e3).toISOString().slice(0, 10);
+}
+
 // 依 UID 加總交易量，並找出「累計第一次跨過門檻」的那一天
-// list：commissionDataList 的資料；dayOf：commissionTime（毫秒）→ YYYY-MM-DD
-export function summarize(list, threshold, dayOf) {
+// list：commissionDataList 的資料；dayOf：commissionTime → YYYY-MM-DD
+export function summarize(list, threshold, dayOf = commissionDay) {
   const byUid = new Map();
   for (const r of list) {
     const uid = String(r.uid);
     if (!byUid.has(uid)) byUid.set(uid, []);
-    byUid.get(uid).push({ day: dayOf(Number(r.commissionTime)), vol: Number(r.tradingVolume) || 0 });
+    byUid.get(uid).push({ day: dayOf(r.commissionTime), vol: Number(r.tradingVolume) || 0 });
   }
   const out = new Map();
   for (const [uid, rows] of byUid) {
