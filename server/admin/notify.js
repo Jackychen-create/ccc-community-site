@@ -1,7 +1,8 @@
 // 後台：寄「新影片上架」通知給研究員
 // POST /api/admin/notify { videoId }
 // 用 Brevo 寄信（免費方案每天 300 封）；環境變數 BREVO_API_KEY、MAIL_FROM、MAIL_FROM_NAME
-import { supabaseAdmin, requireAdmin, readBody, toInt, todayTW, env, route } from "../lib/index.js";
+import { supabaseAdmin, requireAdmin, readBody, toInt, env, route, tiersFor } from "../lib/index.js";
+import { SITE_TIER } from "../../public/assets/js/shared/rules.js";
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
@@ -23,10 +24,11 @@ export default route({
     if (v.course_host) return res.status(400).json({ error: "教學課程依每個人的加入日期解鎖，不寄全體通知" });
 
     // 收件人：開著通知、沒被停權、資格沒過期的研究員
-    const today = todayTW();
-    const { data: members, error: mErr } = await supabaseAdmin.from("members").select("email, banned, notify, access_until");
+    const { data: members, error: mErr } = await supabaseAdmin.from("members").select("user_id, email, banned, notify, created_at, min_tier, min_tier_until");
     if (mErr) throw mErr;
-    const to = (members || []).filter((m) => m.notify !== false && !m.banned && (!m.access_until || m.access_until >= today)).map((m) => m.email);
+    // 新影片只寄給看得到的人（第二級以上）
+    const tiers = await tiersFor((members || []).filter((m) => !m.banned));
+    const to = (members || []).filter((m) => m.notify !== false && !m.banned && (tiers.get(m.user_id)?.tier || 0) >= SITE_TIER).map((m) => m.email);
     if (!to.length) return res.status(400).json({ error: "沒有可以寄的研究員（都關掉通知、停權或資格過期）" });
 
     const host = req.headers.host || "";

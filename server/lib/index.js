@@ -20,3 +20,4 @@ export * from "./cron.js";
 export * from "./live.js";
 export * from "./milestone.js";
 export * from "./badges.js";
+export * from "./tier.js";
