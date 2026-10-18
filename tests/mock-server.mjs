@@ -666,6 +666,10 @@ const server = http.createServer(async (req, res) => {
       const m = members.find((x) => x.user_id === body.userId);
       if (body.action === "reset") return send(res, 200, { password: "Tq8mWz3kPa7c" });
       if (body.action === "access") {
+        if (body.volumeFrom !== undefined) {
+          if (body.volumeFrom && body.volumeFrom >= twDate(m.created_at)) return send(res, 400, { error: "要早於加入網站那天" });
+          m.volume_from = body.volumeFrom || null;
+        }
         if (body.minTier !== undefined) { m.min_tier = body.minTier || null; m.min_tier_until = body.minTier ? body.minTierUntil || null : null; }
         if (body.note !== undefined) m.note = body.note || null;
         return send(res, 200, { ok: true });

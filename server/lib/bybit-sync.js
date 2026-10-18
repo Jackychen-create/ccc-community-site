@@ -2,7 +2,7 @@
 // Bybit 只給「一段期間的加總」、而且隔天才更新，所以查「這一輪第一天～昨天」，
 // 第一次看到超過門檻，就把查詢的最後一天（昨天）記為達標日
 import { todayTW } from "./dates.js";
-import { saveVolumes, syncPeriods } from "./volume.js";
+import { saveVolumes, syncPeriods, countFrom } from "./volume.js";
 import { tierOf, SITE_TIER } from "../../public/assets/js/shared/rules.js";
 import { fetchBybitVolumes, capRange } from "./bybit.js";
 import { linkedMembers } from "./bingx-sync.js";
@@ -16,7 +16,7 @@ export async function syncBybit({ uid } = {}) {
   const entries = [];
   for (const l of links) {
     for (const p of syncPeriods(l.member, today)) {
-      const range = capRange(p.start, p.end, today);
+      const range = capRange(countFrom(l.member, p), p.end, today);
       if (!range) continue; // 這一輪今天才開始，Bybit 還沒有資料
       const key = range.join(":");
       if (!cache.has(key)) cache.set(key, await fetchBybitVolumes(range[0], range[1]));

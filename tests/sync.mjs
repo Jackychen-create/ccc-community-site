@@ -414,6 +414,21 @@ await test("協作管理員：交易量、待跟進被擋，主要管理員不�
   assert.equal(one.statusCode, 200); // 講師（OC）看得到一對一名單
 });
 
+await test("社群舊成員：設了第一輪起算日，加入網站前的 BingX 量也算進第一輪", async () => {
+  db.members.push(member("u-old", today, { volume_from: addDays(today, -3) }));
+  db.exchange_links.push({ user_id: "u-old", exchange: "BingX", exchange_uid: "88880009" });
+  bingxRows.push(
+    { uid: 88880009, commissionTime: at(addDays(today, -1)), tradingVolume: "12952.62" },
+    { uid: 88880009, commissionTime: at(addDays(today, -5)), tradingVolume: "500000" }, // 起算日之前的不算
+  );
+  const r = await syncBingx({ uid: "88880009" });
+  const [v] = vol("u-old");
+  assert.equal(v.period_start, today);
+  assert.equal(v.amounts.BingX, 12952.62);
+  assert.equal(r.diag.perUid["88880009"].inPeriod, 12952.62);
+  assert.equal((await tierNow("u-old")).cycleTier, 1);
+});
+
 supa.close(); bingx.close(); bybit.close();
 console.log(`\n自動同步：${pass} 項通過，${fail} 項失敗`);
 process.exit(fail ? 1 : 0);
