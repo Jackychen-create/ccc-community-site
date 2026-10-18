@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { addDays, cycleEnd, periodOf, nextPeriod, prevPeriod, addMonths, courseWeek, courseUnlockDate, COURSE_HOSTS, COURSE_PARTS, EXCHANGES, AUTO_EXCHANGES, TIERS, tierOf, tierStatus, gapTo, tierRuleText, tierName, rankOneOnOne, oneOnOneScore, ONE_ON_ONE_CAP, BADGES, earnedBadges, THEMES, themeUnlocked } from "../public/assets/js/shared/rules.js";
 import { longestStreak } from "../server/lib/badges.js";
+import { oneOnOneNotice } from "../server/lib/oneonone.js";
 const pick = ({ tier, until, cycleTier }) => ({ tier, until, cycleTier });
 import { mergeBuckets } from "../server/lib/buckets.js";
 import { cleanTitle, cleanChapters, toInt, isDate } from "../server/lib/text.js";
@@ -99,6 +100,16 @@ test("一對一：每位講師最多 5 位，超過照交易量排，已約好�
   // 交易量一樣：先選的先
   const r3 = rankOneOnOne([{ user_id: "a", host: "X", score: 1, created_at: "2026-10-02" }, { user_id: "b", host: "X", score: 1, created_at: "2026-10-01" }], "X");
   assert.deepEqual(r3.map((x) => x.user_id), ["b", "a"]);
+});
+test("一對一的 Discord 通知：有填講師 ID 就 @ 他，沒填寫名字", () => {
+  const pick = oneOnOneNotice({ kind: "pick", email: "a@x.com", host: "OC", rank: 6, confirmed: false, month: "2026-11", hostIds: { OC: "123456789012345678" } });
+  assert.ok(pick.content.includes("<@123456789012345678>") && pick.content.includes("11 月") && pick.content.includes("a@x.com") && pick.content.includes("第 6 位（候補）"), pick.content);
+  assert.deepEqual(pick.allowed_mentions.users, ["123456789012345678"]);
+  const ch = oneOnOneNotice({ kind: "change", email: "a@x.com", host: "CCC", prevHost: "OC", rank: 1, confirmed: true, month: "2026-11" });
+  assert.ok(ch.content.startsWith("🔁 CCC") && ch.content.includes("從 OC 改選你") && ch.content.includes("確定"), ch.content);
+  assert.deepEqual(ch.allowed_mentions.users, []);
+  const c = oneOnOneNotice({ kind: "cancel", email: "a@x.com", prevHost: "X", month: "2026-11", hostIds: { X: "223456789012345678" } });
+  assert.ok(c.content.includes("<@223456789012345678>") && c.content.includes("取消了"), c.content);
 });
 test("徽章：照事實給，10 個、id 不重複", () => {
   assert.equal(new Set(BADGES.map((b) => b.id)).size, 10);

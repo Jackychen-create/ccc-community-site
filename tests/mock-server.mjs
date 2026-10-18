@@ -520,6 +520,7 @@ const server = http.createServer(async (req, res) => {
           discordSettings.staffRoleIds = list;
         }
         if (body.invites) discordSettings.invites = body.invites;
+        if (body.hostIds) discordSettings.hostIds = body.hostIds;
         return send(res, 200, { ok: true, settings: discordSettings, synced: null });
       }
       if (body.action === "setup") {

@@ -61,7 +61,7 @@ function celebrateBadges() {
   if (!fresh.length) return;
   let tries = 0;
   const open = () => {
-    if (document.querySelector(".modal-back")) return ++tries < 180 && setTimeout(open, 1000);
+    if (document.querySelector(".modal-back, .lvl-back")) return ++tries < 180 && setTimeout(open, 1000);
     const themes = fresh.map((b) => THEMES.find((t) => t.unlock === b.id)).filter(Boolean);
     const ok = el("button", { class: "btn primary", type: "button", text: themes.length ? `換上「${themes[0].name}」` : "好" });
     const later = themes.length ? el("button", { class: "btn", type: "button", text: "之後再說" }) : null;

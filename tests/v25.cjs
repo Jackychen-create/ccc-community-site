@@ -15,7 +15,7 @@ const j = async (path, { method = "GET", body, token } = {}) => {
   const id = (await j("/api/admin/members", { token: tok })).body.members.find((m) => m.email === "bd@example.com").user_id;
   const setOkx = (n) => j("/api/admin/volumes", { method: "POST", token: tok, body: { which: "current", rows: [{ userId: id, amounts: { OKX: n } }] } });
   // 跳出來的視窗一個一個關掉，記下內容
-  const drain = async (p) => { const seen = []; for (let i = 0; i < 6; i++) { await p.waitForTimeout(1300); if (!(await p.locator(".modal-back").count())) break; seen.push(await p.textContent(".modal-back")); await p.keyboard.press("Escape"); } return seen.join(" ‖ "); };
+  const drain = async (p) => { const seen = []; for (let i = 0; i < 6; i++) { await p.waitForTimeout(1300); if (!(await p.locator(".modal-back, .lvl-back").count())) break; if (await p.locator(".lvl-back").count()) await p.waitForSelector(".lvl-flaps[data-done]"); seen.push(await p.textContent(".modal-back, .lvl-back")); await p.keyboard.press("Escape"); } return seen.join(" ‖ "); };
 
   const b = await chromium.launch();
   const c = await b.newContext({ viewport: { width: 1280, height: 900 } });
@@ -55,8 +55,8 @@ const j = async (path, { method = "GET", body, token } = {}) => {
   // 升到第二級 → 「第二級」徽章，解鎖金庫，按「換上」
   await setOkx(300000);
   await p.reload(); await p.waitForSelector("#badgePanel:not([hidden])");
-  for (let i = 0; i < 6; i++) { await p.waitForTimeout(1300); const t = (await p.locator(".modal-back").count()) ? await p.textContent(".modal-back") : ""; if (!t) break; if (t.includes("解鎖了外觀主題")) break; await p.keyboard.press("Escape"); }
-  const pop = await p.textContent(".modal-back");
+  for (let i = 0; i < 6; i++) { await p.waitForTimeout(1300); if (await p.locator(".lvl-back").count()) await p.waitForSelector(".lvl-flaps[data-done]"); const t = (await p.locator(".modal-back, .lvl-back").count()) ? await p.textContent(".modal-back, .lvl-back") : ""; if (!t) break; if (t.includes("解鎖了外觀主題")) break; await p.keyboard.press("Escape"); }
+  const pop = await p.textContent(".modal-back, .lvl-back");
   check("升到第二級：跳徽章、說解鎖金庫", pop.includes("第一次在一輪內升到第二級") && pop.includes("金庫"), pop.slice(0, 160));
   await p.click(".modal-back button:has-text('換上「金庫」')"); await p.waitForTimeout(400);
   check("按換上就換成金庫", (await p.getAttribute("html", "data-theme")) === "vault");

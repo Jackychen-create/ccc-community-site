@@ -1,6 +1,7 @@
 // 三級制度：等級提醒橫幅、右欄「我的等級」（這一輪交易量）、升級恭喜（規則在 shared/rules.js 的 TIERS）
 import { $, el, icons, fmtRel, api, modal, confirmDialog, setBusy, toast, cfg } from "../core/index.js";
 import { state } from "./state.js";
+import { emblem, levelUp } from "./levelup.js";
 import { DAY, md } from "./format.js";
 import { AUTO_EXCHANGES, TIERS, MAX_TIER, SITE_TIER, tierName, tierInfo, tierRuleText, goalFor, fmtAmount, gapTo, progressTo, isLots, addDays, TRADFI_NOTE, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR } from "../shared/rules.js";
 
@@ -50,11 +51,11 @@ export function renderVolPanel() {
     ? `你目前沒有等級。這一輪${tierRuleText(1)}，就是第一級。`
     : `你現在是${tierName(v.tier)}，${v.tierUntil ? `至少到 ${md(v.tierUntil)}` : "不限期"}。` + (keep
       ? `這一輪還沒保住：${gapTo(v.amounts || {}, v.tier, v.exchanges)}（${md(v.periodEnd)} 前）。`
-      : v.cycleTier >= MAX_TIER ? "已經是最高級。" : `再升一級：${tierName(target)}${gapTo(v.amounts || {}, target, v.exchanges)}（${tierInfo(target).perks.join("、")}）。`);
+      : v.cycleTier >= MAX_TIER ? "已經是最高級。" : `再升一級：${tierName(target)}${gapTo(v.amounts || {}, target, v.exchanges)}（${tierInfo(target).perks[0]}）。`);
   box.replaceChildren(...[
     el("div", { class: "panel-head", style: { padding: "14px 18px" } },
       el("div", null, el("h2", { text: "我的等級" }), el("div", { class: "small muted num vol-range", text: `這一輪 ${md(v.periodStart)}～${md(v.periodEnd)}` })),
-      el("span", { class: "pill" + (v.tier >= SITE_TIER ? " good" : "") }, v.tier >= SITE_TIER ? el("span", { class: "dot" }) : null, tierName(v.tier))),
+      el("span", { class: "tier-head-em" }, emblem(v.tier, 24, false), el("span", { class: "pill" + (v.tier >= SITE_TIER ? " good" : "") }, tierName(v.tier)))),
     tierLadder(v),
     el("p", { class: "small tier-status", text: status }),
     // 還沒填數字就不放空的進度條
@@ -76,34 +77,23 @@ export function renderVolPanel() {
 function tierLadder(v) {
   return el("ol", { class: "ms-strip tiers", "aria-label": `這一輪達到：${tierName(v.cycleTier)}` },
     ...TIERS.map((t) => el("li", { class: "ms-step" + (v.cycleTier >= t.tier ? " on" : "") + (v.cycleTier === t.tier ? " now" : ""), title: t.perks.join("、") },
-      el("span", { class: "ms-dot", "aria-hidden": "true" }),
+      emblem(t.tier, 26, false),
       el("span", { class: "ms-label", text: tierName(t.tier) }),
       el("span", { class: "ms-goal num", text: `${fmtAmount("", t.usdt)}／${t.lots} 手` }))));
 }
 
-// 這一輪升級了：首頁跳一次恭喜（Discord 也會私訊一份）
+// 這一輪升級了：首頁跳一次遊戲式的升級畫面（Discord 也會私訊一份）
 export function celebrateMilestone() {
   const v = state.me?.volume;
   const ms = v?.milestone;
   if (!ms || state.me.isAdmin) return;
   let tries = 0;
   const open = () => {
-    if (document.querySelector(".modal-back")) return ++tries < 120 && setTimeout(open, 1000);
-    const lvl = ms.level;
-    const b = v.amounts ? progressTo(v.amounts, lvl, v.exchanges) : null;
-    const ok = el("button", { class: "btn primary", type: "button", text: lvl >= SITE_TIER ? "太好了" : "繼續衝" });
-    const mm = modal({
-      title: `${{ 1: "✅", 2: "🎉", 3: "🏆" }[lvl] || "🎉"} 升上${tierName(lvl)}！`,
-      body: el("div", { class: "ms-pop" },
-        el("div", { class: "ms-big", text: tierName(lvl) }),
-        b ? el("p", { class: "small sub", text: `這一輪 ${b.ex}：${withUnit(b.ex, b.n)}` }) : null,
-        el("ul", { class: "tier-perks" }, ...TIERS.filter((t) => t.tier <= lvl).flatMap((t) => t.perks).map((x) => el("li", { text: x }))),
-        el("p", { text: `至少到 ${md(v.nextEnd)}。` + (lvl < MAX_TIER ? `再往上：${tierName(lvl + 1)}${gapTo(v.amounts || {}, lvl + 1, v.exchanges)}（${tierInfo(lvl + 1).perks.join("、")}）。` : "到右邊「一對一交流」選這個月的講師（每位最多 5 位，額滿照交易量排）。") }),
-        lvl >= SITE_TIER && (state.me.tier ?? 0) >= SITE_TIER ? el("p", { class: "small sub", text: "直播留檔、教學課程都已經打開，重新整理就看得到。" }) : null),
-      actions: [ok],
+    if (document.querySelector(".modal-back, .lvl-back")) return ++tries < 120 && setTimeout(open, 1000);
+    levelUp({
+      level: ms.level, prev: ms.level - 1, amounts: v.amounts || {}, exchanges: v.exchanges, until: v.nextEnd, oneOnOne: ms.level >= MAX_TIER,
       onClose: () => api("/api/me", { method: "PATCH", body: { milestoneSeen: true } }).catch(() => {}),
     });
-    ok.addEventListener("click", () => mm.close());
     v.milestone = null;
   };
   setTimeout(open, 600);
@@ -225,7 +215,7 @@ export function promptUidIfMissing() {
   } catch {}
   let tries = 0;
   const open = () => {
-    if (document.querySelector(".modal-back")) return ++tries < 120 && setTimeout(open, 1000);
+    if (document.querySelector(".modal-back, .lvl-back")) return ++tries < 120 && setTimeout(open, 1000);
     if (redoUm) return bindLink("UM", false, UM_REDO);
     bindLink(null, false, { title: "填寫你的交易所 UID", intro: "請填你用 CCC 邀請連結註冊的交易所 UID，管理員才對得到你的交易量。用好幾間的話，之後可以在右邊「本月交易量」再加。" });
   };

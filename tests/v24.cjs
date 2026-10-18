@@ -10,7 +10,7 @@ const j = async (path, { method = "GET", body, token } = {}) => {
   return { status: r.status, body: await r.json().catch(() => null) };
 };
 // 把跳出來的視窗（升級、徽章）一個一個關掉，回傳看到的文字
-const closeAll = async (p) => { const seen = []; for (let i = 0; i < 6; i++) { await p.waitForTimeout(1300); if (!(await p.locator(".modal-back").count())) break; seen.push(await p.textContent(".modal-back")); await p.keyboard.press("Escape"); } return seen.join(" ‖ "); };
+const closeAll = async (p) => { const seen = []; for (let i = 0; i < 6; i++) { await p.waitForTimeout(1300); if (!(await p.locator(".modal-back, .lvl-back").count())) break; if (await p.locator(".lvl-back").count()) await p.waitForSelector(".lvl-flaps[data-done]"); seen.push(await p.textContent(".modal-back, .lvl-back")); await p.keyboard.press("Escape"); } return seen.join(" ‖ "); };
 (async () => {
   const reg = await j("/api/register", { method: "POST", body: { email: "ms@example.com", password: "password1", inviteCode: "K7QM-2XPA", exchange: "OKX", uid: "55550001" } });
   check("註冊新研究員", reg.status === 200, JSON.stringify(reg.body));

@@ -1,0 +1,61 @@
+/* 遊戲感：等級徽章、升級畫面、頭像外圈（member/levelup.js）
+   顏色：銅＝第一級、銀＝第二級、金＝第三級（用琥珀色），沒有等級是灰 */
+:root { --rank1: #B9784A; --rank2: #B9C4CB; --rank3: var(--amber); --rank0: var(--ink-3); }
+
+.emblem { display: inline-grid; place-items: center; line-height: 0; flex: none; }
+.emblem .em-body { fill: color-mix(in srgb, var(--rk) 22%, var(--surface-2)); stroke: var(--rk); stroke-width: 2; }
+.emblem .em-shine { fill: color-mix(in srgb, var(--rk) 16%, transparent); }
+.emblem .em-num { fill: var(--rk); font: 700 13px var(--f); }
+.emblem.rank0 { --rk: var(--rank0); } .emblem.rank1 { --rk: var(--rank1); } .emblem.rank2 { --rk: var(--rank2); } .emblem.rank3 { --rk: var(--rank3); }
+
+/* 頭像外圈 */
+.avatar.rank1, .avatar.rank2, .avatar.rank3 { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--rk); }
+.avatar.rank1 { --rk: var(--rank1); } .avatar.rank2 { --rk: var(--rank2); } .avatar.rank3 { --rk: var(--rank3); }
+
+/* 右欄「我的等級」標題旁的徽章 */
+.tier-head-em { display: inline-flex; align-items: center; gap: 8px; }
+
+/* 升級畫面 */
+.lvl-back { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 16px;
+  background: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--amber) 22%, transparent), transparent 55%), var(--overlay); }
+.lvl-card { position: relative; width: min(420px, 100%); display: grid; justify-items: center; gap: 10px; padding: 26px 22px 22px; text-align: center;
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius); box-shadow: 0 30px 80px rgba(0, 0, 0, .5); }
+.lvl-kicker { font-size: 13px; letter-spacing: .32em; color: var(--amber); font-weight: 700; }
+.lvl-emblem { position: relative; z-index: 1; }
+.lvl-title { display: flex; align-items: center; gap: 10px; font-size: 22px; }
+.lvl-flaps { display: inline-flex; gap: 3px; }
+.lvl-flap { width: 34px; height: 42px; font-size: 24px; border-radius: 7px; font-family: var(--f); }
+.lvl-xp { width: 100%; height: 8px; border-radius: 99px; background: var(--sunken); overflow: hidden; }
+.lvl-xp i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, color-mix(in srgb, var(--amber) 70%, var(--bg)), var(--amber)); border-radius: inherit; }
+.lvl-unlock { margin-top: 4px; color: var(--ink-3); letter-spacing: .2em; }
+.lvl-perks { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; width: 100%; text-align: left; }
+.lvl-perks li { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: var(--r-md); background: var(--amber-soft); font-size: 14.5px; }
+.lvl-check { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--amber); color: var(--amber-ink); font-size: 12px; font-weight: 700; flex: none; }
+.lvl-next { margin: 4px 0 6px; color: var(--ink-2); }
+.lvl-sparks { position: absolute; left: 50%; top: 96px; width: 0; height: 0; pointer-events: none; }
+.lvl-sparks i { position: absolute; width: var(--s); height: var(--s); margin: calc(var(--s) / -2); border-radius: 2px; background: var(--amber); opacity: 0; }
+
+/* 動畫：卡片彈出 → 徽章落下 → 火花炸開 → 經驗條填滿 → 解鎖項目一個一個出來 */
+.lvl-back.anim { animation: lvl-fade .25s ease-out both; }
+.lvl-back.anim .lvl-card { animation: lvl-pop .45s cubic-bezier(.2, 1.3, .4, 1) both; }
+.lvl-back.anim .lvl-kicker { animation: lvl-rise .4s .15s ease-out both; }
+.lvl-back.anim .lvl-emblem { animation: lvl-drop .6s .2s cubic-bezier(.2, 1.5, .4, 1) both; }
+.lvl-back.anim .lvl-sparks i { animation: lvl-spark .9s calc(.55s + var(--t)) cubic-bezier(.1, .7, .3, 1) both; }
+.lvl-back.anim .lvl-xp i { animation: lvl-fill 1s .9s cubic-bezier(.4, 0, .2, 1) both; }
+.lvl-back.anim .lvl-perks li { animation: lvl-rise .35s ease-out both; }
+.lvl-back.anim .lvl-perks li:nth-child(1) { animation-delay: 1.6s; } .lvl-back.anim .lvl-perks li:nth-child(2) { animation-delay: 1.8s; }
+.lvl-back.anim .lvl-perks li:nth-child(3) { animation-delay: 2s; } .lvl-back.anim .lvl-perks li:nth-child(4) { animation-delay: 2.2s; }
+.lvl-back.anim .lvl-perks li .lvl-check { animation: lvl-check .4s ease-out both; animation-delay: inherit; }
+@keyframes lvl-fade { from { opacity: 0; } }
+@keyframes lvl-pop { from { transform: scale(.82); opacity: 0; } }
+@keyframes lvl-rise { from { transform: translateY(8px); opacity: 0; } }
+@keyframes lvl-drop { 0% { transform: translateY(-40px) scale(.4) rotate(-14deg); opacity: 0; } 100% { transform: none; opacity: 1; } }
+@keyframes lvl-spark { 0% { opacity: 1; transform: rotate(var(--a)) translateX(0) scale(1); } 100% { opacity: 0; transform: rotate(var(--a)) translateX(var(--d)) scale(.3); } }
+@keyframes lvl-fill { from { width: 0; } }
+@keyframes lvl-check { 0% { transform: scale(0); } 70% { transform: scale(1.25); } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .lvl-back.anim, .lvl-back.anim * { animation: none !important; } }
+
+/* 三級階梯換成徽章 */
+.ms-strip.tiers .ms-step .emblem { position: relative; z-index: 1; margin-top: -4px; }
+.ms-strip.tiers .ms-step:not(.on) .emblem { filter: grayscale(1) opacity(.45); }
+.ms-strip.tiers .ms-step + .ms-step::before { top: 14px; }
