@@ -26,7 +26,7 @@ const j = async (path, { method = "GET", body, token } = {}) => {
   await p.fill("#email", "bd@example.com"); await p.fill("#password", "password1"); await p.click("#authSubmit");
   await p.waitForSelector("#badgePanel:not([hidden])");
   await drain(p);
-  check("右欄有 10 個徽章，一個都沒拿到", (await p.locator("#badgePanel .badge").count()) === 10 && (await p.locator("#badgePanel .badge.got").count()) === 0);
+  check("右欄有 12 個徽章，一個都沒拿到", (await p.locator("#badgePanel .badge").count()) === 12 && (await p.locator("#badgePanel .badge.got").count()) === 0);
   check("沒拿到的徽章寫怎麼拿", ((await p.getAttribute("#badgePanel .badge >> nth=4", "title")) || "").includes("連續 3 輪"));
 
   // 交易量 12 萬（第一級）→ 第一筆、半山腰（到第二級的一半）

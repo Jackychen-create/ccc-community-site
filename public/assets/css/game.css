@@ -59,3 +59,24 @@
 .ms-strip.tiers .ms-step .emblem { position: relative; z-index: 1; margin-top: -4px; }
 .ms-strip.tiers .ms-step:not(.on) .emblem { filter: grayscale(1) opacity(.45); }
 .ms-strip.tiers .ms-step + .ms-step::before { top: 14px; }
+
+/* 連續打卡（頁首頭像旁） */
+.streak-chip { display: inline-flex; align-items: center; gap: 2px; height: 28px; padding: 0 9px; margin-right: 6px; border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line)); background: color-mix(in srgb, var(--warn) 12%, transparent); color: var(--ink); font-size: 13px; font-weight: 700; }
+
+/* 每週任務（右欄） */
+#questPanel { position: relative; }
+.quest-list { list-style: none; margin: 0; padding: 10px 18px 4px; display: grid; gap: 10px; }
+.quest-list li { display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; align-items: center; }
+.quest-ico { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--line); font-size: 13px; }
+.quest-list li.done .quest-ico { background: var(--amber); border-color: var(--amber); color: var(--amber-ink); font-weight: 700; }
+.quest-name { font-size: 13.5px; line-height: 1.4; margin-bottom: 5px; }
+.quest-list li.done .quest-name { color: var(--ink-2); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--ink-3) 60%, transparent); }
+.quest-list .track { margin: 0; }
+.quest-list li.done .track i { background: var(--amber); }
+.quest-n { color: var(--ink-3); min-width: 34px; text-align: right; }
+.quest-foot { padding: 8px 18px 14px; margin: 0; }
+.quest-stamp { display: inline-block; padding: 2px 10px; border: 2px solid var(--amber); border-radius: 6px; color: var(--amber);
+  font-weight: 700; font-size: 16px; letter-spacing: .2em; transform: rotate(-12deg); opacity: .85; pointer-events: none; animation: stamp-in .45s cubic-bezier(.2, 1.4, .4, 1) both; }
+@keyframes stamp-in { from { transform: rotate(-12deg) scale(2.2); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .quest-stamp { animation: none; } }

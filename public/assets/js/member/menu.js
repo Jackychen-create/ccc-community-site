@@ -11,6 +11,15 @@ export function renderMenu() {
   const me = state.me;
   $("#avatar").textContent = (me?.email || "?").charAt(0).toUpperCase();
   rankRing($("#avatar"), me && !me.isAdmin ? me.tier ?? 0 : null); // 頭像外圈：銅／銀／金
+  // 連續打卡：頭像旁邊「🔥 5」
+  const chip = $("#streakChip");
+  const st = me && !me.isAdmin ? me.streak : null;
+  chip.hidden = !st?.days;
+  if (st?.days) {
+    chip.textContent = `🔥 ${st.days}`;
+    chip.title = `連續 ${st.days} 天打開網站（最長 ${st.best} 天）`;
+    chip.setAttribute("aria-label", chip.title);
+  }
   menuBtn.classList.toggle("has-dot", !!me?.feedbackUnread);
   menuPanel.replaceChildren(...[
     el("div", { class: "who" }, el("div", { text: "登入身分" }), el("div", { style: { color: "var(--ink)" }, text: me?.email || "" })),

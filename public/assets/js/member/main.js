@@ -12,6 +12,7 @@ import { showAuth, initAuth } from "./auth.js";
 import { renderMenu } from "./menu.js";
 import { loadBadges, syncThemeFromAccount } from "./badges.js";
 import { loadOneOnOne } from "./oneonone.js";
+import { loadQuests } from "./quests.js";
 import { renderAccessBanner, renderVolPanel, promptUidIfMissing, celebrateMilestone } from "./account.js";
 import { renderLivePanel } from "./live.js";
 import { openList } from "./list.js";
@@ -76,6 +77,7 @@ async function enterApp() {
   syncThemeFromAccount();
   loadBadges();
   loadOneOnOne();
+  loadQuests();
   if (!routerOn) {
     routerOn = true;
     window.addEventListener("hashchange", route);

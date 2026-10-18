@@ -154,6 +154,45 @@ export function rankOneOnOne(entries, host) {
   return list.map((e, i) => ({ ...e, rank: i + 1, confirmed: e.booked === true || i < ONE_ON_ONE_CAP }));
 }
 
+// ── 連續打卡、每週任務（2026-10-19）──
+// 打卡：一天（台灣日期）打開網站一次就算；連續幾天到今天為止（今天還沒開的話，昨天以前連著的也算，不會一過午夜就歸零）
+export function streakOf(days, today) {
+  const set = new Set(days);
+  let d = set.has(today) ? today : addDays(today, -1);
+  let n = 0;
+  while (set.has(d)) { n++; d = addDays(d, -1); }
+  return n;
+}
+export function bestStreakOf(days) {
+  const sorted = [...new Set(days)].sort();
+  let best = 0, run = 0, prev = null;
+  for (const d of sorted) {
+    run = prev && addDays(prev, 1) === d ? run + 1 : 1;
+    best = Math.max(best, run);
+    prev = d;
+  }
+  return best;
+}
+// 每週從星期一開始（台灣日期）
+export function weekOf(date) {
+  const dow = new Date(date + "T00:00:00Z").getUTCDay(); // 0＝星期日
+  const start = addDays(date, -((dow + 6) % 7));
+  return { start, end: addDays(start, 6) };
+}
+// 每週任務：三個都完成算完成一週。volume：這週新增的交易量（任一間交易所，USDT 或 UM 手數）
+export const WEEKLY_VOLUME = { usdt: 50000, lots: 0.5 };
+export const QUESTS = [
+  { id: "watch", icon: "📺", name: "看完 1 部影片", target: 1 },
+  { id: "notes", icon: "✍️", name: "記 3 則筆記", target: 3 },
+  { id: "volume", icon: "📈", name: "這週交易量 +5 萬 USDT（或 UM 0.5 手）", target: 1 },
+];
+// 這週新增的交易量換算成「完成幾成」：任一間交易所達到就算 1
+export function weeklyVolumeRatio(delta) {
+  let r = 0;
+  for (const ex of EXCHANGES) r = Math.max(r, Number(delta?.[ex] || 0) / (isLots(ex) ? WEEKLY_VOLUME.lots : WEEKLY_VOLUME.usdt));
+  return r;
+}
+
 // ── 教學課程 ──
 // CCC、OC、X 的教學影片各 6 份，共 18 份。每位研究員從加入那天起：
 // 每 4 週為一輪，前 3 週依序解鎖 CCC、OC、X 各一份，第 4 週休息。
@@ -174,7 +213,7 @@ export const BUCKET_SEC = 30;
 // 伺服器整理每位研究員的「事實」（facts），用 earnedBadges 算出拿到哪些徽章；拿到的記在 badges 表，第一次拿到會跳恭喜
 // facts：traded 有交易量、bestPct 單輪往第二級的最高進度（%）、qualified 幾輪到第二級以上、maxTier 單輪最高等級、
 //        streak 最多連續幾輪第二級以上、hostsDone 看完全部 6 份的主講（陣列）、courseDone 看完幾份課程、
-//        liveDone 看完幾場直播留檔、notes 寫了幾則筆記、questions 提問幾次
+//        liveDone 看完幾場直播留檔、notes 寫了幾則筆記、questions 提問幾次、questWeeks 完成幾週任務、bestStreak 最長連續打卡幾天
 // 「看完」＝看到片長的 95%（跟後台觀看統計一樣）
 export const BADGES = [
   { id: "first_trade", icon: "🌱", name: "第一筆", desc: "第一次有交易量", test: (f) => f.traded },
@@ -187,6 +226,8 @@ export const BADGES = [
   { id: "course18", icon: "🧠", name: "全部修完", desc: "看完 18 份教學課程", test: (f) => f.courseDone >= 18 },
   { id: "notes10", icon: "✍️", name: "筆記達人", desc: "寫了 10 則筆記", test: (f) => f.notes >= 10 },
   { id: "question", icon: "🙋", name: "勇於發問", desc: "第一次提問", test: (f) => f.questions >= 1 },
+  { id: "quests4", icon: "🗓️", name: "任務老手", desc: "累積完成 4 週的每週任務", test: (f) => (f.questWeeks || 0) >= 4 },
+  { id: "streak7", icon: "⚡", name: "七日連登", desc: "連續 7 天打開網站", test: (f) => (f.bestStreak || 0) >= 7 },
 ];
 export const badgeById = (id) => BADGES.find((b) => b.id === id) || null;
 export const earnedBadges = (f) => BADGES.filter((b) => b.test(f)).map((b) => b.id);

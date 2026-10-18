@@ -3,7 +3,7 @@
 // PATCH /api/me { milestoneSeen: true }  看過里程碑恭喜了（不再跳）
 // PATCH /api/me { theme }  換外觀主題（要拿到對應徽章的主題會檢查）
 import { themeUnlocked } from "../public/assets/js/shared/rules.js";
-import { getDiscordSettings, supabaseAdmin, adminRole, unseenMilestone, markMilestonesSeen, earnedIds, requireMember, readBody, route, nextLive, needsName, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, periodFor, nextPeriod, anchorOf } from "./lib/index.js";
+import { checkin, getDiscordSettings, supabaseAdmin, adminRole, unseenMilestone, markMilestonesSeen, earnedIds, requireMember, readBody, route, nextLive, needsName, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, periodFor, nextPeriod, anchorOf } from "./lib/index.js";
 
 export default route({
   async GET(req, res) {
@@ -43,6 +43,8 @@ export default route({
     const role = ctx.isAdmin ? await adminRole(ctx.user.email) : null;
     // 下一場直播（後台「直播預告」排的）；表還沒建立時當作沒有
     const live = await nextLive().catch(() => null);
+    // 連續打卡：研究員打開網站就記今天（表還沒建立時當作沒有）
+    const streak = ctx.member ? await checkin(ctx.user.id).catch(() => null) : null;
     // 各交易所的 CCC 邀請連結（後台「Discord 審核」設定的），還沒到第二級的人在首頁看得到
     const invites = ctx.member ? (await getDiscordSettings().catch(() => ({}))).invites || {} : {};
     return res.status(200).json({
@@ -56,6 +58,7 @@ export default route({
       notify: ctx.member ? ctx.member.notify !== false : null,
       volume,
       links,
+      streak, // { days 連續幾天, best 最長幾天 }
       invites: Object.fromEntries(Object.entries(invites).filter(([, u]) => /^https:\/\//.test(String(u)))),
       nextLive: live ? { title: live.title, startsAt: live.starts_at, hosts: live.hosts || [], note: live.note, link: live.link } : null,
     });

@@ -5,7 +5,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 // 規則跟正式網站讀同一份
 import { canUseApi } from "../public/assets/js/shared/roles.js";
-import { EXCHANGES, AUTO_EXCHANGES, addDays, periodOf, nextPeriod, prevPeriod, COURSE_HOSTS as CH, courseUnlockDate, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR, BADGES, earnedBadges, themeUnlocked, courseTierOk, courseSkipSchedule, tierOf, tierStatus, progressTo, tierName, tierRuleText, gapTo, TIERS, rankOneOnOne, oneOnOneScore, ONE_ON_ONE_HOSTS, ONE_ON_ONE_CAP, fmtAmount } from "../public/assets/js/shared/rules.js";
+import { EXCHANGES, AUTO_EXCHANGES, addDays, periodOf, nextPeriod, prevPeriod, COURSE_HOSTS as CH, courseUnlockDate, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR, BADGES, earnedBadges, themeUnlocked, courseTierOk, courseSkipSchedule, tierOf, tierStatus, progressTo, tierName, tierRuleText, gapTo, TIERS, rankOneOnOne, oneOnOneScore, ONE_ON_ONE_HOSTS, ONE_ON_ONE_CAP, fmtAmount, streakOf, bestStreakOf, weekOf, QUESTS, weeklyVolumeRatio } from "../public/assets/js/shared/rules.js";
 
 const PORT = Number(process.env.PORT || 4321);
 const ROOT = path.join(path.dirname(new URL(import.meta.url).pathname), "..");
@@ -128,7 +128,8 @@ function badgeFacts(m) {
   let streak = 0, run = 0; idx.forEach((i, n) => { run = n && i === idx[n - 1] + 1 ? run + 1 : 1; streak = Math.max(streak, run); });
   return { traded: rows.some((r) => Object.values(r.amounts || {}).some((x) => x > 0)), bestPct: Math.max(0, ...rows.map((r) => progressTo(r.amounts || {}, 2).ratio * 100)), qualified: rows.filter((r) => qualified(r.amounts)).length, maxTier: Math.max(0, ...rows.map((r) => tierOf(r.amounts))), streak,
     hostsDone: CH.filter((h) => new Set(course.filter((v) => v.course_host === h).map((v) => v.course_part)).size >= 6), courseDone: course.length, liveDone: done.length - course.length,
-    notes: notes.filter((n) => n.user_id === m.user_id).length, questions: feedback.filter((f) => f.user_id === m.user_id).length };
+    notes: notes.filter((n) => n.user_id === m.user_id).length, questions: feedback.filter((f) => f.user_id === m.user_id).length,
+    questWeeks: [...questRows.entries()].filter(([k, v]) => k.startsWith(m.user_id + ":") && v.done_at).length, bestStreak: bestStreakOf([...(checkinsM.get(m.user_id) || [])]) };
 }
 function syncBadgesM(m) {
   const f = badgeFacts(m); const had = badgeRows.get(m.user_id) || new Map(); badgeRows.set(m.user_id, had);
@@ -140,6 +141,26 @@ const oneRows = [];
 function oneBoard(month) {
   const entries = oneRows.filter((x) => x.month === month).map((x) => { const m = members.find((y) => y.user_id === x.user_id); if (!m || m.banned) return null; const a = vols.get(m.user_id + ":" + curP(m).start)?.amounts || {}; const b = progressTo(a, 3); return { ...x, email: m.email, tier: tierM(m).tier, score: oneOnOneScore(a), volume: b.n ? `${b.ex} ${fmtAmount(b.ex, b.n)}${b.ex === "UM" ? "" : " USDT"}` : "—" }; }).filter((e) => e && (e.booked || e.tier >= 3));
   return { month, hosts: ONE_ON_ONE_HOSTS.map((host) => ({ host, list: rankOneOnOne(entries, host) })) };
+}
+// 連續打卡：user_id → Set(台灣日期)；每週任務：`${user_id}:${week}` → { base, done_at }
+const checkinsM = new Map();
+const questRows = new Map();
+function checkinM(m) { const set = checkinsM.get(m.user_id) || new Set(); set.add(TODAY()); checkinsM.set(m.user_id, set); return { days: streakOf([...set], TODAY()), best: bestStreakOf([...set]) }; }
+function questsM(m) {
+  const wk = weekOf(TODAY()); const since = Date.parse(wk.start + "T00:00:00Z") - 8 * 3600e3;
+  const key = m.user_id + ":" + wk.start; const p = curP(m); const now = vols.get(m.user_id + ":" + p.start)?.amounts || {};
+  let row = questRows.get(key); const fresh = !row;
+  if (!row) { row = { base: { period_start: p.start, amounts: { ...now } }, done_at: null }; questRows.set(key, row); }
+  const delta = {}; for (const ex of EX) delta[ex] = Math.max(0, Number(now[ex] || 0) - Number(row.base.amounts[ex] || 0));
+  const watched = [...progress.entries()].filter(([k, v]) => k.startsWith(m.user_id + ":") && Date.parse(v.updated_at) >= since).filter(([k, v]) => { const vid = videos.find((x) => x.id === Number(k.split(":")[1])); return vid && v.position_sec >= (vid.duration_sec || v.duration_sec) * 0.95; }).length;
+  const nn = notes.filter((n) => n.user_id === m.user_id && Date.parse(n.created_at) >= since).length;
+  const value = { watch: watched, notes: nn, volume: weeklyVolumeRatio(delta) };
+  const quests = QUESTS.map((q) => ({ id: q.id, icon: q.icon, name: q.name, target: q.target, progress: Math.min(q.target, value[q.id]), done: value[q.id] >= q.target }));
+  const allDone = quests.every((q) => q.done); let justDone = false;
+  if (allDone && !row.done_at) { row.done_at = new Date().toISOString(); justDone = true; }
+  if (fresh && !allDone) justDone = false;
+  const weeksDone = [...questRows.entries()].filter(([k, v]) => k.startsWith(m.user_id + ":") && v.done_at).length;
+  return { week: wk, quests, allDone, justDone, weeksDone };
 }
 const msUnseen = (m, p) => [...msRows.entries()].filter(([k, v]) => k.startsWith(`${m.user_id}:${p.start}:`) && !v.seen).map(([, v]) => v).sort((a, b) => b.level - a.level)[0] || null;
 function autoSyncUser(ex, userId) {
@@ -293,7 +314,7 @@ const server = http.createServer(async (req, res) => {
     const ts = mrow ? tierM(mrow) : null;
     // 第一級：教學課程（每位講師第 1 份）、播放、進度、筆記也可以（詳細的在各自的地方檢查）
     const t1ok = ts && ts.tier >= 1 && (["/api/course", "/api/progress", "/api/notes"].includes(p) || (p === "/api/videos" && url.searchParams.has("id")));
-    if (ts && ts.tier < 2 && !t1ok && !["/api/me", "/api/exchange-link", "/api/feedback", "/api/report", "/api/badges", "/api/oneonone"].includes(p)) return send(res, 403, { error: `這個內容要第二級（這一輪 ${tierRuleText(2)}）`, code: "tier", tier: ts.tier });
+    if (ts && ts.tier < 2 && !t1ok && !["/api/me", "/api/exchange-link", "/api/feedback", "/api/report", "/api/badges", "/api/oneonone", "/api/quests"].includes(p)) return send(res, 403, { error: `這個內容要第二級（這一輪 ${tierRuleText(2)}）`, code: "tier", tier: ts.tier });
     if (p === "/api/me") {
       if (req.method === "PATCH") {
         if (body.theme !== undefined) {
@@ -304,7 +325,7 @@ const server = http.createServer(async (req, res) => {
         mrow.notify = body.notify;
         return send(res, 200, { ok: true, notify: body.notify });
       }
-      return send(res, 200, { links: mrow ? EXCHANGES.map((ex) => ({ exchange: ex, auto: AUTO_EXCHANGES.includes(ex), enabled: true, uid: autoLinks[ex].get(mrow.user_id) || null, accountName: accNames.get(`${ex}:${mrow.user_id}`) || null, needsName: needsName(ex), boundAt: null })) : null, feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, adminRole: admin ? role : null, tier: mrow ? ts.tier : null, invites: mrow ? Object.fromEntries(Object.entries(discordSettings.invites || {}).filter(([, x]) => /^https:\/\//.test(String(x)))) : {}, free: !!mrow?.free, theme: mrow?.theme || null, notify: mrow ? mrow.notify !== false : null, nextLive: (() => { const l = liveNext(); return l ? { title: l.title, startsAt: l.starts_at, hosts: l.hosts || [], note: l.note, link: l.link } : null; })(), volume: mrow ? (() => { const p = curP(mrow); const v = vols.get(mrow.user_id + ":" + p.start); return { periodStart: p.start, periodEnd: p.end, nextEnd: nextPeriod(anchorOf(mrow), p).end, exchanges: EX, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, tier: ts.tier, tierUntil: ts.until, cycleTier: ts.cycleTier, milestone: mrow.free ? null : msUnseen(mrow, p) }; })() : null });
+      return send(res, 200, { links: mrow ? EXCHANGES.map((ex) => ({ exchange: ex, auto: AUTO_EXCHANGES.includes(ex), enabled: true, uid: autoLinks[ex].get(mrow.user_id) || null, accountName: accNames.get(`${ex}:${mrow.user_id}`) || null, needsName: needsName(ex), boundAt: null })) : null, feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, adminRole: admin ? role : null, tier: mrow ? ts.tier : null, streak: mrow ? checkinM(mrow) : null, invites: mrow ? Object.fromEntries(Object.entries(discordSettings.invites || {}).filter(([, x]) => /^https:\/\//.test(String(x)))) : {}, free: !!mrow?.free, theme: mrow?.theme || null, notify: mrow ? mrow.notify !== false : null, nextLive: (() => { const l = liveNext(); return l ? { title: l.title, startsAt: l.starts_at, hosts: l.hosts || [], note: l.note, link: l.link } : null; })(), volume: mrow ? (() => { const p = curP(mrow); const v = vols.get(mrow.user_id + ":" + p.start); return { periodStart: p.start, periodEnd: p.end, nextEnd: nextPeriod(anchorOf(mrow), p).end, exchanges: EX, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, tier: ts.tier, tierUntil: ts.until, cycleTier: ts.cycleTier, milestone: mrow.free ? null : msUnseen(mrow, p) }; })() : null });
     }
     if (p === "/api/badges") {
       const all = BADGES.map(({ id, icon, name, desc }) => ({ id, icon, name, desc }));
@@ -312,6 +333,10 @@ const server = http.createServer(async (req, res) => {
       if (req.method === "PATCH") { for (const v of (badgeRows.get(mrow.user_id) || new Map()).values()) v.seen = true; return send(res, 200, { ok: true }); }
       const { f, had } = syncBadgesM(mrow);
       return send(res, 200, { badges: BADGES.filter((b) => had.has(b.id)).map((b) => ({ id: b.id, earnedAt: had.get(b.id).earned_at, isNew: !had.get(b.id).seen })), all, progress: { bestPct: Math.min(100, Math.round(f.bestPct)), streak: f.streak, liveDone: f.liveDone, courseDone: f.courseDone, notes: f.notes, questions: f.questions, hostsDone: f.hostsDone } });
+    }
+    if (p === "/api/quests") {
+      if (!mrow) return send(res, 200, { quests: null, streak: null });
+      return send(res, 200, { ...questsM(mrow), streak: checkinM(mrow) });
     }
     if (p === "/api/oneonone") {
       if (!mrow) return send(res, 200, { month: monthNow(), cap: ONE_ON_ONE_CAP, eligible: false, hosts: [], mine: null });

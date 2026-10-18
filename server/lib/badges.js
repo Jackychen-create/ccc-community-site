@@ -2,7 +2,7 @@
 // 研究員首頁打開時算一次（GET /api/badges），不用排程
 import { supabaseAdmin } from "./env.js";
 import { twDate } from "./dates.js";
-import { BADGES, earnedBadges, progressTo, tierOf, SITE_TIER, periodOf, COURSE_HOSTS, COURSE_PARTS, EXCHANGES } from "../../public/assets/js/shared/rules.js";
+import { BADGES, earnedBadges, bestStreakOf, progressTo, tierOf, SITE_TIER, periodOf, COURSE_HOSTS, COURSE_PARTS, EXCHANGES } from "../../public/assets/js/shared/rules.js";
 
 const DONE = 0.95; // 看到片長 95% 算看完（跟後台觀看統計一樣）
 
@@ -19,12 +19,14 @@ export function longestStreak(anchor, rows) {
 }
 
 export async function badgeFacts(userId, member) {
-  const [vols, prog, vids, notes, fb] = await Promise.all([
+  const [vols, prog, vids, notes, fb, qw, ck] = await Promise.all([
     supabaseAdmin.from("volumes").select("period_start, amounts, qualified_at").eq("user_id", userId),
     supabaseAdmin.from("watch_progress").select("video_id, position_sec, duration_sec").eq("user_id", userId),
     supabaseAdmin.from("videos").select("id, duration_sec, course_host, course_part").eq("is_published", true),
     supabaseAdmin.from("notes").select("id", { count: "exact", head: true }).eq("user_id", userId),
     supabaseAdmin.from("feedback").select("id", { count: "exact", head: true }).eq("user_id", userId),
+    supabaseAdmin.from("quest_weeks").select("week", { count: "exact", head: true }).eq("user_id", userId).not("done_at", "is", null),
+    supabaseAdmin.from("checkins").select("day").eq("user_id", userId),
   ]);
   for (const r of [vols, prog, vids]) if (r.error) throw r.error;
   const rows = vols.data || [];
@@ -47,6 +49,8 @@ export async function badgeFacts(userId, member) {
     liveDone: done.filter((v) => !v.course_host).length,
     notes: notes.count || 0,
     questions: fb.count || 0,
+    questWeeks: qw.count || 0,
+    bestStreak: bestStreakOf((ck.data || []).map((r) => r.day)),
   };
 }
 

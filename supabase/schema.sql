@@ -475,3 +475,19 @@ create table if not exists public.one_on_ones (
   primary key (user_id, month)
 );
 alter table public.one_on_ones enable row level security;
+
+-- ── v1.20.0：連續打卡、每週任務（規則在 shared/rules.js 的 streakOf、QUESTS）──
+create table if not exists public.checkins (
+  user_id uuid not null references public.members(user_id) on delete cascade,
+  day     date not null,                     -- 台灣日期：這天有打開網站
+  primary key (user_id, day)
+);
+alter table public.checkins enable row level security;
+create table if not exists public.quest_weeks (
+  user_id uuid not null references public.members(user_id) on delete cascade,
+  week    date not null,                     -- 這週的星期一（台灣日期）
+  base    jsonb,                             -- 這週第一次打開任務時這一輪的交易量（算「這週新增」用）
+  done_at timestamptz,                       -- 三個任務都完成的時間
+  primary key (user_id, week)
+);
+alter table public.quest_weeks enable row level security;

@@ -15,6 +15,7 @@ import course from "../server/course.js";
 import videosApi from "../server/videos.js";
 import oneonone from "../server/oneonone.js";
 import adminOneonone from "../server/admin/oneonone.js";
+import questsApi from "../server/quests.js";
 import { thisMonthTW } from "../server/lib/dates.js";
 
 let pass = 0, fail = 0;
@@ -25,7 +26,7 @@ const listen = (srv) => new Promise((r) => srv.listen(0, "127.0.0.1", () => r(`h
 const readJson = (req) => new Promise((r) => { let b = ""; req.on("data", (c) => (b += c)); req.on("end", () => { try { r(b ? JSON.parse(b) : null); } catch { r(null); } }); });
 
 // ── 假的 Supabase（PostgREST）──
-const db = { members: [], exchange_links: [], volumes: [], milestones: [], one_on_ones: [], discord_applications: [], videos: [], feedback: [], watch_progress: [], settings: [{ key: "volume_threshold", value: 1000000 }] };
+const db = { members: [], exchange_links: [], volumes: [], milestones: [], one_on_ones: [], checkins: [], quest_weeks: [], notes: [], discord_applications: [], videos: [], feedback: [], watch_progress: [], settings: [{ key: "volume_threshold", value: 1000000 }] };
 const tokens = { "tok-admin": { id: "admin-1", email: "boss@gmail.com", email_confirmed_at: "2026-01-01T00:00:00Z" } };
 const writes = [];
 function parseFilters(sp) {
@@ -41,6 +42,8 @@ const match = (row, fs) => fs.every(({ col, op, val }) => {
   if (op === "in") return val.replace(/^\(|\)$/g, "").split(",").map((s) => s.replace(/^"|"$/g, "")).includes(x);
   if (op === "gte") return x !== null && x >= val;
   if (op === "lte") return x !== null && x <= val;
+  if (op === "not") return val === "is.null" ? x !== null : true;
+  if (op === "is") return val === "null" ? x === null : true;
   return true;
 });
 const supa = http.createServer(async (req, res) => {
@@ -52,7 +55,7 @@ const supa = http.createServer(async (req, res) => {
   }
   if (u.pathname.startsWith("/rest/v1/rpc/")) { res.writeHead(200, { "Content-Type": "application/json" }); return res.end("[]"); }
   const table = u.pathname.split("/").pop();
-  if (req.method === "HEAD") { res.writeHead(200, { "Content-Range": "0-0/0" }); return res.end(); }
+  if (req.method === "HEAD") { const n = (db[table] || []).filter((r) => match(r, parseFilters(u.searchParams))).length; res.writeHead(200, { "Content-Range": `0-${Math.max(0, n - 1)}/${n}` }); return res.end(); }
   const rows = db[table];
   const one = /vnd\.pgrst\.object/.test(req.headers.accept || "");
   const send = (data, status = 200) => { res.writeHead(status, { "Content-Type": "application/json" }); res.end(JSON.stringify(one ? data[0] ?? null : data)); };
@@ -366,6 +369,30 @@ await test("一對一：第三級才能選；每位講師 5 位，超過照交�
   assert.deepEqual([r2.body.mine.host, r2.body.mine.confirmed], ["OC", true]);
   // 講師名字亂填不收
   assert.equal((await call(oneonone, { token: "tok-one3", method: "POST", body: { host: "Bob" } })).statusCode, 400);
+});
+await test("每週任務、連續打卡：看完影片、記 3 則筆記、這週交易量 +5 萬，三個都完成算一週", async () => {
+  const id = "00000000-0000-4000-8000-0000000000b1";
+  const P = periodOf(today, today);
+  db.members.push(member(id, today, { email: "q@example.com" }));
+  db.volumes.push({ user_id: id, period_start: P.start, period_end: P.end, amounts: { OKX: 30000 }, qualified_at: null });
+  tokens["tok-q"] = { id, email: "q@example.com", email_confirmed_at: null };
+  // 前幾天也有打卡（連續）
+  db.checkins.push({ user_id: id, day: addDays(today, -1) }, { user_id: id, day: addDays(today, -2) });
+  const r1 = await call(questsApi, { token: "tok-q" });
+  assert.equal(r1.statusCode, 200, JSON.stringify(r1.body));
+  assert.deepEqual(r1.body.quests.map((x) => x.done), [false, false, false]);
+  assert.deepEqual([r1.body.streak.days, r1.body.streak.best], [3, 3]);
+  assert.equal(db.quest_weeks.find((x) => x.user_id === id).base.amounts.OKX, 30000); // 記下這週的起點
+  // 看完一部、記 3 則筆記、交易量 +6 萬
+  db.videos.push({ id: 601, title: "v", is_published: true, duration_sec: 100 });
+  db.watch_progress.push({ user_id: id, video_id: 601, position_sec: 99, duration_sec: 100, updated_at: new Date().toISOString() });
+  for (let i = 0; i < 3; i++) db.notes.push({ id: 900 + i, user_id: id, video_id: 601, created_at: new Date().toISOString() });
+  db.volumes.find((v) => v.user_id === id).amounts = { OKX: 90000 };
+  const r2 = await call(questsApi, { token: "tok-q" });
+  assert.deepEqual(r2.body.quests.map((x) => x.done), [true, true, true], JSON.stringify(r2.body.quests));
+  assert.deepEqual([r2.body.allDone, r2.body.justDone, r2.body.weeksDone], [true, true, 1]);
+  const r3 = await call(questsApi, { token: "tok-q" });
+  assert.equal(r3.body.justDone, false); // 只恭喜一次
 });
 await test("協作管理員：交易量、待跟進被擋，主要管理員不受影響", async () => {
   tokens["tok-oc"] = { id: "oc-1", email: "oc@gmail.com", email_confirmed_at: "2026-01-01T00:00:00Z" };

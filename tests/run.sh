@@ -5,7 +5,7 @@ cd "$(dirname "$0")"
 [ -d node_modules/playwright ] || { npm install --no-audit --no-fund && npx playwright install chromium; }
 [ -f fixtures/live.webm ] || bash make-fixtures.sh
 mkdir -p output/shots
-suites=("$@"); [ ${#suites[@]} -eq 0 ] && suites=(e2e v14 v15 v16 v17 v18 v19 v20 v21 v22 v23 v24 v25 v26)
+suites=("$@"); [ ${#suites[@]} -eq 0 ] && suites=(e2e v14 v15 v16 v17 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27)
 total_fail=0
 # 不用瀏覽器的測試，幾秒鐘：unit（規則、伺服器小工具）、discord（Discord 審核機器人整個流程）、sync（自動同步交易量、每人一輪）、lives（直播預告）
 for n in unit discord sync lives; do
