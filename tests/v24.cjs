@@ -79,6 +79,9 @@ const closeAll = async (p) => { const seen = []; for (let i = 0; i < 6; i++) { a
   const t3 = await closeAll(p);
   check("升上第三級：寫一對一", t3.includes("升上第三級") && t3.includes("一對一"), t3.slice(0, 200));
   check("階梯三格都亮", (await p.locator("#volPanel .ms-step.on").count()) === 3);
+  await p.evaluate(() => (location.hash = "#/course")); await p.waitForSelector("#courseView:not([hidden]) .course-row");
+  check("第三級：教學課程全部直接解鎖", (await p.locator("#courseList .course-row.locked").count()) === 0 && (await p.textContent("#courseCount")).includes("18／18"), await p.textContent("#courseCount"));
+  await p.evaluate(() => (location.hash = "#/")); await p.waitForSelector("#grid .vrow");
   await p.locator("#volPanel").screenshot({ path: "output/shots/v24-tier3-panel.png" });
   await c.close();
 

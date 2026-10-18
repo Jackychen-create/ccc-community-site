@@ -303,7 +303,10 @@ await test("沒有等級的研究員：/api/me 打得開，教學課程被擋（
   assert.equal(c.statusCode, 403); assert.equal(c.body.code, "tier"); assert.ok(c.body.error.includes("第一級"), c.body.error);
   tokens["tok-c1"] = { id: "00000000-0000-4000-8000-0000000000f1", email: "u-f@example.com", email_confirmed_at: null };
   const ok = await call(course, { token: "tok-c1" });
-  assert.notEqual(ok.statusCode, 403, JSON.stringify(ok.body)); // 第三級看得到
+  assert.equal(ok.statusCode, 200, JSON.stringify(ok.body)); // 第三級看得到
+  assert.ok(ok.body.slots.every((x) => x.unlocked), "第三級全部直接解鎖，不用等排程");
+  const ok2 = await call(course, { token: "tok-a" }); // 第二級照排程
+  assert.ok(ok2.body.slots.some((x) => !x.unlocked && !x.tier_locked));
 });
 
 await test("第一級：教學課程只開每位講師第 1 份，直播留檔被擋", async () => {

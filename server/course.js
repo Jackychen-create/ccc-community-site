@@ -1,11 +1,11 @@
 // GET /api/course   教學課程：18 份（CCC、X、OC 各 6 份），每位研究員從加入那天起每週解鎖一份
 // 每 4 週一輪：前 3 週依序 CCC、X、OC，第 4 週休息。管理員看到的是全部解鎖（方便檢查）
-// 三級制度：第一級只看得到每位講師的第 1 份，其他的標 tier_locked（第二級解鎖）
+// 三級制度：第一級只看得到每位講師的第 1 份，其他的標 tier_locked（第二級解鎖）；第三級全部直接解鎖，不用等排程
 import {
   supabaseAdmin, requireMember, signGet, route, todayTW, twDate,
   COURSE_HOSTS, COURSE_PARTS, courseWeek, courseUnlockDate,
 } from "./lib/index.js";
-import { courseTierOk } from "../public/assets/js/shared/rules.js";
+import { courseTierOk, courseSkipSchedule } from "../public/assets/js/shared/rules.js";
 
 export default route({
   async GET(req, res) {
@@ -34,7 +34,7 @@ export default route({
       for (const host of COURSE_HOSTS) {
         const unlock_on = courseUnlockDate(start, host, part);
         const tierLocked = !!ctx.member && !courseTierOk(ctx.tier.tier, part);
-        const unlocked = !ctx.member || (unlock_on <= today && !tierLocked);
+        const unlocked = !ctx.member || ((unlock_on <= today || courseSkipSchedule(ctx.tier.tier)) && !tierLocked);
         const v = bySlot.get(`${host}:${part}`);
         const p = v && prog.get(v.id);
         slots.push({

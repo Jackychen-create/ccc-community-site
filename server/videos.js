@@ -1,7 +1,7 @@
 // GET /api/videos          已發布影片清單＋我的觀看進度
 // GET /api/videos?id=12    單支影片的播放連結、教材下載連結、上次看到哪
 import { supabaseAdmin, requireMember, signGet, toInt, route, todayTW, twDate, courseUnlockDate } from "./lib/index.js";
-import { SITE_TIER, courseTierOk, tierRuleText } from "../public/assets/js/shared/rules.js";
+import { SITE_TIER, courseTierOk, courseSkipSchedule, tierRuleText } from "../public/assets/js/shared/rules.js";
 
 // 三級制度：直播留檔要第二級；教學課程第一級看得到每位講師的第 1 份
 const needTier2 = (res) => res.status(403).json({ error: `這個內容要第二級（這一輪 ${tierRuleText(SITE_TIER)}）`, code: "tier" });
@@ -78,7 +78,7 @@ async function detail(res, ctx, id, tier) {
   // 等級不夠：直播留檔要第二級；教學課程第一級只看得到第 1 份
   if (!isAdmin && (v.course_host ? !courseTierOk(tier, v.course_part) : tier < SITE_TIER)) return needTier2(res);
   // 教學課程：從加入那天起每週解鎖，還沒到的不給播放連結
-  if (v.course_host && !isAdmin) {
+  if (v.course_host && !isAdmin && !courseSkipSchedule(tier)) { // 第三級不用等排程
     const unlock = courseUnlockDate(twDate(member.created_at), v.course_host, v.course_part);
     if (unlock > todayTW()) return res.status(403).json({ error: `這一份課程 ${unlock} 解鎖`, code: "locked", unlock_on: unlock });
   }

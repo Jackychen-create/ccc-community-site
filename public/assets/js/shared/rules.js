@@ -71,13 +71,15 @@ export const unitOf = (ex) => (isLots(ex) ? "手" : "USDT");
 export const TIERS = [
   { tier: 1, usdt: 10000, lots: 0.1, perks: ["Discord 研究員身分組", "會員直播（不提供留檔）", "教學課程三位講師的第 1 份"] },
   { tier: 2, usdt: 200000, lots: 2, perks: ["全部交易系統分享影音（之後的更新）", "直播留檔", "研究員專屬網站"] },
-  { tier: 3, usdt: 1500000, lots: 15, perks: ["每個月一次一對一交流（CCC、OC、X 三選一）"] },
+  { tier: 3, usdt: 1500000, lots: 15, perks: ["教學課程全部直接解鎖，不用等排程", "每個月一次一對一交流（CCC、OC、X 三選一）"] },
 ];
 export const MAX_TIER = TIERS.length;
 export const SITE_TIER = 2; // 網站內容（直播留檔、教學課程、教材、筆記）要第二級
 // 第一級也看得到教學課程每位講師的第 1 份（CCC、OC、X 各一部，照原本的解鎖時間），第 2 份以後的更新要第二級（2026-10-18）
 export const TIER1_COURSE_PARTS = 1;
 export const courseTierOk = (tier, part) => tier >= SITE_TIER || (tier >= 1 && part <= TIER1_COURSE_PARTS);
+// 第三級：教學課程全部直接解鎖，不用等每週的排程（2026-10-18）
+export const courseSkipSchedule = (tier) => tier >= MAX_TIER;
 export const tierName = (t) => (t ? `第${"零一二三"[t]}級` : "沒有等級");
 export const tierInfo = (t) => TIERS.find((x) => x.tier === t) || null;
 export const goalFor = (ex, tier) => (isLots(ex) ? tierInfo(tier).lots : tierInfo(tier).usdt);
