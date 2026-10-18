@@ -6,6 +6,8 @@ import progress from "../../server/progress.js";
 import register from "../../server/register.js";
 import invite from "../../server/invite.js";
 import badges from "../../server/badges.js";
+import oneonone from "../../server/oneonone.js";
+import adminOneonone from "../../server/admin/oneonone.js";
 import stats from "../../server/stats.js";
 import videos from "../../server/videos.js";
 import notes from "../../server/notes.js";
@@ -37,6 +39,8 @@ const ROUTES = {
   "register": register,
   "invite": invite,
   "badges": badges,
+  "oneonone": oneonone,
+  "admin/oneonone": adminOneonone,
   "stats": stats,
   "videos": videos,
   "notes": notes,

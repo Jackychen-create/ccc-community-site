@@ -98,7 +98,7 @@ export function celebrateMilestone() {
         el("div", { class: "ms-big", text: tierName(lvl) }),
         b ? el("p", { class: "small sub", text: `這一輪 ${b.ex}：${withUnit(b.ex, b.n)}` }) : null,
         el("ul", { class: "tier-perks" }, ...TIERS.filter((t) => t.tier <= lvl).flatMap((t) => t.perks).map((x) => el("li", { text: x }))),
-        el("p", { text: `至少到 ${md(v.nextEnd)}。` + (lvl < MAX_TIER ? `再往上：${tierName(lvl + 1)}${gapTo(v.amounts || {}, lvl + 1, v.exchanges)}（${tierInfo(lvl + 1).perks.join("、")}）。` : "管理員會跟你約這個月的一對一時間。") }),
+        el("p", { text: `至少到 ${md(v.nextEnd)}。` + (lvl < MAX_TIER ? `再往上：${tierName(lvl + 1)}${gapTo(v.amounts || {}, lvl + 1, v.exchanges)}（${tierInfo(lvl + 1).perks.join("、")}）。` : "到右邊「一對一交流」選這個月的講師（每位最多 5 位，額滿照交易量排）。") }),
         lvl >= SITE_TIER && (state.me.tier ?? 0) >= SITE_TIER ? el("p", { class: "small sub", text: "直播留檔、教學課程都已經打開，重新整理就看得到。" }) : null),
       actions: [ok],
       onClose: () => api("/api/me", { method: "PATCH", body: { milestoneSeen: true } }).catch(() => {}),

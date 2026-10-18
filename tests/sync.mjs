@@ -12,6 +12,9 @@ import me from "../server/me.js";
 import { milestoneText } from "../server/lib/milestone.js";
 import { memberTier } from "../server/lib/tier.js";
 import course from "../server/course.js";
+import oneonone from "../server/oneonone.js";
+import adminOneonone from "../server/admin/oneonone.js";
+import { thisMonthTW } from "../server/lib/dates.js";
 
 let pass = 0, fail = 0;
 async function test(name, fn) {
@@ -21,7 +24,7 @@ const listen = (srv) => new Promise((r) => srv.listen(0, "127.0.0.1", () => r(`h
 const readJson = (req) => new Promise((r) => { let b = ""; req.on("data", (c) => (b += c)); req.on("end", () => { try { r(b ? JSON.parse(b) : null); } catch { r(null); } }); });
 
 // ── 假的 Supabase（PostgREST）──
-const db = { members: [], exchange_links: [], volumes: [], milestones: [], discord_applications: [], videos: [], feedback: [], watch_progress: [], settings: [{ key: "volume_threshold", value: 1000000 }] };
+const db = { members: [], exchange_links: [], volumes: [], milestones: [], one_on_ones: [], discord_applications: [], videos: [], feedback: [], watch_progress: [], settings: [{ key: "volume_threshold", value: 1000000 }] };
 const tokens = { "tok-admin": { id: "admin-1", email: "boss@gmail.com", email_confirmed_at: "2026-01-01T00:00:00Z" } };
 const writes = [];
 function parseFilters(sp) {
@@ -302,6 +305,47 @@ await test("沒有等級的研究員：/api/me 打得開，教學課程被擋（
   assert.notEqual(ok.statusCode, 403, JSON.stringify(ok.body)); // 第三級看得到
 });
 
+await test("一對一：第三級才能選；每位講師 5 位，超過照交易量排；已約好的不會被擠掉", async () => {
+  const P = periodOf(today, today);
+  const ids = [1, 2, 3, 4, 5, 6].map((i) => `00000000-0000-4000-8000-0000000001${String(i).padStart(2, "0")}`);
+  ids.forEach((id, i) => {
+    db.members.push(member(id, today, { email: `one${i + 1}@example.com` }));
+    db.volumes.push({ user_id: id, period_start: P.start, period_end: P.end, amounts: { OKX: 1500000 + (i + 1) * 100000 }, qualified_at: today });
+    tokens[`tok-one${i + 1}`] = { id, email: `one${i + 1}@example.com`, email_confirmed_at: null };
+  });
+  // 第二級的人不能選
+  tokens["tok-c"] = { id: "00000000-0000-4000-8000-00000000000c", email: "u-c@example.com", email_confirmed_at: null };
+  const no = await call(oneonone, { token: "tok-c", method: "POST", body: { host: "CCC" } });
+  assert.equal(no.statusCode, 403);
+  const v = await call(oneonone, { token: "tok-c" });
+  assert.equal(v.body.eligible, false);
+  // 六位都選 CCC：交易量最低的 one1 變候補
+  for (let i = 1; i <= 6; i++) {
+    const r = await call(oneonone, { token: `tok-one${i}`, method: "POST", body: { host: "CCC" } });
+    assert.equal(r.statusCode, 200, JSON.stringify(r.body));
+  }
+  const me1 = (await call(oneonone, { token: "tok-one1" })).body;
+  assert.deepEqual([me1.mine.host, me1.mine.rank, me1.mine.confirmed, me1.mine.waiting], ["CCC", 6, false, 1]);
+  assert.deepEqual(me1.hosts.find((h) => h.host === "CCC"), { host: "CCC", total: 6, confirmed: 5 });
+  const me6 = (await call(oneonone, { token: "tok-one6" })).body;
+  assert.deepEqual([me6.mine.rank, me6.mine.confirmed], [1, true]);
+  // 後台：照順序、管理員標記 one1 已約好 → one1 確定，one2 被擠到候補
+  const b = await call(adminOneonone, { query: { month: thisMonthTW() } });
+  assert.equal(b.statusCode, 200, JSON.stringify(b.body));
+  assert.deepEqual(b.body.hosts.find((h) => h.host === "CCC").list.map((e) => e.email), [6, 5, 4, 3, 2, 1].map((i) => `one${i}@example.com`));
+  const bk = await call(adminOneonone, { method: "PATCH", body: { userId: ids[0], month: thisMonthTW(), booked: true } });
+  const list = bk.body.hosts.find((h) => h.host === "CCC").list;
+  assert.equal(list.find((e) => e.email === "one1@example.com").confirmed, true);
+  assert.equal(list.find((e) => e.email === "one2@example.com").confirmed, false);
+  // 約好的不能自己改選或取消
+  const sw = await call(oneonone, { token: "tok-one1", method: "POST", body: { host: "OC" } });
+  assert.equal(sw.statusCode, 400);
+  // one2 改選 OC → 馬上確定
+  const r2 = await call(oneonone, { token: "tok-one2", method: "POST", body: { host: "OC" } });
+  assert.deepEqual([r2.body.mine.host, r2.body.mine.confirmed], ["OC", true]);
+  // 講師名字亂填不收
+  assert.equal((await call(oneonone, { token: "tok-one3", method: "POST", body: { host: "Bob" } })).statusCode, 400);
+});
 await test("協作管理員：交易量、待跟進被擋，主要管理員不受影響", async () => {
   tokens["tok-oc"] = { id: "oc-1", email: "oc@gmail.com", email_confirmed_at: "2026-01-01T00:00:00Z" };
   env.ADMIN_EMAILS = "boss@gmail.com,oc@gmail.com";
@@ -314,6 +358,8 @@ await test("協作管理員：交易量、待跟進被擋，主要管理員不�
   assert.equal(o.statusCode, 200);
   const m = await call(me, { token: "tok-oc" });
   assert.equal(m.body.adminRole, "editor");
+  const one = await call(adminOneonone, { token: "tok-oc", route: "admin/oneonone" });
+  assert.equal(one.statusCode, 200); // 講師（OC）看得到一對一名單
 });
 
 supa.close(); bingx.close(); bybit.close();

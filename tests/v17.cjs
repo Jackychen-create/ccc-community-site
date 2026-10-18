@@ -90,6 +90,7 @@ const errs = [];
   [c, p] = await ctx({ width: 1440, height: 900 });
   await login(p, "amy@example.com"); await p.waitForSelector(".vrow"); await p.waitForTimeout(400);
   check("有新回覆時選單亮點", await p.evaluate(() => document.querySelector("#menuBtn").classList.contains("has-dot")));
+  for (let i = 0; i < 5 && (await p.locator(".modal-back").count()); i++) { await p.keyboard.press("Escape"); await p.waitForTimeout(300); }
   await p.click("#menuBtn"); await p.click("#menuPanel a[href='#/feedback']");
   await p.waitForSelector("#feedbackView:not([hidden]) .fb"); await p.waitForTimeout(300);
   const fbt = await p.textContent("#feedbackList");

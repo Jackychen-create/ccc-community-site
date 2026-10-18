@@ -71,7 +71,7 @@ export const unitOf = (ex) => (isLots(ex) ? "手" : "USDT");
 export const TIERS = [
   { tier: 1, usdt: 10000, lots: 0.1, perks: ["Discord 研究員身分組", "會員直播（不提供留檔）"] },
   { tier: 2, usdt: 200000, lots: 2, perks: ["全部交易系統分享影音", "直播留檔", "研究員專屬網站"] },
-  { tier: 3, usdt: 1500000, lots: 15, perks: ["每個月一次一對一交流"] },
+  { tier: 3, usdt: 1500000, lots: 15, perks: ["每個月一次一對一交流（CCC、OC、X 三選一）"] },
 ];
 export const MAX_TIER = TIERS.length;
 export const SITE_TIER = 2; // 網站內容（直播留檔、教學課程、教材、筆記）要第二級
@@ -133,6 +133,20 @@ export function tierStatus({ anchor, today, amountsOf, override = null }) {
   if (ov >= tier && tier) ends.push(override.until || null);
   const until = ends.includes(null) ? null : ends.sort().pop() || null;
   return { tier, until, cycleTier, period };
+}
+
+// ── 一對一交流（第三級，2026-10-18）──
+// 第三級的研究員每個月（台灣時間的月份）從三位講師選一位；每位講師一個月最多 5 位
+// 選同一位的超過 5 位 → 照這一輪的交易量排（換算成「到第三級門檻的幾倍」，UM 和 USDT 才比得了），前 5 位確定、其他候補（可以改選別位）
+// 管理員按「已約好」的人一定算確定，不會被擠掉
+export const ONE_ON_ONE_HOSTS = ["CCC", "OC", "X"];
+export const ONE_ON_ONE_CAP = 5;
+export const oneOnOneScore = (amounts) => progressTo(amounts || {}, MAX_TIER).ratio;
+// entries: [{ user_id, host, score, booked, created_at }] → 同一位講師的排好順序，加上 rank（第幾位）、confirmed（確定）
+export function rankOneOnOne(entries, host) {
+  const list = entries.filter((e) => e.host === host)
+    .sort((a, b) => (b.booked === true) - (a.booked === true) || b.score - a.score || String(a.created_at).localeCompare(String(b.created_at)));
+  return list.map((e, i) => ({ ...e, rank: i + 1, confirmed: e.booked === true || i < ONE_ON_ONE_CAP }));
 }
 
 // ── 教學課程 ──

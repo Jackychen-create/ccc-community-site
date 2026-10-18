@@ -25,7 +25,7 @@ const errs = [];
   await login(p, "oc@gmail.com"); await p.waitForSelector("#appView:not([hidden])");
   await p.goto(BASE + "/admin"); await p.waitForSelector("#shell:not([hidden])"); await closeModals(p);
   const nav = await p.$$eval(".nav a[data-view]", (as) => as.map((a) => a.dataset.view));
-  check("側欄只有影片、直播預告、研究員、觀看統計、提問回報", JSON.stringify(nav) === JSON.stringify(["videos", "lives", "members", "feedback", "stats"]), nav.join(","));
+  check("側欄只有影片、直播預告、研究員、一對一、觀看統計、提問回報", JSON.stringify(nav) === JSON.stringify(["videos", "lives", "members", "oneonone", "feedback", "stats"]), nav.join(","));
   check("左下角寫協作管理員", (await p.textContent("#whoami")).includes("協作管理員"));
   await p.goto(BASE + "/admin#volumes"); await p.waitForTimeout(600);
   check("直接打網址去交易量也進不去（回到影片）", await p.isVisible("#v-videos") && !(await p.isVisible("#v-volumes")));

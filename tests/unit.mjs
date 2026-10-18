@@ -1,6 +1,6 @@
 // 規則和伺服器小工具的單元測試（不用瀏覽器，幾秒鐘跑完）。npm test 會先跑這一支。
 import assert from "node:assert/strict";
-import { addDays, cycleEnd, periodOf, nextPeriod, prevPeriod, addMonths, courseWeek, courseUnlockDate, COURSE_HOSTS, COURSE_PARTS, EXCHANGES, AUTO_EXCHANGES, TIERS, tierOf, tierStatus, gapTo, tierRuleText, tierName, BADGES, earnedBadges, THEMES, themeUnlocked } from "../public/assets/js/shared/rules.js";
+import { addDays, cycleEnd, periodOf, nextPeriod, prevPeriod, addMonths, courseWeek, courseUnlockDate, COURSE_HOSTS, COURSE_PARTS, EXCHANGES, AUTO_EXCHANGES, TIERS, tierOf, tierStatus, gapTo, tierRuleText, tierName, rankOneOnOne, oneOnOneScore, ONE_ON_ONE_CAP, BADGES, earnedBadges, THEMES, themeUnlocked } from "../public/assets/js/shared/rules.js";
 import { longestStreak } from "../server/lib/badges.js";
 const pick = ({ tier, until, cycleTier }) => ({ tier, until, cycleTier });
 import { mergeBuckets } from "../server/lib/buckets.js";
@@ -83,6 +83,22 @@ test("等級：這一輪達到的撐到下一輪結束、上一輪的撐到這�
   assert.equal(tierStatus({ anchor: "2026-09-10", today: "2026-10-18", amountsOf: am({}), override: { tier: 3, until: "2026-10-17" } }).tier, 0);
   // 交易量比手動給的高 → 照交易量
   assert.equal(tierStatus({ anchor: "2026-09-10", today: "2026-10-18", amountsOf: am({ "2026-10-10": { UM: 15 } }), override: { tier: 2, until: null } }).tier, 3);
+});
+test("一對一：每位講師最多 5 位，超過照交易量排，已約好的一定確定", () => {
+  assert.equal(ONE_ON_ONE_CAP, 5);
+  assert.ok(oneOnOneScore({ UM: 15 }) === oneOnOneScore({ OKX: 1500000 }), "UM 和 USDT 換算成第三級門檻的幾倍才比得了");
+  const e = [1, 2, 3, 4, 5, 6, 7].map((i) => ({ user_id: "u" + i, host: "CCC", score: i, created_at: `2026-10-0${i}`, booked: false }));
+  e.push({ user_id: "x", host: "OC", score: 99, created_at: "2026-10-01", booked: false });
+  const r = rankOneOnOne(e, "CCC");
+  assert.deepEqual(r.map((x) => x.user_id), ["u7", "u6", "u5", "u4", "u3", "u2", "u1"]);
+  assert.deepEqual(r.map((x) => x.confirmed), [true, true, true, true, true, false, false]);
+  e[0].booked = true; // 交易量最低但已經約好
+  const r2 = rankOneOnOne(e, "CCC");
+  assert.equal(r2[0].user_id, "u1"); assert.ok(r2[0].confirmed);
+  assert.deepEqual(r2.filter((x) => !x.confirmed).map((x) => x.user_id), ["u3", "u2"]);
+  // 交易量一樣：先選的先
+  const r3 = rankOneOnOne([{ user_id: "a", host: "X", score: 1, created_at: "2026-10-02" }, { user_id: "b", host: "X", score: 1, created_at: "2026-10-01" }], "X");
+  assert.deepEqual(r3.map((x) => x.user_id), ["b", "a"]);
 });
 test("徽章：照事實給，10 個、id 不重複", () => {
   assert.equal(new Set(BADGES.map((b) => b.id)).size, 10);

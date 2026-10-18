@@ -3,13 +3,16 @@
 // 每位研究員列出需要注意的地方：沒有等級、下一輪會降級、第三級一對一、很久沒來、課程落後、有提問還沒回
 import {
   supabaseAdmin, requireAdmin, route, todayTW, twDate, addDays,
-  gapTo, tierName, tierFromRows, periodFor, COURSE_HOSTS, COURSE_PARTS, courseUnlockDate,
+  gapTo, tierName, tierFromRows, periodFor, oneOnOneBoard, COURSE_HOSTS, COURSE_PARTS, courseUnlockDate,
 } from "../lib/index.js";
 
 export default route({
   async GET(req, res) {
     if (!(await requireAdmin(req, res))) return;
     const today = todayTW();
+    const board = await oneOnOneBoard().catch(() => null); // 這個月的一對一（表還沒建立時當作沒有）
+    const pickOf = new Map();
+    for (const h of board?.hosts || []) for (const e of h.list) pickOf.set(e.user_id, { host: h.host, ...e });
     const [m, v, p, vol, fb] = await Promise.all([
       supabaseAdmin.from("members").select("user_id, email, banned, note, created_at, free, min_tier, min_tier_until"),
       supabaseAdmin.from("videos").select("id, course_host, course_part").eq("is_published", true).not("course_host", "is", null),
@@ -45,7 +48,11 @@ export default route({
         const soon = ts.until <= addDays(today, 7);
         reasons.push({ key: "drop", label: `${md(ts.until)} 後降到${tierName(ts.cycleTier)}（${tierName(ts.tier)}${gapTo(vr?.amounts || {}, ts.tier)}）`, level: soon ? 2 : 1 });
       }
-      if (ts.tier >= 3) reasons.push({ key: "oneonone", label: "第三級：這個月約一對一", level: 1 });
+      if (ts.tier >= 3) {
+        const pk = pickOf.get(mem.user_id);
+        if (!pk) reasons.push({ key: "oneonone", label: "第三級：這個月還沒選一對一講師", level: 1 });
+        else if (!pk.booked) reasons.push({ key: "oneonone", label: `一對一：${pk.host} 第 ${pk.rank} 位（${pk.confirmed ? "確定，還沒約時間" : "候補"}）`, level: pk.confirmed ? 2 : 1 });
+      }
 
       // 很久沒來
       const last = prog.last_watched_at || null;

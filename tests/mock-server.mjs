@@ -5,7 +5,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 // 規則跟正式網站讀同一份
 import { canUseApi } from "../public/assets/js/shared/roles.js";
-import { EXCHANGES, AUTO_EXCHANGES, addDays, periodOf, nextPeriod, prevPeriod, COURSE_HOSTS as CH, courseUnlockDate, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR, BADGES, earnedBadges, themeUnlocked, tierOf, tierStatus, progressTo, tierName, tierRuleText, gapTo, TIERS } from "../public/assets/js/shared/rules.js";
+import { EXCHANGES, AUTO_EXCHANGES, addDays, periodOf, nextPeriod, prevPeriod, COURSE_HOSTS as CH, courseUnlockDate, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR, BADGES, earnedBadges, themeUnlocked, tierOf, tierStatus, progressTo, tierName, tierRuleText, gapTo, TIERS, rankOneOnOne, oneOnOneScore, ONE_ON_ONE_HOSTS, ONE_ON_ONE_CAP, fmtAmount } from "../public/assets/js/shared/rules.js";
 
 const PORT = Number(process.env.PORT || 4321);
 const ROOT = path.join(path.dirname(new URL(import.meta.url).pathname), "..");
@@ -134,6 +134,12 @@ function syncBadgesM(m) {
   const f = badgeFacts(m); const had = badgeRows.get(m.user_id) || new Map(); badgeRows.set(m.user_id, had);
   for (const id of earnedBadges(f)) if (!had.has(id)) had.set(id, { earned_at: new Date().toISOString(), seen: false });
   return { f, had };
+}
+// 一對一：[{ user_id, month, host, booked, created_at }]
+const oneRows = [];
+function oneBoard(month) {
+  const entries = oneRows.filter((x) => x.month === month).map((x) => { const m = members.find((y) => y.user_id === x.user_id); if (!m || m.banned) return null; const a = vols.get(m.user_id + ":" + curP(m).start)?.amounts || {}; const b = progressTo(a, 3); return { ...x, email: m.email, tier: tierM(m).tier, score: oneOnOneScore(a), volume: b.n ? `${b.ex} ${fmtAmount(b.ex, b.n)}${b.ex === "UM" ? "" : " USDT"}` : "—" }; }).filter((e) => e && (e.booked || e.tier >= 3));
+  return { month, hosts: ONE_ON_ONE_HOSTS.map((host) => ({ host, list: rankOneOnOne(entries, host) })) };
 }
 const msUnseen = (m, p) => [...msRows.entries()].filter(([k, v]) => k.startsWith(`${m.user_id}:${p.start}:`) && !v.seen).map(([, v]) => v).sort((a, b) => b.level - a.level)[0] || null;
 function autoSyncUser(ex, userId) {
@@ -285,7 +291,7 @@ const server = http.createServer(async (req, res) => {
     const mrow = members.find((m) => m.user_id === u.id);
     // 三級制度：網站內容要第二級；個人資料、提問、徽章每一級都可以
     const ts = mrow ? tierM(mrow) : null;
-    if (ts && ts.tier < 2 && !["/api/me", "/api/exchange-link", "/api/feedback", "/api/report", "/api/badges"].includes(p)) return send(res, 403, { error: `這個內容要第二級（這一輪 ${tierRuleText(2)}）`, code: "tier", tier: ts.tier });
+    if (ts && ts.tier < 2 && !["/api/me", "/api/exchange-link", "/api/feedback", "/api/report", "/api/badges", "/api/oneonone"].includes(p)) return send(res, 403, { error: `這個內容要第二級（這一輪 ${tierRuleText(2)}）`, code: "tier", tier: ts.tier });
     if (p === "/api/me") {
       if (req.method === "PATCH") {
         if (body.theme !== undefined) {
@@ -304,6 +310,26 @@ const server = http.createServer(async (req, res) => {
       if (req.method === "PATCH") { for (const v of (badgeRows.get(mrow.user_id) || new Map()).values()) v.seen = true; return send(res, 200, { ok: true }); }
       const { f, had } = syncBadgesM(mrow);
       return send(res, 200, { badges: BADGES.filter((b) => had.has(b.id)).map((b) => ({ id: b.id, earnedAt: had.get(b.id).earned_at, isNew: !had.get(b.id).seen })), all, progress: { bestPct: Math.min(100, Math.round(f.bestPct)), streak: f.streak, liveDone: f.liveDone, courseDone: f.courseDone, notes: f.notes, questions: f.questions, hostsDone: f.hostsDone } });
+    }
+    if (p === "/api/oneonone") {
+      if (!mrow) return send(res, 200, { month: monthNow(), cap: ONE_ON_ONE_CAP, eligible: false, hosts: [], mine: null });
+      if (req.method === "POST") {
+        if (ts.tier < 3) return send(res, 403, { error: "這個內容要第三級", code: "tier" });
+        if (!ONE_ON_ONE_HOSTS.includes(body.host)) return send(res, 400, { error: "請選一位講師" });
+        const old = oneRows.find((x) => x.user_id === mrow.user_id && x.month === monthNow());
+        if (old?.booked && old.host !== body.host) return send(res, 400, { error: `這個月已經跟 ${old.host} 約好了，要改請聯絡管理員` });
+        if (old) { if (old.host !== body.host) { old.host = body.host; old.created_at = new Date().toISOString(); } }
+        else oneRows.push({ user_id: mrow.user_id, month: monthNow(), host: body.host, booked: false, created_at: new Date().toISOString() });
+      }
+      if (req.method === "DELETE") {
+        const i = oneRows.findIndex((x) => x.user_id === mrow.user_id && x.month === monthNow());
+        if (i >= 0 && oneRows[i].booked) return send(res, 400, { error: "已經約好時間了，要取消請聯絡管理員" });
+        if (i >= 0) oneRows.splice(i, 1);
+      }
+      const bd = oneBoard(monthNow());
+      let mine = null;
+      for (const h of bd.hosts) { const me = h.list.find((e) => e.user_id === mrow.user_id); if (me) mine = { host: h.host, rank: me.rank, confirmed: me.confirmed, booked: !!me.booked, waiting: me.confirmed ? 0 : me.rank - ONE_ON_ONE_CAP }; }
+      return send(res, 200, { month: bd.month, cap: ONE_ON_ONE_CAP, eligible: ts.tier >= 3, hosts: bd.hosts.map((h) => ({ host: h.host, total: h.list.length, confirmed: h.list.filter((e) => e.confirmed).length })), mine });
     }
     if (p === "/api/exchange-link") {
       const mrow = members.find((m) => m.user_id === u.id);
@@ -557,6 +583,12 @@ const server = http.createServer(async (req, res) => {
       const pack = (g) => ({ ...g, users: [...g.users], user_count: g.users.size });
       return send(res, 200, { days: Number(url.searchParams.get("days") || 7), total: clientErrors.length, groups: [...groups.values()].map(pack), searches: [...searches.values()].map(pack) });
     }
+    if (p === "/api/admin/oneonone") {
+      const month = /^\d{4}-\d{2}$/.test(url.searchParams.get("month") || body.month || "") ? url.searchParams.get("month") || body.month : monthNow();
+      if (req.method === "PATCH") { const r = oneRows.find((x) => x.user_id === body.userId && x.month === month); if (!r) return send(res, 404, { error: "找不到這筆" }); r.booked = body.booked; }
+      if (req.method === "DELETE") { const i = oneRows.findIndex((x) => x.user_id === url.searchParams.get("userId") && x.month === month); if (i >= 0) oneRows.splice(i, 1); }
+      return send(res, 200, oneBoard(month));
+    }
     if (p === "/api/admin/followup") {
       const today = TODAY(); const out = [];
       for (const m of members) {
@@ -565,7 +597,7 @@ const server = http.createServer(async (req, res) => {
         const ts = tierM(m); const vv = vols.get(m.user_id + ":" + curP(m).start);
         if (ts.tier === 0) reasons.push({ key: "notier", label: "沒有等級（Discord 身分組可以拿掉）", level: 2 });
         else if (ts.cycleTier < ts.tier && ts.until && !m.free) reasons.push({ key: "drop", label: `${ts.until.slice(5).replace("-", "/")} 後降到${tierName(ts.cycleTier)}（${tierName(ts.tier)}${gapTo(vv?.amounts || {}, ts.tier)}）`, level: ts.until <= addDays(today, 7) ? 2 : 1 });
-        if (ts.tier >= 3) reasons.push({ key: "oneonone", label: "第三級：這個月約一對一", level: 1 });
+        if (ts.tier >= 3) { const pk = oneBoard(monthNow()).hosts.flatMap((h) => h.list.map((e) => ({ host: h.host, ...e }))).find((e) => e.user_id === m.user_id); if (!pk) reasons.push({ key: "oneonone", label: "第三級：這個月還沒選一對一講師", level: 1 }); else if (!pk.booked) reasons.push({ key: "oneonone", label: `一對一：${pk.host} 第 ${pk.rank} 位（${pk.confirmed ? "確定，還沒約時間" : "候補"}）`, level: pk.confirmed ? 2 : 1 }); }
         const last = prog.map((x) => x.updated_at).sort().pop() || null;
         const away = last ? Math.floor((Date.now() - new Date(last).getTime()) / 864e5) : null;
         if (!last) reasons.push({ key: "inactive", label: "加入後還沒看過影片", level: 2 }); else if (away >= 14) reasons.push({ key: "inactive", label: `${away} 天沒來看`, level: 1 });

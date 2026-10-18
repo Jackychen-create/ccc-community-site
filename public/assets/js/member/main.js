@@ -11,6 +11,7 @@ import { show, showBlocked, showUnavailable, leavePage } from "./views.js";
 import { showAuth, initAuth } from "./auth.js";
 import { renderMenu } from "./menu.js";
 import { loadBadges, syncThemeFromAccount } from "./badges.js";
+import { loadOneOnOne } from "./oneonone.js";
 import { renderAccessBanner, renderVolPanel, promptUidIfMissing, celebrateMilestone } from "./account.js";
 import { renderLivePanel } from "./live.js";
 import { openList } from "./list.js";
@@ -67,6 +68,7 @@ async function enterApp() {
   celebrateMilestone();
   syncThemeFromAccount();
   loadBadges();
+  loadOneOnOne();
   if (!routerOn) {
     routerOn = true;
     window.addEventListener("hashchange", route);

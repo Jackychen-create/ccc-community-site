@@ -38,6 +38,7 @@
       <a href="#discord" data-view="discord"><span data-ico="shield"></span>Discord 審核<span class="count num" id="cDiscord"></span></a>
       <a href="#members" data-view="members"><span data-ico="users"></span>研究員<span class="count num" id="cMembers"></span></a>
       <a href="#volumes" data-view="volumes"><span data-ico="coins"></span>交易量</a>
+      <a href="#oneonone" data-view="oneonone"><span data-ico="users"></span>一對一<span class="count num" id="cOne"></span></a>
       <a href="#feedback" data-view="feedback"><span data-ico="chat"></span>提問回報<span class="count num" id="cFeedback"></span></a>
       <a href="#followup" data-view="followup"><span data-ico="flag"></span>待跟進<span class="count num" id="cFollowup"></span></a>
       <a href="#stats" data-view="stats"><span data-ico="chart"></span>觀看統計</a>
@@ -164,6 +165,17 @@
     </section>
 
     <!-- 觀看統計 -->
+    <section id="v-oneonone" data-view-panel="oneonone" hidden>
+      <div class="page-head">
+        <div>
+          <h1>一對一交流</h1>
+          <p id="oneSub">第三級的研究員每個月選一位講師，每位最多 5 位；超過照這一輪的交易量排，前 5 位確定、其他候補。</p>
+        </div>
+        <div class="vol-tools"><label class="vol-month"><span class="vol-qual-l">月份</span><input class="input" type="month" id="oneMonth"></label></div>
+      </div>
+      <div id="oneBox"></div>
+    </section>
+
     <section id="v-stats" data-view-panel="stats" hidden>
       <div class="page-head">
         <div>

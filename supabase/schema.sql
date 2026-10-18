@@ -463,3 +463,15 @@ update public.members set min_tier = 2, min_tier_until = access_until
 delete from public.milestones where level not in (1, 2, 3);
 alter table public.milestones drop constraint if exists milestones_level_check;
 alter table public.milestones add constraint milestones_level_check check (level in (1, 2, 3));
+
+-- ── v1.20.0：一對一交流（第三級每個月選一位講師；每位講師最多 5 位，超過照交易量排，規則在 shared/rules.js）──
+create table if not exists public.one_on_ones (
+  user_id    uuid not null references public.members(user_id) on delete cascade,
+  month      text not null check (month ~ '^\d{4}-(0[1-9]|1[0-2])$'),  -- 台灣時間的月份
+  host       text not null check (char_length(host) <= 20),           -- CCC、OC、X
+  booked     boolean not null default false,                          -- 管理員已經約好時間（一定算確定）
+  booked_by  text,
+  created_at timestamptz not null default now(),
+  primary key (user_id, month)
+);
+alter table public.one_on_ones enable row level security;
