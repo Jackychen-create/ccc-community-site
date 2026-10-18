@@ -1,5 +1,5 @@
 // 三級制度：等級提醒橫幅、右欄「我的等級」（這一輪交易量）、升級恭喜（規則在 shared/rules.js 的 TIERS）
-import { $, el, icons, fmtRel, api, modal, confirmDialog, setBusy, toast, cfg } from "../core/index.js";
+import { $, el, icons, fmtRel, api, sb, modal, confirmDialog, setBusy, toast, cfg } from "../core/index.js";
 import { state } from "./state.js";
 import { emblem, levelUp } from "./levelup.js";
 import { DAY, md } from "./format.js";
@@ -138,7 +138,7 @@ async function refreshMe() {
 }
 
 // 填交易所 UID 的視窗；ex 沒給就讓他先選交易所（登入後提醒補填用）
-function bindLink(ex = null, auto = true, { title, intro, uid: prefill = "" } = {}) {
+function bindLink(ex = null, auto = true, { title, intro, uid: prefill = "", required = false, onClose } = {}) {
   const opts = (state.me?.links || []).filter((l) => l.enabled);
   let cur = ex || "";
   const isAuto = () => opts.find((l) => l.exchange === cur)?.auto ?? auto;
@@ -173,7 +173,12 @@ function bindLink(ex = null, auto = true, { title, intro, uid: prefill = "" } = 
       nameRow,
       inviteBox,
       err),
-    actions: [el("button", { class: "btn", type: "button", text: ex ? "取消" : "之後再說", onclick: () => m.close() }), save],
+    // 一定要填（還沒填任何 UID）：不能關掉，只能填或登出
+    actions: [required
+      ? el("button", { class: "btn", type: "button", text: "登出", onclick: () => { m.close(); sb.auth.signOut(); } })
+      : el("button", { class: "btn", type: "button", text: ex ? "取消" : "之後再說", onclick: () => m.close() }), save],
+    locked: required,
+    onClose,
   });
   refresh();
   const fail = (t) => { err.textContent = t; err.hidden = false; };
@@ -198,11 +203,13 @@ function bindLink(ex = null, auto = true, { title, intro, uid: prefill = "" } = 
   });
 }
 
-// 登入後：一間交易所 UID 都還沒填，就請他補填（每次開網站提醒一次，有別的視窗開著就等它關掉）
+// 登入後：一間交易所 UID 都還沒填，就跳出視窗一定要填（不能關，只能填或登出；有別的視窗開著就等它關掉）
+// UM 舊號碼要重填的：每次開網站提醒一次，可以先關掉
 // UM 改成填 MT5 帳號＋開戶英文姓名（2026-10-17）之前填的 UM 號碼可能不是 MT5 帳號，沒有姓名的請他重填
 const umNeedsRedo = (me) => (me?.links || []).some((l) => l.exchange === "UM" && l.uid && l.needsName && !l.accountName);
 const UM_REDO = { title: "請重新填 UM 的 MT5 帳號", intro: "UM 改成填 MT5 帳號（UM App 最上面「Live」旁邊那串數字）和你在 UM 開戶的英文姓名，管理員才對得到你的手數。請重新填一次。" };
 
+let uidRequiredOpen = false; // 一定要填的視窗已經開了（或在等），不要重複開
 export function promptUidIfMissing() {
   const me = state.me;
   if (!me?.links || me.isAdmin || me.free) return; // 贈送名額不用填
@@ -210,14 +217,19 @@ export function promptUidIfMissing() {
   const redoUm = !missing && umNeedsRedo(me);
   if (!missing && !redoUm) return;
   try {
-    if (sessionStorage.getItem("uidPrompted")) return;
+    // uidPrompted：UM 重填一次開網站只提醒一次；本機測試也用它跳過這個視窗
+    const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+    if (sessionStorage.getItem("uidPrompted") && (!missing || local)) return;
     sessionStorage.setItem("uidPrompted", "1");
   } catch {}
+  if (missing && uidRequiredOpen) return;
+  if (missing) uidRequiredOpen = true;
   let tries = 0;
   const open = () => {
-    if (document.querySelector(".modal-back, .lvl-back")) return ++tries < 120 && setTimeout(open, 1000);
+    if (document.querySelector(".modal-back, .lvl-back")) return (missing || ++tries < 120) && setTimeout(open, 1000); // 一定要填的會一直等
+    if (missing && (state.me?.links || []).some((l) => l.uid)) return void (uidRequiredOpen = false);
     if (redoUm) return bindLink("UM", false, UM_REDO);
-    bindLink(null, false, { title: "填寫你的交易所 UID", intro: "請填你用 CCC 邀請連結註冊的交易所 UID，管理員才對得到你的交易量。用好幾間的話，之後可以在右邊「本月交易量」再加。" });
+    bindLink(null, false, { required: true, onClose: () => (uidRequiredOpen = false), title: "填寫你的交易所 UID", intro: "請先填你用 CCC 邀請連結註冊的交易所 UID 才能開始使用，管理員才對得到你的交易量。用好幾間的話，之後可以在「我的等級」再加。" });
   };
   setTimeout(open, 800);
 }

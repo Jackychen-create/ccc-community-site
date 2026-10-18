@@ -22,7 +22,8 @@ export async function copyText(text) {
 }
 
 // ── Modal ──
-export function modal({ title, body, actions = [], onClose }) {
+// locked：一定要做完才能關（沒有 ✕、按 Esc 或點外面都不會關），例如還沒填交易所 UID
+export function modal({ title, body, actions = [], onClose, locked = false }) {
   const prev = document.activeElement;
   const back = el("div", { class: "modal-back" });
   const box = el("div", { class: "modal", role: "dialog", "aria-modal": "true", "aria-label": title });
@@ -33,17 +34,17 @@ export function modal({ title, body, actions = [], onClose }) {
     prev && prev.focus && prev.focus();
   };
   const onKey = (e) => {
-    if (e.key === "Escape") close();
+    if (e.key === "Escape" && !locked) close();
   };
   box.append(
     el("div", { class: "modal-head" }, el("h2", { text: title }),
-      el("button", { class: "btn ghost sm icon", type: "button", "aria-label": "關閉", onclick: close }, icon("x"))),
+      locked ? null : el("button", { class: "btn ghost sm icon", type: "button", "aria-label": "關閉", onclick: close }, icon("x"))),
     el("div", { class: "modal-body" }, body)
   );
   if (actions.length) box.append(el("div", { class: "modal-foot" }, actions));
   back.append(box);
   back.addEventListener("mousedown", (e) => {
-    if (e.target === back) close();
+    if (e.target === back && !locked) close();
   });
   document.addEventListener("keydown", onKey);
   document.body.append(back);
