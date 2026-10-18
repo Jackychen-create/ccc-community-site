@@ -12,6 +12,7 @@ import me from "../server/me.js";
 import { milestoneText } from "../server/lib/milestone.js";
 import { memberTier } from "../server/lib/tier.js";
 import course from "../server/course.js";
+import videosApi from "../server/videos.js";
 import oneonone from "../server/oneonone.js";
 import adminOneonone from "../server/admin/oneonone.js";
 import { thisMonthTW } from "../server/lib/dates.js";
@@ -293,18 +294,35 @@ await test("研究員 /api/me：這一輪的日期、等級、升級恭喜", asy
   const r2 = await call(me, { token: "tok-a" });
   assert.equal(r2.body.volume.milestone, null);
 });
-await test("沒有等級的研究員：/api/me 打得開，教學課程被擋（要第二級）", async () => {
+await test("沒有等級的研究員：/api/me 打得開，教學課程被擋（第一級才有第 1 份）", async () => {
   tokens["tok-e2"] = { id: "u-e2", email: "u-e2@example.com", email_confirmed_at: null };
   const r = await call(me, { token: "tok-e2" });
   assert.equal(r.statusCode, 200, JSON.stringify(r.body));
   assert.equal(r.body.tier, 0);
   const c = await call(course, { token: "tok-e2" });
-  assert.equal(c.statusCode, 403); assert.equal(c.body.code, "tier"); assert.ok(c.body.error.includes("第二級"), c.body.error);
+  assert.equal(c.statusCode, 403); assert.equal(c.body.code, "tier"); assert.ok(c.body.error.includes("第一級"), c.body.error);
   tokens["tok-c1"] = { id: "00000000-0000-4000-8000-0000000000f1", email: "u-f@example.com", email_confirmed_at: null };
   const ok = await call(course, { token: "tok-c1" });
   assert.notEqual(ok.statusCode, 403, JSON.stringify(ok.body)); // 第三級看得到
 });
 
+await test("第一級：教學課程只開每位講師第 1 份，直播留檔被擋", async () => {
+  const id = "00000000-0000-4000-8000-0000000000a1";
+  db.members.push(member(id, today, { email: "t1@example.com" })); // 第一輪先是第一級
+  db.videos.push({ id: 501, title: "CCC 1", is_published: true, course_host: "CCC", course_part: 1, r2_key: "a.mp4", duration_sec: 60 }, { id: 502, title: "CCC 2", is_published: true, course_host: "CCC", course_part: 2, r2_key: "b.mp4", duration_sec: 60 }, { id: 503, title: "直播", is_published: true, course_host: null, r2_key: "c.mp4", duration_sec: 60 });
+  tokens["tok-t1"] = { id, email: "t1@example.com", email_confirmed_at: null };
+  const c = await call(course, { token: "tok-t1" });
+  assert.equal(c.statusCode, 200, JSON.stringify(c.body));
+  const ccc1 = c.body.slots.find((x) => x.host === "CCC" && x.part === 1), ccc2 = c.body.slots.find((x) => x.host === "CCC" && x.part === 2);
+  assert.deepEqual([ccc1.unlocked, ccc1.tier_locked, ccc2.unlocked, ccc2.tier_locked], [true, false, false, true]);
+  assert.equal(ccc2.video.id, undefined); // 鎖著的不給播放資訊
+  const live = await call(videosApi, { token: "tok-t1", query: { id: "503" } });
+  assert.equal(live.statusCode, 403); assert.equal(live.body.code, "tier");
+  const l2 = await call(videosApi, { token: "tok-t1", query: { id: "502" } });
+  assert.equal(l2.statusCode, 403);
+  const list = await call(videosApi, { token: "tok-t1" });
+  assert.equal(list.statusCode, 403);
+});
 await test("一對一：第三級才能選；每位講師 5 位，超過照交易量排；已約好的不會被擠掉", async () => {
   const P = periodOf(today, today);
   const ids = [1, 2, 3, 4, 5, 6].map((i) => `00000000-0000-4000-8000-0000000001${String(i).padStart(2, "0")}`);

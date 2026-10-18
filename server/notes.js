@@ -7,7 +7,7 @@ import { supabaseAdmin, requireMember, readBody, toInt, route } from "./lib/inde
 
 export default route({
   async GET(req, res) {
-    const ctx = await requireMember(req, res);
+    const ctx = await requireMember(req, res, { minTier: 1 }); // 第一級也看得到課程第 1 份，可以存進度、記筆記
     if (!ctx) return;
     let q = supabaseAdmin
       .from("notes")
@@ -38,7 +38,7 @@ export default route({
   },
 
   async POST(req, res) {
-    const ctx = await requireMember(req, res);
+    const ctx = await requireMember(req, res, { minTier: 1 }); // 第一級也看得到課程第 1 份，可以存進度、記筆記
     if (!ctx) return;
     const b = readBody(req);
     const videoId = toInt(b.videoId);
@@ -64,7 +64,7 @@ export default route({
   },
 
   async DELETE(req, res) {
-    const ctx = await requireMember(req, res);
+    const ctx = await requireMember(req, res, { minTier: 1 }); // 第一級也看得到課程第 1 份，可以存進度、記筆記
     if (!ctx) return;
     const id = toInt(req.query?.id);
     if (id === null) return res.status(400).json({ error: "筆記編號不正確" });

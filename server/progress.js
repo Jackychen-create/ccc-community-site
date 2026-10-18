@@ -5,7 +5,7 @@ import { supabaseAdmin, requireMember, readBody, toInt, route, mergeBuckets } fr
 
 export default route({
   async POST(req, res) {
-    const ctx = await requireMember(req, res);
+    const ctx = await requireMember(req, res, { minTier: 1 }); // 第一級也看得到課程第 1 份，可以存進度、記筆記
     if (!ctx) return;
 
     const body = readBody(req);

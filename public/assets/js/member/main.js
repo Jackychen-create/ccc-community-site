@@ -26,9 +26,16 @@ document.title = SITE;
 
 function route() {
   if (!state.me) return;
-  // 還沒到第二級：網站內容都鎖著，任何網址都顯示升級說明
-  if (locked()) return openLocked();
   const m = location.hash.match(/^#\/v\/(\d+)(?:\?t=(\d+))?/);
+  // 還沒到第二級：首頁換成升級說明；第一級還是看得到教學課程（每位講師第 1 份）、筆記；提問每一級都可以
+  if (locked()) {
+    const t1 = (state.me.tier ?? 0) >= 1;
+    if (t1 && m) return openWatch(Number(m[1]), { t: m[2] !== undefined ? Number(m[2]) : null });
+    if (t1 && location.hash === "#/course") return openCourse();
+    if (t1 && location.hash === "#/notes") return openNotes();
+    if (location.hash === "#/feedback") return openFeedback();
+    return openLocked();
+  }
   if (m) openWatch(Number(m[1]), { t: m[2] !== undefined ? Number(m[2]) : null });
   else if (location.hash === "#/notes") openNotes();
   else if (location.hash === "#/course") openCourse();
