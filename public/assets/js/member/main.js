@@ -14,7 +14,6 @@ import { loadBadges, syncThemeFromAccount } from "./badges.js";
 import { renderAccessBanner, renderVolPanel, promptUidIfMissing, celebrateMilestone } from "./account.js";
 import { renderLivePanel } from "./live.js";
 import { openList } from "./list.js";
-import { locked, openLocked } from "./locked.js";
 import { openWatch } from "./watch.js";
 import { openCourse } from "./course.js";
 import { openNotes } from "./notes.js";
@@ -25,8 +24,6 @@ document.title = SITE;
 
 function route() {
   if (!state.me) return;
-  // 還沒到第二級：網站內容都鎖著，任何網址都顯示升級說明
-  if (locked()) return openLocked();
   const m = location.hash.match(/^#\/v\/(\d+)(?:\?t=(\d+))?/);
   if (m) openWatch(Number(m[1]), { t: m[2] !== undefined ? Number(m[2]) : null });
   else if (location.hash === "#/notes") openNotes();

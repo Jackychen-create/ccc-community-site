@@ -1,7 +1,7 @@
 // 研究員：列表、搜尋、觀看資格、停權、重設密碼
 import * as A from "../core/index.js";
 const { el, $, api, icon } = A;
-import { idLabel, tierName, TIERS, SITE_TIER } from "../shared/rules.js";
+import { cycleEnd, idLabel } from "../shared/rules.js";
 import { fail, loadingBox, segTabs, noteLine } from "./common.js";
 import { state } from "./state.js";
 import { canManageMembers } from "../shared/roles.js";
@@ -60,7 +60,7 @@ function renderMembers() {
     ...[tabs].filter(Boolean),
     el("div", { class: "table-wrap" },
       el("table", { class: "table stack" },
-        el("thead", null, el("tr", null, el("th", { text: "Email" }), el("th", { class: "hide-sm", text: "加入" }), el("th", { text: "最近登入" }), el("th", { class: "hide-sm", text: "看過" }), el("th", { text: "等級" }), el("th", { text: "狀態" }), el("th", null, el("span", { class: "sr-only", text: "操作" })))),
+        el("thead", null, el("tr", null, el("th", { text: "Email" }), el("th", { class: "hide-sm", text: "加入" }), el("th", { text: "最近登入" }), el("th", { class: "hide-sm", text: "看過" }), el("th", { text: "資格" }), el("th", { text: "狀態" }), el("th", null, el("span", { class: "sr-only", text: "操作" })))),
         el("tbody", null,
           list.map((m) =>
             el("tr", null,
@@ -81,7 +81,7 @@ function renderMembers() {
               el("td", null, m.banned ? el("span", { class: "pill warn" }, el("span", { class: "dot" }), "已停權") : el("span", { class: "pill good" }, el("span", { class: "dot" }), "正常")),
               // 協作管理員只能看，不能改資格、重設密碼、停權
               !canManageMembers(state.me?.adminRole) ? el("td", { class: "small muted", text: "只能檢視" }) : el("td", null, el("div", { class: "actions" },
-                el("button", { class: "btn sm", type: "button", onclick: () => editAccess(m) }, icon("clock"), "等級"),
+                el("button", { class: "btn sm", type: "button", onclick: () => editAccess(m) }, icon("clock"), "資格"),
                 el("button", { class: "btn sm", type: "button", onclick: () => resetPassword(m) }, icon("key"), "重設密碼"),
                 m.banned
                   ? el("button", { class: "btn sm", type: "button", text: "恢復", onclick: () => setBan(m, false) })
@@ -93,36 +93,38 @@ function renderMembers() {
   );
 }
 
-// ── 等級（三級制度，規則在 shared/rules.js 的 TIERS）──
-const mdv = (d) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
-function accessCell(m) {
-  const t = m.tier ?? 0;
-  const pill = el("span", { class: "pill" + (t >= SITE_TIER ? " good" : t ? "" : " warn") }, t >= SITE_TIER ? el("span", { class: "dot" }) : null, tierName(t));
-  const sub = t ? (m.tier_until ? `到 ${mdv(m.tier_until)}` : "不限") : "";
-  const drop = t && m.cycle_tier < t ? `這一輪還沒保住` : "";
-  return el("div", null, pill,
-    sub || drop ? el("div", { class: "small muted", style: { marginTop: "4px" }, text: [sub, drop].filter(Boolean).join("・") }) : null,
-    m.min_tier ? el("div", { class: "small", style: { marginTop: "2px", color: "var(--amber)" }, text: `手動：至少${tierName(m.min_tier)}${m.min_tier_until ? `到 ${mdv(m.min_tier_until)}` : "（不限）"}` }) : null);
+// ── 每月資格（看單月交易量決定）──
+function twToday() {
+  return new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
 }
-// 手動給等級：「至少第幾級到哪天」；清掉就完全照交易量
+function monthEnd(offset = 0) {
+  const [y, mo] = twToday().split("-").map(Number);
+  const d = new Date(Date.UTC(y, mo - 1 + offset + 1, 0));
+  return d.toISOString().slice(0, 10);
+}
+function accessCell(m) {
+  const today = twToday();
+  const until = m.access_until;
+  const label = !until
+    ? el("span", { class: "pill dash", text: "不限" })
+    : until < today
+      ? el("span", { class: "pill warn" }, el("span", { class: "dot" }), `已過期 ${until.slice(5).replace("-", "/")}`)
+      : el("span", { class: "pill" + ((Date.parse(until) - Date.parse(today)) / 86400000 <= 7 ? " brass" : "") }, `到 ${until.slice(5).replace("-", "/")}`);
+  return el("div", null, label);
+}
 export function editAccess(m, onDone) {
-  let pick = m.min_tier || 0;
-  const date = el("input", { class: "input", type: "date", value: m.min_tier_until || "" });
-  const note = el("input", { class: "input", type: "text", maxlength: "200", placeholder: "例如：合作夥伴、先試用一個月", value: m.note || "" });
-  const chips = el("div", { class: "chips", role: "group", "aria-label": "至少第幾級" });
-  const draw = () => chips.replaceChildren(
-    el("button", { class: "chip", type: "button", "aria-pressed": String(!pick), text: "不手動給（照交易量）", onclick: () => { pick = 0; draw(); } }),
-    ...TIERS.map((t) => el("button", { class: "chip", type: "button", "aria-pressed": String(pick === t.tier), text: tierName(t.tier), onclick: () => { pick = t.tier; draw(); } })));
-  draw();
+  const date = el("input", { class: "input", type: "date", value: m.access_until || "" });
+  const note = el("input", { class: "input", type: "text", maxlength: "200", placeholder: "例如：先試用一個月", value: m.note || "" });
+  const quick = (label, val) => el("button", { class: "chip", type: "button", text: label, onclick: () => (date.value = val) });
   const err = el("div", { class: "form-error", role: "alert", hidden: true });
   const save = el("button", { class: "btn primary", type: "button", text: "儲存" });
   const mm = A.modal({
-    title: "等級",
+    title: "觀看資格",
     body: el("div", null,
-      el("p", { class: "small sub", style: { marginTop: "14px", wordBreak: "break-all" }, text: `${m.email}・現在是${tierName(m.tier ?? 0)}（照交易量和手動取高的）` }),
-      el("div", { class: "field" }, el("span", { class: "label", text: "手動給：至少第幾級" }), chips),
-      el("label", { class: "field" }, el("span", { class: "label", text: "到哪一天（含當天，空白＝不限）" }), date),
-      el("p", { class: "hint", text: "交易量達到更高的等級時會照交易量；過了這天就完全照交易量。" }),
+      el("p", { class: "small sub", style: { marginTop: "14px", wordBreak: "break-all" }, text: m.email }),
+      el("label", { class: "field" }, el("span", { class: "label", text: "可以看到哪一天（含當天）" }), date),
+      el("div", { class: "chips", style: { marginTop: "10px" } }, quick(`今天起一個月（${cycleEnd(twToday()).slice(5).replace("-", "/")}）`, cycleEnd(twToday())), quick("這個月底", monthEnd(0)), quick("不限", "")),
+      el("p", { class: "hint", text: "過了這天研究員就不能看，到期前 7 天會在畫面上提醒他。留空白＝不限。" }),
       el("label", { class: "field" }, el("span", { class: "label", text: "備註（只有管理員看得到）" }), note),
       err),
     actions: [el("button", { class: "btn", type: "button", text: "取消", onclick: () => mm.close() }), save],
@@ -130,13 +132,15 @@ export function editAccess(m, onDone) {
   save.addEventListener("click", async () => {
     A.setBusy(save, true, "儲存中…");
     try {
-      const body = { userId: m.user_id, action: "access", note: note.value, minTier: pick || null, minTierUntil: pick ? date.value || null : null };
-      await api("/api/admin/members", { method: "PATCH", body });
+      const accessUntil = date.value || null;
+      await api("/api/admin/members", { method: "PATCH", body: { userId: m.user_id, action: "access", accessUntil, note: note.value } });
+      m.access_until = accessUntil;
+      m.note = note.value.trim() || null;
       membersLoaded = false;
-      mm.close();
-      A.toast(pick ? `已手動給${tierName(pick)}${date.value ? `到 ${date.value}` : "（不限）"}` : "已改成照交易量");
       if (onDone) onDone();
-      else loadMembers();
+      else renderMembers();
+      mm.close();
+      A.toast(accessUntil ? `資格更新到 ${accessUntil}` : "已改成不限");
     } catch (e) {
       A.setBusy(save, false);
       err.textContent = e.message;

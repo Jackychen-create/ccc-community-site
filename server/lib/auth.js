@@ -1,7 +1,6 @@
 // 登入驗證與權限：研究員、管理員
 import { env, supabaseAdmin } from "./env.js";
-import { memberTier } from "./tier.js";
-import { SITE_TIER, tierName, tierRuleText } from "../../public/assets/js/shared/rules.js";
+import { todayTW } from "./dates.js";
 import { canUseApi } from "../../public/assets/js/shared/roles.js";
 export { ROLE_LABEL, VIEWS_FOR, canUseApi } from "../../public/assets/js/shared/roles.js";
 
@@ -33,7 +32,7 @@ function adminEligible(user) {
 async function memberRow(userId) {
   const { data, error } = await supabaseAdmin
     .from("members")
-    .select("user_id, banned, access_until, min_tier, min_tier_until, notify, created_at, free, theme")
+    .select("user_id, banned, access_until, notify, created_at, free, theme")
     .eq("user_id", userId)
     .maybeSingle();
   if (error) throw error;
@@ -50,8 +49,7 @@ export async function getUser(req) {
 }
 
 // 研究員或管理員才放行；失敗時直接回應錯誤並回傳 null
-// minTier：這個功能至少要第幾級（預設第二級＝網站內容；個人資料、提問、直播預告等用 0）
-export async function requireMember(req, res, { minTier = SITE_TIER } = {}) {
+export async function requireMember(req, res) {
   const user = await getUser(req);
   if (!user) {
     res.status(401).json({ error: "請先登入" });
@@ -63,13 +61,12 @@ export async function requireMember(req, res, { minTier = SITE_TIER } = {}) {
     res.status(403).json({ error: "這個帳號目前沒有觀看權限，請聯絡管理員" });
     return null;
   }
-  // 三級制度：今天是第幾級（規則在 shared/rules.js）
-  const tier = await memberTier(member);
-  if (tier.tier < minTier) {
-    res.status(403).json({ error: `這個內容要${tierName(minTier)}（這一輪 ${tierRuleText(minTier)}）`, code: "tier", tier: tier.tier });
+  // 每月資格：過了到期日就不能看（到期日當天還可以）
+  if (member.access_until && member.access_until < todayTW()) {
+    res.status(403).json({ error: `你的觀看資格到 ${member.access_until} 為止，請聯絡管理員更新`, code: "expired" });
     return null;
   }
-  return { user, isAdmin: false, member, tier };
+  return { user, isAdmin: false, member };
 }
 
 export async function requireAdmin(req, res) {

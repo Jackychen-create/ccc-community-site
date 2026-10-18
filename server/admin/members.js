@@ -1,9 +1,8 @@
 // 後台：研究員
 // GET   /api/admin/members
 // PATCH /api/admin/members  { userId, action: "ban" | "unban" | "reset" }
-//                            { userId, action: "access", minTier: 1|2|3|null, minTierUntil: "2026-10-31" | null, note }
-//                              管理員手動給「至少第幾級到哪天」（空白＝不限；minTier null＝清掉，照交易量）
-import { supabaseAdmin, requireAdmin, readBody, randomPassword, cleanText, isDate, route, tiersFor } from "../lib/index.js";
+//                            { userId, action: "access", accessUntil: "2026-10-31" | null, note }
+import { supabaseAdmin, requireAdmin, readBody, randomPassword, cleanText, isDate, route } from "../lib/index.js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const FOREVER = "876000h"; // 約 100 年
@@ -14,7 +13,7 @@ export default route({
 
     const { data: members, error } = await supabaseAdmin
       .from("members")
-      .select("user_id, email, invite_code, banned, created_at, min_tier, min_tier_until, note, notify, free")
+      .select("user_id, email, invite_code, banned, created_at, access_until, note, notify, free")
       .order("created_at", { ascending: false });
     if (error) throw error;
 
@@ -47,8 +46,6 @@ export default route({
       if (l.account_name) accountNames.set(l.user_id, { ...(accountNames.get(l.user_id) || {}), [l.exchange]: l.account_name });
     }
     const dcBy = new Map((apps || []).map((a) => [`${a.exchange}:${a.exchange_uid}`, a.discord_name || a.discord_user_id]));
-    // 每個人今天的等級（三級制度）
-    const tiers = await tiersFor(members || []);
     const watched = new Map();
     for (const p of prog || []) watched.set(p.user_id, (watched.get(p.user_id) || 0) + 1);
 
@@ -57,9 +54,6 @@ export default route({
         ...m,
         email: authEmail.get(m.user_id) || m.email,
         last_sign_in_at: lastSeen.get(m.user_id) || null,
-        tier: tiers.get(m.user_id)?.tier ?? 0,
-        tier_until: tiers.get(m.user_id)?.until ?? null,
-        cycle_tier: tiers.get(m.user_id)?.cycleTier ?? 0,
         watched_count: watched.get(m.user_id) || 0,
         uids: uids.get(m.user_id) || {},
         account_names: accountNames.get(m.user_id) || {},
@@ -100,13 +94,9 @@ export default route({
 
     if (b.action === "access") {
       const patch = {};
-      if (b.minTier !== undefined) {
-        if (b.minTier === null) Object.assign(patch, { min_tier: null, min_tier_until: null });
-        else {
-          if (![1, 2, 3].includes(b.minTier)) return res.status(400).json({ error: "等級要是 1、2 或 3" });
-          if (b.minTierUntil != null && !isDate(b.minTierUntil)) return res.status(400).json({ error: "日期格式不正確" });
-          Object.assign(patch, { min_tier: b.minTier, min_tier_until: b.minTierUntil || null });
-        }
+      if (b.accessUntil !== undefined) {
+        if (b.accessUntil !== null && !isDate(b.accessUntil)) return res.status(400).json({ error: "日期格式不正確" });
+        patch.access_until = b.accessUntil;
       }
       if (b.note !== undefined) patch.note = cleanText(b.note, 200) || null;
       if (!Object.keys(patch).length) return res.status(400).json({ error: "沒有要修改的內容" });

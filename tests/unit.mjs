@@ -1,8 +1,7 @@
 // 規則和伺服器小工具的單元測試（不用瀏覽器，幾秒鐘跑完）。npm test 會先跑這一支。
 import assert from "node:assert/strict";
-import { addDays, cycleEnd, periodOf, nextPeriod, prevPeriod, addMonths, courseWeek, courseUnlockDate, COURSE_HOSTS, COURSE_PARTS, EXCHANGES, AUTO_EXCHANGES, TIERS, tierOf, tierStatus, gapTo, tierRuleText, tierName, BADGES, earnedBadges, THEMES, themeUnlocked } from "../public/assets/js/shared/rules.js";
+import { addDays, cycleEnd, periodOf, nextPeriod, prevPeriod, addMonths, courseWeek, courseUnlockDate, isQualified, COURSE_HOSTS, COURSE_PARTS, EXCHANGES, AUTO_EXCHANGES, DEFAULT_THRESHOLD, gapText, ruleText, milestoneOf, MILESTONES, BADGES, earnedBadges, THEMES, themeUnlocked } from "../public/assets/js/shared/rules.js";
 import { longestStreak } from "../server/lib/badges.js";
-const pick = ({ tier, until, cycleTier }) => ({ tier, until, cycleTier });
 import { mergeBuckets } from "../server/lib/buckets.js";
 import { cleanTitle, cleanChapters, toInt, isDate } from "../server/lib/text.js";
 import http from "node:http";
@@ -46,50 +45,30 @@ test("資格一輪：12/20 跨年 → 1/19", () => assert.equal(cycleEnd("2026-1
 test("日期加減跨月", () => assert.equal(addDays("2026-10-30", 3), "2026-11-02"));
 
 test("交易所：OKX、UM 手填，Bybit、BingX 自動同步", () => { assert.deepEqual(EXCHANGES, ["OKX", "UM", "Bybit", "BingX"]); assert.deepEqual(AUTO_EXCHANGES, ["Bybit", "BingX"]); });
-test("三級門檻：1 萬／0.1 手、20 萬／2 手、150 萬／15 手", () => {
-  assert.deepEqual(TIERS.map((t) => [t.tier, t.usdt, t.lots]), [[1, 10000, 0.1], [2, 200000, 2], [3, 1500000, 15]]);
-  assert.equal(tierOf({}), 0);
-  assert.equal(tierOf(null), 0);
-  assert.equal(tierOf({ OKX: 9999 }), 0);
-  assert.equal(tierOf({ OKX: 10000 }), 1);
-  assert.equal(tierOf({ UM: 0.1 }), 1);
-  assert.equal(tierOf({ OKX: 199999, UM: 1.9 }), 1);
-  assert.equal(tierOf({ BingX: 200000 }), 2);
-  assert.equal(tierOf({ OKX: 100, UM: 2 }), 2);
-  assert.equal(tierOf({ Bybit: 1500000 }), 3);
-  assert.equal(tierOf({ UM: 15 }), 3);
-  assert.deepEqual([tierName(0), tierName(1), tierName(3)], ["沒有等級", "第一級", "第三級"]);
+test("UM 用手數算，一個月 10 手", () => {
+  assert.equal(isQualified({ UM: 10 }, 1000000), true);
+  assert.equal(isQualified({ UM: 9.99 }, 1000000), false);
+  assert.equal(isQualified({ UM: 9, OKX: 999999 }, 1000000), false);
 });
 test("還差多少：挑最接近的那間", () => {
-  assert.equal(gapTo({ UM: 1.5, OKX: 100000 }, 2), "UM 還差 0.5 手");
-  assert.equal(gapTo({ UM: 0.5, OKX: 150000 }, 2), "還差 5 萬");
-  assert.equal(gapTo({}, 3), "還差 150 萬");
+  assert.equal(gapText({ UM: 7, OKX: 100000 }, 1000000), "UM 還差 3 手");
+  assert.equal(gapText({ UM: 1, OKX: 600000 }, 1000000), "還差 40 萬");
+  assert.equal(gapText({}, 1000000), "還差 100 萬");
 });
-test("規則文字", () => assert.equal(tierRuleText(2), "OKX、Bybit、BingX 任一間 20 萬 USDT，或 UM 2 手"));
-test("等級：這一輪達到的撐到下一輪結束、上一輪的撐到這一輪結束、第一輪先給第一級", () => {
-  const am = (map) => (st) => map[st] || {};
-  // 第一輪、沒交易量 → 第一級，到這一輪結束
-  assert.deepEqual(pick(tierStatus({ anchor: "2026-10-10", today: "2026-10-18", amountsOf: am({}) })), { tier: 1, until: "2026-11-09", cycleTier: 0 });
-  // 第一輪就到第二級 → 撐到第二輪結束
-  assert.deepEqual(pick(tierStatus({ anchor: "2026-10-10", today: "2026-10-18", amountsOf: am({ "2026-10-10": { OKX: 250000 } }) })), { tier: 2, until: "2026-12-09", cycleTier: 2 });
-  // 上一輪第二級、這一輪還沒 → 第二級到這一輪結束；這一輪只有第一級 → 下一輪降到第一級
-  assert.deepEqual(pick(tierStatus({ anchor: "2026-09-10", today: "2026-10-18", amountsOf: am({ "2026-09-10": { OKX: 300000 }, "2026-10-10": { OKX: 20000 } }) })), { tier: 2, until: "2026-11-09", cycleTier: 1 });
-  // 上一輪不到第一級 → 沒有等級
-  assert.deepEqual(pick(tierStatus({ anchor: "2026-09-10", today: "2026-10-18", amountsOf: am({}) })), { tier: 0, until: null, cycleTier: 0 });
-  // 管理員手動給第二級到某天、或不限
-  assert.deepEqual(pick(tierStatus({ anchor: "2026-09-10", today: "2026-10-18", amountsOf: am({}), override: { tier: 2, until: "2026-11-01" } })), { tier: 2, until: "2026-11-01", cycleTier: 0 });
-  assert.deepEqual(pick(tierStatus({ anchor: "2026-09-10", today: "2026-10-18", amountsOf: am({}), override: { tier: 2, until: null } })), { tier: 2, until: null, cycleTier: 0 });
-  // 手動給的過期了 → 照交易量
-  assert.equal(tierStatus({ anchor: "2026-09-10", today: "2026-10-18", amountsOf: am({}), override: { tier: 3, until: "2026-10-17" } }).tier, 0);
-  // 交易量比手動給的高 → 照交易量
-  assert.equal(tierStatus({ anchor: "2026-09-10", today: "2026-10-18", amountsOf: am({ "2026-10-10": { UM: 15 } }), override: { tier: 2, until: null } }).tier, 3);
+test("里程碑：25／50／75／100，看最接近達標的那間", () => {
+  assert.deepEqual(MILESTONES, [25, 50, 75, 100]);
+  assert.equal(milestoneOf({}, 1000000), 0);
+  assert.equal(milestoneOf({ OKX: 249999 }, 1000000), 0);
+  assert.equal(milestoneOf({ OKX: 250000 }, 1000000), 25);
+  assert.equal(milestoneOf({ OKX: 600000, UM: 8 }, 1000000), 75);
+  assert.equal(milestoneOf({ OKX: 999999 }, 1000000), 75);
+  assert.equal(milestoneOf({ UM: 10 }, 1000000), 100);
 });
-test("徽章：照事實給，10 個、id 不重複", () => {
-  assert.equal(new Set(BADGES.map((b) => b.id)).size, 10);
-  const none = { traded: false, bestPct: 0, qualified: 0, maxTier: 0, streak: 0, hostsDone: [], courseDone: 0, liveDone: 0, notes: 0, questions: 0 };
+test("徽章：照事實給，9 個、id 不重複", () => {
+  assert.equal(new Set(BADGES.map((b) => b.id)).size, 9);
+  const none = { traded: false, bestPct: 0, qualified: 0, streak: 0, hostsDone: [], courseDone: 0, liveDone: 0, notes: 0, questions: 0 };
   assert.deepEqual(earnedBadges(none), []);
   assert.deepEqual(earnedBadges({ ...none, traded: true, bestPct: 60, questions: 1 }), ["first_trade", "half", "question"]);
-  assert.deepEqual(earnedBadges({ ...none, maxTier: 3 }), ["tier3"]);
   assert.deepEqual(earnedBadges({ ...none, streak: 3, qualified: 3, hostsDone: ["CCC"], courseDone: 18, liveDone: 10, notes: 10 }).sort(), ["course18", "half", "host6", "live10", "notes10", "qualified", "streak3"].filter((x) => x !== "half").sort());
 });
 test("主題：前三個免費，其他要對應的徽章；管理員全部可以用", () => {
@@ -100,12 +79,14 @@ test("主題：前三個免費，其他要對應的徽章；管理員全部可�
   assert.equal(themeUnlocked("vault", [], true), true);
   assert.equal(themeUnlocked("nope", ["qualified"], true), false);
 });
-test("連續第二級以上：照每人自己的輪算最長的一段", () => {
-  const q = (start) => ({ period_start: start, amounts: { OKX: 200000 }, qualified_at: start });
-  assert.equal(longestStreak("2026-01-16", [q("2026-01-16"), q("2026-02-16"), q("2026-04-16"), q("2026-05-16"), q("2026-06-16")]), 3);
-  assert.equal(longestStreak("2026-01-16", [q("2026-01-16"), { period_start: "2026-02-16", amounts: { OKX: 5 }, qualified_at: null }, q("2026-03-16")]), 1);
-  assert.equal(longestStreak("2026-01-16", []), 0);
+test("連續達標：照每人自己的輪算最長的一段", () => {
+  const q = (start) => ({ period_start: start, amounts: { OKX: 1000000 }, qualified_at: start });
+  assert.equal(longestStreak("2026-01-16", [q("2026-01-16"), q("2026-02-16"), q("2026-04-16"), q("2026-05-16"), q("2026-06-16")], 1000000), 3);
+  assert.equal(longestStreak("2026-01-16", [q("2026-01-16"), { period_start: "2026-02-16", amounts: { OKX: 5 }, qualified_at: null }, q("2026-03-16")], 1000000), 1);
+  assert.equal(longestStreak("2026-01-16", [], 1000000), 0);
 });
+test("規則文字", () => assert.equal(ruleText(1000000), "OKX、Bybit、BingX 任一間這一輪成交金額達 100 萬 USDT，或 UM 這一輪達 10 手"));
+test("預設門檻 100 萬", () => assert.equal(DEFAULT_THRESHOLD, 1000000));
 test("課程順序是 CCC → OC → X，各 6 份", () => { assert.deepEqual(COURSE_HOSTS, ["CCC", "OC", "X"]); assert.equal(COURSE_PARTS, 6); });
 test("課程：加入當天解鎖 CCC 第 1 份", () => assert.equal(courseUnlockDate("2026-10-01", "CCC", 1), "2026-10-01"));
 test("課程：第 2 週 OC、第 3 週 X、第 4 週休息", () => {
@@ -120,6 +101,11 @@ test("課程：18 份的週次不重複，最後一份在第 23 週", () => {
   assert.ok(!weeks.some((w) => w % 4 === 3), "第 4、8、12… 週應該休息");
 });
 
+test("交易量：任一間達門檻就算達標", () => {
+  assert.equal(isQualified({ OKX: 100, BingX: 1000000 }, 1000000), true);
+  assert.equal(isQualified({ OKX: 999999 }, 1000000), false);
+  assert.equal(isQualified(null, 1000000), false);
+});
 
 test("觀看分段：合併、每次最多 +5、擋掉怪資料", () => {
   assert.deepEqual(mergeBuckets({ 0: 2 }, { 0: 1, 1: 9, "-1": 1, x: 1 }), { 0: 3, 1: 5 });

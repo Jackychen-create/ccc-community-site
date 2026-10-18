@@ -1,15 +1,16 @@
 // GET   /api/badges                徽章：重新算一次，新拿到的記下來；回傳全部徽章（拿到的、還沒拿到的、進度）
 // PATCH /api/badges { seen: true }  看過新徽章的恭喜了
-import { supabaseAdmin, requireMember, readBody, route, syncBadges } from "./lib/index.js";
+import { supabaseAdmin, requireMember, readBody, route, getThreshold, syncBadges } from "./lib/index.js";
 import { BADGES } from "../public/assets/js/shared/rules.js";
 
 export default route({
   async GET(req, res) {
-    const ctx = await requireMember(req, res, { minTier: 0 }); // 每一級都可以用
+    const ctx = await requireMember(req, res);
     if (!ctx) return;
     // 管理員沒有研究員資料：徽章全部顯示，但沒有拿到
     if (!ctx.member) return res.status(200).json({ badges: [], all: BADGES.map(({ id, icon, name, desc }) => ({ id, icon, name, desc })), progress: null });
-    const { facts, badges } = await syncBadges(ctx.user.id, { created_at: ctx.member.created_at || ctx.user.created_at });
+    const threshold = await getThreshold();
+    const { facts, badges } = await syncBadges(ctx.user.id, { created_at: ctx.member.created_at || ctx.user.created_at }, threshold);
     return res.status(200).json({
       badges,
       all: BADGES.map(({ id, icon, name, desc }) => ({ id, icon, name, desc })),
@@ -19,7 +20,7 @@ export default route({
   },
 
   async PATCH(req, res) {
-    const ctx = await requireMember(req, res, { minTier: 0 }); // 每一級都可以用
+    const ctx = await requireMember(req, res);
     if (!ctx) return;
     if (!ctx.member) return res.status(200).json({ ok: true });
     const b = readBody(req);

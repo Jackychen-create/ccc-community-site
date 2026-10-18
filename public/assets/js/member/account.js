@@ -1,87 +1,81 @@
-// 三級制度：等級提醒橫幅、右欄「我的等級」（這一輪交易量）、升級恭喜（規則在 shared/rules.js 的 TIERS）
+// 觀看資格：到期提醒橫幅、右欄「本月交易量」
 import { $, el, icons, fmtRel, api, modal, confirmDialog, setBusy, toast, cfg } from "../core/index.js";
 import { state } from "./state.js";
 import { DAY, md } from "./format.js";
-import { AUTO_EXCHANGES, TIERS, MAX_TIER, SITE_TIER, tierName, tierInfo, tierRuleText, goalFor, fmtAmount, gapTo, progressTo, isLots, addDays, TRADFI_NOTE, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR } from "../shared/rules.js";
+import { AUTO_EXCHANGES, goalOf, fmtAmount, gapText, ruleText, addDays, TRADFI_NOTE, MILESTONES, milestoneOf, bestProgress, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR } from "../shared/rules.js";
 
-const twToday = () => new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
-const withUnit = (ex, n) => `${fmtAmount(ex, n)}${isLots(ex) ? "" : " USDT"}`;
-// 右欄進度條要比哪一級：這一輪還沒保住現在的等級 → 比現在的等級；保住了 → 比下一級
-export const targetTier = (v) => (v.cycleTier < v.tier ? v.tier : Math.min(MAX_TIER, v.cycleTier + 1));
-
-// 上方提醒：沒有等級；或這一輪還沒保住現在的等級、7 天內就會降級
+// 每月資格：到期前 7 天提醒
 export function renderAccessBanner() {
-  const v = state.me?.volume;
+  const me = state.me;
   const box = $("#accessBanner");
-  if (!v || state.me.free) return (box.hidden = true);
-  if (v.tier === 0) {
-    box.hidden = false;
-    return box.replaceChildren(el("span", { html: icons.clock }),
-      el("span", { text: "你目前沒有等級。" }),
-      el("span", { class: "muted", text: `這一輪（${md(v.periodStart)}～${md(v.periodEnd)}）${tierRuleText(1)}，就能恢復研究員身分和會員直播；${tierRuleText(SITE_TIER)} 解鎖網站。` }));
-  }
-  const days = v.tierUntil ? Math.round((Date.parse(v.tierUntil) - Date.parse(twToday())) / DAY) : Infinity;
-  if (v.cycleTier >= v.tier || days > 7) return (box.hidden = true);
+  const until = me?.accessUntil;
+  if (!until) return (box.hidden = true);
+  const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+  const days = Math.round((Date.parse(until) - Date.parse(today)) / DAY);
+  if (days > 7) return (box.hidden = true);
   box.hidden = false;
-  box.replaceChildren(el("span", { html: icons.clock }),
-    el("span", { text: days <= 0 ? `你的${tierName(v.tier)}今天（${md(v.tierUntil)}）到期。` : `你的${tierName(v.tier)}到 ${md(v.tierUntil)}，還有 ${days} 天。` }),
-    el("span", { class: "muted", text: `這一輪${gapTo(v.amounts || {}, v.tier, v.exchanges)}就能保住；沒達到的話，${md(addDays(v.tierUntil, 1))} 起是${tierName(v.cycleTier)}。` }));
+  box.replaceChildren(
+    el("span", { html: icons.clock }),
+    el("span", { text: days <= 0 ? `你的觀看資格今天（${until}）到期。` : `你的觀看資格到 ${until}，還有 ${days} 天。` }),
+    el("span", { class: "muted", text: volHint(me.volume) })
+  );
 }
 
-// 右欄：我的等級＋這一輪的交易量（每人從加入那天起算，一輪一個月；OKX、UM 管理員填；Bybit、BingX 綁定 UID 後每天自動更新）
+// 資格提醒的第二句：這一輪還沒達標就講這一輪；已經達標了，提醒下一輪也要達標
+function volHint(v) {
+  if (!v) return "要繼續觀看請聯絡管理員更新資格。";
+  const rule = ruleText(v.threshold, v.exchanges);
+  return v.qualified
+    ? `下一輪（${md(addDays(v.periodEnd, 1))} 起）也是${rule}，就能再看一輪。`
+    : `這一輪（${md(v.periodStart)}～${md(v.periodEnd)}）${rule}，就能看到下一輪結束。`;
+}
+
+// 右欄：這一輪的交易量（每人從加入那天起算，一輪一個月；OKX、UM 管理員填；Bybit、BingX 綁定 UID 後每天自動更新）
 export function renderVolPanel() {
   const box = $("#volPanel");
   const v = state.me?.volume;
   if (!v) return (box.hidden = true);
   box.hidden = false;
-  // 贈送名額：一直是第二級；交易所 UID 想填再填
-  if (state.me.free) {
+  // 贈送名額：沒有交易量門檻；交易所 UID 想填再填
+  if (state.me.free && !state.me.accessUntil) {
     return box.replaceChildren(...[
       el("div", { class: "panel-head", style: { padding: "14px 18px" } },
-        el("div", null, el("h2", { text: "我的等級" })),
-        el("span", { class: "pill good" }, el("span", { class: "dot" }), `贈送名額・${tierName(Math.max(v.tier, SITE_TIER))}`)),
-      el("p", { class: "small muted vol-note", text: "你是贈送名額，不用綁交易所，也沒有交易量條件，網站不限期。" }),
+        el("div", null, el("h2", { text: "觀看資格" })),
+        el("span", { class: "pill good" }, el("span", { class: "dot" }), "贈送名額")),
+      el("p", { class: "small muted vol-note", text: "你是贈送名額，不用綁交易所，也沒有交易量條件，觀看不限期。" }),
       state.me.links?.some((l) => l.uid) ? linkRows() : null,
     ].filter(Boolean));
   }
-  const target = targetTier(v);
-  const keep = v.cycleTier < v.tier; // 這一輪還沒保住現在的等級
-  const status = v.tier === 0
-    ? `你目前沒有等級。這一輪${tierRuleText(1)}，就是第一級。`
-    : `你現在是${tierName(v.tier)}，${v.tierUntil ? `至少到 ${md(v.tierUntil)}` : "不限期"}。` + (keep
-      ? `這一輪還沒保住：${gapTo(v.amounts || {}, v.tier, v.exchanges)}（${md(v.periodEnd)} 前）。`
-      : v.cycleTier >= MAX_TIER ? "已經是最高級。" : `再升一級：${tierName(target)}${gapTo(v.amounts || {}, target, v.exchanges)}（${tierInfo(target).perks.join("、")}）。`);
   box.replaceChildren(...[
     el("div", { class: "panel-head", style: { padding: "14px 18px" } },
-      el("div", null, el("h2", { text: "我的等級" }), el("div", { class: "small muted num vol-range", text: `這一輪 ${md(v.periodStart)}～${md(v.periodEnd)}` })),
-      el("span", { class: "pill" + (v.tier >= SITE_TIER ? " good" : "") }, v.tier >= SITE_TIER ? el("span", { class: "dot" }) : null, tierName(v.tier))),
-    tierLadder(v),
-    el("p", { class: "small tier-status", text: status }),
-    // 還沒填數字就不放空的進度條
+      el("div", null, el("h2", { text: "這一輪交易量" }), el("div", { class: "small muted num vol-range", text: `${md(v.periodStart)}～${md(v.periodEnd)}` })),
+      v.qualified ? el("span", { class: "pill good" }, el("span", { class: "dot" }), "已達標")
+        : el("span", { class: "pill" }, v.amounts ? gapText(v.amounts, v.threshold, v.exchanges) : "尚未更新")),
+    milestoneStrip(v),
+    // 還沒填數字就不放空的進度條，標題旁的「尚未更新」已經說明了
     !v.amounts ? null : el("div", { class: "vol-rows" },
       ...v.exchanges.map((ex) => {
         const n = Number(v.amounts?.[ex] || 0);
-        const goal = goalFor(ex, target);
+        const goal = goalOf(ex, v.threshold);
         return el("div", { class: "vol-row" + (n >= goal ? " ok" : "") },
           el("span", { class: "vol-ex", text: ex }),
-          el("span", { class: "num vol-n", text: `${fmtAmount(ex, n)}／${fmtAmount(ex, goal)}` }),
+          el("span", { class: "num vol-n", text: v.amounts ? fmtAmount(ex, n) : "—" }),
           el("span", { class: "track" }, el("i", { style: { width: Math.min(100, (n / goal) * 100) + "%" } })));
       })),
     linkRows(),
-    el("p", { class: "small muted vol-note", text: "從加入那天起算，每一輪一個月；這一輪達到第幾級，下一輪就是第幾級（任一間交易所達到就算）。" + (v.updatedAt ? `上次更新：${fmtRel(v.updatedAt)}。` : `${v.exchanges.filter((ex) => !AUTO_EXCHANGES.includes(ex)).join("、")} 由管理員更新。`) + (v.exchanges.includes("Bybit") ? TRADFI_NOTE : "") }),
+    el("p", { class: "small muted vol-note", text: (v.qualifiedAt ? `${md(v.qualifiedAt)} 達標，可以看到 ${md(v.qualifiedUntil)}。` : `從加入那天起算，每一輪一個月。${md(v.periodEnd)} 之前${ruleText(v.threshold, v.exchanges)}，就能看到下一輪結束；沒達標，${md(addDays(v.periodEnd, 1))} 起就不能看。`) + (v.updatedAt ? `上次更新：${fmtRel(v.updatedAt)}。` : `${v.exchanges.filter((ex) => !AUTO_EXCHANGES.includes(ex)).join("、")} 由管理員更新。`) + (v.exchanges.includes("Bybit") ? TRADFI_NOTE : "") }),
   ].filter(Boolean));
 }
 
-// ── 三級的階梯：這一輪達到哪一級就亮到哪一級，下面寫門檻 ──
-function tierLadder(v) {
-  return el("ol", { class: "ms-strip tiers", "aria-label": `這一輪達到：${tierName(v.cycleTier)}` },
-    ...TIERS.map((t) => el("li", { class: "ms-step" + (v.cycleTier >= t.tier ? " on" : "") + (v.cycleTier === t.tier ? " now" : ""), title: t.perks.join("、") },
-      el("span", { class: "ms-dot", "aria-hidden": "true" }),
-      el("span", { class: "ms-label", text: tierName(t.tier) }),
-      el("span", { class: "ms-goal num", text: `${fmtAmount("", t.usdt)}／${t.lots} 手` }))));
+// ── 進度里程碑：25／50／75%／達標，走到哪一格就亮到哪一格 ──
+function milestoneStrip(v) {
+  const lvl = v.amounts ? milestoneOf(v.amounts, v.threshold, v.exchanges) : 0;
+  return el("ol", { class: "ms-strip", "aria-label": `這一輪進度：${lvl ? (lvl >= 100 ? "已達標" : lvl + "%") : "還沒到 25%"}` },
+    ...MILESTONES.map((m) => el("li", { class: "ms-step" + (lvl >= m ? " on" : "") + (lvl === m ? " now" : "") },
+      el("span", { class: "ms-dot", "aria-hidden": "true" }), el("span", { class: "ms-label num", text: m >= 100 ? "達標" : `${m}%` }))));
 }
 
-// 這一輪升級了：首頁跳一次恭喜（Discord 也會私訊一份）
+// 跨過新的里程碑：首頁跳一次恭喜（Discord 也會私訊一份）
 export function celebrateMilestone() {
   const v = state.me?.volume;
   const ms = v?.milestone;
@@ -89,17 +83,17 @@ export function celebrateMilestone() {
   let tries = 0;
   const open = () => {
     if (document.querySelector(".modal-back")) return ++tries < 120 && setTimeout(open, 1000);
-    const lvl = ms.level;
-    const b = v.amounts ? progressTo(v.amounts, lvl, v.exchanges) : null;
-    const ok = el("button", { class: "btn primary", type: "button", text: lvl >= SITE_TIER ? "太好了" : "繼續衝" });
+    const done = ms.level >= 100;
+    const b = v.amounts ? bestProgress(v.amounts, v.threshold, v.exchanges) : null;
+    const pct = b ? Math.min(100, Math.round(b.ratio * 100)) : ms.level;
+    const ok = el("button", { class: "btn primary", type: "button", text: done ? "太好了" : "繼續衝" });
     const mm = modal({
-      title: `${{ 1: "✅", 2: "🎉", 3: "🏆" }[lvl] || "🎉"} 升上${tierName(lvl)}！`,
+      title: done ? "🎉 這一輪達標了！" : `🎯 跨過 ${ms.level}%！`,
       body: el("div", { class: "ms-pop" },
-        el("div", { class: "ms-big", text: tierName(lvl) }),
-        b ? el("p", { class: "small sub", text: `這一輪 ${b.ex}：${withUnit(b.ex, b.n)}` }) : null,
-        el("ul", { class: "tier-perks" }, ...TIERS.filter((t) => t.tier <= lvl).flatMap((t) => t.perks).map((x) => el("li", { text: x }))),
-        el("p", { text: `至少到 ${md(v.nextEnd)}。` + (lvl < MAX_TIER ? `再往上：${tierName(lvl + 1)}${gapTo(v.amounts || {}, lvl + 1, v.exchanges)}（${tierInfo(lvl + 1).perks.join("、")}）。` : "管理員會跟你約這個月的一對一時間。") }),
-        lvl >= SITE_TIER && (state.me.tier ?? 0) >= SITE_TIER ? el("p", { class: "small sub", text: "直播留檔、教學課程都已經打開，重新整理就看得到。" }) : null),
+        el("div", { class: "ms-big num", text: done ? "100%" : `${pct}%` }),
+        el("div", { class: "track ms-track" }, el("i", { style: { width: pct + "%" } })),
+        b ? el("p", { class: "small sub", text: `${b.ex}：${fmtAmount(b.ex, b.n)}／${fmtAmount(b.ex, b.goal)}${b.ex === "UM" ? "" : " USDT"}` }) : null,
+        el("p", { text: done ? `觀看資格延長到 ${md(v.qualifiedUntil || v.nextEnd)}。下一輪繼續保持！` : `${gapText(v.amounts, v.threshold, v.exchanges)}，${md(v.periodEnd)} 前達標就能看到 ${md(v.nextEnd)}。` })),
       actions: [ok],
       onClose: () => api("/api/me", { method: "PATCH", body: { milestoneSeen: true } }).catch(() => {}),
     });

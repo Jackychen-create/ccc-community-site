@@ -7,7 +7,7 @@ import { editAccess } from "./members.js";
 // 待跟進
 let fuData = null;
 let fuKey = "";
-const FU_LABELS = { notier: "沒有等級", drop: "下一輪會降級", oneonone: "第三級一對一", inactive: "很久沒來", course: "課程落後", feedback: "提問沒回" };
+const FU_LABELS = { expired: "已過期", expiring: "快到期", volume: "還沒達標", inactive: "很久沒來", course: "課程落後", feedback: "提問沒回" };
 export async function loadFollowup() {
   $("#fuBox").replaceChildren(loadingBox());
   try {
@@ -43,7 +43,7 @@ function renderFollowup() {
           el("td", { class: "small hide-sm", text: r.last_watched_at ? A.fmtRel(r.last_watched_at) : "還沒看過" }),
           el("td", { class: "small hide-sm num", text: r.course.unlocked ? `${r.course.unlocked - r.course.behind}／${r.course.unlocked}` : "—" }),
           el("td", null, el("div", { class: "actions" },
-            el("button", { class: "btn sm", type: "button", onclick: () => editAccess({ ...r, banned: false }, loadFollowup) }, icon("clock"), "等級"),
+            el("button", { class: "btn sm", type: "button", onclick: () => editAccess({ ...r, banned: false }, loadFollowup) }, icon("clock"), "資格"),
             r.reasons.some((x) => x.key === "feedback") ? el("a", { class: "btn sm", href: "#feedback" }, icon("chat"), "回覆") : null,
             el("button", { class: "btn sm icon", type: "button", "aria-label": `複製 ${r.email}`, title: "複製 Email", onclick: () => A.copyText(r.email).then(() => A.toast("已複製 Email")) }, icon("copy"))))))))));
 }

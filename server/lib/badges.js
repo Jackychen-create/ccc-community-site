@@ -2,13 +2,13 @@
 // 研究員首頁打開時算一次（GET /api/badges），不用排程
 import { supabaseAdmin } from "./env.js";
 import { twDate } from "./dates.js";
-import { BADGES, earnedBadges, progressTo, tierOf, SITE_TIER, periodOf, COURSE_HOSTS, COURSE_PARTS, EXCHANGES } from "../../public/assets/js/shared/rules.js";
+import { BADGES, earnedBadges, bestProgress, isQualified, periodOf, COURSE_HOSTS, COURSE_PARTS, EXCHANGES } from "../../public/assets/js/shared/rules.js";
 
 const DONE = 0.95; // 看到片長 95% 算看完（跟後台觀看統計一樣）
 
-// 最多連續幾輪第二級以上：每一筆交易量換成「第幾輪」，看連在一起最長的一段
-export function longestStreak(anchor, rows) {
-  const idx = [...new Set(rows.filter((r) => tierOf(r.amounts) >= SITE_TIER).map((r) => periodOf(anchor, r.period_start).index))].sort((a, b) => a - b);
+// 最多連續幾輪達標：每一筆交易量換成「第幾輪」，看連在一起最長的一段
+export function longestStreak(anchor, rows, threshold) {
+  const idx = [...new Set(rows.filter((r) => r.qualified_at || isQualified(r.amounts, threshold)).map((r) => periodOf(anchor, r.period_start).index))].sort((a, b) => a - b);
   let best = 0, run = 0, prev = null;
   for (const i of idx) {
     run = prev !== null && i === prev + 1 ? run + 1 : 1;
@@ -18,7 +18,7 @@ export function longestStreak(anchor, rows) {
   return best;
 }
 
-export async function badgeFacts(userId, member) {
+export async function badgeFacts(userId, member, threshold) {
   const [vols, prog, vids, notes, fb] = await Promise.all([
     supabaseAdmin.from("volumes").select("period_start, amounts, qualified_at").eq("user_id", userId),
     supabaseAdmin.from("watch_progress").select("video_id, position_sec, duration_sec").eq("user_id", userId),
@@ -38,10 +38,9 @@ export async function badgeFacts(userId, member) {
   const hostsDone = COURSE_HOSTS.filter((h) => new Set(course.filter((v) => v.course_host === h).map((v) => v.course_part)).size >= COURSE_PARTS);
   return {
     traded: rows.some((r) => EXCHANGES.some((ex) => Number(r.amounts?.[ex] || 0) > 0)),
-    bestPct: Math.max(0, ...rows.map((r) => progressTo(r.amounts || {}, SITE_TIER).ratio * 100)),
-    qualified: rows.filter((r) => tierOf(r.amounts) >= SITE_TIER).length,
-    maxTier: Math.max(0, ...rows.map((r) => tierOf(r.amounts))),
-    streak: longestStreak(anchor, rows),
+    bestPct: Math.max(0, ...rows.map((r) => bestProgress(r.amounts || {}, threshold).ratio * 100)),
+    qualified: rows.filter((r) => r.qualified_at || isQualified(r.amounts, threshold)).length,
+    streak: longestStreak(anchor, rows, threshold),
     hostsDone,
     courseDone: new Set(course.map((v) => `${v.course_host}:${v.course_part}`)).size,
     liveDone: done.filter((v) => !v.course_host).length,
@@ -52,8 +51,8 @@ export async function badgeFacts(userId, member) {
 
 // 算出徽章、把新拿到的記下來；回傳 [{ id, earnedAt, isNew }]（isNew：還沒在網站上看過恭喜）
 // 已經拿過的徽章不會因為數字變少被收回
-export async function syncBadges(userId, member) {
-  const facts = await badgeFacts(userId, member);
+export async function syncBadges(userId, member, threshold) {
+  const facts = await badgeFacts(userId, member, threshold);
   const { data: had, error } = await supabaseAdmin.from("badges").select("badge, earned_at, seen").eq("user_id", userId);
   if (error) throw error;
   const hadIds = new Set((had || []).map((r) => r.badge));

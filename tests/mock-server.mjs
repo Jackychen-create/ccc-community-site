@@ -5,7 +5,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 // 規則跟正式網站讀同一份
 import { canUseApi } from "../public/assets/js/shared/roles.js";
-import { EXCHANGES, AUTO_EXCHANGES, addDays, periodOf, nextPeriod, prevPeriod, COURSE_HOSTS as CH, courseUnlockDate, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR, BADGES, earnedBadges, themeUnlocked, tierOf, tierStatus, progressTo, tierName, tierRuleText, gapTo, TIERS } from "../public/assets/js/shared/rules.js";
+import { EXCHANGES, AUTO_EXCHANGES, isQualified, addDays, cycleEnd, periodOf, nextPeriod, prevPeriod, COURSE_HOSTS as CH, courseUnlockDate, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR, milestoneOf, BADGES, earnedBadges, themeUnlocked, bestProgress } from "../public/assets/js/shared/rules.js";
 
 const PORT = Number(process.env.PORT || 4321);
 const ROOT = path.join(path.dirname(new URL(import.meta.url).pathname), "..");
@@ -51,7 +51,7 @@ const invites = [
   { code: "GF7T-2FRE", max_uses: 1, used_count: 0, note: "贈送：小明", disabled: false, free: true, created_at: new Date(Date.now() - 1 * 86400e3).toISOString() },
 ];
 const members = [
-  { user_id: users["amy@example.com"].id, email: "amy@example.com", invite_code: "K7QM-2XPA", banned: false, created_at: new Date(Date.now() - 18 * 86400e3).toISOString(), last_sign_in_at: new Date(Date.now() - 3600e3).toISOString(), watched_count: 2, min_tier: 2, min_tier_until: d(-5), note: "10 月交易量 120 口", notify: true },
+  { user_id: users["amy@example.com"].id, email: "amy@example.com", invite_code: "K7QM-2XPA", banned: false, created_at: new Date(Date.now() - 18 * 86400e3).toISOString(), last_sign_in_at: new Date(Date.now() - 3600e3).toISOString(), watched_count: 2, access_until: d(-5), note: "10 月交易量 120 口", notify: true },
   { user_id: users["banned@example.com"].id, email: "banned@example.com", invite_code: "HW3N-8RTE", banned: true, created_at: new Date(Date.now() - 9 * 86400e3).toISOString(), last_sign_in_at: null, watched_count: 0 },
 ];
 const r2 = new Map();
@@ -62,6 +62,7 @@ const feedback = [];
 let fbId = 1;
 const clientErrors = [];
 const EX = EXCHANGES;
+let threshold = 1000000;
 // 自動同步的交易所：假的代理商資料
 // BingX UID 88880001 是我們邀請的，這個月 350 萬（10 號跨過門檻）；Bybit UID 77770001 這個月 150 萬（Bybit 隔天才更新，達標日記昨天）
 const autoLinks = Object.fromEntries(EXCHANGES.map((ex) => [ex, new Map()])); // exchange → (user_id → uid)；OKX、UM 只是記下來
@@ -99,7 +100,7 @@ const discordApps = [
 const vols = new Map(); // `${user_id}:${month}` → {amounts, updated_at, updated_by}
 const monthNow = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 7);
 const monthEnd = (m) => { const [y, mo] = m.split("-").map(Number); return new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10); };
-const qualified = (a) => tierOf(a) >= 2; // 第二級以上（記 qualified_at 用）
+const qualified = (a) => isQualified(a, threshold);
 const TODAY = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
 const twDate = (ts) => new Date(new Date(ts).getTime() + 8 * 3600e3).toISOString().slice(0, 10);
 const unlockOn = courseUnlockDate;
@@ -108,15 +109,13 @@ function linkOf(userId) { return Object.fromEntries(EXCHANGES.filter((ex) => aut
 const anchorOf = (m) => twDate(m.created_at);
 const curP = (m) => periodOf(anchorOf(m), TODAY());
 const periodFor = (m, which) => (which === "previous" ? prevPeriod(anchorOf(m), curP(m)) : curP(m));
-// 三級制度：今天第幾級（跟 server/lib/tier.js 一樣）
-const tierM = (m) => tierStatus({ anchor: anchorOf(m), today: TODAY(), amountsOf: (st) => vols.get(m.user_id + ":" + st)?.amounts || {}, override: m.min_tier ? { tier: m.min_tier, until: m.min_tier_until || null } : null });
 const clampDay = (d, p) => (d < p.start ? p.start : d > p.end ? p.end : d);
 // 進度里程碑：`${user_id}:${period_start}:${level}` → { seen }
 const msRows = new Map();
 function msHit(m, p, before, after) {
   if (m.free) return;
-  const lvl = tierOf(after);
-  if (lvl > tierOf(before || {}) && !msRows.has(`${m.user_id}:${p.start}:${lvl}`)) msRows.set(`${m.user_id}:${p.start}:${lvl}`, { level: lvl, seen: false });
+  const lvl = milestoneOf(after, threshold);
+  if (lvl > milestoneOf(before || {}, threshold) && !msRows.has(`${m.user_id}:${p.start}:${lvl}`)) msRows.set(`${m.user_id}:${p.start}:${lvl}`, { level: lvl, seen: false });
 }
 // 徽章：`${user_id}` → Map(badge → { earned_at, seen })
 const badgeRows = new Map();
@@ -126,7 +125,7 @@ function badgeFacts(m) {
   const course = done.filter((v) => v.course_host);
   const idx = rows.filter((r) => qualified(r.amounts)).map((r) => periodOf(anchorOf(m), r.start).index).sort((a, b) => a - b);
   let streak = 0, run = 0; idx.forEach((i, n) => { run = n && i === idx[n - 1] + 1 ? run + 1 : 1; streak = Math.max(streak, run); });
-  return { traded: rows.some((r) => Object.values(r.amounts || {}).some((x) => x > 0)), bestPct: Math.max(0, ...rows.map((r) => progressTo(r.amounts || {}, 2).ratio * 100)), qualified: rows.filter((r) => qualified(r.amounts)).length, maxTier: Math.max(0, ...rows.map((r) => tierOf(r.amounts))), streak,
+  return { traded: rows.some((r) => Object.values(r.amounts || {}).some((x) => x > 0)), bestPct: Math.max(0, ...rows.map((r) => bestProgress(r.amounts || {}, threshold).ratio * 100)), qualified: rows.filter((r) => qualified(r.amounts)).length, streak,
     hostsDone: CH.filter((h) => new Set(course.filter((v) => v.course_host === h).map((v) => v.course_part)).size >= 6), courseDone: course.length, liveDone: done.length - course.length,
     notes: notes.filter((n) => n.user_id === m.user_id).length, questions: feedback.filter((f) => f.user_id === m.user_id).length };
 }
@@ -145,10 +144,12 @@ function autoSyncUser(ex, userId) {
   const qOn = clampDay(ex === "Bybit" ? addDays(TODAY(), -1) : addDays(p.start, 3), p);
   vols.set(key, { amounts, qualified_at: ok ? prev?.qualified_at || qOn : null, updated_at: new Date().toISOString(), updated_by: `${ex} 自動同步` });
   msHit(m, p, prev?.amounts, amounts);
-  return tierOf(amounts) > tierOf(prev?.amounts || {}) ? 1 : 0; // 升級幾位
+  const until = nextPeriod(anchorOf(m), p).end;
+  if (ok && !prev?.qualified_at && m.access_until && m.access_until < until) { m.access_until = until; return 1; }
+  return 0;
 }
 function volSnap(which) {
-  return { which, today: TODAY(), exchanges: EX, autoExchanges: AUTO_EXCHANGES, tiers: TIERS.map(({ tier, usdt, lots }) => ({ tier, usdt, lots })), rows: [...members].reverse().map((m) => ({ m, p: periodFor(m, which) })).filter((x) => x.p).map(({ m, p }) => { const v = vols.get(m.user_id + ":" + p.start); const ts = tierM(m); return { user_id: m.user_id, email: m.email, banned: m.banned, note: m.note, free: !!m.free, tier: ts.tier, tier_until: ts.until, period_start: p.start, period_end: p.end, next_end: nextPeriod(anchorOf(m), p).end, amounts: v?.amounts || {}, updated_at: v?.updated_at || null, updated_by: v?.updated_by || null, cycle_tier: tierOf(v?.amounts || {}), qualified_at: v?.qualified_at || null, links: linkOf(m.user_id) }; }) };
+  return { which, today: TODAY(), exchanges: EX, autoExchanges: AUTO_EXCHANGES, threshold, rows: [...members].reverse().map((m) => ({ m, p: periodFor(m, which) })).filter((x) => x.p).map(({ m, p }) => { const v = vols.get(m.user_id + ":" + p.start); return { user_id: m.user_id, email: m.email, banned: m.banned, access_until: m.access_until, note: m.note, period_start: p.start, period_end: p.end, next_end: nextPeriod(anchorOf(m), p).end, amounts: v?.amounts || {}, updated_at: v?.updated_at || null, updated_by: v?.updated_by || null, qualified: v ? qualified(v.amounts) : false, qualified_at: v?.qualified_at || null, links: linkOf(m.user_id) }; }) };
 }
 
 function send(res, code, body, headers = {}) {
@@ -252,7 +253,7 @@ const server = http.createServer(async (req, res) => {
         inv.used_count++;
         const id = crypto.randomUUID();
         users[body.email] = { id, password: body.password };
-        members.unshift({ user_id: id, email: body.email, invite_code: inv.code, banned: false, created_at: new Date().toISOString(), last_sign_in_at: null, watched_count: 0, access_until: null, free: true, min_tier: 2, min_tier_until: null, notify: true });
+        members.unshift({ user_id: id, email: body.email, invite_code: inv.code, banned: false, created_at: new Date().toISOString(), last_sign_in_at: null, watched_count: 0, access_until: null, free: true, notify: true });
         return send(res, 200, { ok: true, free: true });
       }
       if (!EXCHANGES.includes(rex)) return send(res, 400, { error: "請選擇你用 CCC 邀請連結註冊的交易所" });
@@ -264,7 +265,7 @@ const server = http.createServer(async (req, res) => {
       inv.used_count++;
       const id = crypto.randomUUID();
       users[body.email] = { id, password: body.password };
-      members.unshift({ user_id: id, email: body.email, invite_code: inv.code, banned: false, created_at: new Date().toISOString(), last_sign_in_at: null, watched_count: 0, access_until: null, notify: true });
+      members.unshift({ user_id: id, email: body.email, invite_code: inv.code, banned: false, created_at: new Date().toISOString(), last_sign_in_at: null, watched_count: 0, access_until: cycleEnd(TODAY()), notify: true });
       autoLinks[rex].set(id, ruid); if (racc) accNames.set(`${rex}:${id}`, racc); if (AUTO_EXCHANGES.includes(rex)) autoSyncUser(rex, id);
       return send(res, 200, { ok: true });
     }
@@ -283,9 +284,7 @@ const server = http.createServer(async (req, res) => {
     if (!admin && !isMember(u)) return send(res, 403, { error: "這個帳號目前沒有觀看權限，請聯絡管理員" });
 
     const mrow = members.find((m) => m.user_id === u.id);
-    // 三級制度：網站內容要第二級；個人資料、提問、徽章每一級都可以
-    const ts = mrow ? tierM(mrow) : null;
-    if (ts && ts.tier < 2 && !["/api/me", "/api/exchange-link", "/api/feedback", "/api/report", "/api/badges"].includes(p)) return send(res, 403, { error: `這個內容要第二級（這一輪 ${tierRuleText(2)}）`, code: "tier", tier: ts.tier });
+    if (mrow?.access_until && mrow.access_until < d(0)) return send(res, 403, { error: `你的觀看資格到 ${mrow.access_until} 為止，請聯絡管理員更新`, code: "expired" });
     if (p === "/api/me") {
       if (req.method === "PATCH") {
         if (body.theme !== undefined) {
@@ -296,7 +295,7 @@ const server = http.createServer(async (req, res) => {
         mrow.notify = body.notify;
         return send(res, 200, { ok: true, notify: body.notify });
       }
-      return send(res, 200, { links: mrow ? EXCHANGES.map((ex) => ({ exchange: ex, auto: AUTO_EXCHANGES.includes(ex), enabled: true, uid: autoLinks[ex].get(mrow.user_id) || null, accountName: accNames.get(`${ex}:${mrow.user_id}`) || null, needsName: needsName(ex), boundAt: null })) : null, feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, adminRole: admin ? role : null, tier: mrow ? ts.tier : null, invites: mrow ? Object.fromEntries(Object.entries(discordSettings.invites || {}).filter(([, x]) => /^https:\/\//.test(String(x)))) : {}, free: !!mrow?.free, theme: mrow?.theme || null, notify: mrow ? mrow.notify !== false : null, nextLive: (() => { const l = liveNext(); return l ? { title: l.title, startsAt: l.starts_at, hosts: l.hosts || [], note: l.note, link: l.link } : null; })(), volume: mrow ? (() => { const p = curP(mrow); const v = vols.get(mrow.user_id + ":" + p.start); return { periodStart: p.start, periodEnd: p.end, nextEnd: nextPeriod(anchorOf(mrow), p).end, exchanges: EX, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, tier: ts.tier, tierUntil: ts.until, cycleTier: ts.cycleTier, milestone: mrow.free ? null : msUnseen(mrow, p) }; })() : null });
+      return send(res, 200, { links: mrow ? EXCHANGES.map((ex) => ({ exchange: ex, auto: AUTO_EXCHANGES.includes(ex), enabled: true, uid: autoLinks[ex].get(mrow.user_id) || null, accountName: accNames.get(`${ex}:${mrow.user_id}`) || null, needsName: needsName(ex), boundAt: null })) : null, feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, adminRole: admin ? role : null, accessUntil: mrow?.access_until || null, free: !!mrow?.free, theme: mrow?.theme || null, notify: mrow ? mrow.notify !== false : null, nextLive: (() => { const l = liveNext(); return l ? { title: l.title, startsAt: l.starts_at, hosts: l.hosts || [], note: l.note, link: l.link } : null; })(), volume: mrow ? (() => { const p = curP(mrow); const v = vols.get(mrow.user_id + ":" + p.start); return { periodStart: p.start, periodEnd: p.end, exchanges: EX, threshold, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, qualified: v ? qualified(v.amounts) : false, qualifiedAt: v?.qualified_at || null, qualifiedUntil: v?.qualified_at ? nextPeriod(anchorOf(mrow), p).end : null, milestone: mrow.free ? null : msUnseen(mrow, p), nextEnd: nextPeriod(anchorOf(mrow), p).end }; })() : null });
     }
     if (p === "/api/badges") {
       const all = BADGES.map(({ id, icon, name, desc }) => ({ id, icon, name, desc }));
@@ -506,15 +505,16 @@ const server = http.createServer(async (req, res) => {
       const overview = () => Object.fromEntries(AUTO_EXCHANGES.map((ex) => [ex, { configured: true, linked: autoLinks[ex].size, last: syncLast[ex] || null }]));
       if (req.method === "GET") return send(res, 200, { exchanges: overview() });
       for (const ex of body.exchange ? [body.exchange] : AUTO_EXCHANGES) {
-        let tierUps = 0; for (const id of autoLinks[ex].keys()) tierUps += autoSyncUser(ex, id);
-        syncLast[ex] = { at: new Date().toISOString(), ok: true, users: autoLinks[ex].size, saved: autoLinks[ex].size, tierUps };
+        let extended = 0; for (const id of autoLinks[ex].keys()) extended += autoSyncUser(ex, id);
+        syncLast[ex] = { at: new Date().toISOString(), ok: true, users: autoLinks[ex].size, saved: autoLinks[ex].size, extended };
       }
       return send(res, 200, { ok: true, exchanges: overview() });
     }
     if (p === "/api/admin/volumes") {
       if (req.method === "GET") return send(res, 200, volSnap(url.searchParams.get("which") === "previous" ? "previous" : "current"));
+      if (req.method === "PATCH") { threshold = Math.round(Number(body.threshold)); return send(res, 200, { ok: true, threshold }); }
       const which = body.which === "previous" ? "previous" : "current";
-      let saved = 0, tierUps = 0;
+      let saved = 0, extended = 0;
       for (const r of body.rows || []) {
         const m = members.find((x) => x.user_id === r.userId); if (!m) continue;
         const pp = periodFor(m, which); if (!pp) continue;
@@ -526,9 +526,10 @@ const server = http.createServer(async (req, res) => {
         const ok = qualified(amounts);
         vols.set(m.user_id + ":" + pp.start, { amounts, qualified_at: ok ? prevQ || qOn : null, updated_at: new Date().toISOString(), updated_by: u.email }); saved++;
         msHit(m, pp, prevRow?.amounts, amounts);
-        if (tierOf(amounts) > tierOf(prevRow?.amounts || {})) tierUps++;
+        const until = nextPeriod(anchorOf(m), pp).end;
+        if (ok && !prevQ && m.access_until && m.access_until < until) { m.access_until = until; extended++; }
       }
-      return send(res, 200, { ...volSnap(which), saved, tierUps });
+      return send(res, 200, { ...volSnap(which), saved, extended });
     }
     if (p === "/api/admin/notify" && videos.find((x) => x.id === body.videoId)?.course_host) return send(res, 400, { error: "教學課程依每個人的加入日期解鎖，不寄全體通知" });
     if (p === "/api/admin/notify") return send(res, 200, { ok: true, sent: members.filter((m) => !m.banned && m.notify !== false).length });
@@ -562,16 +563,16 @@ const server = http.createServer(async (req, res) => {
       for (const m of members) {
         if (m.banned) continue;
         const reasons = []; const prog = [...progress.entries()].filter(([k]) => k.startsWith(m.user_id + ":")).map(([k, v]) => ({ video_id: Number(k.split(":")[1]), ...v }));
-        const ts = tierM(m); const vv = vols.get(m.user_id + ":" + curP(m).start);
-        if (ts.tier === 0) reasons.push({ key: "notier", label: "沒有等級（Discord 身分組可以拿掉）", level: 2 });
-        else if (ts.cycleTier < ts.tier && ts.until && !m.free) reasons.push({ key: "drop", label: `${ts.until.slice(5).replace("-", "/")} 後降到${tierName(ts.cycleTier)}（${tierName(ts.tier)}${gapTo(vv?.amounts || {}, ts.tier)}）`, level: ts.until <= addDays(today, 7) ? 2 : 1 });
-        if (ts.tier >= 3) reasons.push({ key: "oneonone", label: "第三級：這個月約一對一", level: 1 });
+        if (m.access_until && m.access_until < today) reasons.push({ key: "expired", label: `已過期（${m.access_until.slice(5)}）`, level: 3 });
+        else if (m.access_until && m.access_until <= addDays(today, 7)) reasons.push({ key: "expiring", label: `${m.access_until.slice(5).replace("-", "/")} 到期`, level: 2 });
+        const vv = vols.get(m.user_id + ":" + curP(m).start);
+        if (m.access_until && !(vv && qualified(vv.amounts))) reasons.push({ key: "volume", label: vv ? "這一輪還差一點" : "這一輪還沒有交易量", level: 1 });
         const last = prog.map((x) => x.updated_at).sort().pop() || null;
         const away = last ? Math.floor((Date.now() - new Date(last).getTime()) / 864e5) : null;
         if (!last) reasons.push({ key: "inactive", label: "加入後還沒看過影片", level: 2 }); else if (away >= 14) reasons.push({ key: "inactive", label: `${away} 天沒來看`, level: 1 });
         const q = feedback.filter((x) => x.user_id === m.user_id && x.status === "open").length;
         if (q) reasons.push({ key: "feedback", label: `${q} 則提問還沒回`, level: 2 });
-        out.push({ user_id: m.user_id, email: m.email, tier: ts.tier, tier_until: ts.until, cycle_tier: ts.cycleTier, min_tier: m.min_tier || null, min_tier_until: m.min_tier_until || null, note: m.note, joined: twDate(m.created_at), last_watched_at: last, watched: prog.length, completed: 0, course: { unlocked: 3, behind: 1 }, reasons, score: reasons.reduce((a, r) => a + r.level, 0) });
+        out.push({ user_id: m.user_id, email: m.email, access_until: m.access_until, note: m.note, joined: twDate(m.created_at), last_watched_at: last, watched: prog.length, completed: 0, course: { unlocked: 3, behind: 1 }, reasons, score: reasons.reduce((a, r) => a + r.level, 0) });
       }
       out.sort((a, b) => b.score - a.score);
       const counts = {}; for (const r of out) for (const x of r.reasons) counts[x.key] = (counts[x.key] || 0) + 1;
@@ -599,12 +600,12 @@ const server = http.createServer(async (req, res) => {
     if (p === "/api/admin/members") {
       if (req.method === "GET") {
         const dcBy = new Map(discordApps.filter((a) => a.status === "approved").map((a) => [`${a.exchange}:${a.exchange_uid}`, a.discord_name]));
-        return send(res, 200, { members: members.map((m) => { const uids = linkOf(m.user_id); const ts = tierM(m); return { ...m, tier: ts.tier, tier_until: ts.until, cycle_tier: ts.cycleTier, uids, account_names: Object.fromEntries(EXCHANGES.filter((ex) => accNames.has(`${ex}:${m.user_id}`)).map((ex) => [ex, accNames.get(`${ex}:${m.user_id}`)])), discord: Object.entries(uids).map(([ex, id]) => dcBy.get(`${ex}:${id}`)).find(Boolean) || null }; }) });
+        return send(res, 200, { members: members.map((m) => { const uids = linkOf(m.user_id); return { ...m, uids, account_names: Object.fromEntries(EXCHANGES.filter((ex) => accNames.has(`${ex}:${m.user_id}`)).map((ex) => [ex, accNames.get(`${ex}:${m.user_id}`)])), discord: Object.entries(uids).map(([ex, id]) => dcBy.get(`${ex}:${id}`)).find(Boolean) || null }; }) });
       }
       const m = members.find((x) => x.user_id === body.userId);
       if (body.action === "reset") return send(res, 200, { password: "Tq8mWz3kPa7c" });
       if (body.action === "access") {
-        if (body.minTier !== undefined) { m.min_tier = body.minTier || null; m.min_tier_until = body.minTier ? body.minTierUntil || null : null; }
+        if (body.accessUntil !== undefined) m.access_until = body.accessUntil;
         if (body.note !== undefined) m.note = body.note || null;
         return send(res, 200, { ok: true });
       }

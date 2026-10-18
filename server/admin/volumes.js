@@ -1,19 +1,21 @@
 // 後台：交易量（每人一輪：從加入那天起算，每一輪一個月）
-// GET   /api/admin/volumes?which=current|previous   每位研究員「這一輪／上一輪」在各交易所的交易量、那一輪達到第幾級、今天的等級、填過的交易所 UID
+// GET   /api/admin/volumes?which=current|previous   每位研究員「這一輪／上一輪」在各交易所的交易量、門檻、資格、填過的交易所 UID
 // POST  /api/admin/volumes  { which, qualifiedOn: "2026-10-20", rows: [{ userId, amounts: { OKX, UM } }] }
 //       Bybit、BingX 是自動同步的，這裡送來也會保留資料庫的數字
-//       三級制度：那一輪達到第幾級就是下一輪的等級（規則在 shared/rules.js 的 TIERS，門檻固定、後台不能改）
+//       這次「新達標」的人記下達標日，觀看資格延長到「下一輪」結束；原本更晚就不動；「不限」的不動；同一輪已經達標過的不會再延
+// PATCH /api/admin/volumes  { threshold }    修改門檻（USDT）
 import {
   supabaseAdmin, requireAdmin, readBody, route,
-  EXCHANGES, AUTO_EXCHANGES, TIERS, tierOf, todayTW, isDate, saveVolumes, periodFor, nextPeriod, anchorOf, tiersFor,
+  EXCHANGES, AUTO_EXCHANGES, getThreshold, isQualified, todayTW, isDate, saveVolumes, periodFor, nextPeriod, anchorOf,
 } from "../lib/index.js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const whichOf = (v) => (v === "previous" ? "previous" : "current");
 
 async function snapshot(which) {
-  const [{ data: members, error: e1 }, { data: links }] = await Promise.all([
-    supabaseAdmin.from("members").select("user_id, email, banned, note, created_at, free, min_tier, min_tier_until").order("created_at", { ascending: true }),
+  const [threshold, { data: members, error: e1 }, { data: links }] = await Promise.all([
+    getThreshold(),
+    supabaseAdmin.from("members").select("user_id, email, banned, access_until, note, created_at").order("created_at", { ascending: true }),
     supabaseAdmin.from("exchange_links").select("user_id, exchange, exchange_uid, account_name"),
   ]);
   if (e1) throw e1;
@@ -24,7 +26,6 @@ async function snapshot(which) {
     ? await supabaseAdmin.from("volumes").select("user_id, period_start, amounts, updated_at, updated_by, qualified_at").in("period_start", starts)
     : { data: [] };
   if (e2) throw e2;
-  const tiers = await tiersFor(members || [], today);
   const byKey = new Map((vols || []).map((v) => [`${v.user_id}:${v.period_start}`, v]));
   const linkMap = new Map();
   // UM 的格子下面也寫開戶的英文姓名，對帳比較準
@@ -34,15 +35,14 @@ async function snapshot(which) {
     today,
     exchanges: EXCHANGES,
     autoExchanges: AUTO_EXCHANGES,
-    tiers: TIERS.map(({ tier, usdt, lots }) => ({ tier, usdt, lots })),
+    threshold,
     rows: list.map(({ m, p }) => {
       const v = byKey.get(`${m.user_id}:${p.start}`);
       return {
-        user_id: m.user_id, email: m.email, banned: m.banned, note: m.note, free: !!m.free,
-        tier: tiers.get(m.user_id)?.tier ?? 0, tier_until: tiers.get(m.user_id)?.until ?? null, // 今天的等級
+        user_id: m.user_id, email: m.email, banned: m.banned, access_until: m.access_until, note: m.note,
         period_start: p.start, period_end: p.end, next_end: nextPeriod(anchorOf(m), p).end,
         amounts: v?.amounts || {}, updated_at: v?.updated_at || null, updated_by: v?.updated_by || null,
-        cycle_tier: tierOf(v?.amounts || {}), // 那一輪達到第幾級（＝下一輪的等級）
+        qualified: v ? isQualified(v.amounts, threshold) : false,
         qualified_at: v?.qualified_at || null,
         links: linkMap.get(m.user_id) || {},
       };
@@ -72,9 +72,19 @@ export default route({
       .filter((r) => byId.has(String(r.userId)))
       .map((r) => ({ user_id: String(r.userId), period: periodFor(byId.get(String(r.userId)), which), amounts: r.amounts, qualifiedOn }))
       .filter((e) => e.period);
-    const { saved, tierUps } = await saveVolumes({ entries, updatedBy: ctx.user.email, keepAuto: true });
+    const { saved, extended } = await saveVolumes({ entries, updatedBy: ctx.user.email, keepAuto: true });
     if (!saved && !entries.length) return res.status(400).json({ error: "找不到這些研究員" });
     const snap = await snapshot(which);
-    return res.status(200).json({ ...snap, saved, tierUps });
+    return res.status(200).json({ ...snap, saved, extended });
+  },
+
+  async PATCH(req, res) {
+    if (!(await requireAdmin(req, res))) return;
+    const b = readBody(req);
+    const t = Math.round(Number(b.threshold));
+    if (!Number.isFinite(t) || t <= 0 || t > 1e12) return res.status(400).json({ error: "門檻要是大於 0 的數字" });
+    const { error } = await supabaseAdmin.from("settings").upsert({ key: "volume_threshold", value: t });
+    if (error) throw error;
+    return res.status(200).json({ ok: true, threshold: t });
   },
 });

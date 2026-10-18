@@ -42,7 +42,7 @@ const errs = [];
   await p.fill(".modal input[placeholder*='WANG']", " tsai  tzu hsu "); await p.click(".modal-foot .btn.primary");
   await p.waitForSelector("#volPanel .bx-text:has-text('TSAI TZU HSU')");
   check("UM 記下 MT5 帳號和姓名", (await p.textContent("#volPanel")).includes("35908033"));
-  const before = await p.evaluate(() => App.api("/api/me").then((m) => m.tier));
+  const before = await p.evaluate(() => App.api("/api/me").then((m) => m.accessUntil));
 
   await p.click("#volPanel .bx-row:has-text('BingX') .btn:has-text('綁定')"); await p.waitForSelector(".modal:has-text('綁定 BingX')");
   await p.fill(".modal input", "abc"); await p.click(".modal-foot .btn.primary");
@@ -53,9 +53,9 @@ const errs = [];
   await p.waitForSelector(".toast:has-text('已綁定')");
   await p.waitForSelector("#volPanel .bx-text:has-text('88880001')");
   check("綁定後顯示 UID", (await panel()).includes("88880001"));
-  check("BingX 交易量馬上更新、升到第三級", (await panel()).includes("你現在是第三級") && (await panel()).includes("350 萬"), await panel());
-  const after = await p.evaluate(() => App.api("/api/me").then((m) => m.tier));
-  check("等級跟著交易量升級", after === 3 && after > before, `${before} → ${after}`);
+  check("BingX 交易量馬上更新、達標", (await panel()).includes("已達標") && (await panel()).includes("350 萬"), await panel());
+  const after = await p.evaluate(() => App.api("/api/me").then((m) => m.accessUntil));
+  check("新達標資格自動延長", after > before, `${before} → ${after}`);
   await p.screenshot({ path: "output/shots/v18-bound.png" });
 
   // ── 後台：BingX 欄是自動的、可以立即同步、手動儲存不會蓋掉 BingX ──

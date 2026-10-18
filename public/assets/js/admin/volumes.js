@@ -1,11 +1,11 @@
-// 交易量：逐筆填、貼上一整批；三級制度，那一輪達到第幾級＝下一輪的等級（規則在 shared/rules.js 的 TIERS）
+// 每月交易量：逐筆填、貼上一整批、改門檻；新達標的人資格自動延長（規則在 shared/rules.js）
 import * as A from "../core/index.js";
 const { el, $, api, icon } = A;
-import { unitOf, idLabel, TIERS, MAX_TIER, SITE_TIER, tierOf, tierName, tierRuleText, progressTo, gapTo } from "../shared/rules.js";
+import { goalOf, unitOf, bestProgress, gapText, ruleText, idLabel } from "../shared/rules.js";
 import { fail, loadingBox, segTabs } from "./common.js";
 import { markMembersStale } from "./members.js";
 
-// Bybit、BingX 是自動同步的，這裡只顯示不能改
+// 每月交易量（任一間達標 → 從達標日起看一個月）；Bybit、BingX 是自動同步的，這裡只顯示不能改
 let vol = null; // 伺服器回來的這個月資料
 let sync = null; // 自動同步狀態 /api/admin/sync：{ Bybit: { configured, linked, last }, BingX: {...} }
 const isAuto = (ex) => (vol?.autoExchanges || []).includes(ex);
@@ -20,6 +20,7 @@ const parseAmount = (t) => {
   const mult = { "萬": 1e4, w: 1e4, W: 1e4, m: 1e6, M: 1e6, k: 1e3, K: 1e3 }[m[2]] || 1;
   return Math.round(Number(m[1]) * mult * 100) / 100;
 };
+const shortUsd = (n) => (n >= 1e4 ? `${Math.round((n / 1e4) * 10) / 10} 萬` : fmtUsd(n));
 
 // 這一輪／上一輪（每個人的一輪不一樣，從加入那天起算）
 let which = "current";
@@ -49,13 +50,13 @@ export async function loadVolumes() {
 }
 
 function renderVolumes() {
-  const { exchanges, rows } = vol;
-  $("#volThreshold").replaceChildren(icon("chart"), "三級門檻");
+  const { exchanges, threshold, rows } = vol;
+  $("#volThreshold").replaceChildren(icon("edit"), `門檻 ${shortUsd(threshold)} USDT`);
   const active = rows.filter((r) => !r.banned);
   const bannedCount = rows.length - active.length;
   if (!bannedCount) volTab = "active";
-  const count = (t) => active.filter((r) => r.cycle_tier === t).length;
-  $("#volSub").textContent = `每人從加入那天起算，每一輪一個月；那一輪達到第幾級，下一輪就是第幾級。${which === "previous" ? "上一輪" : "這一輪"}：${[3, 2, 1].map((t) => `${tierName(t)} ${count(t)} 位`).join("、")}、還沒到第一級 ${count(0)} 位${bannedCount ? `（不含 ${bannedCount} 位已停權）` : ""}。`;
+  const passed = active.filter((r) => r.qualified).length;
+  $("#volSub").textContent = `每人從加入那天起算，每一輪一個月（10/16 加入 → 10/16～11/15）。${ruleText(threshold, exchanges)}，就可以看到下一輪結束；沒達標，下一輪第一天就不能看。${which === "previous" ? "上一輪" : "這一輪"} ${passed}／${active.length} 位達標${bannedCount ? `（不含 ${bannedCount} 位已停權）` : ""}。`;
   const box = $("#volBox");
   if (!rows.length) {
     box.replaceChildren(el("div", { class: "empty" }, el("h2", { text: which === "previous" ? "大家都還在第一輪，沒有上一輪" : "還沒有研究員" })));
@@ -65,19 +66,21 @@ function renderVolumes() {
   const saveBtn = el("button", { class: "btn primary", type: "button", disabled: true }, which === "previous" ? "儲存上一輪的交易量" : "儲存這一輪的交易量");
   const dirty = new Set();
   const refreshers = [];
-  // 結果：這一輪達到第幾級、往下一級還差多少
   const resultCell = (r, cell) => {
     const amounts = Object.fromEntries(exchanges.map((ex) => [ex, parseAmount(inputs.get(r.user_id)[ex].value) || 0]));
-    const t = tierOf(amounts);
-    const next = Math.min(MAX_TIER, t + 1);
-    const best = progressTo(amounts, next, exchanges);
+    const best = bestProgress(amounts, threshold, exchanges);
+    const ok = best.ratio >= 1;
+    // 達標日要落在他這一輪裡
+    let qualOn = r.qualified_at || $("#volQualOn").value;
+    if (qualOn < r.period_start) qualOn = r.period_start;
+    if (qualOn > r.period_end) qualOn = r.period_end;
     cell.replaceChildren(
-      el("span", { class: "pill" + (t >= SITE_TIER ? " good" : ""), title: t ? `下一輪（到 ${mdv(r.next_end)}）是${tierName(t)}` : "還沒到第一級" }, t >= SITE_TIER ? el("span", { class: "dot" }) : null, tierName(t)),
-      t < MAX_TIER ? el("span", { class: "small muted", style: { marginLeft: "6px" } }, best.n || t ? `${tierName(next)}${gapTo(amounts, next, exchanges)}` : "未填") : null,
-      el("span", { class: "usage" }, el("span", { class: "track" }, el("i", { style: { width: (t >= MAX_TIER ? 100 : Math.min(100, best.ratio * 100)) + "%" } })))
+      ok ? el("span", { class: "pill good", title: `${mdv(qualOn)} 達標，可以看到下一輪結束（${mdv(r.next_end)}）` }, el("span", { class: "dot" }), `達標，看到 ${mdv(r.next_end)}`)
+         : el("span", { class: "small muted" }, best.n ? gapText(amounts, threshold, exchanges) : "未填"),
+      el("span", { class: "usage" }, el("span", { class: "track" }, el("i", { style: { width: Math.min(100, best.ratio * 100) + "%" } })))
     );
   };
-  const accessText = (r) => `${tierName(r.tier)}${r.tier ? (r.tier_until ? `，到 ${mdv(r.tier_until)}` : "，不限") : ""}${r.free ? "（贈送）" : ""}`;
+  const accessText = (r) => (!r.access_until ? "不限" : r.access_until < new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10) ? `已過期 ${r.access_until}` : `到 ${r.access_until}`);
   const trs = rows.map((r) => {
     const map = {};
     const result = el("td", { class: "vol-result" });
@@ -127,10 +130,10 @@ function renderVolumes() {
     ...[syncBar(), tabs].filter(Boolean),
     el("div", { class: "table-wrap" },
       el("table", { class: "table stack vol-table" },
-        el("thead", null, el("tr", null, el("th", { text: "研究員" }), ...exchanges.map((ex) => el("th", { text: isAuto(ex) ? `${ex}（自動）` : `${ex}（${unitOf(ex)}）` })), el("th", { text: "這一輪達到" }), el("th", { class: "hide-sm", text: "今天的等級" }))),
+        el("thead", null, el("tr", null, el("th", { text: "研究員" }), ...exchanges.map((ex) => el("th", { text: isAuto(ex) ? `${ex}（自動）` : `${ex}（${unitOf(ex)}）` })), el("th", { text: "結果" }), el("th", { class: "hide-sm", text: "觀看資格" }))),
         el("tbody", null, trs)), empty),
     el("div", { class: "vol-foot" },
-      el("p", { class: "small muted", text: `USDT 可以打 1000000、1,000,000、100萬 或 1m；UM 填手數，例如 10 或 2.5。每個人填的是他自己那一輪（名字下面的日期）的交易量。${TIERS.map((t) => `${tierName(t.tier)}：${tierRuleText(t.tier)}`).join("；")}。升級的人會收到通知。` }),
+      el("p", { class: "small muted", text: "USDT 可以打 1000000、1,000,000、100萬 或 1m；UM 填手數，例如 10 或 2.5。每個人填的是他自己那一輪（名字下面的日期）的交易量。這次新達標的人，資格延長到下一輪結束；同一輪已經達標過的不會再延；「不限」的研究員不會被改。" }),
       saveBtn)
   );
   showTab();
@@ -155,7 +158,7 @@ function renderVolumes() {
       const r = await api("/api/admin/volumes", { method: "POST", body: { which, qualifiedOn: $("#volQualOn").value, rows: out } });
       vol = r;
       renderVolumes();
-      A.toast(r.tierUps ? `已儲存 ${r.saved} 位，${r.tierUps} 位升級（已通知）` : `已儲存 ${r.saved} 位`);
+      A.toast(r.extended ? `已儲存 ${r.saved} 位，${r.extended} 位的資格延長到下一輪結束` : `已儲存 ${r.saved} 位`);
       markMembersStale();
     } catch (e) {
       A.setBusy(saveBtn, false);
@@ -194,17 +197,38 @@ function syncBar() {
   return el("div", { class: "bx-bar" + (bad ? " bad" : "") }, el("div", { class: "bx-lines small" }, ...list.map(line)), btn);
 }
 
-// 三級門檻（固定在 shared/rules.js，後台只能看）
+// 修改門檻
 $("#volThreshold").addEventListener("click", () => {
+  if (!vol) return;
+  const inp = el("input", { class: "input num", type: "text", inputmode: "decimal", value: fmtUsd(vol.threshold) });
+  const err = el("div", { class: "form-error", role: "alert", hidden: true });
+  const save = el("button", { class: "btn primary", type: "button", text: "儲存門檻" });
   const m = A.modal({
-    title: "三級門檻",
+    title: "交易量門檻",
     body: el("div", null,
-      el("p", { class: "small sub", style: { marginTop: "12px" }, text: "每人從加入那天起算，一輪一個月。那一輪任一間交易所達到某一級 → 那一輪剩下的時間和下一輪都是那一級；沒達到第一級，下一輪就沒有等級。新研究員第一輪先是第一級。" }),
-      el("ol", { class: "tier-table", style: { marginTop: "12px" } }, ...TIERS.map((t) => el("li", { class: "tier-card" },
-        el("b", { text: tierName(t.tier) }), el("div", { class: "tier-goal num", text: tierRuleText(t.tier) }),
-        el("ul", null, ...t.perks.map((x) => el("li", { text: x })))))),
-      el("p", { class: "hint", text: "要改門檻請跟工程這邊說（改 shared/rules.js 的 TIERS），全站會一起改。研究員要特別處理，用「研究員」頁的「等級」按鈕手動給。" })),
-    actions: [el("button", { class: "btn", type: "button", text: "關閉", onclick: () => m.close() })],
+      el("label", { class: "field" }, el("span", { class: "label", text: `${vol.exchanges.filter((ex) => unitOf(ex) === "USDT").join("、")} 任一間當月成交金額（USDT）達到` }), inp),
+      el("p", { class: "hint", text: "UM 固定是一個月 10 手，不在這裡改。改了之後，這個月已經填過的交易量會照新門檻重新判斷，但已經延長的資格不會被收回。" }),
+      err),
+    actions: [el("button", { class: "btn", type: "button", text: "取消", onclick: () => m.close() }), save],
+  });
+  save.addEventListener("click", async () => {
+    const n = parseAmount(inp.value);
+    if (!n || Number.isNaN(n)) {
+      err.textContent = "請輸入大於 0 的數字";
+      err.hidden = false;
+      return;
+    }
+    A.setBusy(save, true, "儲存中…");
+    try {
+      await api("/api/admin/volumes", { method: "PATCH", body: { threshold: n } });
+      m.close();
+      A.toast(`門檻改成 ${fmtUsd(n)} USDT`);
+      loadVolumes();
+    } catch (e) {
+      A.setBusy(save, false);
+      err.textContent = e.message;
+      err.hidden = false;
+    }
   });
 });
 
@@ -220,7 +244,7 @@ $("#volPaste").addEventListener("click", () => {
   const apply = el("button", { class: "btn primary", type: "button", text: "填進表格" });
   const m = A.modal({
     title: "貼上一整批交易量",
-    body: el("div", null, el("p", { class: "small sub", style: { marginTop: "14px" }, text: `從交易所後台或試算表複製${manual.length > 1 ? `，順序是 ${manual.join("、")}` : `，填的是 ${manual[0]} 的交易量`}（${vol.autoExchanges.join("、")} 會自動同步，不用填）。填進表格後檢查一下，再按「儲存這一輪的交易量」。` }), el("div", { class: "field" }, ta), out),
+    body: el("div", null, el("p", { class: "small sub", style: { marginTop: "14px" }, text: `從交易所後台或試算表複製${manual.length > 1 ? `，順序是 ${manual.join("、")}` : `，填的是 ${manual[0]} 的交易量`}（${vol.autoExchanges.join("、")} 會自動同步，不用填）。填進表格後檢查一下，再按「儲存這個月的交易量」。` }), el("div", { class: "field" }, ta), out),
     actions: [el("button", { class: "btn", type: "button", text: "取消", onclick: () => m.close() }), apply],
   });
   let done = false;
@@ -267,6 +291,6 @@ $("#volPaste").addEventListener("click", () => {
       return;
     }
     m.close();
-    A.toast(`已填進 ${filled} 位，檢查後按儲存`);
+    A.toast(`已填進 ${filled} 位，檢查後按「儲存這個月的交易量」`);
   });
 });
