@@ -1,4 +1,5 @@
 // 右上角帳號選單：課程、筆記、提問、寄信通知、使用教學、更新紀錄、修改密碼、登出
+import { openThemePicker } from "./badges.js";
 import { $, el, api, sb, icon, modal, setBusy, toast, tutorial, whatsNew } from "../core/index.js";
 import { state } from "./state.js";
 
@@ -19,6 +20,7 @@ export function renderMenu() {
       ? el("button", { type: "button", role: "menuitemcheckbox", "aria-checked": String(!!me.notify), onclick: toggleNotify },
           icon("mail"), el("span", { style: { flex: "1" }, text: "新影片寄信通知" }), el("span", { class: "menu-state" + (me.notify ? " on" : ""), text: me.notify ? "開" : "關" }))
       : null,
+    el("button", { type: "button", role: "menuitem", onclick: () => { toggleMenu(false); openThemePicker(); } }, icon("image"), "外觀主題"),
     el("button", { type: "button", role: "menuitem", onclick: () => { toggleMenu(false); tutorial(); } }, icon("play"), "使用教學"),
     me?.isAdmin ? el("button", { type: "button", role: "menuitem", onclick: () => { toggleMenu(false); tutorial("admin"); } }, icon("play"), "管理員使用教學") : null,
     el("button", { type: "button", role: "menuitem", onclick: () => { toggleMenu(false); whatsNew({ all: true }); } }, icon("news"), "更新紀錄"),

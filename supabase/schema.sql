@@ -439,3 +439,14 @@ create table if not exists public.milestones (
   primary key (user_id, period_start, level)
 );
 alter table public.milestones enable row level security;
+
+-- ── v1.19.0：徽章、外觀主題 ──
+create table if not exists public.badges (
+  user_id   uuid not null references public.members(user_id) on delete cascade,
+  badge     text not null check (char_length(badge) <= 40),   -- id 在 shared/rules.js 的 BADGES
+  earned_at timestamptz not null default now(),
+  seen      boolean not null default false,                   -- 研究員在網站上看過恭喜了
+  primary key (user_id, badge)
+);
+alter table public.badges enable row level security;
+alter table public.members add column if not exists theme text check (theme is null or char_length(theme) <= 20); -- id 在 shared/rules.js 的 THEMES

@@ -10,6 +10,7 @@ import { state, SITE } from "./state.js";
 import { show, showBlocked, showUnavailable, leavePage } from "./views.js";
 import { showAuth, initAuth } from "./auth.js";
 import { renderMenu } from "./menu.js";
+import { loadBadges, syncThemeFromAccount } from "./badges.js";
 import { renderAccessBanner, renderVolPanel, promptUidIfMissing, celebrateMilestone } from "./account.js";
 import { renderLivePanel } from "./live.js";
 import { openList } from "./list.js";
@@ -61,6 +62,8 @@ async function enterApp() {
   if (firstVisit && !me.isAdmin && !store.get("tutorialOffered", false)) offerTutorial();
   promptUidIfMissing();
   celebrateMilestone();
+  syncThemeFromAccount();
+  loadBadges();
   if (!routerOn) {
     routerOn = true;
     window.addEventListener("hashchange", route);

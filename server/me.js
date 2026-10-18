@@ -1,7 +1,9 @@
 // GET   /api/me            目前登入者的身分、觀看資格到期日、通知設定、下一場直播
 // PATCH /api/me { notify }  研究員自己開關「新影片寄信通知」
 // PATCH /api/me { milestoneSeen: true }  看過里程碑恭喜了（不再跳）
-import { supabaseAdmin, adminRole, unseenMilestone, markMilestonesSeen, requireMember, readBody, route, nextLive, needsName, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, getThreshold, isQualified, periodFor, nextPeriod, anchorOf } from "./lib/index.js";
+// PATCH /api/me { theme }  換外觀主題（要拿到對應徽章的主題會檢查）
+import { themeUnlocked } from "../public/assets/js/shared/rules.js";
+import { supabaseAdmin, adminRole, unseenMilestone, markMilestonesSeen, earnedIds, requireMember, readBody, route, nextLive, needsName, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, getThreshold, isQualified, periodFor, nextPeriod, anchorOf } from "./lib/index.js";
 
 export default route({
   async GET(req, res) {
@@ -51,6 +53,7 @@ export default route({
       adminRole: role,
       accessUntil: ctx.member?.access_until || null,
       free: !!ctx.member?.free, // 贈送名額：不用綁交易所、沒有交易量門檻
+      theme: ctx.member?.theme || null, // 外觀主題（存在帳號裡，換電腦也一樣）
       notify: ctx.member ? ctx.member.notify !== false : null,
       volume,
       links,
@@ -66,6 +69,13 @@ export default route({
     if (b.milestoneSeen === true) {
       await markMilestonesSeen(ctx.user.id);
       return res.status(200).json({ ok: true });
+    }
+    if (b.theme !== undefined) {
+      const theme = String(b.theme || "");
+      if (!themeUnlocked(theme, await earnedIds(ctx.user.id))) return res.status(400).json({ error: "這個主題還沒解鎖", code: "locked" });
+      const { error } = await supabaseAdmin.from("members").update({ theme }).eq("user_id", ctx.user.id);
+      if (error) throw error;
+      return res.status(200).json({ ok: true, theme });
     }
     if (typeof b.notify !== "boolean") return res.status(400).json({ error: "資料不正確" });
     const { error } = await supabaseAdmin.from("members").update({ notify: b.notify }).eq("user_id", ctx.user.id);
