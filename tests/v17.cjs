@@ -63,11 +63,11 @@ const errs = [];
   check("處理好了會移除", !(await p.textContent("#hlBox")).includes("播放失敗"));
   // 待跟進
   await p.click(".nav a[data-view=followup]"); await p.waitForSelector("#fuBox table"); await p.waitForTimeout(300);
-  check("待跟進列出研究員和原因", (await p.locator("#fuBox tbody tr").count()) >= 1 && (await p.textContent("#fuBox")).includes("到期"));
+  check("待跟進列出研究員和原因", (await p.locator("#fuBox tbody tr").count()) >= 1 && (await p.textContent("#fuBox")).includes("降到"));
   check("待跟進有篩選", (await p.locator("#fuFilter .chip").count()) >= 2);
   await p.screenshot({ path: "output/shots/v17-admin-followup.png", fullPage: true });
-  await p.click("#fuBox tbody tr >> nth=0 >> .btn:has-text('資格')"); await p.waitForTimeout(300);
-  check("待跟進可以直接改資格", await p.isVisible(".modal:has-text('觀看資格')"));
+  await p.click("#fuBox tbody tr >> nth=0 >> .btn:has-text('等級')"); await p.waitForTimeout(300);
+  check("待跟進可以直接改等級", await p.isVisible(".modal:has-text('手動給')"));
   await p.keyboard.press("Escape");
   // 觀看分段
   await p.click(".nav a[data-view=stats]"); await p.waitForSelector("#statsBox table"); await p.waitForTimeout(300);

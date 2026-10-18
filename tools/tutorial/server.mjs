@@ -3,7 +3,7 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { EXCHANGES, AUTO_EXCHANGES, goalOf, periodOf, nextPeriod, prevPeriod, needsName, cleanExId, cleanAccountName } from "../../public/assets/js/shared/rules.js";
+import { EXCHANGES, AUTO_EXCHANGES, tierOf, periodOf, nextPeriod, prevPeriod, needsName, cleanExId, cleanAccountName } from "../../public/assets/js/shared/rules.js";
 
 const PORT = Number(process.env.PORT || 4321);
 const HERE = path.dirname(new URL(import.meta.url).pathname);
@@ -107,7 +107,7 @@ for (const [n, ex, id, name] of [[2, "Bybit", "594320471"], [3, "OKX", "70104561
 const linkOf = (id) => Object.fromEntries(Object.entries(links.get(id) || {}).map(([ex, l]) => [ex, l.name ? `${l.uid}・${l.name}` : l.uid]));
 const monthNow = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 7);
 const monthEnd = (m) => { const [y, mo] = m.split("-").map(Number); return new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10); };
-const qualified = (a) => EX.some((e) => Number(a?.[e] || 0) >= goalOf(e, threshold));
+const qualified = (a) => tierOf(a) >= 2; // 三級制度：第二級才看得到網站（示範用）
 const TODAY = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
 const addDays = (date, n) => { const x = new Date(date + "T00:00:00Z"); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
 const cycleEnd = (date) => { const [y, m, dd] = date.split("-").map(Number); const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate(); return addDays(new Date(Date.UTC(y, m, Math.min(dd, last))).toISOString().slice(0, 10), -1); };

@@ -18,7 +18,7 @@
 
 ```
 public/            網頁：index.html（研究員）、admin.html（後台）、changelog.json（更新公告）、tutorial/（使用教學影片）
-  assets/js/       程式：core/（共用）、member/（研究員頁）、admin/（後台）、shared/rules.js（資格、交易量、課程規則）
+  assets/js/       程式：core/（共用）、member/（研究員頁）、admin/（後台）、shared/rules.js（三級制度、交易量、課程規則）
   assets/css/      樣式（app.css 依序載入）
 functions/api/     Cloudflare Pages Functions 的入口，把 /api/* 交給 server/
 server/            API 的實際程式（admin/ 是後台用的，lib/ 是共用工具）
@@ -34,7 +34,7 @@ PRODUCT.md         產品定位、使用者、確認過的規則
 ## 文件
 
 - [部署與設定](docs/部署與設定.md)：Supabase、R2、Cloudflare、寄信、加管理員
-- [功能說明](docs/功能說明.md)：研究員和後台的功能、交易量資格、教學課程的規則
+- [功能說明](docs/功能說明.md)：研究員和後台的功能、三級制度、教學課程的規則
 - [發布流程](docs/發布流程.md)：改版、寫更新公告、測試、上線
 - [開發指南](docs/開發指南.md)：本機開發、測試、程式架構、寫法慣例
 
