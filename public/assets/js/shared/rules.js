@@ -70,7 +70,7 @@ export const unitOf = (ex) => (isLots(ex) ? "手" : "USDT");
 // 新研究員的第一輪先給第一級；管理員可以手動給「至少第幾級到哪天」（members.min_tier、min_tier_until）
 // 贈送名額不分級：網站內容照第二級開，但不顯示等級、不升降級、不收升級通知
 export const TIERS = [
-  { tier: 1, usdt: 10000, lots: 0.1, perks: ["Discord 研究員身分組", "會員直播（不提供留檔）", "教學課程三位講師的第 1 份"] },
+  { tier: 1, usdt: 10000, lots: 0.01, perks: ["Discord 研究員身分組", "會員直播（不提供留檔）", "教學課程三位講師的第 1 份"] },
   { tier: 2, usdt: 200000, lots: 2, perks: ["全部交易系統分享影音（之後的更新）", "直播留檔", "研究員專屬網站"] },
   { tier: 3, usdt: 1500000, lots: 15, perks: ["教學課程全部直接解鎖，不用等排程", "每個月一次一對一交流（CCC、OC、X 三選一）"] },
 ];
