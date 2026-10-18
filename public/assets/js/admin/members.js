@@ -1,7 +1,7 @@
 // 研究員：列表、搜尋、觀看資格、停權、重設密碼
 import * as A from "../core/index.js";
 const { el, $, api, icon } = A;
-import { idLabel, tierName, TIERS, SITE_TIER } from "../shared/rules.js";
+import { idLabel, tierName, TIERS, SITE_TIER, EXCHANGES } from "../shared/rules.js";
 import { fail, loadingBox, segTabs, noteLine } from "./common.js";
 import { state } from "./state.js";
 import { canManageMembers } from "../shared/roles.js";
@@ -9,6 +9,14 @@ import { canManageMembers } from "../shared/roles.js";
 let members = [];
 let memberQuery = "";
 let memberTab = "active"; // active 正常 | banned 已停權（分開放，不混在一起）
+let memberEx = "all"; // 依交易所分類：all 全部 | OKX、UM、Bybit、BingX | free 贈送名額 | none 還沒填 UID
+try { memberEx = localStorage.getItem("adminMemberEx") || "all"; } catch {}
+// 這位研究員屬於哪幾類（填了好幾間交易所的，每一間都會出現）
+const exGroupsOf = (m) => {
+  if (m.free) return ["free"];
+  const exs = EXCHANGES.filter((ex) => m.uids?.[ex]);
+  return exs.length ? exs : ["none"];
+};
 
 // 其他頁改了研究員資料（例如交易量延長資格），下次進「研究員」重新抓
 export function markMembersStale() {
@@ -39,10 +47,21 @@ function renderMembers() {
   const active = members.filter((m) => !m.banned).length;
   $("#memberSub").textContent = members.length ? `共 ${members.length} 位，${active} 位可觀看` : "用實驗室密碼加入的研究員";
   const hit = members.filter((m) => !memberQuery || `${m.email} ${m.invite_code || ""} ${Object.values(m.uids || {}).join(" ")} ${Object.values(m.account_names || {}).join(" ")} ${m.discord || ""} ${m.note || ""}`.toLowerCase().includes(memberQuery));
-  const groups = { active: hit.filter((m) => !m.banned), banned: hit.filter((m) => m.banned) };
+  // 依交易所分類（數字算目前搜尋到、這個分組裡的人）
+  const inTab = (m) => (memberTab === "banned" ? m.banned : !m.banned);
+  const exOptions = [
+    { key: "all", label: "全部" },
+    ...EXCHANGES.map((ex) => ({ key: ex, label: ex })),
+    { key: "free", label: "贈送名額" },
+    { key: "none", label: "還沒填 UID" },
+  ].map((o) => ({ ...o, count: hit.filter((m) => inTab(m) && (o.key === "all" || exGroupsOf(m).includes(o.key))).length }))
+    .filter((o) => o.key === "all" || o.key === memberEx || o.count || EXCHANGES.includes(o.key));
+  const byEx = (m) => memberEx === "all" || exGroupsOf(m).includes(memberEx);
+  const groups = { active: hit.filter((m) => !m.banned && byEx(m)), banned: hit.filter((m) => m.banned && byEx(m)) };
   // 停權的都恢復了，就回到「正常」
   if (memberTab === "banned" && !members.some((m) => m.banned)) memberTab = "active";
   const list = groups[memberTab];
+  const exTabs = segTabs(exOptions, memberEx, (k) => { memberEx = k; try { localStorage.setItem("adminMemberEx", k); } catch {} renderMembers(); }, "依交易所分類");
   const box = $("#memberTableBox");
   if (!members.length) {
     box.replaceChildren(el("div", { class: "empty" }, el("h2", { text: "還沒有研究員" }), el("p", { class: "small", style: { marginTop: "6px" }, text: "到「實驗室密碼」產生一組，把註冊連結傳出去。" })));
@@ -53,11 +72,11 @@ function renderMembers() {
     : null;
   if (!list.length) {
     const other = memberTab === "active" ? groups.banned.length : groups.active.length;
-    box.replaceChildren(...[tabs, el("div", { class: "empty" }, el("p", { text: memberQuery ? `這一組沒有符合的研究員${other ? `（「${memberTab === "active" ? "已停權" : "正常"}」有 ${other} 位）` : ""}` : "這一組沒有研究員" }))].filter(Boolean));
+    box.replaceChildren(...[tabs, exTabs, el("div", { class: "empty" }, el("p", { text: memberQuery ? `這一組沒有符合的研究員${other ? `（「${memberTab === "active" ? "已停權" : "正常"}」有 ${other} 位）` : ""}` : "這一組沒有研究員" }))].filter(Boolean));
     return;
   }
   box.replaceChildren(
-    ...[tabs].filter(Boolean),
+    ...[tabs, exTabs].filter(Boolean),
     el("div", { class: "table-wrap" },
       el("table", { class: "table stack" },
         el("thead", null, el("tr", null, el("th", { text: "Email" }), el("th", { class: "hide-sm", text: "加入" }), el("th", { text: "最近登入" }), el("th", { class: "hide-sm", text: "看過" }), el("th", { text: "等級" }), el("th", { text: "狀態" }), el("th", null, el("span", { class: "sr-only", text: "操作" })))),

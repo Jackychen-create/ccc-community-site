@@ -251,6 +251,23 @@ async function login(page, email) {
   await page.waitForSelector("#memberTableBox table");
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${OUT}/17-admin-members.png`, fullPage: true });
+  // 依交易所分類
+  check("研究員可以依交易所分類", (await page.locator("#memberTableBox [aria-label='依交易所分類'] .vol-seg-btn").count()) >= 5);
+  for (const key of ["OKX", "UM", "Bybit", "BingX", "none"]) {
+    const btn = page.locator(`#memberTableBox [aria-label='依交易所分類'] .vol-seg-btn[data-tab='${key}']`);
+    if (!(await btn.count())) continue;
+    const n = Number((await btn.locator(".seg-n").textContent()).trim());
+    await btn.click(); await page.waitForTimeout(150);
+    const rows = page.locator("#memberTableBox tbody tr");
+    const shown = await rows.count();
+    let ok = shown === n || (n === 0 && shown === 0);
+    for (let i = 0; i < shown; i++) {
+      const uids = await rows.nth(i).locator(".mem-uid b").allTextContents();
+      if (key === "none" ? uids.length : !uids.includes(key)) ok = false;
+    }
+    check(`分類「${key}」只列出那一類（${n} 位）`, ok, `shown ${shown}`);
+  }
+  await page.click("#memberTableBox [aria-label='依交易所分類'] .vol-seg-btn[data-tab='all']"); await page.waitForTimeout(150);
   await page.click("#memberTableBox tbody tr:has-text('amy@example.com') .btn:has-text('重設密碼')");
   await page.click(".modal-foot .btn.primary");
   await page.waitForSelector(".modal:has-text('Tq8mWz3kPa7c')");
