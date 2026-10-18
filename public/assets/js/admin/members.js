@@ -110,6 +110,8 @@ export function editAccess(m, onDone) {
   let pick = m.min_tier || 0;
   const date = el("input", { class: "input", type: "date", value: m.min_tier_until || "" });
   const note = el("input", { class: "input", type: "text", maxlength: "200", placeholder: "例如：合作夥伴、先試用一個月", value: m.note || "" });
+  const joined = m.created_at ? new Date(new Date(m.created_at).getTime() + 8 * 3600e3).toISOString().slice(0, 10) : "";
+  const from = el("input", { class: "input", type: "date", value: m.volume_from || "", max: joined, "aria-label": "第一輪交易量從哪天算" });
   const chips = el("div", { class: "chips", role: "group", "aria-label": "至少第幾級" });
   const draw = () => chips.replaceChildren(
     el("button", { class: "chip", type: "button", "aria-pressed": String(!pick), text: "不手動給（照交易量）", onclick: () => { pick = 0; draw(); } }),
@@ -124,6 +126,8 @@ export function editAccess(m, onDone) {
       el("div", { class: "field" }, el("span", { class: "label", text: "手動給：至少第幾級" }), chips),
       el("label", { class: "field" }, el("span", { class: "label", text: "到哪一天（含當天，空白＝不限）" }), date),
       el("p", { class: "hint", text: "交易量達到更高的等級時會照交易量；過了這天就完全照交易量。" }),
+      el("label", { class: "field" }, el("span", { class: "label", text: "第一輪交易量從哪天算（空白＝加入網站那天）" }), from),
+      el("p", { class: "hint", text: "社群裡本來就有、網站才剛註冊的人用：加入前的量也算進第一輪，最多往前 60 天。存好會馬上重新同步 Bybit、BingX。" }),
       el("label", { class: "field" }, el("span", { class: "label", text: "備註（只有管理員看得到）" }), note),
       err),
     actions: [el("button", { class: "btn", type: "button", text: "取消", onclick: () => mm.close() }), save],
@@ -132,6 +136,7 @@ export function editAccess(m, onDone) {
     A.setBusy(save, true, "儲存中…");
     try {
       const body = { userId: m.user_id, action: "access", note: note.value, minTier: pick || null, minTierUntil: pick ? date.value || null : null };
+      if ((from.value || null) !== (m.volume_from || null)) body.volumeFrom = from.value || null;
       await api("/api/admin/members", { method: "PATCH", body });
       membersLoaded = false;
       mm.close();

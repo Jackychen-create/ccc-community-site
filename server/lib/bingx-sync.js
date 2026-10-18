@@ -3,7 +3,7 @@
 // 觸發：見 autosync.js
 import { supabaseAdmin } from "./env.js";
 import { todayTW } from "./dates.js";
-import { saveVolumes, syncPeriods } from "./volume.js";
+import { saveVolumes, syncPeriods, countFrom } from "./volume.js";
 import { goalFor, SITE_TIER } from "../../public/assets/js/shared/rules.js";
 import { fetchDaily, dayChunks, summarize, commissionDay, bingxTimeFormat } from "./bingx.js";
 
@@ -16,7 +16,7 @@ export async function linkedMembers(exchange, uid) {
   const { data: links, error } = await q;
   if (error) throw error;
   if (!links?.length) return [];
-  const { data: mem, error: e2 } = await supabaseAdmin.from("members").select("user_id, created_at").in("user_id", links.map((l) => l.user_id));
+  const { data: mem, error: e2 } = await supabaseAdmin.from("members").select("user_id, created_at, volume_from").in("user_id", links.map((l) => l.user_id));
   if (e2) throw e2;
   const by = new Map((mem || []).map((m) => [m.user_id, m]));
   return links.filter((l) => by.has(l.user_id)).map((l) => ({ ...l, member: by.get(l.user_id) }));
@@ -27,12 +27,12 @@ export async function syncBingx({ uid } = {}) {
   const result = { users: links.length, saved: 0, tierUps: 0 };
   if (!links.length) return result;
   const today = todayTW();
-  const plans = links.flatMap((l) => syncPeriods(l.member, today).map((p) => ({ l, p, to: p.end < today ? p.end : today })));
-  const from = plans.reduce((a, x) => (x.p.start < a ? x.p.start : a), today);
+  const plans = links.flatMap((l) => syncPeriods(l.member, today).map((p) => ({ l, p, from: countFrom(l.member, p), to: p.end < today ? p.end : today })));
+  const from = plans.reduce((a, x) => (x.from < a ? x.from : a), today);
   const list = [];
   for (const [a, b] of dayChunks(from, today, 30)) list.push(...(await fetchDaily(a, b, uid)));
-  const entries = plans.map(({ l, p, to }) => {
-    const rows = list.filter((r) => String(r.uid) === String(l.exchange_uid)).filter((r) => { const d = commissionDay(r.commissionTime); return d && d >= p.start && d <= to; });
+  const entries = plans.map(({ l, p, from: f, to }) => {
+    const rows = list.filter((r) => String(r.uid) === String(l.exchange_uid)).filter((r) => { const d = commissionDay(r.commissionTime); return d && d >= f && d <= to; });
     const s = summarize(rows, goalFor("BingX", SITE_TIER)).get(String(l.exchange_uid)) || { total: 0, qualifiedOn: null };
     return { user_id: l.user_id, period: p, amounts: { BingX: s.total }, qualifiedOn: s.qualifiedOn || today };
   });
@@ -50,9 +50,9 @@ export function diagnose(list, links, plans, from, today) {
     const mine = list.filter((r) => String(r.uid) === uid);
     const md = mine.map((r) => commissionDay(r.commissionTime)).filter(Boolean).sort();
     const sum = (rs) => Math.round(rs.reduce((a, r) => a + (Number(r.tradingVolume) || 0), 0) * 100) / 100;
-    const ps = plans.filter((x) => x.l === l).map((x) => x.p);
-    const inPeriod = mine.filter((r) => { const d = commissionDay(r.commissionTime); return d && ps.some((p) => d >= p.start && d <= today); });
-    perUid[uid] = { rows: mine.length, total: sum(mine), inPeriod: sum(inPeriod), first: md[0] || null, last: md.at(-1) || null, periodStart: ps.map((p) => p.start).sort()[0] || null };
+    const ps = plans.filter((x) => x.l === l);
+    const inPeriod = mine.filter((r) => { const d = commissionDay(r.commissionTime); return d && ps.some((x) => d >= x.from && d <= today); });
+    perUid[uid] = { rows: mine.length, total: sum(mine), inPeriod: sum(inPeriod), first: md[0] || null, last: md.at(-1) || null, periodStart: ps.map((x) => x.from).sort()[0] || null };
   }
   return {
     range: [from, today], format: bingxTimeFormat(), fetched: list.length,

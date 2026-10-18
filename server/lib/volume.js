@@ -25,6 +25,13 @@ export function periodFor(m, which = "current", today = todayTW()) {
   return which === "previous" ? prevPeriod(anchorOf(m), cur) : cur;
 }
 
+// 這一輪的交易量從哪天開始算：平常是這一輪第一天；
+// 第一輪如果管理員設了 volume_from（社群舊成員、網站才剛註冊），就從那天開始，加入網站前的量也算進第一輪
+export function countFrom(m, p) {
+  const f = m?.volume_from;
+  return f && p.start === anchorOf(m) && f < p.start ? f : p.start;
+}
+
 // 要同步的輪：這一輪；上一輪剛結束 3 天內也再同步一次（Bybit 隔天才更新，補上最後一兩天）
 export function syncPeriods(m, today = todayTW()) {
   const cur = periodFor(m, "current", today);

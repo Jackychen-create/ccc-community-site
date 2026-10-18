@@ -3,7 +3,8 @@
 // PATCH /api/admin/members  { userId, action: "ban" | "unban" | "reset" }
 //                            { userId, action: "access", minTier: 1|2|3|null, minTierUntil: "2026-10-31" | null, note }
 //                              管理員手動給「至少第幾級到哪天」（空白＝不限；minTier null＝清掉，照交易量）
-import { supabaseAdmin, requireAdmin, readBody, randomPassword, cleanText, isDate, route, tiersFor } from "../lib/index.js";
+//                            volumeFrom: "2026-10-13" | null  第一輪交易量從哪天算（社群舊成員，網站才剛註冊）
+import { supabaseAdmin, requireAdmin, readBody, randomPassword, cleanText, isDate, route, tiersFor, twDate, addDays, PROVIDERS } from "../lib/index.js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const FOREVER = "876000h"; // 約 100 年
@@ -14,7 +15,7 @@ export default route({
 
     const { data: members, error } = await supabaseAdmin
       .from("members")
-      .select("user_id, email, invite_code, banned, created_at, min_tier, min_tier_until, note, notify, free")
+      .select("user_id, email, invite_code, banned, created_at, min_tier, min_tier_until, volume_from, note, notify, free")
       .order("created_at", { ascending: false });
     if (error) throw error;
 
@@ -109,9 +110,28 @@ export default route({
         }
       }
       if (b.note !== undefined) patch.note = cleanText(b.note, 200) || null;
+      // 第一輪交易量從哪天算（社群舊成員）：加入那天以前、最多往前 60 天；null＝清掉
+      if (b.volumeFrom !== undefined) {
+        if (b.volumeFrom === null) patch.volume_from = null;
+        else {
+          if (!isDate(b.volumeFrom)) return res.status(400).json({ error: "日期格式不正確" });
+          const { data: mem } = await supabaseAdmin.from("members").select("created_at").eq("user_id", userId).maybeSingle();
+          const joined = mem ? twDate(mem.created_at) : null;
+          if (!joined || b.volumeFrom >= joined) return res.status(400).json({ error: "要早於加入網站那天" });
+          if (b.volumeFrom < addDays(joined, -60)) return res.status(400).json({ error: "最多只能往前 60 天" });
+          patch.volume_from = b.volumeFrom;
+        }
+      }
       if (!Object.keys(patch).length) return res.status(400).json({ error: "沒有要修改的內容" });
       const { error: upError } = await supabaseAdmin.from("members").update(patch).eq("user_id", userId);
       if (upError) throw upError;
+      // 改了起算日：馬上幫他重新同步自動交易所（失敗不影響儲存，排程會再同步）
+      if (b.volumeFrom !== undefined) {
+        try {
+          const { data: links } = await supabaseAdmin.from("exchange_links").select("exchange, exchange_uid").eq("user_id", userId);
+          for (const l of links || []) if (PROVIDERS[l.exchange]?.configured()) await PROVIDERS[l.exchange].sync({ uid: l.exchange_uid });
+        } catch (e) { console.error("resync failed", e?.message); }
+      }
       return res.status(200).json({ ok: true });
     }
 

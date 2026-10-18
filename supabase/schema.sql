@@ -491,3 +491,6 @@ create table if not exists public.quest_weeks (
   primary key (user_id, week)
 );
 alter table public.quest_weeks enable row level security;
+
+-- ── v1.20.1：第一輪交易量從哪天算（社群舊成員、網站才剛註冊；空白＝加入那天，規則在 server/lib/volume.js 的 countFrom）──
+alter table public.members add column if not exists volume_from date;

@@ -91,7 +91,8 @@ const errs = [];
   await login(p, "amy@example.com"); await p.waitForSelector(".vrow"); await p.waitForTimeout(400);
   check("有新回覆時選單亮點", await p.evaluate(() => document.querySelector("#menuBtn").classList.contains("has-dot")));
   for (let i = 0; i < 5 && (await p.locator(".modal-back, .lvl-back").count()); i++) { await p.keyboard.press("Escape"); await p.waitForTimeout(300); }
-  await p.click("#menuBtn"); await p.click("#menuPanel a[href='#/feedback']");
+  await p.click("#menuBtn"); await p.waitForSelector("#menuPanel a[href='#/feedback']", { state: "visible" });
+  await p.evaluate(() => document.querySelector("#menuPanel a[href='#/feedback']").click()); // 選單有動畫，直接點連結
   await p.waitForSelector("#feedbackView:not([hidden]) .fb"); await p.waitForTimeout(300);
   const fbt = await p.textContent("#feedbackList");
   check("我的提問看得到回覆", fbt.includes("結構點") && fbt.includes("新回覆"));
