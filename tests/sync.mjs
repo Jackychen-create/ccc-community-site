@@ -10,6 +10,13 @@ import followup from "../server/admin/followup.js";
 import adminVolumes from "../server/admin/volumes.js";
 import me from "../server/me.js";
 import { milestoneText } from "../server/lib/milestone.js";
+import { memberTier } from "../server/lib/tier.js";
+import course from "../server/course.js";
+import videosApi from "../server/videos.js";
+import oneonone from "../server/oneonone.js";
+import adminOneonone from "../server/admin/oneonone.js";
+import questsApi from "../server/quests.js";
+import { thisMonthTW } from "../server/lib/dates.js";
 
 let pass = 0, fail = 0;
 async function test(name, fn) {
@@ -19,7 +26,7 @@ const listen = (srv) => new Promise((r) => srv.listen(0, "127.0.0.1", () => r(`h
 const readJson = (req) => new Promise((r) => { let b = ""; req.on("data", (c) => (b += c)); req.on("end", () => { try { r(b ? JSON.parse(b) : null); } catch { r(null); } }); });
 
 // ── 假的 Supabase（PostgREST）──
-const db = { members: [], exchange_links: [], volumes: [], milestones: [], discord_applications: [], videos: [], feedback: [], watch_progress: [], settings: [{ key: "volume_threshold", value: 1000000 }] };
+const db = { members: [], exchange_links: [], volumes: [], milestones: [], one_on_ones: [], checkins: [], quest_weeks: [], notes: [], discord_applications: [], videos: [], feedback: [], watch_progress: [], settings: [{ key: "volume_threshold", value: 1000000 }] };
 const tokens = { "tok-admin": { id: "admin-1", email: "boss@gmail.com", email_confirmed_at: "2026-01-01T00:00:00Z" } };
 const writes = [];
 function parseFilters(sp) {
@@ -35,6 +42,8 @@ const match = (row, fs) => fs.every(({ col, op, val }) => {
   if (op === "in") return val.replace(/^\(|\)$/g, "").split(",").map((s) => s.replace(/^"|"$/g, "")).includes(x);
   if (op === "gte") return x !== null && x >= val;
   if (op === "lte") return x !== null && x <= val;
+  if (op === "not") return val === "is.null" ? x !== null : true;
+  if (op === "is") return val === "null" ? x === null : true;
   return true;
 });
 const supa = http.createServer(async (req, res) => {
@@ -46,7 +55,7 @@ const supa = http.createServer(async (req, res) => {
   }
   if (u.pathname.startsWith("/rest/v1/rpc/")) { res.writeHead(200, { "Content-Type": "application/json" }); return res.end("[]"); }
   const table = u.pathname.split("/").pop();
-  if (req.method === "HEAD") { res.writeHead(200, { "Content-Range": "0-0/0" }); return res.end(); }
+  if (req.method === "HEAD") { const n = (db[table] || []).filter((r) => match(r, parseFilters(u.searchParams))).length; res.writeHead(200, { "Content-Range": `0-${Math.max(0, n - 1)}/${n}` }); return res.end(); }
   const rows = db[table];
   const one = /vnd\.pgrst\.object/.test(req.headers.accept || "");
   const send = (data, status = 200) => { res.writeHead(status, { "Content-Type": "application/json" }); res.end(JSON.stringify(one ? data[0] ?? null : data)); };
@@ -109,13 +118,14 @@ if (!globalThis.WebSocket) globalThis.WebSocket = class {};
 const today = todayTW();
 // 台灣某天中午的時間戳記
 const at = (d) => Date.parse(d + "T04:00:00Z");
-const member = (id, joined, access) => ({ user_id: id, email: `${id}@example.com`, banned: false, note: null, notify: true, created_at: new Date(at(joined)).toISOString(), access_until: access });
+const member = (id, joined, extra = {}) => ({ user_id: id, email: `${id}@example.com`, banned: false, note: null, notify: true, created_at: new Date(at(joined)).toISOString(), min_tier: null, min_tier_until: null, ...extra });
 const vol = (id) => db.volumes.filter((v) => v.user_id === id);
+const tierNow = (id) => memberTier(db.members.find((m) => m.user_id === id));
 
-// A：5 天前加入，BingX 第 3 天累計超過 100 萬 → 達標日是那天，看到下一輪結束
+// A：5 天前加入，BingX 第 1 天累計就超過 20 萬（第二級）→ 記那天，這一輪和下一輪都是第二級
 const aJoin = addDays(today, -5);
 const aP = periodOf(aJoin, today);
-db.members.push(member("u-a", aJoin, aP.end));
+db.members.push(member("u-a", aJoin));
 db.exchange_links.push({ user_id: "u-a", exchange: "BingX", exchange_uid: "88880001" });
 bingxRows = [
   { uid: 88880001, commissionTime: at(addDays(aJoin, -1)), tradingVolume: "900000" }, // 加入前的不算
@@ -124,71 +134,76 @@ bingxRows = [
   { uid: 88880001, commissionTime: at(addDays(aJoin, 3)), tradingVolume: "350000" },
   { uid: 99990000, commissionTime: at(addDays(aJoin, 1)), tradingVolume: "5000000" }, // 別人的不算
 ];
-await test("BingX：只算這一輪、這個人的交易量，累計第一次過門檻那天是達標日", async () => {
+await test("BingX：只算這一輪、這個人的交易量，累計第一次到第二級那天記下來", async () => {
   const r = await syncBingx();
   assert.equal(r.saved, 1);
   const [v] = vol("u-a");
   assert.equal(v.period_start, aJoin);
   assert.equal(v.period_end, aP.end);
   assert.equal(v.amounts.BingX, 1050000);
-  assert.equal(v.qualified_at, addDays(aJoin, 3));
+  assert.equal(v.qualified_at, addDays(aJoin, 1));
 });
-await test("BingX：達標就延長到下一輪結束", () => assert.equal(db.members.find((m) => m.user_id === "u-a").access_until, nextPeriod(aJoin, aP).end));
-await test("再同步一次，數字沒變就不重寫、不再延", async () => {
+await test("BingX：105 萬是第二級，撐到下一輪結束", async () => {
+  const t = await tierNow("u-a");
+  assert.deepEqual([t.tier, t.cycleTier, t.until], [2, 2, nextPeriod(aJoin, aP).end]);
+});
+await test("再同步一次，數字沒變就不重寫、不再通知", async () => {
   const before = writes.length;
   const r = await syncBingx();
-  assert.equal(r.saved, 0); assert.equal(r.extended, 0);
+  assert.equal(r.saved, 0); assert.equal(r.tierUps, 0);
   assert.equal(writes.length, before);
 });
 
-// B：3 天前加入，Bybit 1.5M → 達標日記昨天
+// B：3 天前加入，Bybit 150 萬 → 第三級，記昨天
 const bJoin = addDays(today, -3);
 const bP = periodOf(bJoin, today);
-db.members.push(member("u-b", bJoin, bP.end));
+db.members.push(member("u-b", bJoin));
 db.exchange_links.push({ user_id: "u-b", exchange: "Bybit", exchange_uid: "77770001" });
-// C：今天才加入，Bybit 還沒有資料 → 不寫
-db.members.push(member("u-c", today, periodOf(today, today).end));
+// C：今天才加入，Bybit 還沒有資料 → 不寫，第一輪先是第一級
+db.members.push(member("u-c", today));
 db.exchange_links.push({ user_id: "u-c", exchange: "Bybit", exchange_uid: "77770002" });
-// D：一個月又 1 天前加入，上一輪（剛結束）達標 → 延長到這一輪結束；這一輪還沒達標
-// 找一個加入日，讓「這一輪」昨天才開始（上一輪前天結束）
+// D：上一輪（前天結束）Bybit 200 萬 → 這一輪第三級；這一輪只有 10 → 下一輪沒有等級
 const dJoinFixed = (() => { let j = addDays(today, -27); for (let i = 0; i < 10; i++, j = addDays(j, -1)) { const p = periodOf(j, today); if (p.index === 1 && p.start === addDays(today, -1)) return j; } throw new Error("找不到測試用的加入日"); })();
 const dCur = periodOf(dJoinFixed, today);
-db.members.push(member("u-d", dJoinFixed, addDays(today, -2)));
+db.members.push(member("u-d", dJoinFixed));
 db.exchange_links.push({ user_id: "u-d", exchange: "Bybit", exchange_uid: "77770003" });
 bybitVol = {
   "77770001": (s, e) => (s === bJoin ? 1500000 : 0),
   "77770002": () => 9999999,
   "77770003": (s, e) => (s === dJoinFixed ? 2000000 : 10),
 };
-await test("Bybit：查這一輪第一天到昨天，達標日記昨天、延長到下一輪結束", async () => {
+await test("Bybit：查這一輪第一天到昨天；150 萬是第三級", async () => {
   await syncBybit();
   const [v] = vol("u-b");
   assert.equal(v.amounts.Bybit, 1500000);
   assert.equal(v.qualified_at, addDays(today, -1));
-  assert.equal(db.members.find((m) => m.user_id === "u-b").access_until, nextPeriod(bJoin, bP).end);
+  assert.equal((await tierNow("u-b")).tier, 3);
   assert.ok(bybitQueries.includes(`${bJoin}:${addDays(today, -1)}`), bybitQueries.join(","));
 });
-await test("Bybit：今天才加入的人，還沒有資料就不寫", () => assert.equal(vol("u-c").length, 0));
-await test("上一輪剛結束：補同步上一輪，達標就延長到這一輪結束（已經過期的也會恢復）", () => {
+await test("Bybit：今天才加入的人，還沒有資料就不寫；第一輪先是第一級", async () => {
+  assert.equal(vol("u-c").length, 0);
+  const t = await tierNow("u-c");
+  assert.deepEqual([t.tier, t.cycleTier], [1, 0]);
+});
+await test("上一輪剛結束：補同步上一輪，上一輪第三級 → 這一輪是第三級到這一輪結束", async () => {
   const prev = vol("u-d").find((v) => v.period_start === dJoinFixed);
   assert.ok(prev, "沒有寫上一輪");
   assert.equal(prev.period_end, addDays(today, -2));
   assert.equal(prev.qualified_at, prev.period_end); // Bybit 查到上一輪最後一天
-  assert.equal(db.members.find((m) => m.user_id === "u-d").access_until, dCur.end);
+  const t = await tierNow("u-d");
+  assert.deepEqual([t.tier, t.until], [3, dCur.end]);
 });
-await test("這一輪還沒達標：記數字、不延長", () => {
+await test("這一輪還不到第一級：記數字，下一輪會沒有等級", async () => {
   const cur = vol("u-d").find((v) => v.period_start === dCur.start);
-  // 這一輪今天才第 2 天，Bybit 給到昨天：有資料就記
-  if (cur) { assert.equal(cur.qualified_at, null); }
-  assert.equal(db.members.find((m) => m.user_id === "u-d").access_until, dCur.end);
+  if (cur) assert.equal(cur.qualified_at, null);
+  assert.equal((await tierNow("u-d")).cycleTier, 0);
 });
-await test("「不限」的研究員達標也不會被改成有期限", async () => {
-  db.members.push(member("u-e", bJoin, null));
-  db.exchange_links.push({ user_id: "u-e", exchange: "Bybit", exchange_uid: "77770004" });
-  bybitVol["77770004"] = () => 5000000;
-  await syncBybit({ uid: "77770004" });
-  assert.equal(db.members.find((m) => m.user_id === "u-e").access_until, null);
-  assert.ok(vol("u-e")[0].qualified_at);
+await test("管理員手動給的等級：交易量低也照給；不限就一直有", async () => {
+  db.members.push(member("u-e", addDays(today, -40), { min_tier: 2, min_tier_until: null }));
+  assert.equal((await tierNow("u-e")).tier, 2);
+  assert.equal((await tierNow("u-e")).until, null);
+  db.members.push(member("u-e2", addDays(today, -40), { min_tier: 2, min_tier_until: addDays(today, -1) }));
+  assert.equal((await tierNow("u-e2")).tier, 0); // 手動給的過期了，上一輪又沒交易量
 });
 
 // ── 真的 API 程式（模擬伺服器測不到的部分）──
@@ -201,83 +216,188 @@ async function call(handler, { method = "GET", query = {}, body, token = "tok-ad
   await handler({ method, route, headers: { authorization: `Bearer ${token}` }, query, body }, res);
   return res;
 }
-await test("後台「待跟進」打得開，寫出這一輪還差多少", async () => {
+await test("後台「待跟進」：下一輪會降級、沒有等級、第三級一對一", async () => {
   const r = await call(followup);
   assert.equal(r.statusCode, 200, JSON.stringify(r.body));
   const d = r.body.rows.find((x) => x.user_id === "u-d");
-  assert.ok(d.reasons.some((x) => x.key === "volume" && x.label.startsWith("這一輪")), JSON.stringify(d.reasons));
+  assert.ok(d.reasons.some((x) => x.key === "drop" && x.label.includes("降到沒有等級")), JSON.stringify(d.reasons));
+  assert.ok(d.reasons.some((x) => x.key === "oneonone"), JSON.stringify(d.reasons));
+  const e2 = r.body.rows.find((x) => x.user_id === "u-e2");
+  assert.ok(e2.reasons.some((x) => x.key === "notier"), JSON.stringify(e2.reasons));
 });
-await test("後台「交易量」這一輪：每人自己的一輪", async () => {
+await test("後台「交易量」這一輪：每人自己的一輪、那一輪達到第幾級、今天的等級", async () => {
   const r = await call(adminVolumes, { query: { which: "current" } });
   assert.equal(r.statusCode, 200, JSON.stringify(r.body));
   const a = r.body.rows.find((x) => x.user_id === "u-a");
   assert.equal(a.period_start, aJoin); assert.equal(a.next_end, nextPeriod(aJoin, aP).end); assert.equal(a.amounts.BingX, 1050000);
+  assert.deepEqual([a.cycle_tier, a.tier], [2, 2]);
+  assert.equal(r.body.tiers.length, 3);
 });
-await test("後台「交易量」手動填 OKX：新達標延長到下一輪結束、不蓋掉自動的數字", async () => {
-  const before = db.members.find((m) => m.user_id === "u-c").access_until;
+await test("後台「交易量」手動填 OKX：升級有算到、不蓋掉自動的數字", async () => {
   const r = await call(adminVolumes, { method: "POST", body: { which: "current", qualifiedOn: today, rows: [{ userId: "00000000-0000-4000-8000-00000000000c", amounts: { OKX: 1 } }] } });
   assert.equal(r.statusCode, 400); // 不是 UUID 的研究員不收
   db.members.find((m) => m.user_id === "u-c").user_id = "00000000-0000-4000-8000-00000000000c";
   db.exchange_links.find((l) => l.user_id === "u-c").user_id = "00000000-0000-4000-8000-00000000000c";
   const r2 = await call(adminVolumes, { method: "POST", body: { which: "current", qualifiedOn: today, rows: [{ userId: "00000000-0000-4000-8000-00000000000c", amounts: { OKX: 1200000, Bybit: 99 } }] } });
   assert.equal(r2.statusCode, 200, JSON.stringify(r2.body));
-  assert.equal(r2.body.extended, 1);
+  assert.equal(r2.body.tierUps, 1);
   const c = r2.body.rows.find((x) => x.email === "u-c@example.com");
   assert.equal(c.amounts.OKX, 1200000); assert.equal(c.amounts.Bybit, undefined);
-  assert.ok(db.members.find((m) => m.email === "u-c@example.com").access_until > before);
+  assert.deepEqual([c.cycle_tier, c.tier], [2, 2]);
 });
-await test("里程碑：自動同步、手動填跨過門檻都記一次 100%，同樣數字再存不重複", async () => {
-  const a = db.milestones.filter((r) => r.user_id === "u-a");
-  assert.deepEqual(a.map((r) => r.level), [100], JSON.stringify(db.milestones));
+await test("升級通知：自動同步、手動填都記一次，同樣數字再存不重複", async () => {
+  assert.deepEqual(db.milestones.filter((r) => r.user_id === "u-a").map((r) => r.level), [2], JSON.stringify(db.milestones));
+  assert.deepEqual(db.milestones.filter((r) => r.user_id === "u-b").map((r) => r.level), [3]);
   const c = db.milestones.filter((r) => r.user_id === "00000000-0000-4000-8000-00000000000c");
-  assert.deepEqual(c.map((r) => r.level), [100]);
+  assert.deepEqual(c.map((r) => r.level), [2]);
   const n = db.milestones.length;
   await call(adminVolumes, { method: "POST", body: { which: "current", qualifiedOn: today, rows: [{ userId: "00000000-0000-4000-8000-00000000000c", amounts: { OKX: 1300000 } }] } });
   assert.equal(db.milestones.length, n);
 });
-await test("里程碑：從 0 填到 60 萬只通知最高的 50%，之後到 80 萬再通知 75%", async () => {
+await test("升級通知：一級一級升上去各通知一次，一次跳兩級只通知最高的", async () => {
   const id = "00000000-0000-4000-8000-0000000000f1";
-  db.members.push({ ...member("u-f", today, periodOf(today, today).end), user_id: id, email: "u-f@example.com" });
-  await call(adminVolumes, { method: "POST", body: { which: "current", qualifiedOn: today, rows: [{ userId: id, amounts: { OKX: 600000 } }] } });
-  assert.deepEqual(db.milestones.filter((r) => r.user_id === id).map((r) => r.level), [50]);
-  await call(adminVolumes, { method: "POST", body: { which: "current", qualifiedOn: today, rows: [{ userId: id, amounts: { OKX: 620000 } }] } });
-  assert.deepEqual(db.milestones.filter((r) => r.user_id === id).map((r) => r.level), [50]);
-  await call(adminVolumes, { method: "POST", body: { which: "current", qualifiedOn: today, rows: [{ userId: id, amounts: { OKX: 800000 } }] } });
-  assert.deepEqual(db.milestones.filter((r) => r.user_id === id).map((r) => r.level).sort(), [50, 75]);
+  db.members.push(member(id, today, { email: "u-f@example.com" }));
+  const lv = () => db.milestones.filter((r) => r.user_id === id).map((r) => r.level).sort();
+  await call(adminVolumes, { method: "POST", body: { which: "current", qualifiedOn: today, rows: [{ userId: id, amounts: { OKX: 15000 } }] } });
+  assert.deepEqual(lv(), [1]);
+  await call(adminVolumes, { method: "POST", body: { which: "current", qualifiedOn: today, rows: [{ userId: id, amounts: { OKX: 18000 } }] } });
+  assert.deepEqual(lv(), [1]);
+  await call(adminVolumes, { method: "POST", body: { which: "current", qualifiedOn: today, rows: [{ userId: id, amounts: { OKX: 1600000 } }] } });
+  assert.deepEqual(lv(), [1, 3]);
 });
-await test("里程碑：Discord 私訊內容", async () => {
+await test("升級通知：Discord 私訊內容", async () => {
   const period = { start: "2026-10-18", end: "2026-11-17" };
-  const t50 = milestoneText({ level: 50, amounts: { OKX: 600000 }, threshold: 1000000, period, nextEnd: "2026-12-17" });
-  assert.ok(t50.includes("跨過 50%") && t50.includes("OKX 60 萬 USDT／100 萬 USDT") && t50.includes("還差 40 萬") && t50.includes("12/17"), t50);
-  const um = milestoneText({ level: 75, amounts: { UM: 8 }, threshold: 1000000, period, nextEnd: "2026-12-17" });
-  assert.ok(um.includes("UM 8 手／10 手") && um.includes("UM 還差 2 手"), um);
-  const done = milestoneText({ level: 100, amounts: { Bybit: 1100000 }, threshold: 1000000, period, nextEnd: "2026-12-17" });
-  assert.ok(done.includes("達標了") && done.includes("延長到 **12/17**"), done);
+  const t1 = milestoneText({ level: 1, amounts: { OKX: 15000 }, period, nextEnd: "2026-12-17" });
+  assert.ok(t1.includes("升上第一級") && t1.includes("會員直播") && t1.includes("12/17") && t1.includes("第二級還差 18.5 萬"), t1);
+  const um = milestoneText({ level: 2, amounts: { UM: 3 }, period, nextEnd: "2026-12-17" });
+  assert.ok(um.includes("升上第二級") && um.includes("UM 3 手") && um.includes("直播留檔") && um.includes("第三級UM 還差 12 手"), um);
+  const t3 = milestoneText({ level: 3, amounts: { Bybit: 1600000 }, period, nextEnd: "2026-12-17" });
+  assert.ok(t3.includes("升上第三級") && t3.includes("一對一"), t3);
 });
-await test("里程碑：贈送名額不記", async () => {
+await test("升級通知：贈送名額不記", async () => {
   const id = "00000000-0000-4000-8000-0000000000f2";
-  db.members.push({ ...member("u-g", today, null), user_id: id, email: "u-g@example.com", free: true });
+  db.members.push(member(id, today, { email: "u-g@example.com", free: true, min_tier: 2 }));
   await call(adminVolumes, { method: "POST", body: { which: "current", qualifiedOn: today, rows: [{ userId: id, amounts: { OKX: 900000 } }] } });
   assert.equal(db.milestones.filter((r) => r.user_id === id).length, 0);
 });
 await test("後台「交易量」上一輪：第一輪的人不列", async () => {
   const r = await call(adminVolumes, { query: { which: "previous" } });
   assert.equal(r.statusCode, 200);
-  assert.ok(r.body.rows.every((x) => x.user_id === "u-d"), r.body.rows.map((x) => x.user_id).join());
+  assert.ok(r.body.rows.every((x) => ["u-d", "u-e", "u-e2"].includes(x.user_id)), r.body.rows.map((x) => x.user_id).join());
 });
-await test("研究員 /api/me：這一輪的日期和交易量", async () => {
+await test("研究員 /api/me：這一輪的日期、等級、升級恭喜", async () => {
   tokens["tok-a"] = { id: "u-a", email: "u-a@example.com", email_confirmed_at: null };
   const r = await call(me, { token: "tok-a" });
   assert.equal(r.statusCode, 200, JSON.stringify(r.body));
   assert.equal(r.body.volume.periodStart, aJoin); assert.equal(r.body.volume.periodEnd, aP.end);
-  assert.equal(r.body.volume.qualified, true); assert.equal(r.body.volume.qualifiedUntil, nextPeriod(aJoin, aP).end);
-  assert.equal(r.body.volume.milestone?.level, 100, JSON.stringify(r.body.volume.milestone));
+  assert.deepEqual([r.body.tier, r.body.volume.tier, r.body.volume.cycleTier, r.body.volume.tierUntil], [2, 2, 2, nextPeriod(aJoin, aP).end]);
+  assert.equal(r.body.volume.milestone?.level, 2, JSON.stringify(r.body.volume.milestone));
   const seen = await call(me, { token: "tok-a", method: "PATCH", body: { milestoneSeen: true } });
   assert.equal(seen.statusCode, 200);
   const r2 = await call(me, { token: "tok-a" });
   assert.equal(r2.body.volume.milestone, null);
 });
+await test("沒有等級的研究員：/api/me 打得開，教學課程被擋（第一級才有第 1 份）", async () => {
+  tokens["tok-e2"] = { id: "u-e2", email: "u-e2@example.com", email_confirmed_at: null };
+  const r = await call(me, { token: "tok-e2" });
+  assert.equal(r.statusCode, 200, JSON.stringify(r.body));
+  assert.equal(r.body.tier, 0);
+  const c = await call(course, { token: "tok-e2" });
+  assert.equal(c.statusCode, 403); assert.equal(c.body.code, "tier"); assert.ok(c.body.error.includes("第一級"), c.body.error);
+  tokens["tok-c1"] = { id: "00000000-0000-4000-8000-0000000000f1", email: "u-f@example.com", email_confirmed_at: null };
+  const ok = await call(course, { token: "tok-c1" });
+  assert.equal(ok.statusCode, 200, JSON.stringify(ok.body)); // 第三級看得到
+  assert.ok(ok.body.slots.every((x) => x.unlocked), "第三級全部直接解鎖，不用等排程");
+  const ok2 = await call(course, { token: "tok-a" }); // 第二級照排程
+  assert.ok(ok2.body.slots.some((x) => !x.unlocked && !x.tier_locked));
+});
 
+await test("第一級：教學課程只開每位講師第 1 份，直播留檔被擋", async () => {
+  const id = "00000000-0000-4000-8000-0000000000a1";
+  db.members.push(member(id, today, { email: "t1@example.com" })); // 第一輪先是第一級
+  db.videos.push({ id: 501, title: "CCC 1", is_published: true, course_host: "CCC", course_part: 1, r2_key: "a.mp4", duration_sec: 60 }, { id: 502, title: "CCC 2", is_published: true, course_host: "CCC", course_part: 2, r2_key: "b.mp4", duration_sec: 60 }, { id: 503, title: "直播", is_published: true, course_host: null, r2_key: "c.mp4", duration_sec: 60 });
+  tokens["tok-t1"] = { id, email: "t1@example.com", email_confirmed_at: null };
+  const c = await call(course, { token: "tok-t1" });
+  assert.equal(c.statusCode, 200, JSON.stringify(c.body));
+  const ccc1 = c.body.slots.find((x) => x.host === "CCC" && x.part === 1), ccc2 = c.body.slots.find((x) => x.host === "CCC" && x.part === 2);
+  assert.deepEqual([ccc1.unlocked, ccc1.tier_locked, ccc2.unlocked, ccc2.tier_locked], [true, false, false, true]);
+  assert.equal(ccc2.video.id, undefined); // 鎖著的不給播放資訊
+  const live = await call(videosApi, { token: "tok-t1", query: { id: "503" } });
+  assert.equal(live.statusCode, 403); assert.equal(live.body.code, "tier");
+  const l2 = await call(videosApi, { token: "tok-t1", query: { id: "502" } });
+  assert.equal(l2.statusCode, 403);
+  const list = await call(videosApi, { token: "tok-t1" });
+  assert.equal(list.statusCode, 403);
+});
+await test("一對一：第三級才能選；每位講師 5 位，超過照交易量排；已約好的不會被擠掉", async () => {
+  const P = periodOf(today, today);
+  const ids = [1, 2, 3, 4, 5, 6].map((i) => `00000000-0000-4000-8000-0000000001${String(i).padStart(2, "0")}`);
+  ids.forEach((id, i) => {
+    db.members.push(member(id, today, { email: `one${i + 1}@example.com` }));
+    db.volumes.push({ user_id: id, period_start: P.start, period_end: P.end, amounts: { OKX: 1500000 + (i + 1) * 100000 }, qualified_at: today });
+    tokens[`tok-one${i + 1}`] = { id, email: `one${i + 1}@example.com`, email_confirmed_at: null };
+  });
+  // 第二級的人不能選
+  tokens["tok-c"] = { id: "00000000-0000-4000-8000-00000000000c", email: "u-c@example.com", email_confirmed_at: null };
+  const no = await call(oneonone, { token: "tok-c", method: "POST", body: { host: "CCC" } });
+  assert.equal(no.statusCode, 403);
+  const v = await call(oneonone, { token: "tok-c" });
+  assert.equal(v.body.eligible, false);
+  // 六位都選 CCC：交易量最低的 one1 變候補
+  for (let i = 1; i <= 6; i++) {
+    const r = await call(oneonone, { token: `tok-one${i}`, method: "POST", body: { host: "CCC" } });
+    assert.equal(r.statusCode, 200, JSON.stringify(r.body));
+  }
+  const me1 = (await call(oneonone, { token: "tok-one1" })).body;
+  assert.deepEqual([me1.mine.host, me1.mine.rank, me1.mine.confirmed, me1.mine.waiting], ["CCC", 6, false, 1]);
+  assert.deepEqual(me1.hosts.find((h) => h.host === "CCC"), { host: "CCC", total: 6, confirmed: 5 });
+  const me6 = (await call(oneonone, { token: "tok-one6" })).body;
+  assert.deepEqual([me6.mine.rank, me6.mine.confirmed], [1, true]);
+  // 後台：照順序、管理員標記 one1 已約好 → one1 確定，one2 被擠到候補
+  const b = await call(adminOneonone, { query: { month: thisMonthTW() } });
+  assert.equal(b.statusCode, 200, JSON.stringify(b.body));
+  assert.deepEqual(b.body.hosts.find((h) => h.host === "CCC").list.map((e) => e.email), [6, 5, 4, 3, 2, 1].map((i) => `one${i}@example.com`));
+  const bk = await call(adminOneonone, { method: "PATCH", body: { userId: ids[0], month: thisMonthTW(), booked: true } });
+  const list = bk.body.hosts.find((h) => h.host === "CCC").list;
+  assert.equal(list.find((e) => e.email === "one1@example.com").confirmed, true);
+  assert.equal(list.find((e) => e.email === "one2@example.com").confirmed, false);
+  // 約好的不能自己改選或取消
+  const sw = await call(oneonone, { token: "tok-one1", method: "POST", body: { host: "OC" } });
+  assert.equal(sw.statusCode, 400);
+  // one2 改選 OC → 馬上確定
+  const r2 = await call(oneonone, { token: "tok-one2", method: "POST", body: { host: "OC" } });
+  assert.deepEqual([r2.body.mine.host, r2.body.mine.confirmed], ["OC", true]);
+  // 講師名字亂填不收
+  assert.equal((await call(oneonone, { token: "tok-one3", method: "POST", body: { host: "Bob" } })).statusCode, 400);
+});
+await test("本週小目標、連續打卡：看完 1 部、記 1 則筆記、這週打開 3 天，三個都完成算一週", async () => {
+  const id = "00000000-0000-4000-8000-0000000000b1";
+  db.members.push(member(id, today, { email: "q@example.com" }));
+  tokens["tok-q"] = { id, email: "q@example.com", email_confirmed_at: null };
+  // 前兩天也有打卡（連續）；今天是星期幾不一定，所以這週打開幾天要看日期
+  db.checkins.push({ user_id: id, day: addDays(today, -1) }, { user_id: id, day: addDays(today, -2) });
+  const r1 = await call(questsApi, { token: "tok-q" });
+  assert.equal(r1.statusCode, 200, JSON.stringify(r1.body));
+  assert.deepEqual(r1.body.quests.map((x) => x.done).slice(0, 2), [false, false]);
+  assert.deepEqual([r1.body.streak.days, r1.body.streak.best], [3, 3]);
+  // 這週其他天也補打卡，確定「這週 3 天」達成
+  const wk = r1.body.week;
+  for (let d = wk.start; d <= wk.end; d = addDays(d, 1)) if (!db.checkins.some((c) => c.user_id === id && c.day === d)) db.checkins.push({ user_id: id, day: d });
+  db.videos.push({ id: 601, title: "v", is_published: true, duration_sec: 100 });
+  db.watch_progress.push({ user_id: id, video_id: 601, position_sec: 99, duration_sec: 100, updated_at: new Date().toISOString() });
+  db.notes.push({ id: 900, user_id: id, video_id: 601, created_at: new Date().toISOString() });
+  const r2 = await call(questsApi, { token: "tok-q" });
+  assert.deepEqual(r2.body.quests.map((x) => x.done), [true, true, true], JSON.stringify(r2.body.quests));
+  assert.deepEqual([r2.body.allDone, r2.body.justDone, r2.body.weeksDone], [true, true, 1]);
+  const r3 = await call(questsApi, { token: "tok-q" });
+  assert.equal(r3.body.justDone, false); // 只提示一次
+});
+await test("贈送名額不分級：一直看得到網站、不顯示等級變化", async () => {
+  const id = "00000000-0000-4000-8000-0000000000b2";
+  db.members.push(member(id, addDays(today, -60), { email: "gift2@example.com", free: true, min_tier: 2 }));
+  const t = await memberTier(db.members.find((m) => m.user_id === id));
+  assert.deepEqual([t.tier, t.until, t.free], [2, null, true]);
+});
 await test("協作管理員：交易量、待跟進被擋，主要管理員不受影響", async () => {
   tokens["tok-oc"] = { id: "oc-1", email: "oc@gmail.com", email_confirmed_at: "2026-01-01T00:00:00Z" };
   env.ADMIN_EMAILS = "boss@gmail.com,oc@gmail.com";
@@ -290,6 +410,8 @@ await test("協作管理員：交易量、待跟進被擋，主要管理員不�
   assert.equal(o.statusCode, 200);
   const m = await call(me, { token: "tok-oc" });
   assert.equal(m.body.adminRole, "editor");
+  const one = await call(adminOneonone, { token: "tok-oc", route: "admin/oneonone" });
+  assert.equal(one.statusCode, 200); // 講師（OC）看得到一對一名單
 });
 
 supa.close(); bingx.close(); bybit.close();

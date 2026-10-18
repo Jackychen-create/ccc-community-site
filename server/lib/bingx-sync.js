@@ -3,7 +3,8 @@
 // 觸發：見 autosync.js
 import { supabaseAdmin } from "./env.js";
 import { todayTW, twDate } from "./dates.js";
-import { getThreshold, saveVolumes, syncPeriods } from "./volume.js";
+import { saveVolumes, syncPeriods } from "./volume.js";
+import { goalFor, SITE_TIER } from "../../public/assets/js/shared/rules.js";
 import { fetchDaily, dayChunks, summarize } from "./bingx.js";
 
 export const SYNC_BY = "BingX 自動同步";
@@ -23,19 +24,18 @@ export async function linkedMembers(exchange, uid) {
 
 export async function syncBingx({ uid } = {}) {
   const links = await linkedMembers("BingX", uid);
-  const result = { users: links.length, saved: 0, extended: 0 };
+  const result = { users: links.length, saved: 0, tierUps: 0 };
   if (!links.length) return result;
   const today = todayTW();
   const plans = links.flatMap((l) => syncPeriods(l.member, today).map((p) => ({ l, p, to: p.end < today ? p.end : today })));
   const from = plans.reduce((a, x) => (x.p.start < a ? x.p.start : a), today);
   const list = [];
   for (const [a, b] of dayChunks(from, today, 30)) list.push(...(await fetchDaily(a, b, uid)));
-  const threshold = await getThreshold();
   const entries = plans.map(({ l, p, to }) => {
     const rows = list.filter((r) => String(r.uid) === String(l.exchange_uid)).filter((r) => { const d = twDate(Number(r.commissionTime)); return d >= p.start && d <= to; });
-    const s = summarize(rows, threshold, (ms) => twDate(ms)).get(String(l.exchange_uid)) || { total: 0, qualifiedOn: null };
+    const s = summarize(rows, goalFor("BingX", SITE_TIER), (ms) => twDate(ms)).get(String(l.exchange_uid)) || { total: 0, qualifiedOn: null };
     return { user_id: l.user_id, period: p, amounts: { BingX: s.total }, qualifiedOn: s.qualifiedOn || today };
   });
   const r = await saveVolumes({ entries, updatedBy: SYNC_BY, merge: true });
-  return { ...result, saved: r.saved, extended: r.extended };
+  return { ...result, saved: r.saved, tierUps: r.tierUps || 0 };
 }

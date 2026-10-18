@@ -11,9 +11,12 @@ import { show, showBlocked, showUnavailable, leavePage } from "./views.js";
 import { showAuth, initAuth } from "./auth.js";
 import { renderMenu } from "./menu.js";
 import { loadBadges, syncThemeFromAccount } from "./badges.js";
+import { loadOneOnOne } from "./oneonone.js";
+import { loadQuests } from "./quests.js";
 import { renderAccessBanner, renderVolPanel, promptUidIfMissing, celebrateMilestone } from "./account.js";
 import { renderLivePanel } from "./live.js";
 import { openList } from "./list.js";
+import { locked, openLocked } from "./locked.js";
 import { openWatch } from "./watch.js";
 import { openCourse } from "./course.js";
 import { openNotes } from "./notes.js";
@@ -25,6 +28,15 @@ document.title = SITE;
 function route() {
   if (!state.me) return;
   const m = location.hash.match(/^#\/v\/(\d+)(?:\?t=(\d+))?/);
+  // 還沒到第二級：首頁換成升級說明；第一級還是看得到教學課程（每位講師第 1 份）、筆記；提問每一級都可以
+  if (locked()) {
+    const t1 = (state.me.tier ?? 0) >= 1;
+    if (t1 && m) return openWatch(Number(m[1]), { t: m[2] !== undefined ? Number(m[2]) : null });
+    if (t1 && location.hash === "#/course") return openCourse();
+    if (t1 && location.hash === "#/notes") return openNotes();
+    if (location.hash === "#/feedback") return openFeedback();
+    return openLocked();
+  }
   if (m) openWatch(Number(m[1]), { t: m[2] !== undefined ? Number(m[2]) : null });
   else if (location.hash === "#/notes") openNotes();
   else if (location.hash === "#/course") openCourse();
@@ -64,6 +76,8 @@ async function enterApp() {
   celebrateMilestone();
   syncThemeFromAccount();
   loadBadges();
+  loadOneOnOne();
+  loadQuests();
   if (!routerOn) {
     routerOn = true;
     window.addEventListener("hashchange", route);

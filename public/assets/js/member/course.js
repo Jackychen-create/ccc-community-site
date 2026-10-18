@@ -26,7 +26,7 @@ function renderCoursePanel() {
   if (!course?.slots?.length) return (box.hidden = true);
   const open = course.slots.filter((s) => s.unlocked);
   const latest = open[open.length - 1];
-  const next = course.slots.find((s) => !s.unlocked);
+  const next = course.slots.find((s) => !s.unlocked && !s.tier_locked);
   const done = open.filter((s) => s.video && isDone(s.video)).length;
   box.hidden = false;
   box.replaceChildren(
@@ -67,7 +67,9 @@ function renderCourse() {
   }));
   $("#courseList").replaceChildren(...slots.map((s) => {
     const v = s.video;
-    const status = !s.unlocked
+    const status = s.tier_locked
+      ? el("span", { class: "st todo" }, el("span", { html: icons.lock }), "第二級解鎖")
+      : !s.unlocked
       ? el("span", { class: "st todo" }, el("span", { html: icons.lock }), `${md(s.unlock_on)} 解鎖`)
       : !v ? el("span", { class: "st todo", text: "準備中" })
       : statusOf(v);

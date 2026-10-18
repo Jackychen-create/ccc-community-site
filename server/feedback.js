@@ -6,7 +6,7 @@ import { supabaseAdmin, requireMember, readBody, toInt, cleanText, route, adminE
 
 export default route({
   async GET(req, res) {
-    const ctx = await requireMember(req, res);
+    const ctx = await requireMember(req, res, { minTier: 0 }); // 每一級都可以用
     if (!ctx) return;
     const { data, error } = await supabaseAdmin
       .from("feedback")
@@ -23,7 +23,7 @@ export default route({
   },
 
   async POST(req, res) {
-    const ctx = await requireMember(req, res);
+    const ctx = await requireMember(req, res, { minTier: 0 }); // 每一級都可以用
     if (!ctx) return;
     const b = readBody(req);
     const body = cleanText(b.body, 2000);

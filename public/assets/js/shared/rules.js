@@ -18,7 +18,7 @@ export function cycleEnd(date) {
 
 // ── 每人的一輪（2026-10-17 起）──
 // 從加入那天起算，每一輪剛好一個月：10/16 加入 → 第一輪 10/16～11/15、第二輪 11/16～12/15…
-// 這一輪內交易量達標 → 可以看到「下一輪」結束；沒達標，下一輪第一天就不能看
+// 這一輪達到第幾級 → 下一輪就是第幾級（三級制度在下面 TIERS）
 // 1/31 加入：1/31～2/27、2/28～3/30、3/31～4/29…（沒有 31 號的月份用月底，之後回到 31 號）
 export function addMonths(date, n) {
   const [y, m, d] = date.split("-").map(Number);
@@ -41,13 +41,12 @@ export const nextPeriod = (anchor, period) => periodOf(anchor, addDays(period.en
 export const prevPeriod = (anchor, period) => (period.index > 0 ? periodOf(anchor, addDays(period.start, -1)) : null);
 
 // ── 交易量 ──
-// 合作交易所，任一間當月交易量達標就算達標
-// OKX、UM 由管理員填；Bybit、BingX 由網站每天自動抓（研究員綁定 UID 後）
-// UM（Ultima Markets，MT5）用「手」算，門檻固定在 LOT_GOALS；其他用 USDT 成交金額，門檻在後台可以改（settings.volume_threshold）
+// 合作交易所：OKX、UM 由管理員填；Bybit、BingX 由網站每天自動抓（研究員綁定 UID 後）
+// UM（Ultima Markets，MT5）用「手」算，其他用 USDT 成交金額
 export const EXCHANGES = ["OKX", "UM", "Bybit", "BingX"];
 export const AUTO_EXCHANGES = ["Bybit", "BingX"];
-export const LOT_GOALS = { UM: 10 }; // 一個月 10 手（2026-10-16 確定）
-export const DEFAULT_THRESHOLD = 1000000;
+export const LOT_EXCHANGES = ["UM"];
+export const isLots = (ex) => LOT_EXCHANGES.includes(ex);
 // 交易所帳號：OKX、Bybit、BingX 填 UID；UM 填 MT5 帳號（一樣是一串數字），另外填在 UM 開戶的英文姓名，
 // 跟 UM 代理後台「近期新開戶」的帳號、姓名對得起來（2026-10-17）
 export const idLabel = (ex) => (ex === "UM" ? "MT5 帳號" : "UID");
@@ -63,49 +62,130 @@ export const ACCOUNT_NAME_ERROR = "請填你在 UM 開戶的英文姓名（跟�
 // Bybit 的 TradFi（黃金、股票等）交易量打一折算：100 萬 TradFi ≈ 10 萬加密貨幣（2026-10-17 確定）
 export const TRADFI_WEIGHT = 0.1;
 export const TRADFI_NOTE = "Bybit 的 TradFi（黃金、股票等）交易量以十分之一計算。";
-export const unitOf = (ex) => (ex in LOT_GOALS ? "手" : "USDT");
-export const goalOf = (ex, threshold) => LOT_GOALS[ex] ?? threshold;
-// 達標進度：各交易所「交易量 ÷ 門檻」最高的那間，回傳 { ex, n, goal, ratio }
-export function bestProgress(amounts, threshold, exchanges = EXCHANGES) {
-  let best = { ex: exchanges[0], n: 0, goal: goalOf(exchanges[0], threshold), ratio: 0 };
+export const unitOf = (ex) => (isLots(ex) ? "手" : "USDT");
+
+// ── 三級制度（2026-10-18，取代原本的單一門檻 100 萬／10 手）──
+// 每人從加入那天起算，一輪一個月（periodOf）。這一輪內任一間交易所達到某一級 → 這一輪剩下的時間和「下一輪」都是那一級
+// 下一輪的等級＝這一輪達到的等級（可升可降）；不到第一級 → 下一輪沒有等級
+// 新研究員的第一輪先給第一級；管理員可以手動給「至少第幾級到哪天」（members.min_tier、min_tier_until）
+// 贈送名額不分級：網站內容照第二級開，但不顯示等級、不升降級、不收升級通知
+export const TIERS = [
+  { tier: 1, usdt: 10000, lots: 0.1, perks: ["Discord 研究員身分組", "會員直播（不提供留檔）", "教學課程三位講師的第 1 份"] },
+  { tier: 2, usdt: 200000, lots: 2, perks: ["全部交易系統分享影音（之後的更新）", "直播留檔", "研究員專屬網站"] },
+  { tier: 3, usdt: 1500000, lots: 15, perks: ["教學課程全部直接解鎖，不用等排程", "每個月一次一對一交流（CCC、OC、X 三選一）"] },
+];
+export const MAX_TIER = TIERS.length;
+export const SITE_TIER = 2; // 網站內容（直播留檔、教學課程、教材、筆記）要第二級
+// 第一級也看得到教學課程每位講師的第 1 份（CCC、OC、X 各一部，照原本的解鎖時間），第 2 份以後的更新要第二級（2026-10-18）
+export const TIER1_COURSE_PARTS = 1;
+export const courseTierOk = (tier, part) => tier >= SITE_TIER || (tier >= 1 && part <= TIER1_COURSE_PARTS);
+// 第三級：教學課程全部直接解鎖，不用等每週的排程（2026-10-18）
+export const courseSkipSchedule = (tier) => tier >= MAX_TIER;
+export const tierName = (t) => (t ? `第${"零一二三"[t]}級` : "沒有等級");
+export const tierInfo = (t) => TIERS.find((x) => x.tier === t) || null;
+export const goalFor = (ex, tier) => (isLots(ex) ? tierInfo(tier).lots : tierInfo(tier).usdt);
+// 這些交易量達到第幾級（任一間交易所達到就算；0 ＝ 不到第一級）
+export function tierOf(amounts) {
+  let t = 0;
+  for (const x of TIERS) if (EXCHANGES.some((ex) => Number(amounts?.[ex] || 0) >= goalFor(ex, x.tier))) t = x.tier;
+  return t;
+}
+// 往某一級的進度：各交易所「交易量 ÷ 那一級的門檻」最高的那間，回傳 { ex, n, goal, ratio }
+export function progressTo(amounts, tier, exchanges = EXCHANGES) {
+  let best = { ex: exchanges[0], n: 0, goal: goalFor(exchanges[0], tier), ratio: 0 };
   for (const ex of exchanges) {
     const n = Number(amounts?.[ex] || 0);
-    const goal = goalOf(ex, threshold);
+    const goal = goalFor(ex, tier);
     if (n / goal > best.ratio) best = { ex, n, goal, ratio: n / goal };
   }
   return best;
 }
-export function isQualified(amounts, threshold) {
-  return EXCHANGES.some((ex) => Number(amounts?.[ex] || 0) >= goalOf(ex, threshold));
-}
-// ── 進度里程碑（2026-10-18）──
-// 這一輪的進度（最接近達標的那間交易所）跨過 25%、50%、75%、100% 時，私訊（Discord）和網站上各通知一次
-export const MILESTONES = [25, 50, 75, 100];
-export function milestoneOf(amounts, threshold, exchanges = EXCHANGES) {
-  if (isQualified(amounts, threshold)) return 100;
-  const pct = bestProgress(amounts, threshold, exchanges).ratio * 100;
-  return MILESTONES.filter((m) => m < 100 && pct >= m).pop() || 0;
-}
 // 顯示用：UM「3.5 手」；USDT「120 萬」（不到 1 萬就直接寫數字）
 export function fmtAmount(ex, n) {
   n = Number(n) || 0;
-  if (ex in LOT_GOALS) return `${Math.round(n * 100) / 100} 手`;
+  if (isLots(ex)) return `${Math.round(n * 100) / 100} 手`;
   return n >= 1e4 ? `${Math.round((n / 1e4) * 10) / 10} 萬` : n.toLocaleString("en-US");
 }
-// 「還差 40 萬」；最接近的是 UM 的話寫「UM 還差 3 手」
-export function gapText(amounts, threshold, exchanges = EXCHANGES) {
-  const b = bestProgress(amounts, threshold, exchanges);
-  return `${b.ex in LOT_GOALS ? b.ex + " " : ""}還差 ${fmtAmount(b.ex, Math.max(0, b.goal - b.n))}`;
+// 到某一級「還差 18 萬」；最接近的是 UM 的話寫「UM 還差 1.5 手」
+export function gapTo(amounts, tier, exchanges = EXCHANGES) {
+  const b = progressTo(amounts, tier, exchanges);
+  return `${isLots(b.ex) ? b.ex + " " : ""}還差 ${fmtAmount(b.ex, Math.max(0, b.goal - b.n))}`;
 }
-// 「OKX、Bybit、BingX 任一間這一輪成交金額達 100 萬 USDT，或 UM 達 10 手」
-export function ruleText(threshold, exchanges = EXCHANGES) {
-  const usdt = exchanges.filter((ex) => !(ex in LOT_GOALS));
-  const lots = exchanges.filter((ex) => ex in LOT_GOALS);
+// 「OKX、Bybit、BingX 任一間 20 萬 USDT，或 UM 2 手」
+export function tierRuleText(tier, exchanges = EXCHANGES) {
+  const usdt = exchanges.filter((ex) => !isLots(ex));
+  const lots = exchanges.filter(isLots);
+  const t = tierInfo(tier);
   const parts = [];
-  if (usdt.length) parts.push(`${usdt.join("、")} ${usdt.length > 1 ? "任一間" : ""}這一輪成交金額達 ${fmtAmount("", threshold)} USDT`.replace("  ", " "));
-  for (const ex of lots) parts.push(`${ex} 這一輪達 ${LOT_GOALS[ex]} 手`);
+  if (usdt.length) parts.push(`${usdt.join("、")}${usdt.length > 1 ? " 任一間" : ""} ${fmtAmount("", t.usdt)} USDT`);
+  for (const ex of lots) parts.push(`${ex} ${t.lots} 手`);
   return parts.join("，或 ");
 }
+// 某位研究員今天的等級
+//   anchor：加入那天；amountsOf(periodStart) → 那一輪的交易量；override：{ tier, until }（until 空白＝不限）
+//   回傳 { tier, until, cycleTier, period }：tier 今天的等級、until 這個等級至少到哪天、cycleTier 這一輪自己達到的等級（＝下一輪的等級）
+export function tierStatus({ anchor, today, amountsOf, override = null }) {
+  const period = periodOf(anchor, today);
+  const prev = prevPeriod(anchor, period);
+  const next = nextPeriod(anchor, period);
+  const cycleTier = tierOf(amountsOf(period.start));
+  const carried = prev ? tierOf(amountsOf(prev.start)) : 1; // 第一輪先給第一級
+  const ov = override?.tier && (!override.until || override.until >= today) ? override.tier : 0;
+  const tier = Math.max(cycleTier, carried, ov);
+  // 至少到哪天：這一輪自己達到的撐到下一輪結束；上一輪帶來的撐到這一輪結束；管理員給的撐到他設的日期
+  const ends = [];
+  if (cycleTier >= tier && tier) ends.push(next.end);
+  if (carried >= tier && tier) ends.push(period.end);
+  if (ov >= tier && tier) ends.push(override.until || null);
+  const until = ends.includes(null) ? null : ends.sort().pop() || null;
+  return { tier, until, cycleTier, period };
+}
+
+// ── 一對一交流（第三級，2026-10-18）──
+// 第三級的研究員每個月（台灣時間的月份）從三位講師選一位；每位講師一個月最多 5 位
+// 選同一位的超過 5 位 → 照這一輪的交易量排（換算成「到第三級門檻的幾倍」，UM 和 USDT 才比得了），前 5 位確定、其他候補（可以改選別位）
+// 管理員按「已約好」的人一定算確定，不會被擠掉
+export const ONE_ON_ONE_HOSTS = ["CCC", "OC", "X"];
+export const ONE_ON_ONE_CAP = 5;
+export const oneOnOneScore = (amounts) => progressTo(amounts || {}, MAX_TIER).ratio;
+// entries: [{ user_id, host, score, booked, created_at }] → 同一位講師的排好順序，加上 rank（第幾位）、confirmed（確定）
+export function rankOneOnOne(entries, host) {
+  const list = entries.filter((e) => e.host === host)
+    .sort((a, b) => (b.booked === true) - (a.booked === true) || b.score - a.score || String(a.created_at).localeCompare(String(b.created_at)));
+  return list.map((e, i) => ({ ...e, rank: i + 1, confirmed: e.booked === true || i < ONE_ON_ONE_CAP }));
+}
+
+// ── 連續打卡、每週任務（2026-10-19）──
+// 打卡：一天（台灣日期）打開網站一次就算；連續幾天到今天為止（今天還沒開的話，昨天以前連著的也算，不會一過午夜就歸零）
+export function streakOf(days, today) {
+  const set = new Set(days);
+  let d = set.has(today) ? today : addDays(today, -1);
+  let n = 0;
+  while (set.has(d)) { n++; d = addDays(d, -1); }
+  return n;
+}
+export function bestStreakOf(days) {
+  const sorted = [...new Set(days)].sort();
+  let best = 0, run = 0, prev = null;
+  for (const d of sorted) {
+    run = prev && addDays(prev, 1) === d ? run + 1 : 1;
+    best = Math.max(best, run);
+    prev = d;
+  }
+  return best;
+}
+// 每週從星期一開始（台灣日期）
+export function weekOf(date) {
+  const dow = new Date(date + "T00:00:00Z").getUTCDay(); // 0＝星期日
+  const start = addDays(date, -((dow + 6) % 7));
+  return { start, end: addDays(start, 6) };
+}
+// 本週小目標（選做，不要讓人覺得被要求；2026-10-19 改輕）：三個都完成算完成一週
+export const QUESTS = [
+  { id: "watch", icon: "📺", name: "看完 1 部影片", target: 1 },
+  { id: "notes", icon: "✍️", name: "記 1 則筆記", target: 1 },
+  { id: "days", icon: "☀️", name: "這週打開網站 3 天", target: 3 },
+];
 
 // ── 教學課程 ──
 // CCC、OC、X 的教學影片各 6 份，共 18 份。每位研究員從加入那天起：
@@ -125,19 +205,23 @@ export const BUCKET_SEC = 30;
 
 // ── 徽章（2026-10-18）──
 // 伺服器整理每位研究員的「事實」（facts），用 earnedBadges 算出拿到哪些徽章；拿到的記在 badges 表，第一次拿到會跳恭喜
-// facts：traded 有交易量、bestPct 單輪最高進度（%）、qualified 達標幾輪、streak 最多連續幾輪達標、
-//        hostsDone 看完全部 6 份的主講（陣列）、courseDone 看完幾份課程、liveDone 看完幾場直播留檔、notes 寫了幾則筆記、questions 提問幾次
+// facts：traded 有交易量、bestPct 單輪往第二級的最高進度（%）、qualified 幾輪到第二級以上、maxTier 單輪最高等級、
+//        streak 最多連續幾輪第二級以上、hostsDone 看完全部 6 份的主講（陣列）、courseDone 看完幾份課程、
+//        liveDone 看完幾場直播留檔、notes 寫了幾則筆記、questions 提問幾次、questWeeks 完成幾週小目標、bestStreak 最長連續打卡幾天
 // 「看完」＝看到片長的 95%（跟後台觀看統計一樣）
 export const BADGES = [
   { id: "first_trade", icon: "🌱", name: "第一筆", desc: "第一次有交易量", test: (f) => f.traded },
-  { id: "half", icon: "⛰️", name: "半山腰", desc: "單輪進度到 50%", test: (f) => f.bestPct >= 50 },
-  { id: "qualified", icon: "🏅", name: "首次達標", desc: "第一次在一輪內達標", test: (f) => f.qualified >= 1 },
-  { id: "streak3", icon: "🔥", name: "連續三輪", desc: "連續 3 輪達標", test: (f) => f.streak >= 3 },
+  { id: "half", icon: "⛰️", name: "半山腰", desc: "單輪交易量到第二級的一半", test: (f) => f.bestPct >= 50 },
+  { id: "qualified", icon: "🏅", name: "第二級", desc: "第一次在一輪內升到第二級", test: (f) => f.qualified >= 1 },
+  { id: "tier3", icon: "🏆", name: "第三級", desc: "第一次在一輪內升到第三級", test: (f) => f.maxTier >= 3 },
+  { id: "streak3", icon: "🔥", name: "連續三輪", desc: "連續 3 輪第二級以上", test: (f) => f.streak >= 3 },
   { id: "live10", icon: "📺", name: "全勤觀眾", desc: "看完 10 場直播留檔", test: (f) => f.liveDone >= 10 },
   { id: "host6", icon: "🎓", name: "學完一位", desc: "看完任一位主講的 6 份課程", test: (f) => f.hostsDone.length >= 1 },
   { id: "course18", icon: "🧠", name: "全部修完", desc: "看完 18 份教學課程", test: (f) => f.courseDone >= 18 },
   { id: "notes10", icon: "✍️", name: "筆記達人", desc: "寫了 10 則筆記", test: (f) => f.notes >= 10 },
   { id: "question", icon: "🙋", name: "勇於發問", desc: "第一次提問", test: (f) => f.questions >= 1 },
+  { id: "quests4", icon: "🗓️", name: "小目標達人", desc: "累積 4 週完成本週小目標", test: (f) => (f.questWeeks || 0) >= 4 },
+  { id: "streak7", icon: "⚡", name: "七日連登", desc: "連續 7 天打開網站", test: (f) => (f.bestStreak || 0) >= 7 },
 ];
 export const badgeById = (id) => BADGES.find((b) => b.id === id) || null;
 export const earnedBadges = (f) => BADGES.filter((b) => b.test(f)).map((b) => b.id);

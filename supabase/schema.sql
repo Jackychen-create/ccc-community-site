@@ -450,3 +450,44 @@ create table if not exists public.badges (
 );
 alter table public.badges enable row level security;
 alter table public.members add column if not exists theme text check (theme is null or char_length(theme) <= 20); -- id 在 shared/rules.js 的 THEMES
+
+-- ── v1.20.0：三級制度（第一級 1 萬／0.1 手、第二級 20 萬／2 手、第三級 150 萬／15 手；規則在 shared/rules.js 的 TIERS）──
+-- 等級每次從上一輪、這一輪的交易量算，不另外存；管理員可以手動給「至少第幾級到哪天」
+alter table public.members add column if not exists min_tier int check (min_tier is null or min_tier between 1 and 3);
+alter table public.members add column if not exists min_tier_until date;  -- 空白＝不限
+-- 切換那天（2026-10-18）：現有研究員這一輪照舊 → 原本能看網站到哪天，就給第二級到哪天；「不限」和贈送名額一直是第二級
+-- access_until 之後不再使用（保留舊資料）
+update public.members set min_tier = 2, min_tier_until = access_until
+ where min_tier is null and (free or access_until is null or access_until >= date '2026-10-18');
+-- 升級通知：level 改成第幾級（舊的 25／50／75／100% 紀錄清掉）
+delete from public.milestones where level not in (1, 2, 3);
+alter table public.milestones drop constraint if exists milestones_level_check;
+alter table public.milestones add constraint milestones_level_check check (level in (1, 2, 3));
+
+-- ── v1.20.0：一對一交流（第三級每個月選一位講師；每位講師最多 5 位，超過照交易量排，規則在 shared/rules.js）──
+create table if not exists public.one_on_ones (
+  user_id    uuid not null references public.members(user_id) on delete cascade,
+  month      text not null check (month ~ '^\d{4}-(0[1-9]|1[0-2])$'),  -- 台灣時間的月份
+  host       text not null check (char_length(host) <= 20),           -- CCC、OC、X
+  booked     boolean not null default false,                          -- 管理員已經約好時間（一定算確定）
+  booked_by  text,
+  created_at timestamptz not null default now(),
+  primary key (user_id, month)
+);
+alter table public.one_on_ones enable row level security;
+
+-- ── v1.20.0：連續打卡、每週任務（規則在 shared/rules.js 的 streakOf、QUESTS）──
+create table if not exists public.checkins (
+  user_id uuid not null references public.members(user_id) on delete cascade,
+  day     date not null,                     -- 台灣日期：這天有打開網站
+  primary key (user_id, day)
+);
+alter table public.checkins enable row level security;
+create table if not exists public.quest_weeks (
+  user_id uuid not null references public.members(user_id) on delete cascade,
+  week    date not null,                     -- 這週的星期一（台灣日期）
+  base    jsonb,                             -- 這週第一次打開任務時這一輪的交易量（算「這週新增」用）
+  done_at timestamptz,                       -- 三個任務都完成的時間
+  primary key (user_id, week)
+);
+alter table public.quest_weeks enable row level security;

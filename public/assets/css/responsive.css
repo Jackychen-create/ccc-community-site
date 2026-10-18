@@ -6,7 +6,8 @@
   .aside { display: contents; }
   #continueList, #coursePanel { order: -1; }
   #listView .desk > .panel { order: 0; }
-  #statsPanel, #recentNotes, #volPanel { order: 1; }
+  #statsPanel, #recentNotes, #volPanel, #onePanel, #questPanel { order: 1; }
+  #badgePanel { order: 2; } /* 徽章放在我的等級後面 */
   .keys-panel { display: none; }
   .watch-side { order: 0; }
 }

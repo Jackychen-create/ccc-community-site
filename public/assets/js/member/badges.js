@@ -11,8 +11,8 @@ const earned = () => (data?.badges || []).map((b) => b.id);
 function hint(id, p) {
   if (!p) return "";
   return {
-    half: `目前最高 ${p.bestPct}%`,
-    qualified: `目前最高 ${p.bestPct}%`,
+    half: `往第二級最高到 ${p.bestPct}%`,
+    qualified: `往第二級最高到 ${p.bestPct}%`,
     streak3: `目前最多連續 ${p.streak} 輪`,
     live10: `已看完 ${p.liveDone}／10 場`,
     host6: "看完同一位主講的 6 份",
@@ -61,7 +61,7 @@ function celebrateBadges() {
   if (!fresh.length) return;
   let tries = 0;
   const open = () => {
-    if (document.querySelector(".modal-back")) return ++tries < 180 && setTimeout(open, 1000);
+    if (document.querySelector(".modal-back, .lvl-back")) return ++tries < 180 && setTimeout(open, 1000);
     const themes = fresh.map((b) => THEMES.find((t) => t.unlock === b.id)).filter(Boolean);
     const ok = el("button", { class: "btn primary", type: "button", text: themes.length ? `換上「${themes[0].name}」` : "好" });
     const later = themes.length ? el("button", { class: "btn", type: "button", text: "之後再說" }) : null;

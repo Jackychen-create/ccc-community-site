@@ -32,7 +32,7 @@ const errs = [];
   await p.waitForSelector(".toast:has-text('已綁定')");
   check("提醒 Bybit 隔天才更新", (await p.textContent(".toast:has-text('已綁定')")).includes("隔天"));
   await p.waitForSelector("#volPanel .bx-text:has-text('77770001')");
-  check("Bybit 交易量 150 萬、達標", (await panel()).includes("150 萬") && (await panel()).includes("已達標"), await panel());
+  check("Bybit 交易量 150 萬、第三級", (await panel()).includes("150 萬") && (await panel()).includes("你現在是第三級"), await panel());
   check("BingX 還是可以另外綁", await p.isVisible("#volPanel .bx-row:has-text('BingX') .btn:has-text('綁定')"));
   await p.screenshot({ path: "output/shots/v19-bound.png" });
 

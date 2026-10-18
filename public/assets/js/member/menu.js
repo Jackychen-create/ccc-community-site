@@ -1,5 +1,6 @@
 // 右上角帳號選單：課程、筆記、提問、寄信通知、使用教學、更新紀錄、修改密碼、登出
 import { openThemePicker } from "./badges.js";
+import { rankRing } from "./levelup.js";
 import { $, el, api, sb, icon, modal, setBusy, toast, tutorial, whatsNew } from "../core/index.js";
 import { state } from "./state.js";
 
@@ -9,6 +10,16 @@ const menuPanel = $("#menuPanel");
 export function renderMenu() {
   const me = state.me;
   $("#avatar").textContent = (me?.email || "?").charAt(0).toUpperCase();
+  rankRing($("#avatar"), me && !me.isAdmin && !me.free ? me.tier ?? 0 : null); // 頭像外圈：銅／銀／金（贈送名額不分級，不加）
+  // 連續打卡：頭像旁邊「🔥 5」
+  const chip = $("#streakChip");
+  const st = me && !me.isAdmin ? me.streak : null;
+  chip.hidden = !st?.days;
+  if (st?.days) {
+    chip.textContent = `🔥 ${st.days}`;
+    chip.title = `連續 ${st.days} 天打開網站（最長 ${st.best} 天）`;
+    chip.setAttribute("aria-label", chip.title);
+  }
   menuBtn.classList.toggle("has-dot", !!me?.feedbackUnread);
   menuPanel.replaceChildren(...[
     el("div", { class: "who" }, el("div", { text: "登入身分" }), el("div", { style: { color: "var(--ink)" }, text: me?.email || "" })),

@@ -70,6 +70,13 @@ export async function openWatch(id, { t = null } = {}) {
   try {
     d = await api(`/api/videos?id=${id}`);
   } catch (e) {
+    if (e.code === "tier") {
+      $("#videoLoading").hidden = true;
+      setWatchBack(true);
+      $("#wTitle").textContent = "這一部要第二級才看得到";
+      $("#wDesc").textContent = `${e.message}。第一級可以先看教學課程每位講師的第 1 份。`;
+      return;
+    }
     if (e.code === "locked") {
       $("#videoLoading").hidden = true;
       setWatchBack(true);

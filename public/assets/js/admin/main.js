@@ -6,6 +6,7 @@
 //   #discord  Discord 審核  discord.js
 //   #members  研究員      members.js
 //   #volumes  交易量      volumes.js
+//   #oneonone 一對一      oneonone.js
 //   #stats    觀看統計    stats.js
 //   #feedback 提問回報    feedback.js
 //   #followup 待跟進      followup.js
@@ -18,6 +19,7 @@ import { loadVideos } from "./videos.js";
 import { activeUploads } from "./upload.js";
 import { loadInvites } from "./invites.js";
 import { loadDiscord } from "./discord.js";
+import { loadOneOnOne } from "./oneonone.js";
 import { loadLives } from "./lives.js";
 import { loadMembers } from "./members.js";
 import { loadVolumes } from "./volumes.js";
@@ -88,7 +90,7 @@ function loadBadges() {
 
 function route() {
   loadBadges();
-  const VIEWS = ["videos", "lives", "invites", "discord", "members", "volumes", "stats", "feedback", "followup", "health"];
+  const VIEWS = ["videos", "lives", "invites", "discord", "members", "volumes", "oneonone", "stats", "feedback", "followup", "health"];
   const want = location.hash.slice(1);
   const view = VIEWS.includes(want) && canSeeView(state.me?.adminRole, want) ? want : "videos";
   document.querySelectorAll("[data-view-panel]").forEach((p) => (p.hidden = p.dataset.viewPanel !== view));
@@ -100,7 +102,7 @@ function route() {
     }
     else a.removeAttribute("aria-current");
   });
-  document.title = { videos: "影片", lives: "直播預告", invites: "實驗室密碼", discord: "Discord 審核", members: "研究員", volumes: "交易量", stats: "觀看統計", feedback: "提問回報", followup: "待跟進", health: "網站狀況" }[view] + "｜後台管理";
+  document.title = { videos: "影片", lives: "直播預告", invites: "實驗室密碼", discord: "Discord 審核", members: "研究員", volumes: "交易量", oneonone: "一對一", stats: "觀看統計", feedback: "提問回報", followup: "待跟進", health: "網站狀況" }[view] + "｜後台管理";
   if (view === "videos") loadVideos();
   if (view === "lives") loadLives();
   if (view === "invites") loadInvites();
@@ -108,6 +110,7 @@ function route() {
   if (view === "members") loadMembers();
   if (view === "stats") loadStats();
   if (view === "volumes") loadVolumes();
+  if (view === "oneonone") loadOneOnOne();
   if (view === "feedback") loadFeedback();
   if (view === "followup") loadFollowup();
   if (view === "health") loadHealth();

@@ -1,8 +1,9 @@
 // 後台：Discord 審核機器人
 // GET   /api/admin/discord                        設定好了沒、設定值、最近的申請
-// PATCH /api/admin/discord { roleId, panelChannelId, reviewChannelId, staffRoleIds, invites }   改設定
+// PATCH /api/admin/discord { roleId, panelChannelId, reviewChannelId, staffRoleIds, invites, hostIds }   改設定（hostIds：一對一講師的 Discord 使用者 ID）
 // POST  /api/admin/discord { action: "panel" }    在報名頻道張貼「報名培訓計畫」按鈕
 // POST  /api/admin/discord { action: "setup" }  一鍵建立分類、頻道、權限、報名按鈕
+import { ONE_ON_ONE_HOSTS } from "../../public/assets/js/shared/rules.js";
 import {
   supabaseAdmin, requireAdmin, readBody, route, EXCHANGES, env,
   discordConfigured, getDiscordSettings, saveDiscordSettings, isSnowflake, sendMessage, editChannel, editMessage,
@@ -58,6 +59,14 @@ export default route({
       if (list.some((v) => !isSnowflake(v))) return res.status(400).json({ error: "客服身分組 ID 是 17–20 位數字，多個用逗號分開" });
       if (list.length > 5) return res.status(400).json({ error: "客服身分組最多 5 個" });
       next.staffRoleIds = [...new Set(list)];
+    }
+    if (b.hostIds && typeof b.hostIds === "object") {
+      next.hostIds = {};
+      for (const h of ONE_ON_ONE_HOSTS) {
+        const v = String(b.hostIds[h] || "").trim();
+        if (v && !isSnowflake(v)) return res.status(400).json({ error: `${h} 的 Discord 使用者 ID 是 17–20 位數字（對他的名字按右鍵「複製使用者 ID」）` });
+        if (v) next.hostIds[h] = v;
+      }
     }
     if (b.invites && typeof b.invites === "object") {
       next.invites = {};

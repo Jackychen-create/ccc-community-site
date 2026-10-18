@@ -147,3 +147,20 @@
 .live-card .live-note { margin-top: 6px; white-space: pre-line; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .pill.live-on { color: var(--up); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--up) 50%, transparent); }
 .live-card .live-host { margin-top: 2px; color: var(--ink-2); }
+
+/* 還沒到第二級：首頁的升級說明 */
+.lock-page { display: grid; gap: 18px; padding: 22px 24px 26px; }
+.lock-hero { display: grid; gap: 8px; justify-items: start; }
+.lock-hero h2 { font-size: 24px; }
+.lock-hero .sub { margin: 0; max-width: 60ch; }
+.tier-table { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.tier-card { display: grid; align-content: start; gap: 6px; padding: 14px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); }
+.tier-card.got { border-color: var(--line-strong); }
+.tier-card.me { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber); }
+.tier-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tier-goal { font-size: 12.5px; color: var(--amber); line-height: 1.5; }
+.tier-card ul { margin: 0; padding-left: 1.1em; font-size: 13.5px; color: var(--ink-2); display: grid; gap: 2px; }
+.lock-signup { display: grid; gap: 8px; }
+@media (max-width: 720px) { .tier-table { grid-template-columns: 1fr; } .lock-page { padding: 18px 16px 22px; } }
+.lock-free { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--amber-soft); color: var(--ink); text-decoration: none; }
+.lock-free:hover, .lock-free:focus-visible { border-color: var(--amber); }

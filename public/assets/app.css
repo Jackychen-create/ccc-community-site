@@ -13,4 +13,5 @@
 @import url("css/responsive.css"); /* 平板與手機、減少動態 */
 @import url("css/course.css"); /* 使用教學影片、頂部導覽、教學課程（前台與後台） */
 @import url("css/feedback.css"); /* 提問；後台的提問回報、待跟進、網站狀況、觀看分段 */
+@import url("css/game.css"); /* 遊戲感：等級徽章、升級畫面 */
 @import url("css/themes.css"); /* 外觀主題（換顏色代號）、選主題視窗；放最後才蓋得過 base.css */
