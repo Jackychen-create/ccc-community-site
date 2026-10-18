@@ -2,7 +2,7 @@
 // 用實驗室密碼建立研究員帳號，同時記下他用哪間交易所、UID 是多少（管理員才對得到交易量）
 // Bybit、BingX 有設定 API Key 的話，先跟交易所確認是 CCC 邀請的才讓他註冊
 // 贈送名額的實驗室密碼（invite_codes.free）：不用填交易所，觀看不限期
-import { supabaseAdmin, isAdminEmail, readBody, route, cycleEnd, todayTW, thisMonthTW, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, cleanExId, exIdOk, idLabel, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR } from "./lib/index.js";
+import { supabaseAdmin, isAdminEmail, readBody, route, thisMonthTW, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, cleanExId, exIdOk, idLabel, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR } from "./lib/index.js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -87,10 +87,11 @@ export default route({
       user_id: created.user.id,
       email,
       invite_code: code,
-      // 新研究員先給加入那天起一個月（10/15 加入看到 11/14）；之後看交易量（任一間交易所達標）延長
-      // 贈送名額：不限期（空白），也不用看交易量
-      access_until: free ? null : cycleEnd(todayTW()),
+      // 三級制度：新研究員第一輪先是第一級，之後看每一輪的交易量（規則在 shared/rules.js）
+      // 贈送名額：一直是第二級（網站全開），不用看交易量
+      access_until: null,
       free,
+      ...(free ? { min_tier: 2, min_tier_until: null } : {}),
     });
     if (memberError) {
       // 研究員資料寫不進去就整個撤回，避免留下沒有權限的空帳號

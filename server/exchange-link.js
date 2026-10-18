@@ -7,7 +7,7 @@ import { supabaseAdmin, requireMember, readBody, route, thisMonthTW, EXCHANGES, 
 
 export default route({
   async GET(req, res) {
-    const ctx = await requireMember(req, res);
+    const ctx = await requireMember(req, res, { minTier: 0 }); // 每一級都可以用
     if (!ctx) return;
     const { data, error } = await supabaseAdmin.from("exchange_links").select("exchange, exchange_uid, bound_at").eq("user_id", ctx.user.id);
     if (error) throw error;
@@ -16,7 +16,7 @@ export default route({
   },
 
   async POST(req, res) {
-    const ctx = await requireMember(req, res);
+    const ctx = await requireMember(req, res, { minTier: 0 }); // 每一級都可以用
     if (!ctx) return;
     if (!ctx.member) return res.status(400).json({ error: "管理員帳號不用綁定交易所" });
     const b = readBody(req);
@@ -68,7 +68,7 @@ export default route({
   },
 
   async DELETE(req, res) {
-    const ctx = await requireMember(req, res);
+    const ctx = await requireMember(req, res, { minTier: 0 }); // 每一級都可以用
     if (!ctx) return;
     const exchange = req.query?.exchange;
     if (!EXCHANGES.includes(exchange)) return res.status(400).json({ error: "不支援這間交易所" });

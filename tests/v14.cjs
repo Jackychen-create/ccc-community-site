@@ -106,27 +106,31 @@ const errs = [];
   await p.click(".modal .btn:has-text('寄信通知研究員')"); await p.waitForTimeout(500);
   check("寄信通知", (await p.textContent(".toast:last-child")).includes("已寄給"));
   await p.keyboard.press("Escape");
-  // 研究員資格
+  // 研究員等級（三級制度）：手動給、清掉
   await p.goto(BASE + "/admin#members"); await p.waitForTimeout(700);
   await p.screenshot({ path: "output/shots/v14-admin-members.png" });
-  check("研究員列表顯示資格", (await p.textContent("#memberTableBox")).includes("到 "));
-  await p.click("#memberTableBox tbody tr:has-text('amy@example.com') .btn:has-text('資格')"); await p.waitForTimeout(200);
-  await p.click(".modal .chip:has-text('這個月底')");
+  check("研究員列表顯示等級", (await p.textContent("#memberTableBox tbody tr:has-text('amy@example.com')")).includes("第二級"));
+  await p.click("#memberTableBox tbody tr:has-text('amy@example.com') .btn:has-text('等級')"); await p.waitForTimeout(200);
+  check("等級視窗帶入手動給的第二級", (await p.getAttribute(".modal .chip:has-text('第二級')", "aria-pressed")) === "true");
+  await p.click(".modal .chip:has-text('第三級')");
+  await p.fill(".modal input[type=date]", "2030-01-01");
   await p.screenshot({ path: "output/shots/v14-access.png" });
-  const monthEnd = await p.inputValue(".modal input[type=date]");
-  check("一鍵設成這個月底", /^\d{4}-\d{2}-(28|29|30|31)$/.test(monthEnd), monthEnd);
-  await p.fill(".modal input[type=date]", "2026-10-01");
-  await p.click(".modal-foot .btn.primary"); await p.waitForTimeout(400);
-  check("資格過期會標紅", (await p.textContent("#memberTableBox tbody tr:has-text('amy@example.com')")).includes("已過期"));
+  await p.click(".modal-foot .btn.primary"); await p.waitForTimeout(500);
+  const row = await p.textContent("#memberTableBox tbody tr:has-text('amy@example.com')");
+  check("手動給第三級", row.includes("第三級") && row.includes("手動：至少第三級到 1/1"), row);
+  await p.click("#memberTableBox tbody tr:has-text('amy@example.com') .btn:has-text('等級')"); await p.waitForTimeout(200);
+  await p.click(".modal .chip:has-text('不手動給')");
+  await p.click(".modal-foot .btn.primary"); await p.waitForTimeout(500);
+  check("清掉手動等級：照交易量（第一輪先是第一級）", (await p.textContent("#memberTableBox tbody tr:has-text('amy@example.com')")).includes("第一級"));
   // 統計
   await p.goto(BASE + "/admin#stats"); await p.waitForSelector("#statsBox table"); await p.waitForTimeout(400);
   check("觀看統計有兩張表", (await p.locator("#statsBox table").count()) === 2);
   await p.screenshot({ path: "output/shots/v14-stats.png", fullPage: true });
   await c.close();
-  // 過期研究員登入
+  // 第一級的研究員登入：網站內容鎖著，顯示升級說明
   [c, p] = await ctx({ width: 1100, height: 700 });
-  await login(p, "amy@example.com"); await p.waitForSelector("#blockedView:not([hidden])");
-  check("資格過期就不能看", (await p.textContent("#blockedMsg")).includes("觀看資格到 2026-10-01"), await p.textContent("#blockedMsg"));
+  await login(p, "amy@example.com"); await p.waitForSelector(".lock-page");
+  check("第一級看不到直播留檔，顯示升級說明", (await p.textContent(".lock-page")).includes("升上第二級") && !(await p.locator("#grid .vrow").count()));
   await c.close();
   check("沒有頁面錯誤", !errs.length, errs.join(" | "));
   console.log(out.join("\n")); await b.close();

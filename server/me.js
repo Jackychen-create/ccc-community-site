@@ -1,13 +1,13 @@
-// GET   /api/me            目前登入者的身分、觀看資格到期日、通知設定、下一場直播
+// GET   /api/me            目前登入者的身分、等級（三級制度）、這一輪交易量、通知設定、下一場直播
 // PATCH /api/me { notify }  研究員自己開關「新影片寄信通知」
 // PATCH /api/me { milestoneSeen: true }  看過里程碑恭喜了（不再跳）
 // PATCH /api/me { theme }  換外觀主題（要拿到對應徽章的主題會檢查）
 import { themeUnlocked } from "../public/assets/js/shared/rules.js";
-import { supabaseAdmin, adminRole, unseenMilestone, markMilestonesSeen, earnedIds, requireMember, readBody, route, nextLive, needsName, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, getThreshold, isQualified, periodFor, nextPeriod, anchorOf } from "./lib/index.js";
+import { getDiscordSettings, supabaseAdmin, adminRole, unseenMilestone, markMilestonesSeen, earnedIds, requireMember, readBody, route, nextLive, needsName, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, periodFor, nextPeriod, anchorOf } from "./lib/index.js";
 
 export default route({
   async GET(req, res) {
-    const ctx = await requireMember(req, res);
+    const ctx = await requireMember(req, res, { minTier: 0 }); // 每一級都可以用
     if (!ctx) return;
     let volume = null;
     let links = null;
@@ -19,25 +19,22 @@ export default route({
         const auto = AUTO_EXCHANGES.includes(ex);
         return { exchange: ex, auto, enabled: auto ? PROVIDERS[ex].configured() : true, uid: l?.exchange_uid || null, accountName: l?.account_name || null, needsName: needsName(ex), boundAt: l?.bound_at || null };
       });
-      // 這一輪：從加入那天起算，每一輪一個月
-      const period = periodFor({ created_at: ctx.member.created_at || ctx.user.created_at });
-      const [threshold, { data: row }] = await Promise.all([
-        getThreshold(),
-        supabaseAdmin.from("volumes").select("amounts, updated_at, qualified_at").eq("user_id", ctx.user.id).eq("period_start", period.start).maybeSingle(),
-      ]);
+      // 這一輪：從加入那天起算，每一輪一個月；等級在 requireMember 已經算好（ctx.tier）
+      const m = { created_at: ctx.member.created_at || ctx.user.created_at };
+      const period = periodFor(m);
+      const { data: row } = await supabaseAdmin.from("volumes").select("amounts, updated_at, qualified_at").eq("user_id", ctx.user.id).eq("period_start", period.start).maybeSingle();
       volume = {
         periodStart: period.start,
         periodEnd: period.end,
+        nextEnd: nextPeriod(anchorOf(m), period).end,
         exchanges: EXCHANGES,
-        threshold,
         amounts: row?.amounts || null,
         updatedAt: row?.updated_at || null,
-        qualified: row ? isQualified(row.amounts, threshold) : false,
-        qualifiedAt: row?.qualified_at || null,
-        qualifiedUntil: row?.qualified_at ? nextPeriod(anchorOf({ created_at: ctx.member.created_at || ctx.user.created_at }), period).end : null,
-        // 這一輪還沒看過的里程碑（25／50／75／100%），首頁跳一次恭喜；表還沒建立時當作沒有
+        tier: ctx.tier.tier, // 今天是第幾級
+        tierUntil: ctx.tier.until, // 這個等級至少到哪天（空白＝不限）
+        cycleTier: ctx.tier.cycleTier, // 這一輪自己達到的等級＝下一輪的等級
+        // 這一輪還沒看過的升級，首頁跳一次恭喜；表還沒建立時當作沒有
         milestone: ctx.member.free ? null : await unseenMilestone(ctx.user.id, period.start).catch(() => null),
-        nextEnd: nextPeriod(anchorOf({ created_at: ctx.member.created_at || ctx.user.created_at }), period).end,
       };
     }
     // 有沒有還沒看的提問回覆（右上角選單會亮一個點）
@@ -46,23 +43,26 @@ export default route({
     const role = ctx.isAdmin ? await adminRole(ctx.user.email) : null;
     // 下一場直播（後台「直播預告」排的）；表還沒建立時當作沒有
     const live = await nextLive().catch(() => null);
+    // 各交易所的 CCC 邀請連結（後台「Discord 審核」設定的），還沒到第二級的人在首頁看得到
+    const invites = ctx.member ? (await getDiscordSettings().catch(() => ({}))).invites || {} : {};
     return res.status(200).json({
       email: ctx.user.email,
       feedbackUnread: unread || 0,
       isAdmin: ctx.isAdmin,
       adminRole: role,
-      accessUntil: ctx.member?.access_until || null,
+      tier: ctx.member ? ctx.tier.tier : null, // 管理員沒有等級（全部都看得到）
       free: !!ctx.member?.free, // 贈送名額：不用綁交易所、沒有交易量門檻
       theme: ctx.member?.theme || null, // 外觀主題（存在帳號裡，換電腦也一樣）
       notify: ctx.member ? ctx.member.notify !== false : null,
       volume,
       links,
+      invites: Object.fromEntries(Object.entries(invites).filter(([, u]) => /^https:\/\//.test(String(u)))),
       nextLive: live ? { title: live.title, startsAt: live.starts_at, hosts: live.hosts || [], note: live.note, link: live.link } : null,
     });
   },
 
   async PATCH(req, res) {
-    const ctx = await requireMember(req, res);
+    const ctx = await requireMember(req, res, { minTier: 0 }); // 每一級都可以用
     if (!ctx) return;
     if (!ctx.member) return res.status(400).json({ error: "管理員帳號沒有這個設定" });
     const b = readBody(req);

@@ -26,11 +26,11 @@ const j = async (path, { method = "GET", body, token } = {}) => {
   await p.fill("#email", "bd@example.com"); await p.fill("#password", "password1"); await p.click("#authSubmit");
   await p.waitForSelector("#badgePanel:not([hidden])");
   await drain(p);
-  check("右欄有 9 個徽章，一個都沒拿到", (await p.locator("#badgePanel .badge").count()) === 9 && (await p.locator("#badgePanel .badge.got").count()) === 0);
-  check("沒拿到的徽章寫怎麼拿", ((await p.getAttribute("#badgePanel .badge >> nth=3", "title")) || "").includes("連續 3 輪"));
+  check("右欄有 10 個徽章，一個都沒拿到", (await p.locator("#badgePanel .badge").count()) === 10 && (await p.locator("#badgePanel .badge.got").count()) === 0);
+  check("沒拿到的徽章寫怎麼拿", ((await p.getAttribute("#badgePanel .badge >> nth=4", "title")) || "").includes("連續 3 輪"));
 
-  // 交易量 60 萬 → 第一筆、半山腰
-  await setOkx(600000);
+  // 交易量 12 萬（第一級）→ 第一筆、半山腰（到第二級的一半）
+  await setOkx(120000);
   await p.reload(); await p.waitForSelector("#badgePanel:not([hidden])");
   const pops = await drain(p);
   check("跳新徽章：第一筆、半山腰", pops.includes("拿到 2 個新徽章") && pops.includes("第一筆") && pops.includes("半山腰"), pops.slice(0, 200));
@@ -42,7 +42,7 @@ const j = async (path, { method = "GET", body, token } = {}) => {
   // 主題：免費的可以換，要徽章的鎖著
   await p.click("#menuBtn"); await p.click("text=外觀主題"); await p.waitForSelector(".theme-grid");
   check("有 6 個主題", (await p.locator(".theme-opt").count()) === 6);
-  check("金庫鎖著、寫要哪個徽章", await p.locator(".theme-opt:has-text('金庫')").isDisabled() && (await p.textContent(".theme-opt:has-text('金庫')")).includes("首次達標"));
+  check("金庫鎖著、寫要哪個徽章", await p.locator(".theme-opt:has-text('金庫')").isDisabled() && (await p.textContent(".theme-opt:has-text('金庫')")).includes("第二級"));
   await p.click(".theme-opt:has-text('晨報')"); await p.waitForTimeout(300);
   check("換成晨報（淺色）", (await p.getAttribute("html", "data-theme")) === "paper");
   const bg = await p.evaluate(() => getComputedStyle(document.body).backgroundColor);
@@ -52,12 +52,12 @@ const j = async (path, { method = "GET", body, token } = {}) => {
   const locked = await p.evaluate(async () => (await fetch("/api/me", { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: "Bearer " + JSON.parse(localStorage.getItem(Object.keys(localStorage).find((k) => k.includes("auth-token")) || "x") || "{}").access_token }, body: JSON.stringify({ theme: "vault" }) })).status);
   check("伺服器擋下還沒解鎖的主題", locked === 400, String(locked));
 
-  // 達標 → 首次達標徽章，解鎖金庫，按「換上」
-  await setOkx(1200000);
+  // 升到第二級 → 「第二級」徽章，解鎖金庫，按「換上」
+  await setOkx(300000);
   await p.reload(); await p.waitForSelector("#badgePanel:not([hidden])");
-  for (let i = 0; i < 6; i++) { await p.waitForTimeout(1300); const t = (await p.locator(".modal-back").count()) ? await p.textContent(".modal-back") : ""; if (!t) break; if (t.includes("首次達標")) break; await p.keyboard.press("Escape"); }
+  for (let i = 0; i < 6; i++) { await p.waitForTimeout(1300); const t = (await p.locator(".modal-back").count()) ? await p.textContent(".modal-back") : ""; if (!t) break; if (t.includes("解鎖了外觀主題")) break; await p.keyboard.press("Escape"); }
   const pop = await p.textContent(".modal-back");
-  check("首次達標：跳徽章、說解鎖金庫", pop.includes("首次達標") && pop.includes("金庫"), pop.slice(0, 160));
+  check("升到第二級：跳徽章、說解鎖金庫", pop.includes("第一次在一輪內升到第二級") && pop.includes("金庫"), pop.slice(0, 160));
   await p.click(".modal-back button:has-text('換上「金庫」')"); await p.waitForTimeout(400);
   check("按換上就換成金庫", (await p.getAttribute("html", "data-theme")) === "vault");
   await p.reload(); await p.waitForSelector("#appView:not([hidden])");

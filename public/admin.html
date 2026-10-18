@@ -148,14 +148,14 @@
       <div class="page-head">
         <div>
           <h1>交易量</h1>
-          <p id="volSub">每人從加入那天起算，每一輪一個月；這一輪達標就可以看到下一輪結束</p>
+          <p id="volSub">每人從加入那天起算，每一輪一個月；這一輪達到第幾級，下一輪就是第幾級</p>
         </div>
         <div class="vol-tools">
           <div class="vol-seg" id="volWhich" role="tablist" aria-label="哪一輪">
             <button type="button" class="vol-seg-btn" data-which="current" aria-pressed="true">這一輪</button>
             <button type="button" class="vol-seg-btn" data-which="previous" aria-pressed="false">上一輪</button>
           </div>
-          <label class="vol-month vol-qual" title="這次新達標的人記這天達標（要在他那一輪裡面）"><span class="vol-qual-l">達標日</span><input class="input" type="date" id="volQualOn"></label>
+          <label class="vol-month vol-qual" title="這次新升到第二級的人記這天（要在他那一輪裡面）"><span class="vol-qual-l">升級日</span><input class="input" type="date" id="volQualOn"></label>
           <button class="btn" type="button" id="volPaste"><span data-ico="copy"></span>貼上一整批</button>
           <button class="btn" type="button" id="volThreshold"></button>
         </div>

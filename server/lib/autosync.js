@@ -23,7 +23,7 @@ export async function syncExchange(exchange) {
   const p = PROVIDERS[exchange];
   const status = { at: new Date().toISOString(), ok: true };
   try {
-    Object.assign(status, await p.sync()); // { users, saved, extended }；每人的這一輪（上一輪剛結束 3 天內也補一次）
+    Object.assign(status, await p.sync()); // { users, saved, tierUps }；每人的這一輪（上一輪剛結束 3 天內也補一次）
   } catch (e) {
     status.ok = false;
     status.error = String(e?.message || e).slice(0, 300);
