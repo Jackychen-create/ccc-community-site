@@ -1,0 +1,69 @@
+/* 外觀主題：換掉 base.css 的顏色代號。研究員在帳號選單「外觀主題」選（清單在 shared/rules.js 的 THEMES）。
+   紅＝新上架、綠＝看完、橘＝警示的意思每個主題都一樣，只換色調。
+   html 上的 data-theme 由 /assets/theme-boot.js 在畫面出來前設好，不會先閃一下預設色。 */
+
+/* 夜盤：深藍底、冷藍數字 */
+html[data-theme="night"] {
+  --bg: #0E121A; --surface: #131925; --surface-2: #19202E; --sunken: #0A0D13;
+  --line: #232B3A; --line-strong: #354055;
+  --ink: #DEE3EC; --ink-2: #A7B0C0; --ink-3: #8691A4;
+  --amber: #7FB2E5; --amber-ink: #0A1420; --amber-soft: rgba(127, 178, 229, 0.14);
+  --slate: #7F8FA8; --overlay: rgba(4, 6, 10, 0.68);
+}
+
+/* 晨報：米白紙色的淺色主題 */
+html[data-theme="paper"] {
+  --bg: #F4F1EA; --surface: #FFFDF8; --surface-2: #F0ECE3; --sunken: #E9E4D9;
+  --line: #DDD6C8; --line-strong: #C3B9A6;
+  --ink: #1E2421; --ink-2: #4A534E; --ink-3: #5F6762;
+  --amber: #875B14; --amber-ink: #FFFDF8; --amber-soft: rgba(135, 91, 20, 0.12);
+  --up: #B0443A; --up-soft: rgba(176, 68, 58, 0.10);
+  --down: #2D7556; --down-soft: rgba(45, 117, 86, 0.12);
+  --warn: #A9561F; --warn-soft: rgba(169, 86, 31, 0.12);
+  --slate: #66746E; --overlay: rgba(30, 36, 33, 0.42);
+  color-scheme: light;
+}
+
+/* 金庫：黑金（首次達標解鎖） */
+html[data-theme="vault"] {
+  --bg: #0D0C0A; --surface: #15130F; --surface-2: #1C1914; --sunken: #090807;
+  --line: #2A251D; --line-strong: #403829;
+  --ink: #ECE5D8; --ink-2: #B9AE9B; --ink-3: #978C79;
+  --amber: #E2B65C; --amber-ink: #1A1306; --amber-soft: rgba(226, 182, 92, 0.15);
+  --slate: #9A8F7B; --overlay: rgba(6, 5, 3, 0.7);
+}
+
+/* 極光：深紫底、青綠數字（連續三輪達標解鎖） */
+html[data-theme="aurora"] {
+  --bg: #100F1A; --surface: #161524; --surface-2: #1D1B2E; --sunken: #0B0A13;
+  --line: #2A2840; --line-strong: #3E3B5A;
+  --ink: #E4E2F0; --ink-2: #ADA9C6; --ink-3: #8F8BAB;
+  --amber: #8FD3C1; --amber-ink: #0B1A16; --amber-soft: rgba(143, 211, 193, 0.14);
+  --up: #E07A8A; --up-soft: rgba(224, 122, 138, 0.12);
+  --slate: #8E8AAE; --overlay: rgba(6, 5, 12, 0.7);
+}
+
+/* 黑板：教室黑板綠、粉筆黃（全部修完解鎖） */
+html[data-theme="chalk"] {
+  --bg: #17241F; --surface: #1C2C26; --surface-2: #22352E; --sunken: #121D19;
+  --line: #2D4239; --line-strong: #40594E;
+  --ink: #EEF0E6; --ink-2: #BFC6B8; --ink-3: #A0AA9C;
+  --amber: #F0D27A; --amber-ink: #1E1A08; --amber-soft: rgba(240, 210, 122, 0.14);
+  --up: #E8857A; --up-soft: rgba(232, 133, 122, 0.12);
+  --down: #9ED9B3; --down-soft: rgba(158, 217, 179, 0.12);
+  --slate: #9DAA9F; --overlay: rgba(8, 14, 11, 0.68);
+}
+
+/* 選主題的視窗 */
+.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 14px; }
+.theme-opt { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.theme-opt:hover:not(:disabled), .theme-opt:focus-visible { border-color: var(--line-strong); }
+.theme-opt[aria-pressed="true"] { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber); }
+.theme-opt:disabled { cursor: not-allowed; }
+.theme-opt:disabled .theme-sw { filter: grayscale(.85) brightness(.7); }
+.theme-sw { display: grid; grid-template-columns: 2fr 1fr; height: 48px; border-radius: var(--r-sm); overflow: hidden; border: 1px solid rgba(127, 127, 127, .25); }
+.theme-sw span { display: block; }
+.theme-sw .acc { grid-column: 1 / -1; height: 10px; }
+.theme-name { font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.theme-desc { font-size: 12.5px; color: var(--ink-3); line-height: 1.45; }
+.theme-lock { font-size: 12.5px; color: var(--ink-2); }

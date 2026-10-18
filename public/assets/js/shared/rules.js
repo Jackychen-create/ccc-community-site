@@ -122,3 +122,40 @@ export function courseUnlockDate(startDate, host, part) {
 
 // ── 觀看分段：每 30 秒一格（後台「觀看曲線」用）──
 export const BUCKET_SEC = 30;
+
+// ── 徽章（2026-10-18）──
+// 伺服器整理每位研究員的「事實」（facts），用 earnedBadges 算出拿到哪些徽章；拿到的記在 badges 表，第一次拿到會跳恭喜
+// facts：traded 有交易量、bestPct 單輪最高進度（%）、qualified 達標幾輪、streak 最多連續幾輪達標、
+//        hostsDone 看完全部 6 份的主講（陣列）、courseDone 看完幾份課程、liveDone 看完幾場直播留檔、notes 寫了幾則筆記、questions 提問幾次
+// 「看完」＝看到片長的 95%（跟後台觀看統計一樣）
+export const BADGES = [
+  { id: "first_trade", icon: "🌱", name: "第一筆", desc: "第一次有交易量", test: (f) => f.traded },
+  { id: "half", icon: "⛰️", name: "半山腰", desc: "單輪進度到 50%", test: (f) => f.bestPct >= 50 },
+  { id: "qualified", icon: "🏅", name: "首次達標", desc: "第一次在一輪內達標", test: (f) => f.qualified >= 1 },
+  { id: "streak3", icon: "🔥", name: "連續三輪", desc: "連續 3 輪達標", test: (f) => f.streak >= 3 },
+  { id: "live10", icon: "📺", name: "全勤觀眾", desc: "看完 10 場直播留檔", test: (f) => f.liveDone >= 10 },
+  { id: "host6", icon: "🎓", name: "學完一位", desc: "看完任一位主講的 6 份課程", test: (f) => f.hostsDone.length >= 1 },
+  { id: "course18", icon: "🧠", name: "全部修完", desc: "看完 18 份教學課程", test: (f) => f.courseDone >= 18 },
+  { id: "notes10", icon: "✍️", name: "筆記達人", desc: "寫了 10 則筆記", test: (f) => f.notes >= 10 },
+  { id: "question", icon: "🙋", name: "勇於發問", desc: "第一次提問", test: (f) => f.questions >= 1 },
+];
+export const badgeById = (id) => BADGES.find((b) => b.id === id) || null;
+export const earnedBadges = (f) => BADGES.filter((b) => b.test(f)).map((b) => b.id);
+
+// ── 外觀主題（2026-10-18）──
+// 前三個大家都能用；後面三個要先拿到對應的徽章（unlock）。管理員全部都能用
+export const THEMES = [
+  { id: "board", name: "營業廳", desc: "墨綠灰底、琥珀數字（預設）", swatch: ["#0F1412", "#141B18", "#CDA45E"] },
+  { id: "night", name: "夜盤", desc: "深藍底、冷藍數字", swatch: ["#0E121A", "#131925", "#7FB2E5"] },
+  { id: "paper", name: "晨報", desc: "米白紙色的淺色主題", swatch: ["#F4F1EA", "#FFFDF8", "#875B14"] },
+  { id: "vault", name: "金庫", desc: "黑金", unlock: "qualified", swatch: ["#0D0C0A", "#15130F", "#E2B65C"] },
+  { id: "aurora", name: "極光", desc: "深紫底、青綠數字", unlock: "streak3", swatch: ["#100F1A", "#161524", "#8FD3C1"] },
+  { id: "chalk", name: "黑板", desc: "教室黑板綠、粉筆黃", unlock: "course18", swatch: ["#17241F", "#1C2C26", "#F0D27A"] },
+];
+export const DEFAULT_THEME = "board";
+export const themeById = (id) => THEMES.find((t) => t.id === id) || null;
+// 這個人能不能用這個主題：earned = 已經拿到的徽章 id
+export const themeUnlocked = (id, earned = [], isAdmin = false) => {
+  const t = themeById(id);
+  return !!t && (isAdmin || !t.unlock || earned.includes(t.unlock));
+};

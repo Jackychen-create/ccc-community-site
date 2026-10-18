@@ -10,13 +10,14 @@ import { toast, copyText, modal, confirmDialog, setBusy, countUp, reduceMotion }
 import "./cjk.js";
 import { whatsNew } from "./version.js";
 import { tutorial } from "./tutorial.js";
+import { applyTheme, currentTheme } from "./theme.js";
 import "./flap.js";
 
 export {
   cfg, sb, api, report, store, icons, el, $, icon, placeholderSvg, thumbImg,
   fmtDur, fmtLeft, fmtBytes, fmtDate, fmtRel, today,
   toast, copyText, modal, confirmDialog, setBusy, countUp, reduceMotion,
-  whatsNew, tutorial,
+  whatsNew, tutorial, applyTheme, currentTheme,
 };
 
 // 給瀏覽器主控台除錯和測試用（頁面程式請用 import）

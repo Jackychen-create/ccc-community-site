@@ -1,6 +1,7 @@
 // 規則和伺服器小工具的單元測試（不用瀏覽器，幾秒鐘跑完）。npm test 會先跑這一支。
 import assert from "node:assert/strict";
-import { addDays, cycleEnd, periodOf, nextPeriod, prevPeriod, addMonths, courseWeek, courseUnlockDate, isQualified, COURSE_HOSTS, COURSE_PARTS, EXCHANGES, AUTO_EXCHANGES, DEFAULT_THRESHOLD, gapText, ruleText, milestoneOf, MILESTONES } from "../public/assets/js/shared/rules.js";
+import { addDays, cycleEnd, periodOf, nextPeriod, prevPeriod, addMonths, courseWeek, courseUnlockDate, isQualified, COURSE_HOSTS, COURSE_PARTS, EXCHANGES, AUTO_EXCHANGES, DEFAULT_THRESHOLD, gapText, ruleText, milestoneOf, MILESTONES, BADGES, earnedBadges, THEMES, themeUnlocked } from "../public/assets/js/shared/rules.js";
+import { longestStreak } from "../server/lib/badges.js";
 import { mergeBuckets } from "../server/lib/buckets.js";
 import { cleanTitle, cleanChapters, toInt, isDate } from "../server/lib/text.js";
 import http from "node:http";
@@ -62,6 +63,27 @@ test("里程碑：25／50／75／100，看最接近達標的那間", () => {
   assert.equal(milestoneOf({ OKX: 600000, UM: 8 }, 1000000), 75);
   assert.equal(milestoneOf({ OKX: 999999 }, 1000000), 75);
   assert.equal(milestoneOf({ UM: 10 }, 1000000), 100);
+});
+test("徽章：照事實給，9 個、id 不重複", () => {
+  assert.equal(new Set(BADGES.map((b) => b.id)).size, 9);
+  const none = { traded: false, bestPct: 0, qualified: 0, streak: 0, hostsDone: [], courseDone: 0, liveDone: 0, notes: 0, questions: 0 };
+  assert.deepEqual(earnedBadges(none), []);
+  assert.deepEqual(earnedBadges({ ...none, traded: true, bestPct: 60, questions: 1 }), ["first_trade", "half", "question"]);
+  assert.deepEqual(earnedBadges({ ...none, streak: 3, qualified: 3, hostsDone: ["CCC"], courseDone: 18, liveDone: 10, notes: 10 }).sort(), ["course18", "half", "host6", "live10", "notes10", "qualified", "streak3"].filter((x) => x !== "half").sort());
+});
+test("主題：前三個免費，其他要對應的徽章；管理員全部可以用", () => {
+  assert.deepEqual(THEMES.filter((t) => !t.unlock).map((t) => t.id), ["board", "night", "paper"]);
+  for (const t of THEMES) if (t.unlock) assert.ok(BADGES.some((b) => b.id === t.unlock), t.id);
+  assert.equal(themeUnlocked("vault", []), false);
+  assert.equal(themeUnlocked("vault", ["qualified"]), true);
+  assert.equal(themeUnlocked("vault", [], true), true);
+  assert.equal(themeUnlocked("nope", ["qualified"], true), false);
+});
+test("連續達標：照每人自己的輪算最長的一段", () => {
+  const q = (start) => ({ period_start: start, amounts: { OKX: 1000000 }, qualified_at: start });
+  assert.equal(longestStreak("2026-01-16", [q("2026-01-16"), q("2026-02-16"), q("2026-04-16"), q("2026-05-16"), q("2026-06-16")], 1000000), 3);
+  assert.equal(longestStreak("2026-01-16", [q("2026-01-16"), { period_start: "2026-02-16", amounts: { OKX: 5 }, qualified_at: null }, q("2026-03-16")], 1000000), 1);
+  assert.equal(longestStreak("2026-01-16", [], 1000000), 0);
 });
 test("規則文字", () => assert.equal(ruleText(1000000), "OKX、Bybit、BingX 任一間這一輪成交金額達 100 萬 USDT，或 UM 這一輪達 10 手"));
 test("預設門檻 100 萬", () => assert.equal(DEFAULT_THRESHOLD, 1000000));

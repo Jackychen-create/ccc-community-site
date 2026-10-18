@@ -5,7 +5,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 // 規則跟正式網站讀同一份
 import { canUseApi } from "../public/assets/js/shared/roles.js";
-import { EXCHANGES, AUTO_EXCHANGES, isQualified, addDays, cycleEnd, periodOf, nextPeriod, prevPeriod, COURSE_HOSTS as CH, courseUnlockDate, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR, milestoneOf } from "../public/assets/js/shared/rules.js";
+import { EXCHANGES, AUTO_EXCHANGES, isQualified, addDays, cycleEnd, periodOf, nextPeriod, prevPeriod, COURSE_HOSTS as CH, courseUnlockDate, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR, milestoneOf, BADGES, earnedBadges, themeUnlocked, bestProgress } from "../public/assets/js/shared/rules.js";
 
 const PORT = Number(process.env.PORT || 4321);
 const ROOT = path.join(path.dirname(new URL(import.meta.url).pathname), "..");
@@ -116,6 +116,23 @@ function msHit(m, p, before, after) {
   if (m.free) return;
   const lvl = milestoneOf(after, threshold);
   if (lvl > milestoneOf(before || {}, threshold) && !msRows.has(`${m.user_id}:${p.start}:${lvl}`)) msRows.set(`${m.user_id}:${p.start}:${lvl}`, { level: lvl, seen: false });
+}
+// 徽章：`${user_id}` → Map(badge → { earned_at, seen })
+const badgeRows = new Map();
+function badgeFacts(m) {
+  const rows = [...vols.entries()].filter(([k]) => k.startsWith(m.user_id + ":")).map(([k, v]) => ({ start: k.split(":")[1], ...v }));
+  const done = [...progress.entries()].filter(([k]) => k.startsWith(m.user_id + ":")).map(([k, p]) => { const v = videos.find((x) => x.id === Number(k.split(":")[1])); return v && p.position_sec >= (v.duration_sec || p.duration_sec) * 0.95 ? v : null; }).filter(Boolean);
+  const course = done.filter((v) => v.course_host);
+  const idx = rows.filter((r) => qualified(r.amounts)).map((r) => periodOf(anchorOf(m), r.start).index).sort((a, b) => a - b);
+  let streak = 0, run = 0; idx.forEach((i, n) => { run = n && i === idx[n - 1] + 1 ? run + 1 : 1; streak = Math.max(streak, run); });
+  return { traded: rows.some((r) => Object.values(r.amounts || {}).some((x) => x > 0)), bestPct: Math.max(0, ...rows.map((r) => bestProgress(r.amounts || {}, threshold).ratio * 100)), qualified: rows.filter((r) => qualified(r.amounts)).length, streak,
+    hostsDone: CH.filter((h) => new Set(course.filter((v) => v.course_host === h).map((v) => v.course_part)).size >= 6), courseDone: course.length, liveDone: done.length - course.length,
+    notes: notes.filter((n) => n.user_id === m.user_id).length, questions: feedback.filter((f) => f.user_id === m.user_id).length };
+}
+function syncBadgesM(m) {
+  const f = badgeFacts(m); const had = badgeRows.get(m.user_id) || new Map(); badgeRows.set(m.user_id, had);
+  for (const id of earnedBadges(f)) if (!had.has(id)) had.set(id, { earned_at: new Date().toISOString(), seen: false });
+  return { f, had };
 }
 const msUnseen = (m, p) => [...msRows.entries()].filter(([k, v]) => k.startsWith(`${m.user_id}:${p.start}:`) && !v.seen).map(([, v]) => v).sort((a, b) => b.level - a.level)[0] || null;
 function autoSyncUser(ex, userId) {
@@ -270,11 +287,22 @@ const server = http.createServer(async (req, res) => {
     if (mrow?.access_until && mrow.access_until < d(0)) return send(res, 403, { error: `你的觀看資格到 ${mrow.access_until} 為止，請聯絡管理員更新`, code: "expired" });
     if (p === "/api/me") {
       if (req.method === "PATCH") {
+        if (body.theme !== undefined) {
+          if (!themeUnlocked(String(body.theme), [...(badgeRows.get(mrow.user_id) || new Map()).keys()])) return send(res, 400, { error: "這個主題還沒解鎖", code: "locked" });
+          mrow.theme = body.theme; return send(res, 200, { ok: true, theme: body.theme });
+        }
         if (body.milestoneSeen) { for (const [k, v] of msRows) if (k.startsWith(mrow.user_id + ":")) v.seen = true; return send(res, 200, { ok: true }); }
         mrow.notify = body.notify;
         return send(res, 200, { ok: true, notify: body.notify });
       }
-      return send(res, 200, { links: mrow ? EXCHANGES.map((ex) => ({ exchange: ex, auto: AUTO_EXCHANGES.includes(ex), enabled: true, uid: autoLinks[ex].get(mrow.user_id) || null, accountName: accNames.get(`${ex}:${mrow.user_id}`) || null, needsName: needsName(ex), boundAt: null })) : null, feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, adminRole: admin ? role : null, accessUntil: mrow?.access_until || null, free: !!mrow?.free, notify: mrow ? mrow.notify !== false : null, nextLive: (() => { const l = liveNext(); return l ? { title: l.title, startsAt: l.starts_at, hosts: l.hosts || [], note: l.note, link: l.link } : null; })(), volume: mrow ? (() => { const p = curP(mrow); const v = vols.get(mrow.user_id + ":" + p.start); return { periodStart: p.start, periodEnd: p.end, exchanges: EX, threshold, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, qualified: v ? qualified(v.amounts) : false, qualifiedAt: v?.qualified_at || null, qualifiedUntil: v?.qualified_at ? nextPeriod(anchorOf(mrow), p).end : null, milestone: mrow.free ? null : msUnseen(mrow, p), nextEnd: nextPeriod(anchorOf(mrow), p).end }; })() : null });
+      return send(res, 200, { links: mrow ? EXCHANGES.map((ex) => ({ exchange: ex, auto: AUTO_EXCHANGES.includes(ex), enabled: true, uid: autoLinks[ex].get(mrow.user_id) || null, accountName: accNames.get(`${ex}:${mrow.user_id}`) || null, needsName: needsName(ex), boundAt: null })) : null, feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, adminRole: admin ? role : null, accessUntil: mrow?.access_until || null, free: !!mrow?.free, theme: mrow?.theme || null, notify: mrow ? mrow.notify !== false : null, nextLive: (() => { const l = liveNext(); return l ? { title: l.title, startsAt: l.starts_at, hosts: l.hosts || [], note: l.note, link: l.link } : null; })(), volume: mrow ? (() => { const p = curP(mrow); const v = vols.get(mrow.user_id + ":" + p.start); return { periodStart: p.start, periodEnd: p.end, exchanges: EX, threshold, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, qualified: v ? qualified(v.amounts) : false, qualifiedAt: v?.qualified_at || null, qualifiedUntil: v?.qualified_at ? nextPeriod(anchorOf(mrow), p).end : null, milestone: mrow.free ? null : msUnseen(mrow, p), nextEnd: nextPeriod(anchorOf(mrow), p).end }; })() : null });
+    }
+    if (p === "/api/badges") {
+      const all = BADGES.map(({ id, icon, name, desc }) => ({ id, icon, name, desc }));
+      if (!mrow) return send(res, 200, { badges: [], all, progress: null });
+      if (req.method === "PATCH") { for (const v of (badgeRows.get(mrow.user_id) || new Map()).values()) v.seen = true; return send(res, 200, { ok: true }); }
+      const { f, had } = syncBadgesM(mrow);
+      return send(res, 200, { badges: BADGES.filter((b) => had.has(b.id)).map((b) => ({ id: b.id, earnedAt: had.get(b.id).earned_at, isNew: !had.get(b.id).seen })), all, progress: { bestPct: Math.min(100, Math.round(f.bestPct)), streak: f.streak, liveDone: f.liveDone, courseDone: f.courseDone, notes: f.notes, questions: f.questions, hostsDone: f.hostsDone } });
     }
     if (p === "/api/exchange-link") {
       const mrow = members.find((m) => m.user_id === u.id);

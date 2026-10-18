@@ -9,6 +9,8 @@ const j = async (path, { method = "GET", body, token } = {}) => {
   const r = await fetch(BASE + path, { method, headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) }, body: body ? JSON.stringify(body) : undefined });
   return { status: r.status, body: await r.json().catch(() => null) };
 };
+// 把跳出來的視窗（里程碑、徽章）一個一個關掉，回傳看到的文字
+const closeAll = async (p) => { const seen = []; for (let i = 0; i < 6; i++) { await p.waitForTimeout(1300); if (!(await p.locator(".modal-back").count())) break; seen.push(await p.textContent(".modal-back")); await p.keyboard.press("Escape"); } return seen.join(" ‖ "); };
 (async () => {
   // 新研究員（OKX）＋管理員登入
   const reg = await j("/api/register", { method: "POST", body: { email: "ms@example.com", password: "password1", inviteCode: "K7QM-2XPA", exchange: "OKX", uid: "55550001" } });
@@ -36,8 +38,9 @@ const j = async (path, { method = "GET", body, token } = {}) => {
   check("亮到第二格（50%）", (await p.locator(".ms-step.on").count()) === 2 && (await p.locator(".ms-step.now .ms-label").textContent()) === "50%");
   await p.screenshot({ path: "output/shots/v24-50.png" });
   await p.click(".modal-back button:has-text('繼續衝')"); await p.waitForTimeout(300);
-  await p.reload(); await p.waitForSelector("#volPanel:not([hidden])"); await p.waitForTimeout(1200);
-  check("看過就不再跳", !(await p.locator(".modal-back").count()));
+  await closeAll(p);
+  await p.reload(); await p.waitForSelector("#volPanel:not([hidden])");
+  check("看過就不再跳", !/跨過|達標了/.test(await closeAll(p)));
 
   // 120 萬 → 達標
   await setOkx(1200000);
@@ -47,8 +50,9 @@ const j = async (path, { method = "GET", body, token } = {}) => {
   check("四格都亮", (await p.locator(".ms-step.on").count()) === 4);
   await p.screenshot({ path: "output/shots/v24-100.png" });
   await p.keyboard.press("Escape"); await p.waitForTimeout(300);
-  await p.reload(); await p.waitForSelector("#volPanel:not([hidden])"); await p.waitForTimeout(1200);
-  check("按 Esc 關掉也算看過", !(await p.locator(".modal-back").count()));
+  await closeAll(p);
+  await p.reload(); await p.waitForSelector("#volPanel:not([hidden])");
+  check("按 Esc 關掉也算看過", !/跨過|達標了/.test(await closeAll(p)));
   await c.close();
 
   // 手機
