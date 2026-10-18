@@ -12,5 +12,18 @@
 /config.js
   Cache-Control: no-cache
 
+# 頁面本身也每次確認有沒有新版，免得舊頁面配到新程式
+/
+  Cache-Control: no-cache
+
+/index.html
+  Cache-Control: no-cache
+
+/admin
+  Cache-Control: no-cache
+
+/admin.html
+  Cache-Control: no-cache
+
 /changelog.json
   Cache-Control: no-store
