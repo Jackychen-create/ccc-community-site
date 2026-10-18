@@ -42,13 +42,14 @@ export default route({
       const period = periodFor(mem, "current", today);
       const vr = volBy.get(`${mem.user_id}:${period.start}`);
       const md = (d) => d.slice(5).replace("-", "/");
-      if (ts.tier === 0) reasons.push({ key: "notier", label: "沒有等級（Discord 身分組可以拿掉）", level: 2 });
+      if (mem.free) { /* 贈送名額不分級，不列等級相關的提醒 */ }
+      else if (ts.tier === 0) reasons.push({ key: "notier", label: "沒有等級（Discord 身分組可以拿掉）", level: 2 });
       else if (ts.cycleTier < ts.tier && ts.until && !mem.free) {
         // 這一輪還沒達到現在的等級 → 下一輪會降級
         const soon = ts.until <= addDays(today, 7);
         reasons.push({ key: "drop", label: `${md(ts.until)} 後降到${tierName(ts.cycleTier)}（${tierName(ts.tier)}${gapTo(vr?.amounts || {}, ts.tier)}）`, level: soon ? 2 : 1 });
       }
-      if (ts.tier >= 3) {
+      if (!mem.free && ts.tier >= 3) {
         const pk = pickOf.get(mem.user_id);
         if (!pk) reasons.push({ key: "oneonone", label: "第三級：這個月還沒選一對一講師", level: 1 });
         else if (!pk.booked) reasons.push({ key: "oneonone", label: `一對一：${pk.host} 第 ${pk.rank} 位（${pk.confirmed ? "確定，還沒約時間" : "候補"}）`, level: pk.confirmed ? 2 : 1 });

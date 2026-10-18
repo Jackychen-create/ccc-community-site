@@ -96,6 +96,7 @@ function renderMembers() {
 // ── 等級（三級制度，規則在 shared/rules.js 的 TIERS）──
 const mdv = (d) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
 function accessCell(m) {
+  if (m.free) return el("div", null, el("span", { class: "pill brass", text: "贈送（不分級）" }));
   const t = m.tier ?? 0;
   const pill = el("span", { class: "pill" + (t >= SITE_TIER ? " good" : t ? "" : " warn") }, t >= SITE_TIER ? el("span", { class: "dot" }) : null, tierName(t));
   const sub = t ? (m.tier_until ? `到 ${mdv(m.tier_until)}` : "不限") : "";

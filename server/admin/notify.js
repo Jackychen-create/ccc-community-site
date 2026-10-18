@@ -24,7 +24,7 @@ export default route({
     if (v.course_host) return res.status(400).json({ error: "教學課程依每個人的加入日期解鎖，不寄全體通知" });
 
     // 收件人：開著通知、沒被停權、資格沒過期的研究員
-    const { data: members, error: mErr } = await supabaseAdmin.from("members").select("user_id, email, banned, notify, created_at, min_tier, min_tier_until");
+    const { data: members, error: mErr } = await supabaseAdmin.from("members").select("user_id, email, banned, notify, created_at, free, min_tier, min_tier_until");
     if (mErr) throw mErr;
     // 新影片只寄給看得到的人（第二級以上）
     const tiers = await tiersFor((members || []).filter((m) => !m.banned));

@@ -5,7 +5,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 // 規則跟正式網站讀同一份
 import { canUseApi } from "../public/assets/js/shared/roles.js";
-import { EXCHANGES, AUTO_EXCHANGES, addDays, periodOf, nextPeriod, prevPeriod, COURSE_HOSTS as CH, courseUnlockDate, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR, BADGES, earnedBadges, themeUnlocked, courseTierOk, courseSkipSchedule, tierOf, tierStatus, progressTo, tierName, tierRuleText, gapTo, TIERS, rankOneOnOne, oneOnOneScore, ONE_ON_ONE_HOSTS, ONE_ON_ONE_CAP, fmtAmount, streakOf, bestStreakOf, weekOf, QUESTS, weeklyVolumeRatio } from "../public/assets/js/shared/rules.js";
+import { EXCHANGES, AUTO_EXCHANGES, addDays, periodOf, nextPeriod, prevPeriod, COURSE_HOSTS as CH, courseUnlockDate, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR, BADGES, earnedBadges, themeUnlocked, courseTierOk, courseSkipSchedule, tierOf, tierStatus, progressTo, tierName, tierRuleText, gapTo, TIERS, rankOneOnOne, oneOnOneScore, ONE_ON_ONE_HOSTS, ONE_ON_ONE_CAP, fmtAmount, streakOf, bestStreakOf, weekOf, QUESTS } from "../public/assets/js/shared/rules.js";
 
 const PORT = Number(process.env.PORT || 4321);
 const ROOT = path.join(path.dirname(new URL(import.meta.url).pathname), "..");
@@ -109,7 +109,7 @@ const anchorOf = (m) => twDate(m.created_at);
 const curP = (m) => periodOf(anchorOf(m), TODAY());
 const periodFor = (m, which) => (which === "previous" ? prevPeriod(anchorOf(m), curP(m)) : curP(m));
 // 三級制度：今天第幾級（跟 server/lib/tier.js 一樣）
-const tierM = (m) => tierStatus({ anchor: anchorOf(m), today: TODAY(), amountsOf: (st) => vols.get(m.user_id + ":" + st)?.amounts || {}, override: m.min_tier ? { tier: m.min_tier, until: m.min_tier_until || null } : null });
+const tierM = (m) => m.free ? { tier: 2, until: null, cycleTier: 2, period: curP(m), free: true } : tierStatus({ anchor: anchorOf(m), today: TODAY(), amountsOf: (st) => vols.get(m.user_id + ":" + st)?.amounts || {}, override: m.min_tier ? { tier: m.min_tier, until: m.min_tier_until || null } : null });
 const clampDay = (d, p) => (d < p.start ? p.start : d > p.end ? p.end : d);
 // 進度里程碑：`${user_id}:${period_start}:${level}` → { seen }
 const msRows = new Map();
@@ -148,17 +148,16 @@ const questRows = new Map();
 function checkinM(m) { const set = checkinsM.get(m.user_id) || new Set(); set.add(TODAY()); checkinsM.set(m.user_id, set); return { days: streakOf([...set], TODAY()), best: bestStreakOf([...set]) }; }
 function questsM(m) {
   const wk = weekOf(TODAY()); const since = Date.parse(wk.start + "T00:00:00Z") - 8 * 3600e3;
-  const key = m.user_id + ":" + wk.start; const p = curP(m); const now = vols.get(m.user_id + ":" + p.start)?.amounts || {};
-  let row = questRows.get(key); const fresh = !row;
-  if (!row) { row = { base: { period_start: p.start, amounts: { ...now } }, done_at: null }; questRows.set(key, row); }
-  const delta = {}; for (const ex of EX) delta[ex] = Math.max(0, Number(now[ex] || 0) - Number(row.base.amounts[ex] || 0));
+  const key = m.user_id + ":" + wk.start;
+  let row = questRows.get(key);
+  if (!row) { row = { done_at: null }; questRows.set(key, row); }
   const watched = [...progress.entries()].filter(([k, v]) => k.startsWith(m.user_id + ":") && Date.parse(v.updated_at) >= since).filter(([k, v]) => { const vid = videos.find((x) => x.id === Number(k.split(":")[1])); return vid && v.position_sec >= (vid.duration_sec || v.duration_sec) * 0.95; }).length;
   const nn = notes.filter((n) => n.user_id === m.user_id && Date.parse(n.created_at) >= since).length;
-  const value = { watch: watched, notes: nn, volume: weeklyVolumeRatio(delta) };
+  const days = [...(checkinsM.get(m.user_id) || [])].filter((d) => d >= wk.start).length;
+  const value = { watch: watched, notes: nn, days };
   const quests = QUESTS.map((q) => ({ id: q.id, icon: q.icon, name: q.name, target: q.target, progress: Math.min(q.target, value[q.id]), done: value[q.id] >= q.target }));
   const allDone = quests.every((q) => q.done); let justDone = false;
   if (allDone && !row.done_at) { row.done_at = new Date().toISOString(); justDone = true; }
-  if (fresh && !allDone) justDone = false;
   const weeksDone = [...questRows.entries()].filter(([k, v]) => k.startsWith(m.user_id + ":") && v.done_at).length;
   return { week: wk, quests, allDone, justDone, weeksDone };
 }
@@ -300,6 +299,8 @@ const server = http.createServer(async (req, res) => {
       const i = invites.find((x) => x.code === c);
       return send(res, 200, { free: !!(i?.free && !i.disabled && i.used_count < i.max_uses) });
     }
+    // 測試用：補幾天之前的打卡（「這週打開網站 3 天」）
+    if (p === "/api/__test/checkin") { const m = members.find((x) => x.email === body.email); if (!m) return send(res, 404, {}); const set = checkinsM.get(m.user_id) || new Set(); for (const dd of body.days || []) set.add(dd); checkinsM.set(m.user_id, set); return send(res, 200, { ok: true }); }
     if (p === "/api/stats") {
       const pub = videos.filter((v) => v.is_published && !v.course_host).sort((a, b) => String(b.published_at).localeCompare(a.published_at));
       return send(res, 200, { latest: pub[0]?.published_at || null, count: pub.length });
@@ -336,7 +337,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (p === "/api/quests") {
       if (!mrow) return send(res, 200, { quests: null, streak: null });
-      return send(res, 200, { ...questsM(mrow), streak: checkinM(mrow) });
+      const streak = checkinM(mrow); return send(res, 200, { ...questsM(mrow), streak });
     }
     if (p === "/api/oneonone") {
       if (!mrow) return send(res, 200, { month: monthNow(), cap: ONE_ON_ONE_CAP, eligible: false, hosts: [], mine: null });

@@ -13,7 +13,7 @@ export async function oneOnOneBoard(month = thisMonthTW(), today = todayTW()) {
   if (error) throw error;
   if (!picks?.length) return { month, hosts: ONE_ON_ONE_HOSTS.map((host) => ({ host, list: [] })) };
   const ids = picks.map((p) => p.user_id);
-  const { data: mems, error: e2 } = await supabaseAdmin.from("members").select("user_id, email, banned, created_at, min_tier, min_tier_until").in("user_id", ids);
+  const { data: mems, error: e2 } = await supabaseAdmin.from("members").select("user_id, email, banned, created_at, free, min_tier, min_tier_until").in("user_id", ids);
   if (e2) throw e2;
   const live = (mems || []).filter((m) => !m.banned);
   const tiers = await tiersFor(live, today);

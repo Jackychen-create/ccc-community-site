@@ -57,7 +57,7 @@ export default route({
         ...m,
         email: authEmail.get(m.user_id) || m.email,
         last_sign_in_at: lastSeen.get(m.user_id) || null,
-        tier: tiers.get(m.user_id)?.tier ?? 0,
+        tier: tiers.get(m.user_id)?.tier ?? 0, // 贈送名額不分級（free），畫面寫「贈送」
         tier_until: tiers.get(m.user_id)?.until ?? null,
         cycle_tier: tiers.get(m.user_id)?.cycleTier ?? 0,
         watched_count: watched.get(m.user_id) || 0,

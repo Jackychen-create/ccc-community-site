@@ -370,29 +370,33 @@ await test("一對一：第三級才能選；每位講師 5 位，超過照交�
   // 講師名字亂填不收
   assert.equal((await call(oneonone, { token: "tok-one3", method: "POST", body: { host: "Bob" } })).statusCode, 400);
 });
-await test("每週任務、連續打卡：看完影片、記 3 則筆記、這週交易量 +5 萬，三個都完成算一週", async () => {
+await test("本週小目標、連續打卡：看完 1 部、記 1 則筆記、這週打開 3 天，三個都完成算一週", async () => {
   const id = "00000000-0000-4000-8000-0000000000b1";
-  const P = periodOf(today, today);
   db.members.push(member(id, today, { email: "q@example.com" }));
-  db.volumes.push({ user_id: id, period_start: P.start, period_end: P.end, amounts: { OKX: 30000 }, qualified_at: null });
   tokens["tok-q"] = { id, email: "q@example.com", email_confirmed_at: null };
-  // 前幾天也有打卡（連續）
+  // 前兩天也有打卡（連續）；今天是星期幾不一定，所以這週打開幾天要看日期
   db.checkins.push({ user_id: id, day: addDays(today, -1) }, { user_id: id, day: addDays(today, -2) });
   const r1 = await call(questsApi, { token: "tok-q" });
   assert.equal(r1.statusCode, 200, JSON.stringify(r1.body));
-  assert.deepEqual(r1.body.quests.map((x) => x.done), [false, false, false]);
+  assert.deepEqual(r1.body.quests.map((x) => x.done).slice(0, 2), [false, false]);
   assert.deepEqual([r1.body.streak.days, r1.body.streak.best], [3, 3]);
-  assert.equal(db.quest_weeks.find((x) => x.user_id === id).base.amounts.OKX, 30000); // 記下這週的起點
-  // 看完一部、記 3 則筆記、交易量 +6 萬
+  // 這週其他天也補打卡，確定「這週 3 天」達成
+  const wk = r1.body.week;
+  for (let d = wk.start; d <= wk.end; d = addDays(d, 1)) if (!db.checkins.some((c) => c.user_id === id && c.day === d)) db.checkins.push({ user_id: id, day: d });
   db.videos.push({ id: 601, title: "v", is_published: true, duration_sec: 100 });
   db.watch_progress.push({ user_id: id, video_id: 601, position_sec: 99, duration_sec: 100, updated_at: new Date().toISOString() });
-  for (let i = 0; i < 3; i++) db.notes.push({ id: 900 + i, user_id: id, video_id: 601, created_at: new Date().toISOString() });
-  db.volumes.find((v) => v.user_id === id).amounts = { OKX: 90000 };
+  db.notes.push({ id: 900, user_id: id, video_id: 601, created_at: new Date().toISOString() });
   const r2 = await call(questsApi, { token: "tok-q" });
   assert.deepEqual(r2.body.quests.map((x) => x.done), [true, true, true], JSON.stringify(r2.body.quests));
   assert.deepEqual([r2.body.allDone, r2.body.justDone, r2.body.weeksDone], [true, true, 1]);
   const r3 = await call(questsApi, { token: "tok-q" });
-  assert.equal(r3.body.justDone, false); // 只恭喜一次
+  assert.equal(r3.body.justDone, false); // 只提示一次
+});
+await test("贈送名額不分級：一直看得到網站、不顯示等級變化", async () => {
+  const id = "00000000-0000-4000-8000-0000000000b2";
+  db.members.push(member(id, addDays(today, -60), { email: "gift2@example.com", free: true, min_tier: 2 }));
+  const t = await memberTier(db.members.find((m) => m.user_id === id));
+  assert.deepEqual([t.tier, t.until, t.free], [2, null, true]);
 });
 await test("協作管理員：交易量、待跟進被擋，主要管理員不受影響", async () => {
   tokens["tok-oc"] = { id: "oc-1", email: "oc@gmail.com", email_confirmed_at: "2026-01-01T00:00:00Z" };

@@ -39,9 +39,9 @@ export function renderVolPanel() {
   if (state.me.free) {
     return box.replaceChildren(...[
       el("div", { class: "panel-head", style: { padding: "14px 18px" } },
-        el("div", null, el("h2", { text: "我的等級" })),
-        el("span", { class: "pill good" }, el("span", { class: "dot" }), `贈送名額・${tierName(Math.max(v.tier, SITE_TIER))}`)),
-      el("p", { class: "small muted vol-note", text: "你是贈送名額，不用綁交易所，也沒有交易量條件，網站不限期。" }),
+        el("div", null, el("h2", { text: "我的資格" })),
+        el("span", { class: "pill good" }, el("span", { class: "dot" }), "贈送名額")),
+      el("p", { class: "small muted vol-note", text: "你是贈送名額，不用綁交易所、不分等級，網站內容都看得到，不限期。" }),
       state.me.links?.some((l) => l.uid) ? linkRows() : null,
     ].filter(Boolean));
   }

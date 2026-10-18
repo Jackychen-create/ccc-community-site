@@ -1,6 +1,6 @@
 // 規則和伺服器小工具的單元測試（不用瀏覽器，幾秒鐘跑完）。npm test 會先跑這一支。
 import assert from "node:assert/strict";
-import { addDays, cycleEnd, periodOf, nextPeriod, prevPeriod, addMonths, courseWeek, courseUnlockDate, COURSE_HOSTS, COURSE_PARTS, EXCHANGES, AUTO_EXCHANGES, TIERS, tierOf, tierStatus, gapTo, tierRuleText, tierName, rankOneOnOne, oneOnOneScore, ONE_ON_ONE_CAP, streakOf, bestStreakOf, weekOf, weeklyVolumeRatio, BADGES, earnedBadges, THEMES, themeUnlocked } from "../public/assets/js/shared/rules.js";
+import { addDays, cycleEnd, periodOf, nextPeriod, prevPeriod, addMonths, courseWeek, courseUnlockDate, COURSE_HOSTS, COURSE_PARTS, EXCHANGES, AUTO_EXCHANGES, TIERS, tierOf, tierStatus, gapTo, tierRuleText, tierName, rankOneOnOne, oneOnOneScore, ONE_ON_ONE_CAP, streakOf, bestStreakOf, weekOf, BADGES, earnedBadges, THEMES, themeUnlocked } from "../public/assets/js/shared/rules.js";
 import { longestStreak } from "../server/lib/badges.js";
 import { oneOnOneNotice } from "../server/lib/oneonone.js";
 const pick = ({ tier, until, cycleTier }) => ({ tier, until, cycleTier });
@@ -117,12 +117,10 @@ test("連續打卡：今天還沒開也不會一過午夜就歸零；最長紀�
   assert.equal(streakOf(["2026-10-16"], "2026-10-19"), 0);
   assert.equal(bestStreakOf(["2026-10-01", "2026-10-02", "2026-10-03", "2026-10-09"]), 3);
 });
-test("每週任務：星期一開始；交易量任一間 5 萬 USDT 或 UM 0.5 手", () => {
+test("本週小目標：星期一開始", () => {
   assert.deepEqual(weekOf("2026-10-19"), { start: "2026-10-19", end: "2026-10-25" });
   assert.deepEqual(weekOf("2026-10-25"), { start: "2026-10-19", end: "2026-10-25" });
   assert.deepEqual(weekOf("2026-10-18"), { start: "2026-10-12", end: "2026-10-18" });
-  assert.equal(weeklyVolumeRatio({ OKX: 50000 }), 1);
-  assert.equal(weeklyVolumeRatio({ UM: 0.25, OKX: 10000 }), 0.5);
 });
 test("徽章：照事實給，id 不重複", () => {
   assert.equal(new Set(BADGES.map((b) => b.id)).size, BADGES.length);

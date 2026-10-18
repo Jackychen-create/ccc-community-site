@@ -54,7 +54,7 @@ function renderVolumes() {
   const active = rows.filter((r) => !r.banned);
   const bannedCount = rows.length - active.length;
   if (!bannedCount) volTab = "active";
-  const count = (t) => active.filter((r) => r.cycle_tier === t).length;
+  const count = (t) => active.filter((r) => !r.free && r.cycle_tier === t).length; // 贈送名額不分級，不算
   $("#volSub").textContent = `每人從加入那天起算，每一輪一個月；那一輪達到第幾級，下一輪就是第幾級。${which === "previous" ? "上一輪" : "這一輪"}：${[3, 2, 1].map((t) => `${tierName(t)} ${count(t)} 位`).join("、")}、還沒到第一級 ${count(0)} 位${bannedCount ? `（不含 ${bannedCount} 位已停權）` : ""}。`;
   const box = $("#volBox");
   if (!rows.length) {
@@ -77,7 +77,7 @@ function renderVolumes() {
       el("span", { class: "usage" }, el("span", { class: "track" }, el("i", { style: { width: (t >= MAX_TIER ? 100 : Math.min(100, best.ratio * 100)) + "%" } })))
     );
   };
-  const accessText = (r) => `${tierName(r.tier)}${r.tier ? (r.tier_until ? `，到 ${mdv(r.tier_until)}` : "，不限") : ""}${r.free ? "（贈送）" : ""}`;
+  const accessText = (r) => (r.free ? "贈送（不分級）" : `${tierName(r.tier)}${r.tier ? (r.tier_until ? `，到 ${mdv(r.tier_until)}` : "，不限") : ""}`);
   const trs = rows.map((r) => {
     const map = {};
     const result = el("td", { class: "vol-result" });

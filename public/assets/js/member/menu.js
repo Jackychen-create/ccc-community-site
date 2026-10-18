@@ -10,7 +10,7 @@ const menuPanel = $("#menuPanel");
 export function renderMenu() {
   const me = state.me;
   $("#avatar").textContent = (me?.email || "?").charAt(0).toUpperCase();
-  rankRing($("#avatar"), me && !me.isAdmin ? me.tier ?? 0 : null); // 頭像外圈：銅／銀／金
+  rankRing($("#avatar"), me && !me.isAdmin && !me.free ? me.tier ?? 0 : null); // 頭像外圈：銅／銀／金（贈送名額不分級，不加）
   // 連續打卡：頭像旁邊「🔥 5」
   const chip = $("#streakChip");
   const st = me && !me.isAdmin ? me.streak : null;
