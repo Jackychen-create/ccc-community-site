@@ -7,6 +7,8 @@ const FONT_CSS = ["noto-sans-tc/400","noto-sans-tc/500","noto-sans-tc/700","sofi
 const out = []; const check = (n, ok, d = "") => out.push(`${ok ? "PASS" : "FAIL"}  ${n}${d ? "  — " + d : ""}`);
 const errs = [];
 (async () => {
+  const age = (email, days, prevAmounts) => fetch(BASE + "/api/__test/age", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, days, prevAmounts }) });
+  await age("amy@example.com", 40); // 進到第二輪、上一輪沒有交易量（測手動給的第二級快到期）
   const b = await chromium.launch();
   async function ctx(vp) {
     const c = await b.newContext({ viewport: vp }); await c.addInitScript(() => { try { sessionStorage.setItem("uidPrompted", "1"); localStorage.setItem("tutorialOffered", "true"); } catch {} });
@@ -121,13 +123,14 @@ const errs = [];
   await p.click("#memberTableBox tbody tr:has-text('amy@example.com') .btn:has-text('等級')"); await p.waitForTimeout(200);
   await p.click(".modal .chip:has-text('不手動給')");
   await p.click(".modal-foot .btn.primary"); await p.waitForTimeout(500);
-  check("清掉手動等級：照交易量（第一輪先是第一級）", (await p.textContent("#memberTableBox tbody tr:has-text('amy@example.com')")).includes("第一級"));
+  check("清掉手動等級：照交易量（上一輪沒有交易量 → 沒有等級）", (await p.textContent("#memberTableBox tbody tr:has-text('amy@example.com')")).includes("沒有等級"), await p.textContent("#memberTableBox tbody tr:has-text('amy@example.com')"));
   // 統計
   await p.goto(BASE + "/admin#stats"); await p.waitForSelector("#statsBox table"); await p.waitForTimeout(400);
   check("觀看統計有兩張表", (await p.locator("#statsBox table").count()) === 2);
   await p.screenshot({ path: "output/shots/v14-stats.png", fullPage: true });
   await c.close();
-  // 第一級的研究員登入：網站內容鎖著，顯示升級說明
+  // 第一級的研究員登入（第二輪、上一輪只到第一級）：網站內容鎖著，顯示升級說明
+  await age("amy@example.com", 40, { OKX: 15000 });
   [c, p] = await ctx({ width: 1100, height: 700 });
   await login(p, "amy@example.com"); await p.waitForSelector(".lock-page");
   check("第一級看不到直播留檔，顯示升級說明", (await p.textContent(".lock-page")).includes("升上第二級") && !(await p.locator("#grid .vrow").count()));

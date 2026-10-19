@@ -87,7 +87,7 @@ export default route({
       user_id: created.user.id,
       email,
       invite_code: code,
-      // 三級制度：新研究員第一輪先是第一級，之後看每一輪的交易量（規則在 shared/rules.js）
+      // 三級制度：新研究員第一輪先是第二級（shared/rules.js 的 FIRST_CYCLE_TIER），之後看每一輪的交易量（規則在 shared/rules.js）
       // 贈送名額：一直是第二級（網站全開），不用看交易量
       access_until: null,
       free,

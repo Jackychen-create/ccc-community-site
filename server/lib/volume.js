@@ -2,7 +2,7 @@
 // 每人從加入那天起算，每一輪剛好一個月；這一輪達到第幾級 → 下一輪就是第幾級（等級怎麼算在 tier.js）
 import { supabaseAdmin } from "./env.js";
 import { twDate, todayTW } from "./dates.js";
-import { EXCHANGES, AUTO_EXCHANGES, SITE_TIER, tierOf, periodOf, nextPeriod, prevPeriod, addDays } from "../../public/assets/js/shared/rules.js";
+import { EXCHANGES, AUTO_EXCHANGES, SITE_TIER, FIRST_CYCLE_TIER, tierOf, periodOf, nextPeriod, prevPeriod, addDays } from "../../public/assets/js/shared/rules.js";
 import { notifyMilestones } from "./milestone.js";
 export { EXCHANGES, AUTO_EXCHANGES, TIERS, SITE_TIER, tierOf, tierName, goalFor, unitOf, gapTo, tierRuleText, periodOf, nextPeriod, prevPeriod, addMonths, idLabel, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR } from "../../public/assets/js/shared/rules.js";
 
@@ -51,7 +51,7 @@ export async function saveVolumes({ entries, updatedBy, merge = false, keepAuto 
   if (!ids.length) return { saved: 0, newlyQualified: [], tierUps: 0 };
   const starts = [...new Set(entries.map((e) => e.period.start))];
   const [{ data: members, error }, { data: prev, error: e2 }] = await Promise.all([
-    supabaseAdmin.from("members").select("user_id, created_at").in("user_id", ids),
+    supabaseAdmin.from("members").select("user_id, created_at, min_tier, min_tier_until").in("user_id", ids),
     supabaseAdmin.from("volumes").select("user_id, period_start, amounts, qualified_at").in("user_id", ids).in("period_start", starts),
   ]);
   if (error || e2) throw error || e2;
@@ -81,7 +81,9 @@ export async function saveVolumes({ entries, updatedBy, merge = false, keepAuto 
     if (qOn > e.period.end) qOn = e.period.end;
     const qualified_at = ok ? old?.qualified_at || qOn : null;
     // 升級通知：只看這一輪（和剛結束 3 天內的上一輪）
-    if (tier > tierOf(cleanAmounts(old?.amounts || {})) && addDays(e.period.end, 3) >= todayTW()) {
+    // 本來就有的等級（第一輪先給的、管理員手動給的）比這次高或一樣，就不用恭喜「升上」較低的那一級
+    const given = Math.max(e.period.start === anchorOf(m) ? FIRST_CYCLE_TIER : 0, m.min_tier && (!m.min_tier_until || m.min_tier_until >= todayTW()) ? m.min_tier : 0);
+    if (tier > tierOf(cleanAmounts(old?.amounts || {})) && tier >= given && addDays(e.period.end, 3) >= todayTW()) {
       hits.push({ user_id: m.user_id, period: e.period, level: tier, amounts, nextEnd: nextPeriod(anchorOf(m), e.period).end });
     }
     upserts.push({ user_id: m.user_id, period_start: e.period.start, period_end: e.period.end, amounts, qualified_at, updated_at: new Date().toISOString(), updated_by: updatedBy });

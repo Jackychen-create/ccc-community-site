@@ -8,6 +8,9 @@ const errs = [];
 const today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
 const end = (() => { const [y, m, dd] = today.split("-").map(Number); const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate(); const x = new Date(Date.UTC(y, m, Math.min(dd, last))); x.setUTCDate(x.getUTCDate() - 1); return x.toISOString().slice(0, 10); })();
 (async () => {
+  // amy 進到第二輪、上一輪沒有交易量（第一輪先給第二級，這裡要測「手動給的第二級快到期」）
+  const age = (email, days, prevAmounts) => fetch(BASE + "/api/__test/age", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, days, prevAmounts }) });
+  await age("amy@example.com", 40);
   const b = await chromium.launch();
   async function ctx(vp) {
     const c = await b.newContext({ viewport: vp }); await c.addInitScript(() => { try { sessionStorage.setItem("uidPrompted", "1"); localStorage.setItem("tutorialOffered", "true"); } catch {} });
@@ -90,7 +93,7 @@ const end = (() => { const [y, m, dd] = today.split("-").map(Number); const last
   await p.screenshot({ path: "output/shots/v15-admin.png", fullPage: true });
   // 上一輪：兩位都還在第一輪
   await p.click("#volWhich .vol-seg-btn[data-which='previous']"); await p.waitForTimeout(500);
-  check("上一輪：都還在第一輪", (await p.textContent("#volBox")).includes("沒有上一輪"), await p.textContent("#volBox"));
+  check("上一輪：只列進到第二輪的人", (await p.textContent("#volBox")).includes("amy@example.com") && !(await p.textContent("#volBox")).includes("banned@example.com"), await p.textContent("#volBox"));
   await p.click("#volWhich .vol-seg-btn[data-which='current']"); await p.waitForSelector(".vol-table");
   await c.close();
   // 手機後台
