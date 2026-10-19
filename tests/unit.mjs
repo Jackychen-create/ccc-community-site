@@ -68,10 +68,12 @@ test("還差多少：挑最接近的那間", () => {
   assert.equal(gapTo({}, 3), "還差 150 萬");
 });
 test("規則文字", () => assert.equal(tierRuleText(2), "OKX、Bybit、BingX 任一間 20 萬 USDT，或 UM 2 手"));
-test("等級：這一輪達到的撐到下一輪結束、上一輪的撐到這一輪結束、第一輪先給第一級", () => {
+test("等級：這一輪達到的撐到下一輪結束、上一輪的撐到這一輪結束、第一輪先給第二級", () => {
   const am = (map) => (st) => map[st] || {};
-  // 第一輪、沒交易量 → 第一級，到這一輪結束
-  assert.deepEqual(pick(tierStatus({ anchor: "2026-10-10", today: "2026-10-18", amountsOf: am({}) })), { tier: 1, until: "2026-11-09", cycleTier: 0 });
+  // 第一輪、沒交易量 → 第二級，到這一輪結束
+  assert.deepEqual(pick(tierStatus({ anchor: "2026-10-10", today: "2026-10-18", amountsOf: am({}) })), { tier: 2, until: "2026-11-09", cycleTier: 0 });
+  // 第一輪只到第一級 → 這一輪還是第二級，下一輪第一級
+  assert.deepEqual(pick(tierStatus({ anchor: "2026-10-10", today: "2026-10-18", amountsOf: am({ "2026-10-10": { OKX: 20000 } }) })), { tier: 2, until: "2026-11-09", cycleTier: 1 });
   // 第一輪就到第二級 → 撐到第二輪結束
   assert.deepEqual(pick(tierStatus({ anchor: "2026-10-10", today: "2026-10-18", amountsOf: am({ "2026-10-10": { OKX: 250000 } }) })), { tier: 2, until: "2026-12-09", cycleTier: 2 });
   // 上一輪第二級、這一輪還沒 → 第二級到這一輪結束；這一輪只有第一級 → 下一輪降到第一級

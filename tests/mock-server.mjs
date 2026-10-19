@@ -5,7 +5,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 // 規則跟正式網站讀同一份
 import { canUseApi } from "../public/assets/js/shared/roles.js";
-import { EXCHANGES, AUTO_EXCHANGES, addDays, periodOf, nextPeriod, prevPeriod, COURSE_HOSTS as CH, courseUnlockDate, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR, BADGES, earnedBadges, themeUnlocked, courseTierOk, courseSkipSchedule, tierOf, tierStatus, progressTo, tierName, tierRuleText, gapTo, TIERS, rankOneOnOne, oneOnOneScore, ONE_ON_ONE_HOSTS, ONE_ON_ONE_CAP, fmtAmount, streakOf, bestStreakOf, weekOf, QUESTS } from "../public/assets/js/shared/rules.js";
+import { EXCHANGES, AUTO_EXCHANGES, addDays, periodOf, nextPeriod, prevPeriod, COURSE_HOSTS as CH, courseUnlockDate, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR, BADGES, earnedBadges, themeUnlocked, courseTierOk, courseSkipSchedule, tierOf, tierStatus, FIRST_CYCLE_TIER, progressTo, tierName, tierRuleText, gapTo, TIERS, rankOneOnOne, oneOnOneScore, ONE_ON_ONE_HOSTS, ONE_ON_ONE_CAP, fmtAmount, streakOf, bestStreakOf, weekOf, QUESTS } from "../public/assets/js/shared/rules.js";
 
 const PORT = Number(process.env.PORT || 4321);
 const ROOT = path.join(path.dirname(new URL(import.meta.url).pathname), "..");
@@ -116,6 +116,9 @@ const msRows = new Map();
 function msHit(m, p, before, after) {
   if (m.free) return;
   const lvl = tierOf(after);
+  // 本來就有的等級（第一輪先給的、手動給的）比較高就不恭喜
+  const given = Math.max(p.start === anchorOf(m) ? FIRST_CYCLE_TIER : 0, m.min_tier && (!m.min_tier_until || m.min_tier_until >= TODAY()) ? m.min_tier : 0);
+  if (lvl < given) return;
   if (lvl > tierOf(before || {}) && !msRows.has(`${m.user_id}:${p.start}:${lvl}`)) msRows.set(`${m.user_id}:${p.start}:${lvl}`, { level: lvl, seen: false });
 }
 // 徽章：`${user_id}` → Map(badge → { earned_at, seen })
@@ -300,6 +303,8 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { free: !!(i?.free && !i.disabled && i.used_count < i.max_uses) });
     }
     // 測試用：補幾天之前的打卡（「這週打開網站 3 天」）
+    // 測試用：把研究員的加入日往前移 days 天（進到第二輪以後），可以順便給上一輪的交易量
+    if (p === "/api/__test/age") { const m = members.find((x) => x.email === body.email); if (!m) return send(res, 404, {}); m.created_at = new Date(Date.now() - body.days * 86400e3).toISOString(); if (body.prevAmounts) { const pp = prevPeriod(anchorOf(m), curP(m)); if (pp) vols.set(m.user_id + ":" + pp.start, { amounts: body.prevAmounts, qualified_at: null, updated_at: new Date().toISOString(), updated_by: "test" }); } return send(res, 200, { ok: true }); }
     if (p === "/api/__test/checkin") { const m = members.find((x) => x.email === body.email); if (!m) return send(res, 404, {}); const set = checkinsM.get(m.user_id) || new Set(); for (const dd of body.days || []) set.add(dd); checkinsM.set(m.user_id, set); return send(res, 200, { ok: true }); }
     if (p === "/api/stats") {
       const pub = videos.filter((v) => v.is_published && !v.course_host).sort((a, b) => String(b.published_at).localeCompare(a.published_at));

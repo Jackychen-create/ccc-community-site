@@ -199,7 +199,7 @@ $("#volThreshold").addEventListener("click", () => {
   const m = A.modal({
     title: "三級門檻",
     body: el("div", null,
-      el("p", { class: "small sub", style: { marginTop: "12px" }, text: "每人從加入那天起算，一輪一個月。那一輪任一間交易所達到某一級 → 那一輪剩下的時間和下一輪都是那一級；沒達到第一級，下一輪就沒有等級。新研究員第一輪先是第一級。" }),
+      el("p", { class: "small sub", style: { marginTop: "12px" }, text: "每人從加入那天起算，一輪一個月。那一輪任一間交易所達到某一級 → 那一輪剩下的時間和下一輪都是那一級；沒達到第一級，下一輪就沒有等級。新研究員第一輪先是第二級。" }),
       el("ol", { class: "tier-table", style: { marginTop: "12px" } }, ...TIERS.map((t) => el("li", { class: "tier-card" },
         el("b", { text: tierName(t.tier) }), el("div", { class: "tier-goal num", text: tierRuleText(t.tier) }),
         el("ul", null, ...t.perks.map((x) => el("li", { text: x })))))),

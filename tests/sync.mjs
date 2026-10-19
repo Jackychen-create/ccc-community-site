@@ -4,7 +4,7 @@ import http from "node:http";
 import { setEnv, env } from "../server/lib/env.js";
 import { syncBingx } from "../server/lib/bingx-sync.js";
 import { syncBybit } from "../server/lib/bybit-sync.js";
-import { periodOf, nextPeriod, addDays } from "../public/assets/js/shared/rules.js";
+import { periodOf, nextPeriod, prevPeriod, addDays } from "../public/assets/js/shared/rules.js";
 import { todayTW } from "../server/lib/dates.js";
 import followup from "../server/admin/followup.js";
 import adminVolumes from "../server/admin/volumes.js";
@@ -159,7 +159,7 @@ const bJoin = addDays(today, -3);
 const bP = periodOf(bJoin, today);
 db.members.push(member("u-b", bJoin));
 db.exchange_links.push({ user_id: "u-b", exchange: "Bybit", exchange_uid: "77770001" });
-// C：今天才加入，Bybit 還沒有資料 → 不寫，第一輪先是第一級
+// C：今天才加入，Bybit 還沒有資料 → 不寫，第一輪先是第二級
 db.members.push(member("u-c", today));
 db.exchange_links.push({ user_id: "u-c", exchange: "Bybit", exchange_uid: "77770002" });
 // D：上一輪（前天結束）Bybit 200 萬 → 這一輪第三級；這一輪只有 10 → 下一輪沒有等級
@@ -180,10 +180,10 @@ await test("Bybit：查這一輪第一天到昨天；150 萬是第三級", async
   assert.equal((await tierNow("u-b")).tier, 3);
   assert.ok(bybitQueries.includes(`${bJoin}:${addDays(today, -1)}`), bybitQueries.join(","));
 });
-await test("Bybit：今天才加入的人，還沒有資料就不寫；第一輪先是第一級", async () => {
+await test("Bybit：今天才加入的人，還沒有資料就不寫；第一輪先是第二級", async () => {
   assert.equal(vol("u-c").length, 0);
   const t = await tierNow("u-c");
-  assert.deepEqual([t.tier, t.cycleTier], [1, 0]);
+  assert.deepEqual([t.tier, t.cycleTier, t.until], [2, 0, periodOf(today, today).end]);
 });
 await test("上一輪剛結束：補同步上一輪，上一輪第三級 → 這一輪是第三級到這一輪結束", async () => {
   const prev = vol("u-d").find((v) => v.period_start === dJoinFixed);
@@ -256,7 +256,7 @@ await test("升級通知：自動同步、手動填都記一次，同樣數字�
 });
 await test("升級通知：一級一級升上去各通知一次，一次跳兩級只通知最高的", async () => {
   const id = "00000000-0000-4000-8000-0000000000f1";
-  db.members.push(member(id, today, { email: "u-f@example.com" }));
+  db.members.push(member(id, addDays(today, -40), { email: "u-f@example.com" })); // 第二輪（第一輪先給第二級，看不出升級）
   const lv = () => db.milestones.filter((r) => r.user_id === id).map((r) => r.level).sort();
   await call(adminVolumes, { method: "POST", body: { which: "current", qualifiedOn: today, rows: [{ userId: id, amounts: { OKX: 15000 } }] } });
   assert.deepEqual(lv(), [1]);
@@ -264,6 +264,15 @@ await test("升級通知：一級一級升上去各通知一次，一次跳兩�
   assert.deepEqual(lv(), [1]);
   await call(adminVolumes, { method: "POST", body: { which: "current", qualifiedOn: today, rows: [{ userId: id, amounts: { OKX: 1600000 } }] } });
   assert.deepEqual(lv(), [1, 3]);
+});
+await test("升級通知：第一輪本來就是第二級，到第一級不通知、到第二級以上才通知", async () => {
+  const id = "00000000-0000-4000-8000-0000000000f9";
+  db.members.push(member(id, today, { email: "u-new@example.com" }));
+  const lv = () => db.milestones.filter((r) => r.user_id === id).map((r) => r.level).sort();
+  await call(adminVolumes, { method: "POST", body: { which: "current", qualifiedOn: today, rows: [{ userId: id, amounts: { OKX: 15000 } }] } });
+  assert.deepEqual(lv(), []);
+  await call(adminVolumes, { method: "POST", body: { which: "current", qualifiedOn: today, rows: [{ userId: id, amounts: { OKX: 300000 } }] } });
+  assert.deepEqual(lv(), [2]);
 });
 await test("升級通知：Discord 私訊內容", async () => {
   const period = { start: "2026-10-18", end: "2026-11-17" };
@@ -283,7 +292,7 @@ await test("升級通知：贈送名額不記", async () => {
 await test("後台「交易量」上一輪：第一輪的人不列", async () => {
   const r = await call(adminVolumes, { query: { which: "previous" } });
   assert.equal(r.statusCode, 200);
-  assert.ok(r.body.rows.every((x) => ["u-d", "u-e", "u-e2"].includes(x.user_id)), r.body.rows.map((x) => x.user_id).join());
+  assert.ok(r.body.rows.every((x) => ["u-d", "u-e", "u-e2", "00000000-0000-4000-8000-0000000000f1"].includes(x.user_id)), r.body.rows.map((x) => x.user_id).join());
 });
 await test("研究員 /api/me：這一輪的日期、等級、升級恭喜", async () => {
   tokens["tok-a"] = { id: "u-a", email: "u-a@example.com", email_confirmed_at: null };
@@ -314,7 +323,10 @@ await test("沒有等級的研究員：/api/me 打得開，教學課程被擋（
 
 await test("第一級：教學課程只開每位講師第 1 份，直播留檔被擋", async () => {
   const id = "00000000-0000-4000-8000-0000000000a1";
-  db.members.push(member(id, today, { email: "t1@example.com" })); // 第一輪先是第一級
+  const join = addDays(today, -40); // 第二輪，上一輪只到第一級
+  db.members.push(member(id, join, { email: "t1@example.com" }));
+  const prev = prevPeriod(join, periodOf(join, today));
+  db.volumes.push({ user_id: id, period_start: prev.start, period_end: prev.end, amounts: { OKX: 20000 }, qualified_at: null });
   db.videos.push({ id: 501, title: "CCC 1", is_published: true, course_host: "CCC", course_part: 1, r2_key: "a.mp4", duration_sec: 60 }, { id: 502, title: "CCC 2", is_published: true, course_host: "CCC", course_part: 2, r2_key: "b.mp4", duration_sec: 60 }, { id: 503, title: "直播", is_published: true, course_host: null, r2_key: "c.mp4", duration_sec: 60 });
   tokens["tok-t1"] = { id, email: "t1@example.com", email_confirmed_at: null };
   const c = await call(course, { token: "tok-t1" });

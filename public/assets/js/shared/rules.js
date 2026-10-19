@@ -67,7 +67,7 @@ export const unitOf = (ex) => (isLots(ex) ? "手" : "USDT");
 // ── 三級制度（2026-10-18，取代原本的單一門檻 100 萬／10 手）──
 // 每人從加入那天起算，一輪一個月（periodOf）。這一輪內任一間交易所達到某一級 → 這一輪剩下的時間和「下一輪」都是那一級
 // 下一輪的等級＝這一輪達到的等級（可升可降）；不到第一級 → 下一輪沒有等級
-// 新研究員的第一輪先給第一級；管理員可以手動給「至少第幾級到哪天」（members.min_tier、min_tier_until）
+// 新研究員的第一輪先給第二級（FIRST_CYCLE_TIER，2026-10-19 從第一級改）；管理員可以手動給「至少第幾級到哪天」（members.min_tier、min_tier_until）
 // 贈送名額不分級：網站內容照第二級開，但不顯示等級、不升降級、不收升級通知
 export const TIERS = [
   { tier: 1, usdt: 10000, lots: 0.01, perks: ["Discord 研究員身分組", "會員直播（不提供留檔）", "教學課程三位講師的第 1 份"] },
@@ -124,12 +124,13 @@ export function tierRuleText(tier, exchanges = EXCHANGES) {
 // 某位研究員今天的等級
 //   anchor：加入那天；amountsOf(periodStart) → 那一輪的交易量；override：{ tier, until }（until 空白＝不限）
 //   回傳 { tier, until, cycleTier, period }：tier 今天的等級、until 這個等級至少到哪天、cycleTier 這一輪自己達到的等級（＝下一輪的等級）
+export const FIRST_CYCLE_TIER = 2; // 第一輪先給第幾級（不管公告前後加入都一樣）
 export function tierStatus({ anchor, today, amountsOf, override = null }) {
   const period = periodOf(anchor, today);
   const prev = prevPeriod(anchor, period);
   const next = nextPeriod(anchor, period);
   const cycleTier = tierOf(amountsOf(period.start));
-  const carried = prev ? tierOf(amountsOf(prev.start)) : 1; // 第一輪先給第一級
+  const carried = prev ? tierOf(amountsOf(prev.start)) : FIRST_CYCLE_TIER; // 第一輪先給第二級
   const ov = override?.tier && (!override.until || override.until >= today) ? override.tier : 0;
   const tier = Math.max(cycleTier, carried, ov);
   // 至少到哪天：這一輪自己達到的撐到下一輪結束；上一輪帶來的撐到這一輪結束；管理員給的撐到他設的日期

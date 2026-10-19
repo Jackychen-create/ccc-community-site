@@ -1,5 +1,5 @@
 // 執行方式：npm test（會自動開模擬伺服器）
-// v1.20：三級制度：新研究員第一輪是第一級（網站內容鎖著、看得到升級說明）→ 交易量升級時首頁跳恭喜 → 第二級打開網站 → 第三級一對一
+// v1.20：三級制度：新研究員第一輪是第二級；第二輪起上一輪只到第一級 → 第一級（網站內容鎖著、看得到升級說明）→ 交易量升級時首頁跳恭喜 → 第二級打開網站 → 第三級一對一
 const { chromium } = require("playwright");
 const BASE = "http://localhost:4321";
 const FONT_CSS = ["noto-sans-tc/400","noto-sans-tc/500","noto-sans-tc/700","sofia-sans-semi-condensed/500","sofia-sans-semi-condensed/600","sofia-sans-semi-condensed/700"].map((f) => `@import url("${BASE}/__fonts/${f}.css");`).join("\n");
@@ -19,6 +19,12 @@ const closeAll = async (p) => { const seen = []; for (let i = 0; i < 6; i++) { a
   const setOkx = (n) => j("/api/admin/volumes", { method: "POST", token: tok, body: { which: "current", rows: [{ userId: id, amounts: { OKX: n } }] } });
   const mtok = (await j("/sb/auth/v1/token", { method: "POST", body: { email: "ms@example.com", password: "password1" } })).body.access_token;
 
+  // 新研究員第一輪先是第二級（v1.20.6）
+  const first = await j("/api/me", { token: mtok });
+  check("新研究員第一輪先是第二級", first.body.tier === 2 && first.body.volume.tier === 2, JSON.stringify([first.body.tier, first.body.volume?.tier]));
+  // 往後移到第二輪，上一輪只到第一級 → 這一輪是第一級
+  await j("/api/__test/age", { method: "POST", body: { email: "ms@example.com", days: 40, prevAmounts: { OKX: 15000 } } });
+
   const b = await chromium.launch();
   const c = await b.newContext({ viewport: { width: 1280, height: 900 } });
   await c.addInitScript(() => { try { sessionStorage.setItem("uidPrompted", "1"); localStorage.setItem("tutorialOffered", "true"); } catch {} });
@@ -27,7 +33,7 @@ const closeAll = async (p) => { const seen = []; for (let i = 0; i < 6; i++) { a
   await p.goto(BASE + "/"); await p.waitForSelector("#authView:not([hidden])");
   await p.fill("#email", "ms@example.com"); await p.fill("#password", "password1"); await p.click("#authSubmit");
   await p.waitForSelector(".lock-page");
-  check("新研究員第一輪是第一級：網站內容鎖著，顯示升級說明", (await p.textContent(".lock-page")).includes("你現在是第一級") && !(await p.locator("#grid .vrow").count()));
+  check("上一輪只到第一級：網站內容鎖著，顯示升級說明", (await p.textContent(".lock-page")).includes("你現在是第一級") && !(await p.locator("#grid .vrow").count()));
   check("升級說明列出三級和門檻", (await p.locator(".tier-card").count()) === 3 && (await p.textContent(".tier-card.me")).includes("第一級") && (await p.textContent(".lock-page")).includes("150 萬 USDT"));
   check("還沒有交易量也寫出來", (await p.textContent(".lock-hero")).includes("還沒有交易量"));
   check("右欄看得到我的等級", (await p.textContent("#volPanel")).includes("你現在是第一級"));
@@ -87,6 +93,7 @@ const closeAll = async (p) => { const seen = []; for (let i = 0; i < 6; i++) { a
 
   // 手機：另一位新研究員的升級說明
   await j("/api/register", { method: "POST", body: { email: "ms2@example.com", password: "password1", inviteCode: "K7QM-2XPA", exchange: "OKX", uid: "55550009" } });
+  await j("/api/__test/age", { method: "POST", body: { email: "ms2@example.com", days: 40, prevAmounts: { OKX: 15000 } } });
   const c2 = await b.newContext({ viewport: { width: 390, height: 844 } });
   await c2.addInitScript(() => { try { sessionStorage.setItem("uidPrompted", "1"); localStorage.setItem("tutorialOffered", "true"); } catch {} });
   await c2.route(/fonts\.googleapis\.com/, (r) => r.fulfill({ contentType: "text/css", body: FONT_CSS }));
