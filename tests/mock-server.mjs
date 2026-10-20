@@ -494,15 +494,23 @@ const server = http.createServer(async (req, res) => {
     }
     // 聊天統計（假的：頻道名稱照 ID 尾數，統計固定數字）
     if (p === "/api/admin/chatlog") {
-      if (req.method === "GET") return send(res, 200, { configured: true, channels: chatCfg.channels, reportChannelId: chatCfg.report, postMode: chatCfg.mode, reviewChannelId: "100000000000000008", stats: chatStats });
+      if (req.method === "GET") return send(res, 200, { configured: true, channels: chatCfg.channels.map(({ webhook, ...c }) => ({ ...c, hasWebhook: !!webhook, webhookTail: webhook ? webhook.slice(-4) : "" })), reportChannelId: chatCfg.report, postMode: chatCfg.mode, reviewChannelId: "100000000000000008", stats: chatStats });
       if (req.method === "PATCH") {
         const ids = String(body.channelIds || "").split(/[\s,，、]+/).filter(Boolean);
         if (ids.some((v) => !/^\d{17,20}$/.test(v))) return send(res, 400, { error: "頻道 ID 是 17–20 位數字（在 Discord 對頻道按右鍵「複製頻道 ID」），多個用逗號分開" });
-        chatCfg.channels = ids.map((id) => { const to = String(body.postTo?.[id] || "").trim(); return { id, name: id.endsWith("1") ? "大廳" : "研究員大廳", ...(to && to !== id ? { postTo: to, postToName: "每日回顧" } : {}) }; });
+        for (const [id, url] of Object.entries(body.webhooks || {})) if (url && !/^https:\/\/discord\.com\/api\/webhooks\/\d{17,20}\/[\w-]{20,}$/.test(url)) return send(res, 400, { error: "Webhook 網址不對：要是 https://discord.com/api/webhooks/… 開頭" });
+        chatCfg.channels = ids.map((id) => {
+          const old = chatCfg.channels.find((c) => c.id === id) || {};
+          const w = body.webhooks?.[id];
+          const c = { ...old, id, name: id.endsWith("1") ? "大廳" : "研究員大廳" };
+          if (w === null) { delete c.webhook; delete c.webhookName; delete c.webhookChannelName; }
+          else if (w) Object.assign(c, { webhook: w, webhookName: "CCC｜每日回顧", webhookChannelName: id.endsWith("1") ? "每日回顧" : "研究員大廳" });
+          return c;
+        });
         chatCfg.report = body.reportChannelId || "";
         if (body.postMode === "single" && !chatCfg.report) return send(res, 400, { error: "選「全部貼到同一個頻道」要填那個頻道的 ID" });
         chatCfg.mode = body.postMode || "own";
-        return send(res, 200, { ok: true, channels: chatCfg.channels, reportChannelId: chatCfg.report });
+        return send(res, 200, { ok: true, channels: chatCfg.channels.map(({ webhook, ...c }) => ({ ...c, hasWebhook: !!webhook })), reportChannelId: chatCfg.report });
       }
       if (req.method === "POST") {
         const rows = chatCfg.channels.map((c, i) => ({ id: c.id, name: c.name, messages: 40 + i * 20, authors: 6 + i, top: [{ name: "Amy", n: 12 }] }));

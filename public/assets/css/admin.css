@@ -175,3 +175,5 @@
 .chat-day { width: auto; max-width: 200px; }
 .chat-target { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .chat-target .input { flex: 1; min-width: 200px; max-width: 320px; }
+.chat-target-st { display: flex; align-items: center; gap: 8px; flex-basis: 100%; padding-left: 4px; }
+.chat-target .input { max-width: 460px; }

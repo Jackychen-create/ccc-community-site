@@ -22,13 +22,16 @@ export async function loadChat() {
 function render(r) {
   const box = $("#chatBox");
   const ids = el("input", { class: "input num", type: "text", placeholder: "例如 1234567890123456789, 2345678901234567890", value: r.channels.map((c) => c.id).join(", "), "aria-label": "要統計的頻道 ID" });
-  // 每個頻道的回顧貼在哪（空白＝貼回自己的頻道）
+  // 每個頻道用哪個 Webhook 貼每日回顧（Webhook 自己有名字、頭像，跟審核機器人分開；網址不會再顯示出來）
+  const removed = new Set();
   const targets = r.channels.map((c) => {
-    const input = el("input", { class: "input num", type: "text", placeholder: `空白＝貼回 #${c.name || c.id}`, value: c.postTo || "", "aria-label": `#${c.name || c.id} 的回顧貼在哪個頻道` });
+    const label = `#${c.name || c.id}`;
+    const input = el("input", { class: "input num", type: "password", autocomplete: "off", placeholder: c.hasWebhook ? "已設定，要換才貼新的網址" : "貼上 Webhook 網址（https://discord.com/api/webhooks/…）", "aria-label": `${label} 的每日回顧 Webhook 網址` });
     input.dataset.channel = c.id;
-    return el("div", { class: "chat-target" },
-      el("span", { class: "pill", text: `#${c.name || c.id}` }), el("span", { class: "muted", text: "的回顧貼在" }), input,
-      c.postTo ? el("span", { class: "small muted", text: c.postToName ? `目前：#${c.postToName}` : "" }) : null);
+    const status = el("span", { class: "small" + (c.hasWebhook ? "" : " muted"), text: c.hasWebhook ? `✓ 用「${c.webhookName || "Webhook"}」貼${c.webhookChannelName ? `到 #${c.webhookChannelName}` : ""}` : `還沒設定：由審核機器人貼回 ${label}` });
+    const rm = c.hasWebhook ? el("button", { class: "btn sm ghost", type: "button", text: "移除", "aria-label": `移除 ${label} 的 Webhook` }) : null;
+    rm?.addEventListener("click", () => { removed.add(c.id); status.textContent = "按儲存後移除，改回由審核機器人貼"; rm.disabled = true; });
+    return el("div", { class: "chat-target" }, el("span", { class: "pill", text: label }), input, el("div", { class: "chat-target-st" }, status, rm));
   });
   const err = el("div", { class: "form-error", role: "alert", hidden: true });
   const save = el("button", { class: "btn primary", type: "button", text: "儲存" });
@@ -36,8 +39,8 @@ function render(r) {
     err.hidden = true;
     A.setBusy(save, true, "向 Discord 確認中…");
     try {
-      const postTo = Object.fromEntries(targets.map((t) => t.querySelector("input")).map((x) => [x.dataset.channel, x.value.trim()]));
-      const x = await api("/api/admin/chatlog", { method: "PATCH", body: { channelIds: ids.value, postTo, postMode: "own" } });
+      const webhooks = Object.fromEntries(targets.map((t) => t.querySelector("input")).map((x) => [x.dataset.channel, removed.has(x.dataset.channel) ? null : x.value.trim()]));
+      const x = await api("/api/admin/chatlog", { method: "PATCH", body: { channelIds: ids.value, webhooks, postMode: "own" } });
       A.toast(`已儲存：統計 ${x.channels.map((c) => `#${c.name || c.id}`).join("、") || "（沒有頻道）"}`);
       loadChat();
     } catch (e) {
@@ -93,8 +96,8 @@ function render(r) {
       !r.configured ? el("p", { class: "form-error", text: "還沒設定 Discord 機器人（Cloudflare 的 DISCORD_BOT_TOKEN 等）" }) : null,
       el("label", { class: "field" }, el("span", { class: "label", text: "要統計的頻道（最多 5 個，用逗號分開）" }), ids,
         el("span", { class: "hint", text: "在 Discord 對頻道按右鍵「複製頻道 ID」（要先在 Discord 設定 → 進階 打開「開發者模式」）。機器人要能看到這些頻道、讀取訊息歷史。" })),
-      r.channels.length ? el("div", { class: "field" }, el("span", { class: "label", style: { display: "block", marginBottom: "8px" }, text: "每日回顧（卡片＋完整紀錄文字檔）貼在哪" }), ...targets,
-        el("span", { class: "hint", text: "空白就貼回那個頻道自己。例如大廳的回顧填原本「每日回顧」頻道的 ID；研究員大廳留空白，研究員的聊天紀錄就只有研究員看得到。新增頻道後要先儲存一次才會出現在這裡。" })) : null,
+      r.channels.length ? el("div", { class: "field" }, el("span", { class: "label", style: { display: "block", marginBottom: "8px" }, text: "每日回顧用哪個 Webhook 貼（卡片＋完整紀錄文字檔）" }), ...targets,
+        el("span", { class: "hint", text: "在要貼回顧的頻道：頻道設定 → 整合 → Webhook → 新 Webhook，取名（例如「CCC｜每日回顧」）、換頭像，按「複製 Webhook 網址」貼到這裡。回顧會貼在 Webhook 所在的頻道：大廳的建在原本的每日回顧頻道，研究員大廳的建在研究員大廳。網址等同發文的鑰匙，存好後不會再顯示。新增頻道後要先儲存一次才會出現在這裡。" })) : null,
       el("p", { class: "hint", text: "第一次用：到 Discord Developer Portal → 你的機器人 → Bot，打開「Message Content Intent」，才抓得到聊天內容。機器人在要貼的頻道要能「傳送訊息」「附加檔案」「嵌入連結」。" }),
       err,
       el("div", { class: "actions", style: { marginTop: "12px" } }, save)),
