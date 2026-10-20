@@ -14,8 +14,8 @@ export function renderMenu() {
   // 連續打卡：頭像旁邊「🔥 5」
   const chip = $("#streakChip");
   const st = me && !me.isAdmin ? me.streak : null;
-  chip.hidden = !st?.days;
-  if (st?.days) {
+  if (chip) chip.hidden = !st?.days;
+  if (chip && st?.days) {
     chip.textContent = `🔥 ${st.days}`;
     chip.title = `連續 ${st.days} 天打開網站（最長 ${st.best} 天）`;
     chip.setAttribute("aria-label", chip.title);
