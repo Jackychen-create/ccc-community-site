@@ -1,7 +1,7 @@
 // 前台與後台共用的基本工具。頁面程式從這裡 import。
 // 載入順序有意義：先掛上錯誤回報，再啟動換行、版本檢查、翻牌。
 import { cfg, sb } from "./config.js";
-import { api, report } from "./api.js";
+import { api, report, reloadOnceForStale } from "./api.js";
 import { store } from "./store.js";
 import { icons } from "./icons.js";
 import { el, $, icon, placeholderSvg, thumbImg } from "./dom.js";
@@ -14,7 +14,7 @@ import { applyTheme, currentTheme } from "./theme.js";
 import "./flap.js";
 
 export {
-  cfg, sb, api, report, store, icons, el, $, icon, placeholderSvg, thumbImg,
+  cfg, sb, api, report, reloadOnceForStale, store, icons, el, $, icon, placeholderSvg, thumbImg,
   fmtDur, fmtLeft, fmtBytes, fmtDate, fmtRel, today,
   toast, copyText, modal, confirmDialog, setBusy, countUp, reduceMotion,
   whatsNew, tutorial, applyTheme, currentTheme,

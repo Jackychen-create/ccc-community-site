@@ -1,5 +1,5 @@
 // 登入／註冊（用實驗室密碼加入）
-import { $, el, api, sb, icons, store, setBusy, countUp, tutorial } from "../core/index.js";
+import { $, el, api, sb, icons, store, setBusy, countUp, tutorial, reloadOnceForStale } from "../core/index.js";
 import { SITE } from "./state.js";
 import { show } from "./views.js";
 import { shortDate } from "./format.js";
@@ -104,17 +104,8 @@ const UID_HINT = {
 // 網站剛更新時，瀏覽器可能拿到舊的頁面配新的程式（或反過來），找不到欄位就重新整理一次拿新的
 const AUTH_IDS = ["tabLogin", "tabRegister", "invite", "regEx", "regUidHint", "authForm", "authError", "email", "password"];
 function reloadIfStale() {
-  const missing = AUTH_IDS.filter((id) => !document.getElementById(id));
-  if (!missing.length) {
-    try { sessionStorage.removeItem("staleReload"); } catch {}
-    return false;
-  }
-  try {
-    if (sessionStorage.getItem("staleReload")) return false; // 已經重新整理過一次，就不要一直重來
-    sessionStorage.setItem("staleReload", "1");
-  } catch { return false; }
-  location.reload();
-  return true;
+  if (AUTH_IDS.every((id) => document.getElementById(id))) return false;
+  return reloadOnceForStale();
 }
 
 export function initAuth(afterLogin) {
