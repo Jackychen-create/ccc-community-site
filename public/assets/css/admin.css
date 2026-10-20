@@ -162,3 +162,5 @@
 .one-rank { font-size: 18px; font-weight: 700; color: var(--amber); text-align: center; }
 .one-list li.wait .one-rank { color: var(--ink-3); }
 @media (max-width: 1000px) { .one-cols { grid-template-columns: 1fr; } }
+.share-row { display: flex; gap: 8px; align-items: center; }
+.share-row .input { flex: 1; min-width: 0; font-size: 14px; }

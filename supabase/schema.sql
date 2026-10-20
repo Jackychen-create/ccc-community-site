@@ -494,3 +494,6 @@ alter table public.quest_weeks enable row level security;
 
 -- ── v1.20.1：第一輪交易量從哪天算（社群舊成員、網站才剛註冊；空白＝加入那天，規則在 server/lib/volume.js 的 countFrom）──
 alter table public.members add column if not exists volume_from date;
+
+-- ── v1.21.0：公開影片（不用登入就能看，例如培訓計畫介紹；/api/public-video、/watch?v=id）──
+alter table public.videos add column if not exists is_public boolean not null default false;

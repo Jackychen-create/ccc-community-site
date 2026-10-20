@@ -26,7 +26,7 @@ export default route({
     const { data, error } = await supabaseAdmin
       .from("videos")
       .select(
-        "id, title, description, published_at, is_published, duration_sec, size_bytes, thumb_key, hosts, chapters, notified_at, course_host, course_part, created_at, attachments(id, title, size_bytes, created_at)"
+        "id, title, description, published_at, is_published, is_public, duration_sec, size_bytes, thumb_key, hosts, chapters, notified_at, course_host, course_part, created_at, attachments(id, title, size_bytes, created_at)"
       )
       .order("published_at", { ascending: false })
       .order("id", { ascending: false });
@@ -94,6 +94,8 @@ export default route({
     if (b.is_published !== undefined) patch.is_published = b.is_published === true;
     if (b.hosts !== undefined) patch.hosts = cleanHosts(b.hosts);
     if (b.chapters !== undefined) patch.chapters = cleanChapters(b.chapters);
+    // 公開影片：不用登入就能看（分享連結 /watch?v=id）；公開的不能同時是教學課程
+    if (b.is_public !== undefined) patch.is_public = b.is_public === true;
     // 教學課程：course_host + course_part（1–6）一起給；都給 null 就變回直播留檔
     if (b.course_host !== undefined || b.course_part !== undefined) {
       if (b.course_host === null || b.course_host === "") {
@@ -108,6 +110,7 @@ export default route({
         patch.course_part = part;
       }
     }
+    if (patch.is_public && (patch.course_host || (patch.course_host === undefined && b.course_part))) return res.status(400).json({ error: "公開影片不能同時是教學課程" });
     // 換封面：新的封面要是 upload-url 發的路徑，舊封面存好後再刪
     let oldThumb = null;
     if (b.thumb_key !== undefined) {

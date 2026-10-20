@@ -108,8 +108,22 @@ function reloadIfStale() {
   return reloadOnceForStale();
 }
 
+// 登入頁：有公開影片（例如培訓計畫介紹）就顯示「還沒加入？先看…」，不用登入就能看
+function showPublicIntro() {
+  const a = document.getElementById("authIntro");
+  if (!a) return;
+  fetch("/api/public-video").then((r) => (r.ok ? r.json() : null)).then((d) => {
+    const v = d?.videos?.[0];
+    if (!v) return;
+    a.href = d.videos.length === 1 ? `/watch?v=${v.id}` : "/watch";
+    if (d.videos.length === 1) $("#authIntroTitle").textContent = `先看「${v.title}」`;
+    a.hidden = false;
+  }).catch(() => {});
+}
+
 export function initAuth(afterLogin) {
   if (reloadIfStale()) return;
+  showPublicIntro();
   onLogin = afterLogin;
   $("#tabLogin").addEventListener("click", () => setMode("login"));
   $("#tabRegister").addEventListener("click", () => setMode("register"));

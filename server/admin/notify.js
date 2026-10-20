@@ -17,10 +17,11 @@ export default route({
     if (videoId === null) return res.status(400).json({ error: "影片編號不正確" });
 
     const { data: v, error } = await supabaseAdmin
-      .from("videos").select("id, title, description, published_at, is_published, hosts, course_host").eq("id", videoId).maybeSingle();
+      .from("videos").select("id, title, description, published_at, is_published, is_public, hosts, course_host").eq("id", videoId).maybeSingle();
     if (error) throw error;
     if (!v) return res.status(404).json({ error: "找不到這支影片" });
     if (!v.is_published) return res.status(400).json({ error: "影片還是草稿，發布後才能寄通知" });
+    if (v.is_public) return res.status(400).json({ error: "公開影片是給還沒加入的人看的，不寄全體通知" });
     if (v.course_host) return res.status(400).json({ error: "教學課程依每個人的加入日期解鎖，不寄全體通知" });
 
     // 收件人：開著通知、沒被停權、資格沒過期的研究員

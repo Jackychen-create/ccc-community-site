@@ -11,6 +11,7 @@ import oneonone from "../../server/oneonone.js";
 import adminOneonone from "../../server/admin/oneonone.js";
 import stats from "../../server/stats.js";
 import videos from "../../server/videos.js";
+import publicVideo from "../../server/public-video.js";
 import notes from "../../server/notes.js";
 import course from "../../server/course.js";
 import feedback from "../../server/feedback.js";
@@ -45,6 +46,7 @@ const ROUTES = {
   "admin/oneonone": adminOneonone,
   "stats": stats,
   "videos": videos,
+  "public-video": publicVideo,
   "notes": notes,
   "course": course,
   "feedback": feedback,

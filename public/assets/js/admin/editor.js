@@ -1,4 +1,4 @@
-// 編輯影片：標題、類型（直播留檔／教學課程）、日期、主講、封面、簡介、章節、發布、教材、寄信通知
+// 編輯影片：標題、類型（直播留檔／教學課程／公開影片）、日期、主講、封面、簡介、章節、發布、教材、寄信通知
 import * as A from "../core/index.js";
 const { el, api, icon } = A;
 import { COURSE_HOSTS, COURSE_PARTS, courseWeek } from "../shared/rules.js";
@@ -33,9 +33,9 @@ export function openEditor(id, { justUploaded = false } = {}) {
     }));
   const pickedHosts = () => hostOpts.filter((h) => hostSet.has(h));
 
-  // 類型：直播留檔／教學課程（CCC、OC、X 各 6 份，研究員加入後每週解鎖一份）
-  let kind = v.course_host ? "course" : "live";
-  const kindBtns = [["live", "直播留檔"], ["course", "教學課程"]].map(([k, label]) => {
+  // 類型：直播留檔／教學課程（CCC、OC、X 各 6 份，研究員加入後每週解鎖一份）／公開影片（不用登入，例如培訓計畫介紹）
+  let kind = v.is_public ? "public" : v.course_host ? "course" : "live";
+  const kindBtns = [["live", "直播留檔"], ["course", "教學課程"], ["public", "公開影片（不用登入）"]].map(([k, label]) => {
     const b = el("button", { class: "chip", type: "button", "aria-pressed": String(kind === k), text: label });
     b.addEventListener("click", () => { kind = k; paintKind(); });
     b.dataset.k = k;
@@ -48,10 +48,20 @@ export function openEditor(id, { justUploaded = false } = {}) {
   const courseHint = el("div", { class: "hint" });
   const courseFields = el("div", { class: "field course-fields" },
     el("div", { class: "course-pick" }, cHost, cPart), courseHint);
+  // 公開影片：分享連結
+  const shareUrl = `${location.origin}/watch?v=${v.id}`;
+  const publicFields = el("div", { class: "field" },
+    el("div", { class: "share-row" },
+      el("input", { class: "input num", type: "text", readonly: true, value: shareUrl, "aria-label": "分享連結", onfocus: (e) => e.target.select() }),
+      el("button", { class: "btn sm", type: "button", onclick: () => A.copyText(shareUrl) }, icon("copy"), "複製連結")),
+    el("div", { class: "hint", text: "任何人拿到連結都能看，不用登入；登入頁也會出現「還沒加入？先看…」。不會出現在研究員的直播留檔列表，也不寄通知。要發布才看得到。" }));
+  const pubLabel = el("span", { text: "發布（研究員看得到）" });
   const hostField = hostOpts.length ? el("div", { class: "field" }, el("span", { class: "label", style: { display: "block", marginBottom: "8px" }, text: "主講（可複選）" }), hostBox) : null;
   const paintKind = () => {
     kindBtns.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.k === kind)));
     courseFields.hidden = kind !== "course";
+    publicFields.hidden = kind !== "public";
+    pubLabel.textContent = kind === "public" ? "發布（拿到連結的人都看得到）" : "發布（研究員看得到）";
     if (hostField) hostField.hidden = kind === "course";
     const week = courseWeek(cHost.value, Number(cPart.value)) + 1;
     const taken = kind === "course" && state.videos.find((x) => x.id !== v.id && x.course_host === cHost.value && x.course_part === Number(cPart.value));
@@ -101,8 +111,9 @@ export function openEditor(id, { justUploaded = false } = {}) {
   const notifyNote = el("span", { class: "small muted" });
   const paintNotify = () => {
     const isCourse = typeof kind !== "undefined" ? kind === "course" : !!v.course_host;
-    notifyNote.textContent = isCourse ? "教學課程依每個人的加入日期解鎖，不寄全體通知" : v.notified_at ? `上次寄出：${A.fmtRel(v.notified_at)}` : v.is_published ? "還沒寄過" : "發布後才能寄";
-    notifyBtn.disabled = !v.is_published || isCourse;
+    const isPublic = typeof kind !== "undefined" ? kind === "public" : !!v.is_public;
+    notifyNote.textContent = isPublic ? "公開影片是給還沒加入的人看的，不寄全體通知" : isCourse ? "教學課程依每個人的加入日期解鎖，不寄全體通知" : v.notified_at ? `上次寄出：${A.fmtRel(v.notified_at)}` : v.is_published ? "還沒寄過" : "發布後才能寄";
+    notifyBtn.disabled = !v.is_published || isCourse || isPublic;
   };
   notifyBtn.addEventListener("click", async () => {
     if (v.notified_at && !(await A.confirmDialog({ title: "再寄一次？", message: `這一場 ${A.fmtRel(v.notified_at)} 已經寄過通知，確定要再寄一次嗎？`, confirmText: "再寄一次" }))) return;
@@ -156,6 +167,7 @@ export function openEditor(id, { justUploaded = false } = {}) {
       el("label", { class: "field" }, el("span", { class: "label", text: "標題" }), title),
       el("div", { class: "field" }, el("span", { class: "label", style: { display: "block", marginBottom: "8px" }, text: "類型" }), el("div", { class: "chips" }, ...kindBtns)),
       courseFields,
+      publicFields,
       el("label", { class: "field" }, el("span", { class: "label", text: "日期" }), date),
       hostField,
       el("div", { class: "field" },
@@ -167,7 +179,7 @@ export function openEditor(id, { justUploaded = false } = {}) {
             coverInput))),
       el("label", { class: "field" }, el("span", { class: "label", text: "簡介" }), desc),
       el("label", { class: "field" }, el("span", { class: "label", text: "章節" }), chapText, chapHint),
-      el("div", { class: "field" }, el("label", { class: "switch" }, pub, el("span", { class: "track" }), el("span", { text: "發布（研究員看得到）" }))),
+      el("div", { class: "field" }, el("label", { class: "switch" }, pub, el("span", { class: "track" }), pubLabel)),
       el("div", { class: "field" },
         el("div", { class: "section-label" }, el("span", { class: "label", text: "教材附件" }),
           el("button", { class: "btn sm", type: "button", onclick: () => attInput.click() }, icon("plus"), "新增教材")),
@@ -199,15 +211,16 @@ export function openEditor(id, { justUploaded = false } = {}) {
       const saved = await api("/api/admin/videos", {
         method: "PATCH",
         body: { id: v.id, title: t, description: desc.value, published_at: date.value || A.today(), is_published: pub.checked, hosts: kind === "course" ? [cHost.value] : pickedHosts(), chapters: parseChapters(chapText.value).chapters,
-          course_host: kind === "course" ? cHost.value : null, course_part: kind === "course" ? Number(cPart.value) : null },
+          course_host: kind === "course" ? cHost.value : null, course_part: kind === "course" ? Number(cPart.value) : null, is_public: kind === "public" },
       });
       const savedTitle = saved?.title || t;
       const wasPublished = v.is_published;
       Object.assign(v, { title: savedTitle, description: desc.value.trim() || null, published_at: date.value || A.today(), is_published: pub.checked, hosts: kind === "course" ? [cHost.value] : pickedHosts(), chapters: parseChapters(chapText.value).chapters,
-        course_host: kind === "course" ? cHost.value : null, course_part: kind === "course" ? Number(cPart.value) : null });
+        course_host: kind === "course" ? cHost.value : null, course_part: kind === "course" ? Number(cPart.value) : null, is_public: kind === "public" });
       renderVideos();
       m.close();
-      if (pub.checked && !wasPublished && kind !== "course") {
+      if (kind === "public" && pub.checked) A.toast(`已儲存。分享連結：${shareUrl}`);
+      else if (pub.checked && !wasPublished && kind !== "course") {
         // 剛發布：問要不要順便寄信
         const send = await A.confirmDialog({ title: "已發布，研究員現在看得到了", message: "要順便寄信通知研究員有新的一場嗎？（關掉通知的研究員不會收到）", confirmText: "寄信通知" });
         if (send) {
