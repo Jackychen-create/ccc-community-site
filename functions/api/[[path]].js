@@ -22,6 +22,8 @@ import adminDiscord from "../../server/admin/discord.js";
 import discordInteractions from "../../server/discord/interactions.js";
 import cronSync from "../../server/cron/sync.js";
 import cronLives from "../../server/cron/lives.js";
+import cronChatlog from "../../server/cron/chatlog.js";
+import adminChatlog from "../../server/admin/chatlog.js";
 import adminLives from "../../server/admin/lives.js";
 import adminFeedback from "../../server/admin/feedback.js";
 import adminErrors from "../../server/admin/errors.js";
@@ -55,6 +57,8 @@ const ROUTES = {
   "admin/sync": adminSync,
   "cron/sync": cronSync,
   "cron/lives": cronLives,
+  "cron/chatlog": cronChatlog,
+  "admin/chatlog": adminChatlog,
   "admin/lives": adminLives,
   "discord/interactions": discordInteractions,
   "admin/discord": adminDiscord,

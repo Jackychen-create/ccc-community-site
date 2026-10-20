@@ -23,3 +23,4 @@ export * from "./badges.js";
 export * from "./tier.js";
 export * from "./oneonone.js";
 export * from "./quests.js";
+export * from "./chatlog.js";

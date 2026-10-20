@@ -497,3 +497,28 @@ alter table public.members add column if not exists volume_from date;
 
 -- ── v1.21.0：公開影片（不用登入就能看，例如培訓計畫介紹；/api/public-video、/watch?v=id）──
 alter table public.videos add column if not exists is_public boolean not null default false;
+
+-- ── v1.22.0：聊天統計（Discord 大廳、研究員大廳：每天的訊息數、發言人數；聊天紀錄文字檔貼到回報頻道，見 server/lib/chatlog.js）──
+create table if not exists public.chat_stats (
+  day          date not null,
+  channel_id   text not null check (channel_id ~ '^\d{17,20}$'),
+  channel_name text,
+  messages     int not null default 0,
+  authors      int not null default 0,
+  top          jsonb not null default '[]'::jsonb,   -- 最常發言的前 5 位 [{name, n}]
+  truncated    boolean not null default false,       -- 訊息太多只算了前 3000 則
+  created_at   timestamptz not null default now(),
+  primary key (day, channel_id)
+);
+alter table public.chat_stats enable row level security;
+-- 每天台灣 00:05 統計前一天
+select cron.unschedule(jobid) from cron.job where jobname = 'daily-chat-stats';
+select cron.schedule('daily-chat-stats', '5 16 * * *', $cron$
+  select net.http_post(
+    url := 'https://ccc-community-site.pages.dev/api/cron/chatlog',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'X-Cron-Secret', s.decrypted_secret),
+    body := '{}'::jsonb,
+    timeout_milliseconds := 60000
+  )
+  from vault.decrypted_secrets s where s.name = 'cron_secret';
+$cron$);

@@ -50,6 +50,8 @@ const invites = [
   { code: "ZP4D-Y6UC", max_uses: 10, used_count: 1, note: null, disabled: true, created_at: new Date(Date.now() - 3 * 86400e3).toISOString() },
   { code: "GF7T-2FRE", max_uses: 1, used_count: 0, note: "贈送：小明", disabled: false, free: true, created_at: new Date(Date.now() - 1 * 86400e3).toISOString() },
 ];
+const chatCfg = { channels: [], report: "" };
+let chatStats = [];
 const members = [
   { user_id: users["amy@example.com"].id, email: "amy@example.com", invite_code: "K7QM-2XPA", banned: false, created_at: new Date(Date.now() - 18 * 86400e3).toISOString(), last_sign_in_at: new Date(Date.now() - 3600e3).toISOString(), watched_count: 2, min_tier: 2, min_tier_until: d(-5), note: "10 月交易量 120 口", notify: true },
   { user_id: users["banned@example.com"].id, email: "banned@example.com", invite_code: "HW3N-8RTE", banned: true, created_at: new Date(Date.now() - 9 * 86400e3).toISOString(), last_sign_in_at: null, watched_count: 0 },
@@ -488,6 +490,22 @@ const server = http.createServer(async (req, res) => {
         if (!l) return send(res, 404, { error: "找不到這場直播，或已經取消了" });
         l.status = "cancelled";
         return send(res, 200, livesOut({ announce: { posted: true } }));
+      }
+    }
+    // 聊天統計（假的：頻道名稱照 ID 尾數，統計固定數字）
+    if (p === "/api/admin/chatlog") {
+      if (req.method === "GET") return send(res, 200, { configured: true, channels: chatCfg.channels, reportChannelId: chatCfg.report, reviewChannelId: "100000000000000008", stats: chatStats });
+      if (req.method === "PATCH") {
+        const ids = String(body.channelIds || "").split(/[\s,，、]+/).filter(Boolean);
+        if (ids.some((v) => !/^\d{17,20}$/.test(v))) return send(res, 400, { error: "頻道 ID 是 17–20 位數字（在 Discord 對頻道按右鍵「複製頻道 ID」），多個用逗號分開" });
+        chatCfg.channels = ids.map((id) => ({ id, name: id.endsWith("1") ? "大廳" : "研究員大廳" }));
+        chatCfg.report = body.reportChannelId || "";
+        return send(res, 200, { ok: true, channels: chatCfg.channels, reportChannelId: chatCfg.report });
+      }
+      if (req.method === "POST") {
+        const rows = chatCfg.channels.map((c, i) => ({ id: c.id, name: c.name, messages: 40 + i * 20, authors: 6 + i, top: [{ name: "Amy", n: 12 }] }));
+        for (const r of rows) { chatStats = chatStats.filter((s) => !(s.day === body.day && s.channel_id === r.id)); chatStats.unshift({ day: body.day, channel_id: r.id, channel_name: r.name, messages: r.messages, authors: r.authors, top: r.top, truncated: false }); }
+        return send(res, 200, { ok: true, day: body.day, rows, total: { messages: rows.reduce((a, r) => a + r.messages, 0), authors: 8 }, posted: true, postError: null, noContent: false });
       }
     }
     if (p === "/api/admin/videos") {
