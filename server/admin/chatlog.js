@@ -1,6 +1,7 @@
 // 後台：聊天統計（只有主要管理員）
 // GET   /api/admin/chatlog                 設定（統計哪些頻道、回報頻道）＋最近 30 天每個頻道的統計
-// PATCH /api/admin/chatlog { channelIds, postMode, reportChannelId }   改設定；會先跟 Discord 確認機器人看得到這些頻道
+// PATCH /api/admin/chatlog { channelIds, postTo, postMode, reportChannelId }   改設定；會先跟 Discord 確認機器人看得到這些頻道
+//        postTo：{ 統計的頻道 ID: 回顧貼在哪個頻道 ID }，空白＝貼回自己的頻道
 //        postMode：own＝每日回顧各自貼回自己的頻道（預設）；single＝全部貼到 reportChannelId
 // POST  /api/admin/chatlog { day }         立即統計某一天（台灣日期，預設昨天）並貼到回報頻道
 import {
@@ -48,9 +49,29 @@ export default route({
             return res.status(400).json({ error: `${name || id}：${why}` });
           }
         }
-        channels.push({ id, name });
+        const old = (s.chatChannels || []).find((c) => c.id === id);
+        channels.push({ id, name, ...(old?.postTo ? { postTo: old.postTo, postToName: old.postToName || "" } : {}) });
       }
       next.chatChannels = channels;
+    }
+    // 每個頻道的回顧貼在哪（例如大廳的回顧貼到原本的「每日回顧」頻道）
+    if (b.postTo && typeof b.postTo === "object") {
+      const list = [];
+      for (const c of next.chatChannels || []) {
+        const v = String(b.postTo[c.id] ?? c.postTo ?? "").trim();
+        if (!v || v === c.id) { list.push({ id: c.id, name: c.name }); continue; }
+        if (!isSnowflake(v)) return res.status(400).json({ error: `#${c.name || c.id} 的回顧要貼的頻道 ID 是 17–20 位數字` });
+        let postToName = "";
+        if (discordConfigured()) {
+          try {
+            postToName = (await discordApi("GET", `/channels/${v}`))?.name || "";
+          } catch (e) {
+            return res.status(400).json({ error: `#${c.name || c.id} 的回顧要貼的頻道：${e?.status === 404 ? "找不到這個頻道" : "機器人看不到這個頻道，請在頻道權限把機器人加進去（檢視頻道、傳送訊息、附加檔案、嵌入連結）"}` });
+          }
+        }
+        list.push({ id: c.id, name: c.name, postTo: v, postToName });
+      }
+      next.chatChannels = list;
     }
     if (b.reportChannelId !== undefined) {
       const v = String(b.reportChannelId || "").trim();

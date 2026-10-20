@@ -2,6 +2,7 @@
 //   → 每個頻道算訊息數、參與人數、討論主題、最熱門的訊息，存進 chat_stats
 //   → 每個頻道貼一則「每日回顧」（embed 卡片＋整天的完整紀錄文字檔）
 //      postMode "own"（預設）：各自貼回自己的頻道，研究員大廳的紀錄不會出現在大家都看得到的大廳
+//        每個頻道可以另外指定 postTo（例如大廳的回顧貼到原本的「每日回顧」頻道）
 //      postMode "single"：全部貼到同一個頻道（chatReportChannelId）
 // 觸發：每天 00:05（台灣時間）Supabase 排程呼叫 /api/cron/chatlog；後台「聊天統計」也可以手動跑某一天
 // 需要：Discord Developer Portal → Bot → 打開「Message Content Intent」，機器人在這些頻道要能看、讀歷史、發訊息、附加檔案
@@ -212,7 +213,7 @@ export async function runChatlog(day, { post = true } = {}) {
     const card = (r) => ({ embed: recapEmbed(day, r, { others: ok.filter((x) => x !== r), uniqueAuthors: uniq, file: fileName(day, r.name, many) }), file: { name: fileName(day, r.name, many), text: r.text } });
     const jobs = mode === "single"
       ? [{ channel: s.chatReportChannelId, items: ok.map(card) }]
-      : ok.map((r) => ({ channel: r.id, items: [card(r)] }));
+      : ok.map((r) => ({ channel: channels.find((c) => c.id === r.id)?.postTo || r.id, items: [card(r)] }));
     for (const j of jobs) {
       try {
         await postRecap(j.channel, j.items.map((x) => x.embed), j.items.map((x) => x.file));

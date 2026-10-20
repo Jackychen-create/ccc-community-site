@@ -136,6 +136,17 @@ await test("同一天再跑一次：資料庫覆蓋，不會重複", async () =>
   assert.equal(db.chat_stats.length, 2);
   assert.equal(posted.length, 2);
 });
+await test("大廳的回顧改貼到原本的每日回顧頻道；研究員大廳照樣貼回自己", async () => {
+  const RECAP = "100000000000000007";
+  db.settings[0].value.chatChannels[0].postTo = RECAP;
+  const n = posted.length;
+  await runChatlog(DAY);
+  const mine = posted.slice(n);
+  assert.deepEqual(mine.map((p) => p.channel).sort(), [LAB, RECAP].sort());
+  assert.ok(mine.find((p) => p.channel === RECAP).raw.includes("ccc_dc_recap_20261020_大廳.txt"));
+  assert.ok(!mine.find((p) => p.channel === RECAP).raw.includes("研究員聊天 "));
+  delete db.settings[0].value.chatChannels[0].postTo;
+});
 await test("選全部貼到同一個頻道：一則訊息兩張卡片、兩個檔案", async () => {
   db.settings[0].value.chatPostMode = "single";
   const r = await runChatlog(DAY);
