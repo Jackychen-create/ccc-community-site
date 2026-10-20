@@ -39,7 +39,7 @@ export function renderVideos() {
     return el("tr", null,
       el("td", { class: "c-thumb", style: { width: "104px" } }, thumb),
       el("td", null,
-        el("div", { class: "t-title" }, v.course_host ? el("span", { class: "pill brass course-tag", text: `課程 ${v.course_host} ${v.course_part}/6` }) : null, v.title),
+        el("div", { class: "t-title" }, v.course_host ? el("span", { class: "pill brass course-tag", text: `課程 ${v.course_host} ${v.course_part}/6` }) : null, v.is_public ? el("span", { class: "pill good course-tag", text: "公開" }) : null, v.title),
         el("div", { class: "t-sub", text: v.description || "尚未填寫簡介" }),
         v.hosts?.length && !v.course_host ? el("div", { class: "hosts", style: { marginTop: "6px" } }, ...v.hosts.map((h) => el("span", { class: "host", text: h }))) : null),
       el("td", { class: "num small", style: { whiteSpace: "nowrap" }, text: A.fmtDate(v.published_at) }),
@@ -48,6 +48,7 @@ export function renderVideos() {
       el("td", null, el("label", { class: "switch" }, sw, el("span", { class: "track" }), el("span", { class: "state", text: v.is_published ? "已發布" : "草稿" }))),
       el("td", null, el("div", { class: "actions" },
         el("button", { class: "btn sm", type: "button", onclick: () => openEditor(v.id) }, icon("edit"), "編輯"),
+        v.is_public ? el("button", { class: "btn sm icon", type: "button", "aria-label": `複製「${v.title}」的分享連結`, title: "複製分享連結（不用登入就能看）", onclick: () => A.copyText(`${location.origin}/watch?v=${v.id}`) }, icon("copy")) : null,
         el("button", { class: "btn sm icon danger", type: "button", "aria-label": `刪除 ${v.title}`, onclick: () => deleteVideo(v) }, icon("trash"))
       ))
     );

@@ -25,5 +25,11 @@
 /admin.html
   Cache-Control: no-cache
 
+/watch
+  Cache-Control: no-cache
+
+/watch.html
+  Cache-Control: no-cache
+
 /changelog.json
   Cache-Control: no-store

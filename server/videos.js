@@ -28,6 +28,7 @@ async function list(res, user) {
       .select("id, title, description, published_at, duration_sec, thumb_key, hosts, chapters, created_at")
       .eq("is_published", true)
       .is("course_host", null) // 教學課程另外列在 /api/course
+      .eq("is_public", false) // 公開影片（培訓計畫介紹）不放進直播留檔列表
       .order("published_at", { ascending: false })
       .order("id", { ascending: false }),
     supabaseAdmin

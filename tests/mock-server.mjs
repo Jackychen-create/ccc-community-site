@@ -306,6 +306,14 @@ const server = http.createServer(async (req, res) => {
     // 測試用：把研究員的加入日往前移 days 天（進到第二輪以後），可以順便給上一輪的交易量
     if (p === "/api/__test/age") { const m = members.find((x) => x.email === body.email); if (!m) return send(res, 404, {}); m.created_at = new Date(Date.now() - body.days * 86400e3).toISOString(); if (body.prevAmounts) { const pp = prevPeriod(anchorOf(m), curP(m)); if (pp) vols.set(m.user_id + ":" + pp.start, { amounts: body.prevAmounts, qualified_at: null, updated_at: new Date().toISOString(), updated_by: "test" }); } return send(res, 200, { ok: true }); }
     if (p === "/api/__test/checkin") { const m = members.find((x) => x.email === body.email); if (!m) return send(res, 404, {}); const set = checkinsM.get(m.user_id) || new Set(); for (const dd of body.days || []) set.add(dd); checkinsM.set(m.user_id, set); return send(res, 200, { ok: true }); }
+    // 公開影片（不用登入）
+    if (p === "/api/public-video") {
+      const pubs = videos.filter((v) => v.is_published && v.is_public);
+      if (!url.searchParams.has("id")) return send(res, 200, { videos: pubs.map((v) => ({ id: v.id, title: v.title, duration_sec: v.duration_sec, thumb_url: thumbUrl(v) })) });
+      const v = pubs.find((x) => x.id === Number(url.searchParams.get("id")));
+      if (!v) return send(res, 404, { error: "找不到這支影片，可能已經下架了" });
+      return send(res, 200, { id: v.id, title: v.title, description: v.description, published_at: v.published_at, duration_sec: v.duration_sec, chapters: v.chapters || [], thumb_url: thumbUrl(v), url: "/media/" + (process.env.VIDEO || "live.webm") + "?sig=" + Date.now() });
+    }
     if (p === "/api/stats") {
       const pub = videos.filter((v) => v.is_published && !v.course_host).sort((a, b) => String(b.published_at).localeCompare(a.published_at));
       return send(res, 200, { latest: pub[0]?.published_at || null, count: pub.length });
@@ -420,7 +428,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (p === "/api/videos" && !url.searchParams.has("id")) {
       return send(res, 200, {
-        videos: videos.filter((v) => v.is_published && !v.course_host).map((v) => {
+        videos: videos.filter((v) => v.is_published && !v.course_host && !v.is_public).map((v) => {
           const pr = progress.get(`${u.id}:${v.id}`);
           return { id: v.id, title: v.title, description: v.description, published_at: v.published_at, duration_sec: v.duration_sec, thumb_url: thumbUrl(v), position_sec: pr?.position_sec || 0, watched_at: pr?.updated_at || null, attachment_count: v.attachments.length, hosts: v.hosts || [], chapters: v.chapters || [] };
         }),
@@ -491,7 +499,7 @@ const server = http.createServer(async (req, res) => {
       }
       if (req.method === "PATCH") {
         const v = videos.find((x) => x.id === body.id);
-        for (const k of ["description", "published_at", "is_published", "hosts", "chapters", "course_host", "course_part"]) if (body[k] !== undefined) v[k] = body[k];
+        for (const k of ["description", "published_at", "is_published", "is_public", "hosts", "chapters", "course_host", "course_part"]) if (body[k] !== undefined) v[k] = body[k];
         const out = { ok: true };
         if (body.title !== undefined) out.title = v.title = String(body.title).replace(/^\s*\d{1,2}\s*[\/.\-]\s*\d{1,2}\s*(?:(?:直播|live)\s*)?(?:[：:\-–—|｜]\s*|\s+(?=\S))/i, "").trim() || body.title;
         if (body.thumb_key) { v.thumb = null; v.thumbKey = body.thumb_key; out.thumb_url = `/r2/${body.thumb_key}`; }
@@ -690,6 +698,7 @@ const server = http.createServer(async (req, res) => {
   // ── 靜態檔 ──
   let file = p === "/" ? "/index.html" : p;
   if (p === "/admin") file = "/admin.html";
+  if (p === "/watch") file = "/watch.html";
   if (p === "/config.js") {
     res.writeHead(200, { "Content-Type": "text/javascript" });
     return res.end(`window.APP_CONFIG = { SUPABASE_URL: "http://localhost:${PORT}/sb", SUPABASE_ANON_KEY: "anon", SITE_NAME: "CCC 交易實驗室", HOSTS: ["CCC", "X", "OC"] };`);
