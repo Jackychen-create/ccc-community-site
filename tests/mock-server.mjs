@@ -498,7 +498,7 @@ const server = http.createServer(async (req, res) => {
       if (req.method === "PATCH") {
         const ids = String(body.channelIds || "").split(/[\s,，、]+/).filter(Boolean);
         if (ids.some((v) => !/^\d{17,20}$/.test(v))) return send(res, 400, { error: "頻道 ID 是 17–20 位數字（在 Discord 對頻道按右鍵「複製頻道 ID」），多個用逗號分開" });
-        chatCfg.channels = ids.map((id) => ({ id, name: id.endsWith("1") ? "大廳" : "研究員大廳" }));
+        chatCfg.channels = ids.map((id) => { const to = String(body.postTo?.[id] || "").trim(); return { id, name: id.endsWith("1") ? "大廳" : "研究員大廳", ...(to && to !== id ? { postTo: to, postToName: "每日回顧" } : {}) }; });
         chatCfg.report = body.reportChannelId || "";
         if (body.postMode === "single" && !chatCfg.report) return send(res, 400, { error: "選「全部貼到同一個頻道」要填那個頻道的 ID" });
         chatCfg.mode = body.postMode || "own";

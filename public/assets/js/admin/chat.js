@@ -22,28 +22,22 @@ export async function loadChat() {
 function render(r) {
   const box = $("#chatBox");
   const ids = el("input", { class: "input num", type: "text", placeholder: "例如 1234567890123456789, 2345678901234567890", value: r.channels.map((c) => c.id).join(", "), "aria-label": "要統計的頻道 ID" });
-  const report = el("input", { class: "input num", type: "text", placeholder: "頻道 ID", value: r.reportChannelId, "aria-label": "每日回顧貼在哪個頻道" });
-  let mode = r.postMode || "own";
-  const modeBtns = [["own", "各自貼回自己的頻道"], ["single", "全部貼到同一個頻道"]].map(([k, label]) => {
-    const btn = el("button", { class: "chip", type: "button", "data-mode": k, "aria-pressed": String(mode === k), text: label });
-    btn.addEventListener("click", () => { mode = k; paintMode(); });
-    return btn;
+  // 每個頻道的回顧貼在哪（空白＝貼回自己的頻道）
+  const targets = r.channels.map((c) => {
+    const input = el("input", { class: "input num", type: "text", placeholder: `空白＝貼回 #${c.name || c.id}`, value: c.postTo || "", "aria-label": `#${c.name || c.id} 的回顧貼在哪個頻道` });
+    input.dataset.channel = c.id;
+    return el("div", { class: "chat-target" },
+      el("span", { class: "pill", text: `#${c.name || c.id}` }), el("span", { class: "muted", text: "的回顧貼在" }), input,
+      c.postTo ? el("span", { class: "small muted", text: c.postToName ? `目前：#${c.postToName}` : "" }) : null);
   });
-  const reportField = el("label", { class: "field" }, el("span", { class: "label", text: "貼在哪個頻道" }), report,
-    el("span", { class: "hint", text: "所有頻道的每日回顧（含完整紀錄）都貼到這裡。注意：大家看得到這個頻道的話，研究員大廳的紀錄也會被看到。" }));
-  const modeHint = el("p", { class: "hint" });
-  const paintMode = () => {
-    modeBtns.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === mode)));
-    reportField.hidden = mode !== "single";
-    modeHint.textContent = mode === "own" ? "大廳的回顧貼在大廳、研究員大廳的回顧貼在研究員大廳，研究員的聊天紀錄只有研究員看得到。每張卡片也會寫出兩邊的人數和合計。" : "";
-  };
   const err = el("div", { class: "form-error", role: "alert", hidden: true });
   const save = el("button", { class: "btn primary", type: "button", text: "儲存" });
   save.addEventListener("click", async () => {
     err.hidden = true;
     A.setBusy(save, true, "向 Discord 確認中…");
     try {
-      const x = await api("/api/admin/chatlog", { method: "PATCH", body: { channelIds: ids.value, postMode: mode, reportChannelId: report.value } });
+      const postTo = Object.fromEntries(targets.map((t) => t.querySelector("input")).map((x) => [x.dataset.channel, x.value.trim()]));
+      const x = await api("/api/admin/chatlog", { method: "PATCH", body: { channelIds: ids.value, postTo, postMode: "own" } });
       A.toast(`已儲存：統計 ${x.channels.map((c) => `#${c.name || c.id}`).join("、") || "（沒有頻道）"}`);
       loadChat();
     } catch (e) {
@@ -93,16 +87,14 @@ function render(r) {
           chans.length > 1 ? el("td", { class: "num", text: String(chans.reduce((a, [id]) => a + (cell(d, id)?.messages || 0), 0)) }) : null)))))
     : el("div", { class: "empty" }, el("p", { text: r.channels.length ? "還沒有統計資料。每天 00:05 會自動統計前一天，也可以按上面的「立即統計」。" : "先在上面填要統計的頻道。" }));
 
-  paintMode();
   box.replaceChildren(
     el("section", { class: "card chat-set" },
       el("h2", { text: "設定" }),
       !r.configured ? el("p", { class: "form-error", text: "還沒設定 Discord 機器人（Cloudflare 的 DISCORD_BOT_TOKEN 等）" }) : null,
       el("label", { class: "field" }, el("span", { class: "label", text: "要統計的頻道（最多 5 個，用逗號分開）" }), ids,
         el("span", { class: "hint", text: "在 Discord 對頻道按右鍵「複製頻道 ID」（要先在 Discord 設定 → 進階 打開「開發者模式」）。機器人要能看到這些頻道、讀取訊息歷史。" })),
-      r.channels.length ? el("div", { class: "chips", style: { marginTop: "8px" } }, ...r.channels.map((c) => el("span", { class: "pill", text: `#${c.name || c.id}` }))) : null,
-      el("div", { class: "field" }, el("span", { class: "label", style: { display: "block", marginBottom: "8px" }, text: "每日回顧（卡片＋完整紀錄文字檔）貼在哪" }), el("div", { class: "chips" }, ...modeBtns), modeHint),
-      reportField,
+      r.channels.length ? el("div", { class: "field" }, el("span", { class: "label", style: { display: "block", marginBottom: "8px" }, text: "每日回顧（卡片＋完整紀錄文字檔）貼在哪" }), ...targets,
+        el("span", { class: "hint", text: "空白就貼回那個頻道自己。例如大廳的回顧填原本「每日回顧」頻道的 ID；研究員大廳留空白，研究員的聊天紀錄就只有研究員看得到。新增頻道後要先儲存一次才會出現在這裡。" })) : null,
       el("p", { class: "hint", text: "第一次用：到 Discord Developer Portal → 你的機器人 → Bot，打開「Message Content Intent」，才抓得到聊天內容。機器人在要貼的頻道要能「傳送訊息」「附加檔案」「嵌入連結」。" }),
       err,
       el("div", { class: "actions", style: { marginTop: "12px" } }, save)),
