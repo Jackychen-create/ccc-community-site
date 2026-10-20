@@ -1,12 +1,14 @@
 // 後台：聊天統計（只有主要管理員）
 // GET   /api/admin/chatlog                 設定（統計哪些頻道、回報頻道）＋最近 30 天每個頻道的統計
-// PATCH /api/admin/chatlog { channelIds, postTo, postMode, reportChannelId }   改設定；會先跟 Discord 確認機器人看得到這些頻道
-//        postTo：{ 統計的頻道 ID: 回顧貼在哪個頻道 ID }，空白＝貼回自己的頻道
+// PATCH /api/admin/chatlog { channelIds, webhooks, postTo, postMode, reportChannelId }   改設定；會先跟 Discord 確認機器人看得到這些頻道
+//        webhooks：{ 統計的頻道 ID: Webhook 網址 }，空字串＝不改，null＝移除（改回機器人貼）
+//        Webhook 網址等同發文的鑰匙：只存在資料庫，GET 只回名字和頻道，不回網址
+//        postTo：{ 統計的頻道 ID: 回顧貼在哪個頻道 ID }，空白＝貼回自己的頻道（沒設 Webhook 時才用）
 //        postMode：own＝每日回顧各自貼回自己的頻道（預設）；single＝全部貼到 reportChannelId
 // POST  /api/admin/chatlog { day }         立即統計某一天（台灣日期，預設昨天）並貼到回報頻道
 import {
   supabaseAdmin, requireAdmin, readBody, route, isDate, todayTW,
-  discordConfigured, getDiscordSettings, saveDiscordSettings, isSnowflake, discordApi, runChatlog,
+  discordConfigured, getDiscordSettings, saveDiscordSettings, isSnowflake, discordApi, runChatlog, isWebhookUrl, webhookInfo,
 } from "../lib/index.js";
 import { addDays } from "../../public/assets/js/shared/rules.js";
 
@@ -19,7 +21,7 @@ export default route({
     if (error) throw error;
     return res.status(200).json({
       configured: discordConfigured(),
-      channels: s.chatChannels || [],
+      channels: (s.chatChannels || []).map(({ webhook, ...c }) => ({ ...c, hasWebhook: !!webhook, webhookTail: webhook ? webhook.slice(-4) : "" })),
       reportChannelId: s.chatReportChannelId || "",
       postMode: s.chatPostMode === "single" ? "single" : "own",
       reviewChannelId: s.reviewChannelId || "",
@@ -50,7 +52,8 @@ export default route({
           }
         }
         const old = (s.chatChannels || []).find((c) => c.id === id);
-        channels.push({ id, name, ...(old?.postTo ? { postTo: old.postTo, postToName: old.postToName || "" } : {}) });
+        const { id: _i, name: _n, ...keep } = old || {};
+        channels.push({ ...keep, id, name });
       }
       next.chatChannels = channels;
     }
@@ -69,7 +72,27 @@ export default route({
             return res.status(400).json({ error: `#${c.name || c.id} 的回顧要貼的頻道：${e?.status === 404 ? "找不到這個頻道" : "機器人看不到這個頻道，請在頻道權限把機器人加進去（檢視頻道、傳送訊息、附加檔案、嵌入連結）"}` });
           }
         }
-        list.push({ id: c.id, name: c.name, postTo: v, postToName });
+        list.push({ ...c, postTo: v, postToName });
+      }
+      next.chatChannels = list;
+    }
+    // 每個頻道的 Webhook（用 Webhook 的名字、頭像貼每日回顧）
+    if (b.webhooks && typeof b.webhooks === "object") {
+      const list = [];
+      for (const c of next.chatChannels || []) {
+        const v = b.webhooks[c.id];
+        if (v === null) { const { webhook, webhookName, webhookChannelId, webhookChannelName, ...rest } = c; list.push(rest); continue; }
+        const url = String(v || "").trim();
+        if (!url) { list.push(c); continue; }
+        if (!isWebhookUrl(url)) return res.status(400).json({ error: `#${c.name || c.id} 的 Webhook 網址不對：要是 https://discord.com/api/webhooks/… 開頭（頻道設定 → 整合 → Webhook → 複製 Webhook 網址）` });
+        let info = { name: "", channelId: "" };
+        try {
+          info = await webhookInfo(url);
+        } catch (e) {
+          return res.status(400).json({ error: `#${c.name || c.id} 的 Webhook：${e.message}` });
+        }
+        const chName = info.channelId && discordConfigured() ? (await discordApi("GET", `/channels/${info.channelId}`).catch(() => null))?.name || "" : "";
+        list.push({ ...c, webhook: url, webhookName: info.name, webhookChannelId: info.channelId, webhookChannelName: chName });
       }
       next.chatChannels = list;
     }
@@ -84,7 +107,7 @@ export default route({
     }
     if (next.chatPostMode === "single" && !next.chatReportChannelId) return res.status(400).json({ error: "選「全部貼到同一個頻道」要填那個頻道的 ID" });
     await saveDiscordSettings(next);
-    return res.status(200).json({ ok: true, channels: next.chatChannels || [], reportChannelId: next.chatReportChannelId || "", postMode: next.chatPostMode || "own" });
+    return res.status(200).json({ ok: true, channels: (next.chatChannels || []).map(({ webhook, ...c }) => ({ ...c, hasWebhook: !!webhook })), reportChannelId: next.chatReportChannelId || "", postMode: next.chatPostMode || "own" });
   },
 
   async POST(req, res) {

@@ -2,7 +2,8 @@
 //   → 每個頻道算訊息數、參與人數、討論主題、最熱門的訊息，存進 chat_stats
 //   → 每個頻道貼一則「每日回顧」（embed 卡片＋整天的完整紀錄文字檔）
 //      postMode "own"（預設）：各自貼回自己的頻道，研究員大廳的紀錄不會出現在大家都看得到的大廳
-//        每個頻道可以另外指定 postTo（例如大廳的回顧貼到原本的「每日回顧」頻道）
+//        每個頻道可以設一個 Webhook（例如「CCC｜每日回顧」）：用 Webhook 的名字、頭像貼到 Webhook 所在的頻道，跟審核機器人分開
+//        沒設 Webhook 就由機器人貼（postTo 指定的頻道，沒有就貼回自己）
 //      postMode "single"：全部貼到同一個頻道（chatReportChannelId）
 // 觸發：每天 00:05（台灣時間）Supabase 排程呼叫 /api/cron/chatlog；後台「聊天統計」也可以手動跑某一天
 // 需要：Discord Developer Portal → Bot → 打開「Message Content Intent」，機器人在這些頻道要能看、讀歷史、發訊息、附加檔案
@@ -160,20 +161,36 @@ export function recapEmbed(day, row, { others = [], uniqueAuthors = null, file =
   };
 }
 
-// 貼一則訊息（embed＋文字檔）
-async function postRecap(channelId, embeds, files) {
+// Webhook 網址（Discord 頻道設定 → 整合 → Webhook → 複製網址）
+export const WEBHOOK_RE = /^https:\/\/(?:(?:canary|ptb)\.)?discord(?:app)?\.com\/api\/(?:v\d+\/)?webhooks\/(\d{17,20})\/([\w-]{20,100})$/;
+export const isWebhookUrl = (u) => WEBHOOK_RE.test(String(u || ""));
+// 測試時把 Discord 的網址換成假的伺服器
+const webhookBase = (u) => (env.DISCORD_API_BASE ? u.replace(/^https:\/\/[^/]+\/api(?:\/v\d+)?/, env.DISCORD_API_BASE) : u);
+// 讀 Webhook 的名字、在哪個頻道（儲存時確認網址有效）
+export async function webhookInfo(url) {
+  const res = await fetch(webhookBase(url), { signal: AbortSignal.timeout(10000) });
+  if (!res.ok) throw Object.assign(new Error(res.status === 404 || res.status === 401 ? "這個 Webhook 不存在或已經被刪掉了" : `Discord ${res.status}`), { status: res.status });
+  const w = await res.json();
+  return { name: w.name || "", channelId: w.channel_id || "" };
+}
+
+// 貼一則訊息（embed＋文字檔）：有 Webhook 用 Webhook，沒有用機器人
+async function postRecap(channelId, embeds, files, webhook = "") {
   const base = env.DISCORD_API_BASE || "https://discord.com/api/v10";
   const form = new FormData();
   form.append("payload_json", JSON.stringify({ embeds, allowed_mentions: { parse: [] }, attachments: files.map((f, i) => ({ id: i, filename: f.name })) }));
   files.forEach((f, i) => form.append(`files[${i}]`, new Blob([f.text], { type: "text/plain; charset=utf-8" }), f.name));
-  const res = await fetch(`${base}/channels/${channelId}/messages`, {
-    method: "POST",
-    headers: { Authorization: `Bot ${env.DISCORD_BOT_TOKEN}`, "User-Agent": "DiscordBot (https://ccc-community-site.pages.dev, 1.0)" },
-    body: form,
-    signal: AbortSignal.timeout(15000),
-  });
+  const res = webhook
+    ? await fetch(`${webhookBase(webhook)}?wait=true`, { method: "POST", body: form, signal: AbortSignal.timeout(15000) })
+    : await fetch(`${base}/channels/${channelId}/messages`, {
+      method: "POST",
+      headers: { Authorization: `Bot ${env.DISCORD_BOT_TOKEN}`, "User-Agent": "DiscordBot (https://ccc-community-site.pages.dev, 1.0)" },
+      body: form,
+      signal: AbortSignal.timeout(15000),
+    });
   if (!res.ok) {
     const t = (await res.text()).slice(0, 200);
+    if (webhook) throw new Error(res.status === 404 || res.status === 401 ? "Webhook 已經被刪掉了，請到後台重新設定" : `Webhook ${res.status}: ${t}`);
     throw new Error(res.status === 403 ? "機器人在這個頻道不能發訊息或附加檔案" : `Discord ${res.status}: ${t}`);
   }
   return res.json();
@@ -213,11 +230,11 @@ export async function runChatlog(day, { post = true } = {}) {
     const card = (r) => ({ embed: recapEmbed(day, r, { others: ok.filter((x) => x !== r), uniqueAuthors: uniq, file: fileName(day, r.name, many) }), file: { name: fileName(day, r.name, many), text: r.text } });
     const jobs = mode === "single"
       ? [{ channel: s.chatReportChannelId, items: ok.map(card) }]
-      : ok.map((r) => ({ channel: channels.find((c) => c.id === r.id)?.postTo || r.id, items: [card(r)] }));
+      : ok.map((r) => { const c = channels.find((x) => x.id === r.id) || {}; return { channel: c.webhookChannelId || c.postTo || r.id, webhook: isWebhookUrl(c.webhook) ? c.webhook : "", items: [card(r)] }; });
     for (const j of jobs) {
       try {
-        await postRecap(j.channel, j.items.map((x) => x.embed), j.items.map((x) => x.file));
-        posts.push({ channel: j.channel, ok: true });
+        await postRecap(j.channel, j.items.map((x) => x.embed), j.items.map((x) => x.file), j.webhook);
+        posts.push({ channel: j.channel, ok: true, via: j.webhook ? "webhook" : "bot" });
       } catch (e) {
         posts.push({ channel: j.channel, ok: false, error: String(e?.message || e).slice(0, 200) });
       }

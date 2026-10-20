@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import http from "node:http";
 import { setEnv } from "../server/lib/env.js";
-import { runChatlog, fetchDay, summarizeDay, transcript, snowflakeAt, twDayStart, recapEmbed, topicsOf, hottestOf } from "../server/lib/chatlog.js";
+import { runChatlog, fetchDay, summarizeDay, transcript, snowflakeAt, twDayStart, recapEmbed, topicsOf, hottestOf, isWebhookUrl, webhookInfo } from "../server/lib/chatlog.js";
 import cron from "../server/cron/chatlog.js";
 
 let pass = 0, fail = 0;
@@ -59,6 +59,13 @@ const disc = http.createServer(async (req, res) => {
   const u = new URL(req.url, "http://x");
   calls.push(`${req.method} ${u.pathname}`);
   const send = (d, s = 200) => { res.writeHead(s, { "Content-Type": "application/json" }); res.end(JSON.stringify(d)); };
+  const wm = u.pathname.match(/^\/webhooks\/(\d+)\/([\w-]+)$/);
+  if (wm) {
+    if (wm[2] === "deleted-token-xxxxxxxxxxxxxx") return send({ message: "Unknown Webhook", code: 10015 }, 404);
+    if (req.method === "GET") return send({ id: wm[1], name: "CCC｜每日回顧", channel_id: "100000000000000007" });
+    posted.push({ channel: `webhook:${wm[1]}`, raw: (await readBody(req)).toString(), type: req.headers["content-type"], auth: req.headers.authorization || "", wait: u.searchParams.get("wait") });
+    return send({ id: "6" });
+  }
   const m = u.pathname.match(/^\/channels\/(\d+)(\/messages)?$/);
   if (!m) return send({ message: "not found" }, 404);
   const id = m[1];
@@ -146,6 +153,25 @@ await test("大廳的回顧改貼到原本的每日回顧頻道；研究員大�
   assert.ok(mine.find((p) => p.channel === RECAP).raw.includes("ccc_dc_recap_20261020_大廳.txt"));
   assert.ok(!mine.find((p) => p.channel === RECAP).raw.includes("研究員聊天 "));
   delete db.settings[0].value.chatChannels[0].postTo;
+});
+await test("大廳設了 Webhook：用 Webhook 貼（不帶機器人 Token），研究員大廳沒設照樣由機器人貼回自己", async () => {
+  const HOOK = "https://discord.com/api/webhooks/123456789012345678/abcdefghijklmnopqrstuvwxyzABCDEF";
+  assert.ok(isWebhookUrl(HOOK) && !isWebhookUrl("https://evil.example/api/webhooks/1/2") && !isWebhookUrl(HOOK + "/../x"));
+  assert.deepEqual(await webhookInfo(HOOK), { name: "CCC｜每日回顧", channelId: "100000000000000007" });
+  db.settings[0].value.chatChannels[0].webhook = HOOK;
+  const n = posted.length;
+  const r = await runChatlog(DAY);
+  const mine = posted.slice(n);
+  const hook = mine.find((p) => p.channel === "webhook:123456789012345678");
+  assert.ok(hook, mine.map((p) => p.channel).join());
+  assert.equal(hook.auth, ""); assert.equal(hook.wait, "true");
+  assert.ok(hook.raw.includes("ccc_dc_recap_20261020_大廳.txt") && !hook.raw.includes("研究員聊天 "));
+  assert.ok(mine.some((p) => p.channel === LAB));
+  assert.deepEqual(r.posts.map((p) => p.via).sort(), ["bot", "webhook"]);
+  db.settings[0].value.chatChannels[0].webhook = "https://discord.com/api/webhooks/123456789012345678/deleted-token-xxxxxxxxxxxxxx";
+  const r2 = await runChatlog(DAY);
+  assert.ok(r2.postError.includes("Webhook 已經被刪掉了"), r2.postError);
+  delete db.settings[0].value.chatChannels[0].webhook;
 });
 await test("選全部貼到同一個頻道：一則訊息兩張卡片、兩個檔案", async () => {
   db.settings[0].value.chatPostMode = "single";
