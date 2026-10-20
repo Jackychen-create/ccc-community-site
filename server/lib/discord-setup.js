@@ -12,11 +12,11 @@ import { TICKET_CATEGORY, categoryOverwrites } from "./discord-ticket.js";
 // 權限位元（https://discord.com/developers/docs/topics/permissions）
 export const P = {
   MANAGE_CHANNELS: 1n << 4n, ADD_REACTIONS: 1n << 6n, VIEW: 1n << 10n, SEND: 1n << 11n, EMBED: 1n << 14n,
-  MANAGE_MESSAGES: 1n << 13n, HISTORY: 1n << 16n, MANAGE_ROLES: 1n << 28n, THREADS: (1n << 35n) | (1n << 36n) | (1n << 38n),
+  MANAGE_MESSAGES: 1n << 13n, ATTACH: 1n << 15n, HISTORY: 1n << 16n, MANAGE_ROLES: 1n << 28n, THREADS: (1n << 35n) | (1n << 36n) | (1n << 38n),
 };
 const bits = (...xs) => String(xs.reduce((a, b) => a | b, 0n));
-// 邀請機器人時要給的權限：管理頻道、看頻道、發訊息、管理訊息（釘選）、讀歷史、管理身分組
-export const BOT_PERMISSIONS = bits(P.MANAGE_CHANNELS, P.VIEW, P.SEND, P.MANAGE_MESSAGES, P.HISTORY, P.EMBED, P.MANAGE_ROLES);
+// 邀請機器人時要給的權限：管理頻道、看頻道、發訊息、管理訊息（釘選）、附加檔案（每日回顧的完整紀錄）、讀歷史、管理身分組
+export const BOT_PERMISSIONS = bits(P.MANAGE_CHANNELS, P.VIEW, P.SEND, P.MANAGE_MESSAGES, P.ATTACH, P.HISTORY, P.EMBED, P.MANAGE_ROLES);
 export const inviteUrl = (appId) => `https://discord.com/oauth2/authorize?client_id=${appId}&scope=bot&permissions=${BOT_PERMISSIONS}`;
 
 // 舊版的預設名稱：再按一次一鍵建立時改成新名稱（你自己改過的名字不會動）

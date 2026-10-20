@@ -1,6 +1,7 @@
 // 後台：聊天統計（只有主要管理員）
 // GET   /api/admin/chatlog                 設定（統計哪些頻道、回報頻道）＋最近 30 天每個頻道的統計
-// PATCH /api/admin/chatlog { channelIds, reportChannelId }   改設定；會先跟 Discord 確認機器人看得到這些頻道
+// PATCH /api/admin/chatlog { channelIds, postMode, reportChannelId }   改設定；會先跟 Discord 確認機器人看得到這些頻道
+//        postMode：own＝每日回顧各自貼回自己的頻道（預設）；single＝全部貼到 reportChannelId
 // POST  /api/admin/chatlog { day }         立即統計某一天（台灣日期，預設昨天）並貼到回報頻道
 import {
   supabaseAdmin, requireAdmin, readBody, route, isDate, todayTW,
@@ -19,6 +20,7 @@ export default route({
       configured: discordConfigured(),
       channels: s.chatChannels || [],
       reportChannelId: s.chatReportChannelId || "",
+      postMode: s.chatPostMode === "single" ? "single" : "own",
       reviewChannelId: s.reviewChannelId || "",
       stats: data || [],
     });
@@ -55,8 +57,13 @@ export default route({
       if (v && !isSnowflake(v)) return res.status(400).json({ error: "回報頻道 ID 是 17–20 位數字" });
       next.chatReportChannelId = v;
     }
+    if (b.postMode !== undefined) {
+      if (!["own", "single"].includes(b.postMode)) return res.status(400).json({ error: "貼文方式不正確" });
+      next.chatPostMode = b.postMode;
+    }
+    if (next.chatPostMode === "single" && !next.chatReportChannelId) return res.status(400).json({ error: "選「全部貼到同一個頻道」要填那個頻道的 ID" });
     await saveDiscordSettings(next);
-    return res.status(200).json({ ok: true, channels: next.chatChannels || [], reportChannelId: next.chatReportChannelId || "" });
+    return res.status(200).json({ ok: true, channels: next.chatChannels || [], reportChannelId: next.chatReportChannelId || "", postMode: next.chatPostMode || "own" });
   },
 
   async POST(req, res) {
