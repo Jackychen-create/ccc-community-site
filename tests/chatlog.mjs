@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import http from "node:http";
 import { setEnv } from "../server/lib/env.js";
-import { runChatlog, fetchDay, summarizeDay, transcript, snowflakeAt, twDayStart, reportText } from "../server/lib/chatlog.js";
+import { runChatlog, fetchDay, summarizeDay, transcript, snowflakeAt, twDayStart, recapEmbed, topicsOf, hottestOf } from "../server/lib/chatlog.js";
 import cron from "../server/cron/chatlog.js";
 
 let pass = 0, fail = 0;
@@ -95,13 +95,13 @@ await test("統計：機器人、系統訊息不算；發言人數不重複；�
   assert.equal(s.messages, 3); assert.equal(s.authors, 2);
   assert.deepEqual(s.top, [{ name: "Amy", n: 2 }, { name: "bob", n: 1 }]);
 });
-await test("聊天紀錄文字檔：時間、名字、內容，附件寫網址，換行縮排", async () => {
+await test("完整紀錄文字檔：跟舊的每日回顧一樣（期間、訊息數、[時間] 名字、下一行內容）", async () => {
   const { messages } = await fetchDay(LOBBY, DAY);
   const t = transcript("大廳", DAY, messages, summarizeDay(messages));
-  assert.ok(t.startsWith("CCC 交易實驗室｜#大廳｜2026-10-20（台灣時間）聊天紀錄"), t);
-  assert.ok(t.includes("[09:01] Amy：早安"));
-  assert.ok(t.includes("[09:02] bob：今天 NQ 怎麼看？\n        第二行"));
-  assert.ok(t.includes("［附件 chart.png：https://cdn.example/chart.png］"));
+  assert.ok(t.startsWith("CCC Market Lab｜#大廳｜DC 每日完整討論紀錄\n期間：2026-10-20 00:00:00 +0800 至 2026-10-21 00:00:00 +0800\n訊息數：3\n===="), t.slice(0, 200));
+  assert.ok(t.includes("[2026-10-20 09:01:00] Amy\n早安"), t);
+  assert.ok(t.includes("[2026-10-20 09:02:00] bob\n今天 NQ 怎麼看？\n第二行"));
+  assert.ok(t.includes("［附件］chart.png：https://cdn.example/chart.png"));
   assert.ok(!t.includes("機器人不算") && !t.includes("前一天") && !t.includes("隔天"));
 });
 await test("還沒設定頻道：不跑", async () => {
@@ -117,19 +117,33 @@ await test("跑一天：兩個大廳分開算、合計人數不重複、存進�
   assert.equal(db.chat_stats.length, 2);
   assert.deepEqual(db.chat_stats.map((x) => [x.day, x.channel_name, x.messages]), [[DAY, "大廳", 3], [DAY, "研究員大廳", 150]]);
 });
-await test("貼到回報頻道：統計文字＋兩個文字檔", () => {
-  assert.equal(posted.length, 1);
-  const p = posted[0];
-  assert.equal(p.channel, REPORT);
-  assert.ok(/multipart\/form-data/.test(p.type));
-  assert.ok(p.raw.includes("10/20 聊天統計") && p.raw.includes("#大廳：3 則・2 人") && p.raw.includes("#研究員大廳：150 則・2 人") && p.raw.includes("合計：153 則・2 人"), p.raw.slice(0, 400));
-  assert.ok(p.raw.includes(`filename="${DAY}_大廳.txt"`) && p.raw.includes(`filename="${DAY}_研究員大廳.txt"`));
-  assert.ok(p.raw.includes("[09:01] Amy：早安"));
+await test("預設各自貼回自己的頻道：大廳只附大廳的紀錄，研究員大廳的紀錄不會出現在大廳", () => {
+  assert.equal(posted.length, 2);
+  const lobby = posted.find((p) => p.channel === LOBBY), lab = posted.find((p) => p.channel === LAB);
+  assert.ok(lobby && lab, posted.map((p) => p.channel).join());
+  assert.ok(/multipart\/form-data/.test(lobby.type));
+  assert.ok(lobby.raw.includes(`filename="ccc_dc_recap_20261020_大廳.txt"`) && !lobby.raw.includes("研究員聊天 "), "大廳不能有研究員大廳的內容");
+  assert.ok(lab.raw.includes(`filename="ccc_dc_recap_20261020_研究員大廳.txt"`) && lab.raw.includes("研究員聊天 0"));
+  const embed = JSON.parse(lobby.raw.match(/name="payload_json"\r\n(?:[^\r\n]*\r\n)?\r\n(\{.*?\})\r\n--/s)[1]).embeds[0];
+  assert.ok(embed.title.includes("#大廳 每日回顧｜2026/10/20"), embed.title);
+  const f = Object.fromEntries(embed.fields.map((x) => [x.name, x.value]));
+  assert.ok(f["📊 討論概況"].includes("訊息 3 則｜參與者 2 人｜區間 09:01–10:00"), f["📊 討論概況"]);
+  assert.ok(f["🧪 全部大廳"].includes("#研究員大廳 150 則") && f["🧪 全部大廳"].includes("合計 153 則・2 人"), f["🧪 全部大廳"]);
+  assert.ok(f["📎 完整紀錄"].includes("ccc_dc_recap_20261020_大廳.txt"));
 });
 await test("同一天再跑一次：資料庫覆蓋，不會重複", async () => {
   await runChatlog(DAY, { post: false });
   assert.equal(db.chat_stats.length, 2);
-  assert.equal(posted.length, 1);
+  assert.equal(posted.length, 2);
+});
+await test("選全部貼到同一個頻道：一則訊息兩張卡片、兩個檔案", async () => {
+  db.settings[0].value.chatPostMode = "single";
+  const r = await runChatlog(DAY);
+  assert.equal(r.mode, "single");
+  const p = posted.at(-1);
+  assert.equal(p.channel, REPORT);
+  assert.ok(p.raw.includes("ccc_dc_recap_20261020_大廳.txt") && p.raw.includes("ccc_dc_recap_20261020_研究員大廳.txt"));
+  db.settings[0].value.chatPostMode = "own";
 });
 await test("機器人看不到的頻道：寫原因，其他頻道照跑", async () => {
   db.settings[0].value.chatChannels.push({ id: SECRET, name: "秘密" });
@@ -145,9 +159,20 @@ await test("訊息內容都空的：提醒打開 Message Content Intent", async 
   assert.equal(r.noContent, true);
   channels[LOBBY] = saved;
 });
-await test("統計文字：抓不到的頻道寫原因", () => {
-  const t = reportText(DAY, [{ name: "大廳", messages: 3, authors: 2, top: [{ name: "Amy", n: 2 }] }, { name: "秘密", error: "機器人看不到這個頻道" }], 2);
-  assert.ok(t.includes("#秘密：抓不到（機器人看不到這個頻道）") && t.includes("最常發言：Amy 2"));
+const mk = (content, extra = {}) => ({ id: String(++seq), author: { id: String(seq % 4) }, content, type: 0, timestamp: at(9, 0), ...extra });
+await test("討論主題：拿掉網址和沒意義的字，同一則只算一次，長的詞優先", () => {
+  const t = topicsOf(["今天 NQ 又洗盤了", "NQ 洗盤好兇", "固態電池股票大漲", "固態電池還能追嗎", "https://www.threads.net/xx 分享", "https://www.threads.net/yy", "BTC 破十萬", "BTC 好強"].map((x) => mk(x)));
+  assert.ok(t.includes("固態電池") && t.includes("NQ") && t.includes("BTC") && t.includes("洗盤"), t.join());
+  assert.ok(!t.some((w) => /https|www|com|threads/i.test(w)) && !t.includes("固態"), t.join());
+});
+await test("最多人回應：回覆＋表情最多的那一則", () => {
+  const a = mk("今晚 CPI 大家怎麼看", { reactions: [{ count: 2 }] });
+  const h = hottestOf([a, mk("看多", { message_reference: { message_id: a.id } }), mk("普通的一句")]);
+  assert.equal(h.text, "今晚 CPI 大家怎麼看"); assert.equal(h.score, 3);
+});
+await test("卡片：沒有聊天也寫清楚", () => {
+  const e = recapEmbed(DAY, { name: "大廳", messages: 0, authors: 0, topics: [], first: null, last: null }, { file: "x.txt" });
+  assert.ok(e.fields.find((x) => x.name === "🔥 討論主題").value.includes("沒有聊天"));
 });
 await test("排程：沒有密碼不能跑；有密碼跑昨天", async () => {
   const mk = (h) => { const res = { statusCode: 0, headers: {}, body: null, status(c) { this.statusCode = c; return this; }, json(b) { this.body = b; return this; }, setHeader() {} }; return [{ method: "POST", headers: h, query: {}, body: {} }, res]; };

@@ -24,9 +24,13 @@ const errs = [];
       check("ID 格式不對會說清楚", (await p.textContent("#chatBox .form-error")).includes("複製頻道 ID"));
       await p.fill("input[aria-label='要統計的頻道 ID']", "100000000000000001, 100000000000000002");
       await p.click("#chatBox .btn.primary"); await p.waitForSelector("#chatBox .pill");
+      check("預設各自貼回自己的頻道，說明研究員紀錄只有研究員看得到", (await p.getAttribute("[data-mode=own]", "aria-pressed")) === "true" && (await p.textContent("#chatBox")).includes("只有研究員看得到") && !(await p.isVisible("input[aria-label='每日回顧貼在哪個頻道']")));
+      await p.click("[data-mode=single]");
+      check("選全部貼同一個頻道：出現頻道欄位和提醒", (await p.isVisible("input[aria-label='每日回顧貼在哪個頻道']")) && (await p.textContent("#chatBox")).includes("研究員大廳的紀錄也會被看到"));
+      await p.click("[data-mode=own]");
       check("儲存後顯示頻道名稱", (await p.textContent("#chatBox")).includes("#大廳") && (await p.textContent("#chatBox")).includes("#研究員大廳"));
       await p.click("#chatBox .chat-set:nth-of-type(2) .btn"); await p.waitForSelector(".chat-table tbody tr");
-      check("立即統計：告訴總數、已貼到 Discord", (await p.textContent(".toast:last-child")).includes("100 則") && (await p.textContent(".toast:last-child")).includes("已貼到 Discord"));
+      check("立即統計：告訴總數、已貼到 Discord", (await p.textContent(".toast:last-child")).includes("100 則") && (await p.textContent(".toast:last-child")).includes("每日回顧已貼到 Discord"));
       check("最近 30 天表格：每個大廳一欄、有合計", (await p.textContent(".chat-table thead")).includes("#研究員大廳") && (await p.textContent(".chat-table thead")).includes("合計") && (await p.textContent(".chat-table tbody")).includes("40 則"));
       await p.screenshot({ path: "output/shots/v29-chat.png", fullPage: true });
     } else {
