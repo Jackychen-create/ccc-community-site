@@ -10,6 +10,7 @@
 //   #stats    觀看統計    stats.js
 //   #feedback 提問回報    feedback.js
 //   #followup 待跟進      followup.js
+//   #chat     聊天統計    chat.js
 //   #health   網站狀況    health.js
 import * as A from "../core/index.js";
 const { $, api, sb, icon } = A;
@@ -27,6 +28,7 @@ import { loadStats } from "./stats.js";
 import { loadFeedback, refreshFeedbackCount } from "./feedback.js";
 import { loadFollowup } from "./followup.js";
 import { loadHealth } from "./health.js";
+import { loadChat } from "./chat.js";
 import { canSeeView, ROLE_LABEL } from "../shared/roles.js";
 
 document.querySelectorAll("[data-ico]").forEach((n) => {
@@ -90,7 +92,7 @@ function loadBadges() {
 
 function route() {
   loadBadges();
-  const VIEWS = ["videos", "lives", "invites", "discord", "members", "volumes", "oneonone", "stats", "feedback", "followup", "health"];
+  const VIEWS = ["videos", "lives", "invites", "discord", "members", "volumes", "oneonone", "stats", "feedback", "followup", "chat", "health"];
   const want = location.hash.slice(1);
   const view = VIEWS.includes(want) && canSeeView(state.me?.adminRole, want) ? want : "videos";
   document.querySelectorAll("[data-view-panel]").forEach((p) => (p.hidden = p.dataset.viewPanel !== view));
@@ -102,7 +104,7 @@ function route() {
     }
     else a.removeAttribute("aria-current");
   });
-  document.title = { videos: "影片", lives: "直播預告", invites: "實驗室密碼", discord: "Discord 審核", members: "研究員", volumes: "交易量", oneonone: "一對一", stats: "觀看統計", feedback: "提問回報", followup: "待跟進", health: "網站狀況" }[view] + "｜後台管理";
+  document.title = { videos: "影片", lives: "直播預告", invites: "實驗室密碼", discord: "Discord 審核", members: "研究員", volumes: "交易量", oneonone: "一對一", stats: "觀看統計", feedback: "提問回報", followup: "待跟進", chat: "聊天統計", health: "網站狀況" }[view] + "｜後台管理";
   if (view === "videos") loadVideos();
   if (view === "lives") loadLives();
   if (view === "invites") loadInvites();
@@ -114,4 +116,5 @@ function route() {
   if (view === "feedback") loadFeedback();
   if (view === "followup") loadFollowup();
   if (view === "health") loadHealth();
+  if (view === "chat") loadChat();
 }

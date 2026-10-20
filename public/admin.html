@@ -42,6 +42,7 @@
       <a href="#feedback" data-view="feedback"><span data-ico="chat"></span>提問回報<span class="count num" id="cFeedback"></span></a>
       <a href="#followup" data-view="followup"><span data-ico="flag"></span>待跟進<span class="count num" id="cFollowup"></span></a>
       <a href="#stats" data-view="stats"><span data-ico="chart"></span>觀看統計</a>
+      <a href="#chat" data-view="chat"><span data-ico="news"></span>聊天統計</a>
       <a href="#health" data-view="health"><span data-ico="pulse"></span>網站狀況<span class="count num" id="cHealth"></span></a>
     </nav>
     <div class="foot">
@@ -208,6 +209,17 @@
       </div>
       <div class="chips" id="fuFilter" role="group" aria-label="篩選" style="margin-bottom: 16px"></div>
       <div id="fuBox"></div>
+    </section>
+
+    <!-- 聊天統計（Discord 大廳、研究員大廳） -->
+    <section id="v-chat" data-view-panel="chat" hidden>
+      <div class="page-head">
+        <div>
+          <h1>聊天統計</h1>
+          <p>每天統計 Discord 頻道的訊息數、發言人數，整天的聊天紀錄存成文字檔貼到回報頻道</p>
+        </div>
+      </div>
+      <div id="chatBox"></div>
     </section>
 
     <!-- 網站狀況 -->

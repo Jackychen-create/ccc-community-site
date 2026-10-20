@@ -164,3 +164,12 @@
 @media (max-width: 1000px) { .one-cols { grid-template-columns: 1fr; } }
 .share-row { display: flex; gap: 8px; align-items: center; }
 .share-row .input { flex: 1; min-width: 0; font-size: 14px; }
+
+/* 聊天統計 */
+.chat-set { padding: 20px 22px; margin-bottom: 16px; }
+.chat-set h2 { font-size: 17px; }
+.chat-h { margin: 8px 0 10px; font-size: 17px; }
+.chat-table td { position: relative; }
+.chat-bar { position: absolute; left: 0; top: 6px; bottom: 6px; background: var(--amber-soft); border-radius: 4px; z-index: 0; }
+.chat-table td > span { position: relative; z-index: 1; }
+.chat-day { width: auto; max-width: 200px; }
