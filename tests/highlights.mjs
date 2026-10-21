@@ -49,7 +49,7 @@ await test("整理結果：限制長度、章節排序去重、第一章從 0、
 });
 await test("提示詞：要繁體中文、不要投資建議、章節不能超過影片長度", () => {
   const p = summaryPrompt({ title: "週三直播", hosts: ["CCC"], duration_sec: 3600 }, "[0:00] 大家好");
-  assert.match(p.system, /繁體中文/); assert.match(p.system, /不要給投資建議/); assert.match(p.system, /3600 秒/);
+  assert.match(p.system, /繁體中文/); assert.match(p.system, /不要給投資建議/); assert.match(p.system, /3600 秒/); assert.match(p.system, /不要平均切/);
   assert.match(p.user, /週三直播/);
 });
 await test("工作佇列：沒做過的先、卡住或失敗的過一陣子再試、做好的不再做、太短的不做", () => {
