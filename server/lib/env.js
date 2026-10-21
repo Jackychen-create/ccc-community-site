@@ -6,6 +6,7 @@ export const env = {};
 export let supabaseAdmin = null;
 
 export function setEnv(e) {
+  env.AI = e.AI || null; // Cloudflare Workers AI（wrangler.toml 的 [ai] binding），直播精華用
   if (supabaseAdmin && env.SUPABASE_URL === e.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY === e.SUPABASE_SERVICE_ROLE_KEY) return;
   for (const k of ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET", "ADMIN_EMAILS", "BREVO_API_KEY", "MAIL_FROM", "MAIL_FROM_NAME", "BINGX_API_KEY", "BINGX_SECRET_KEY", "BINGX_BASE_URL", "BYBIT_API_KEY", "BYBIT_SECRET_KEY", "BYBIT_BASE_URL", "DISCORD_APP_ID", "DISCORD_PUBLIC_KEY", "DISCORD_BOT_TOKEN", "DISCORD_API_BASE", "CRON_SECRET"]) {
     env[k] = e[k] || "";

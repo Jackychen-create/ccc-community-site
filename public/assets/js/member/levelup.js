@@ -1,6 +1,7 @@
 // 遊戲感：等級徽章（銅／銀／金盾牌）、升級畫面（翻牌換等級、經驗條、解鎖獎勵一個一個出來）
 // 翻牌沿用左上角 CCC 的招牌動作（DESIGN.md「招牌動作」）；減少動態效果時直接顯示結果
-import { el, reduceMotion } from "../core/index.js";
+import { el, reduceMotion, api, toast, setBusy } from "../core/index.js";
+import { downloadLevelCard } from "./sharecard.js";
 import { TIERS, MAX_TIER, tierName, tierInfo, gapTo } from "../shared/rules.js";
 
 const NUM = "零一二三";
@@ -42,7 +43,7 @@ function flapWord(from, to) {
 }
 
 // 升級畫面。level：升到第幾級；amounts：這一輪交易量；until：至少到哪天；onClose：關掉後
-export function levelUp({ level, prev = level - 1, amounts = {}, exchanges, until, oneOnOne = false, onClose }) {
+export function levelUp({ level, prev = level - 1, amounts = {}, exchanges, until, oneOnOne = false, share = false, onClose }) {
   const motion = !reduceMotion();
   const toName = tierName(level);
   // 從上一級翻過來；沒有上一級就從「第零級」翻
@@ -51,6 +52,28 @@ export function levelUp({ level, prev = level - 1, amounts = {}, exchanges, unti
   const perks = TIERS.filter((t) => t.tier === level).flatMap((t) => t.perks);
   const next = level < MAX_TIER ? level + 1 : null;
   const close = el("button", { class: "btn primary lg", type: "button", text: "繼續" });
+  // 分享：下載卡片圖（自己存去分享）、分享到 Discord（研究員自己按才發，不會自動公開）
+  const dl = el("button", { class: "btn", type: "button", text: "下載卡片圖" });
+  dl.addEventListener("click", async () => {
+    setBusy(dl, true);
+    try { await downloadLevelCard(level); } catch { toast("卡片做不出來，請再試一次", "err"); }
+    setBusy(dl, false);
+  });
+  const dc = share ? el("button", { class: "btn", type: "button", text: "分享到 Discord" }) : null;
+  dc?.addEventListener("click", async () => {
+    setBusy(dc, true);
+    try {
+      await api("/api/share", { method: "POST", body: { level } });
+      setBusy(dc, false);
+      dc.textContent = "已分享 🎉";
+      dc.disabled = true;
+      toast("已經貼到 Discord 了");
+    } catch (e) {
+      toast(e.message || "分享失敗", "err");
+      setBusy(dc, false);
+    }
+  });
+  const shareRow = el("div", { class: "lvl-share" }, dl, dc);
   const sparks = el("div", { class: "lvl-sparks", "aria-hidden": "true" },
     ...Array.from({ length: 18 }, (_, i) => el("i", { style: { "--a": `${(360 / 18) * i + Math.random() * 12}deg`, "--d": `${90 + Math.random() * 90}px`, "--s": `${4 + Math.random() * 5}px`, "--t": `${Math.random() * 0.25}s` } })));
   const bar = el("div", { class: "lvl-xp" }, el("i"));
@@ -67,6 +90,7 @@ export function levelUp({ level, prev = level - 1, amounts = {}, exchanges, unti
       el("div", { class: "lvl-unlock small", text: "解鎖" }),
       list,
       next ? el("p", { class: "small lvl-next", text: `下一級：${tierName(next)}${gapTo(amounts, next, exchanges)}（${tierInfo(next).perks[0]}）` }) : el("p", { class: "small lvl-next", text: "已經是最高級 🏆" }),
+      shareRow,
       close));
   const done = () => {
     back.remove();

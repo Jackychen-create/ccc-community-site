@@ -23,6 +23,9 @@ import discordInteractions from "../../server/discord/interactions.js";
 import cronSync from "../../server/cron/sync.js";
 import cronLives from "../../server/cron/lives.js";
 import cronChatlog from "../../server/cron/chatlog.js";
+import cronHighlights from "../../server/cron/highlights.js";
+import adminHighlights from "../../server/admin/highlights.js";
+import share from "../../server/share.js";
 import adminChatlog from "../../server/admin/chatlog.js";
 import adminBots from "../../server/admin/bots.js";
 import adminLives from "../../server/admin/lives.js";
@@ -59,6 +62,9 @@ const ROUTES = {
   "cron/sync": cronSync,
   "cron/lives": cronLives,
   "cron/chatlog": cronChatlog,
+  "cron/highlights": cronHighlights,
+  "admin/highlights": adminHighlights,
+  "share": share,
   "admin/chatlog": adminChatlog,
   "admin/bots": adminBots,
   "admin/lives": adminLives,
@@ -79,6 +85,8 @@ const ROUTES = {
 };
 
 const MAX_BODY = 64 * 1024; // API 只收小小的 JSON，檔案一律直傳 R2
+// 例外：直播精華的聲音（GitHub Actions 一段一段送，每段 10 分鐘的 mp3）
+const RAW_ROUTES = { "cron/highlights": 8 * 1024 * 1024 };
 
 function json(status, data, headers = {}) {
   return new Response(JSON.stringify(data), {
@@ -126,7 +134,12 @@ export async function onRequest(context) {
   const url = new URL(request.url);
   let body = {};
   let rawText = "";
-  if (request.method !== "GET" && request.method !== "HEAD" && request.method !== "DELETE") {
+  let rawBytes = null;
+  if (request.method === "PUT" && RAW_ROUTES[path]) {
+    if (Number(request.headers.get("content-length") || 0) > RAW_ROUTES[path]) return json(413, { error: "資料太大" });
+    rawBytes = await request.arrayBuffer();
+    if (rawBytes.byteLength > RAW_ROUTES[path]) return json(413, { error: "資料太大" });
+  } else if (request.method !== "GET" && request.method !== "HEAD" && request.method !== "DELETE") {
     const text = await request.text();
     rawText = text;
     if (text.length > MAX_BODY) return json(413, { error: "資料太大" });
@@ -147,6 +160,7 @@ export async function onRequest(context) {
     query: Object.fromEntries(url.searchParams),
     body,
     rawBody: rawText, // Discord 驗簽要用原始內容
+    rawBytes, // 直播精華的聲音
     route: path, // 例如 admin/videos；管理員權限用
     waitUntil: (p) => context.waitUntil(p), // 先回應、背景繼續做（Discord 3 秒內要回）
   };

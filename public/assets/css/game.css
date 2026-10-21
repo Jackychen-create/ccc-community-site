@@ -32,6 +32,8 @@
 .lvl-perks li { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: var(--r-md); background: var(--amber-soft); font-size: 14.5px; }
 .lvl-check { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--amber); color: var(--amber-ink); font-size: 12px; font-weight: 700; flex: none; }
 .lvl-next { margin: 4px 0 6px; color: var(--ink-2); }
+.lvl-share { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 4px 0 10px; }
+.lvl-share .btn { min-width: 0; }
 .lvl-sparks { position: absolute; left: 50%; top: 96px; width: 0; height: 0; pointer-events: none; }
 .lvl-sparks i { position: absolute; width: var(--s); height: var(--s); margin: calc(var(--s) / -2); border-radius: 2px; background: var(--amber); opacity: 0; }
 

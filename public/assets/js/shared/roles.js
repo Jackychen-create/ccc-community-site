@@ -17,6 +17,7 @@ const EDITOR_API = {
   "admin/upload-url": "*",
   "admin/attachments": "*",
   "admin/notify": "*",
+  "admin/highlights": "*", // 直播精華（看、重做、套用章節）
   "admin/feedback": "*",
   "admin/stats": "*",
   "admin/members": ["GET"], // 只能看

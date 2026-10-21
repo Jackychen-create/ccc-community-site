@@ -91,7 +91,7 @@ export function celebrateMilestone() {
   const open = () => {
     if (document.querySelector(".modal-back, .lvl-back")) return ++tries < 120 && setTimeout(open, 1000);
     levelUp({
-      level: ms.level, prev: ms.level - 1, amounts: v.amounts || {}, exchanges: v.exchanges, until: v.nextEnd, oneOnOne: ms.level >= MAX_TIER,
+      level: ms.level, prev: ms.level - 1, amounts: v.amounts || {}, exchanges: v.exchanges, until: v.nextEnd, oneOnOne: ms.level >= MAX_TIER, share: !!ms.share,
       onClose: () => api("/api/me", { method: "PATCH", body: { milestoneSeen: true } }).catch(() => {}),
     });
     v.milestone = null;

@@ -61,3 +61,13 @@
 .side-list .vtitle { font-size: 14.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .side-list .st { font-size: 12.5px; }
 .side-list > p { padding: 16px 18px; }
+
+/* 直播精華（AI 整理的摘要、重點、標的） */
+.ai-hl { margin: 14px 0; }
+.ai-hl .panel-head { gap: 10px; flex-wrap: wrap; }
+.ai-hl-body { padding: 0 18px 16px; }
+.ai-hl-sum { line-height: 1.75; color: var(--ink); }
+.ai-hl-points { margin: 10px 0 0; padding-left: 1.2em; color: var(--ink-2); line-height: 1.7; }
+.ai-hl-points li + li { margin-top: 4px; }
+.ai-hl-tickers { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; }
+.ai-hl-tickers .small { margin-right: 4px; }

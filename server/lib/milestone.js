@@ -57,7 +57,7 @@ export async function notifyMilestones(hits) {
 }
 
 // 研究員 → Discord 帳號：在 Discord 報名通過時拿到的專用實驗室密碼，或填的交易所 UID 跟通過的報名一樣
-async function discordIds(userIds, memBy) {
+export async function discordIds(userIds, memBy) {
   const out = new Map();
   const codes = userIds.map((id) => memBy.get(id)?.invite_code).filter(Boolean);
   const [{ data: byCode }, { data: links }] = await Promise.all([
@@ -83,7 +83,7 @@ async function discordIds(userIds, memBy) {
 
 // 研究員首頁：這一輪還沒看過的最高升級（看過就不再跳）
 export async function unseenMilestone(userId, periodStart) {
-  const { data } = await supabaseAdmin.from("milestones").select("level, reached_at").eq("user_id", userId).eq("period_start", periodStart).eq("seen", false).order("level", { ascending: false }).limit(1);
+  const { data } = await supabaseAdmin.from("milestones").select("level, reached_at, shared_at").eq("user_id", userId).eq("period_start", periodStart).eq("seen", false).order("level", { ascending: false }).limit(1);
   return data?.[0] || null;
 }
 export async function markMilestonesSeen(userId) {
