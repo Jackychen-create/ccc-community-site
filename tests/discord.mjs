@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { setEnv } from "../server/lib/env.js";
 import handler, { CLOSE_DELAY_MS } from "../server/discord/interactions.js";
+import { closeSupport, resyncSupportTickets, SUPPORT_COOLDOWN_MS } from "../server/lib/discord-support.js";
 import { setupGuild, BOT_PERMISSIONS, inviteUrl } from "../server/lib/discord-setup.js";
 
 let pass = 0, fail = 0;
@@ -80,7 +81,7 @@ const disc = http.createServer(async (req, res) => {
   }
   if (req.method === "POST" && req.url === "/users/@me/channels") return send({ id: "dm-" + body.recipient_id });
   if (req.method === "GET" && /\/channels\/\d+\/messages\?/.test(req.url)) return send(req.url.includes("before=") ? [] : [{ id: "1", timestamp: "2026-10-22T01:00:00Z", author: { id: "500000000000000005", global_name: "Eve" }, content: "我的交易量沒更新" }, { id: "2", timestamp: "2026-10-22T01:05:00Z", author: { id: "500000000000000009", global_name: "boss" }, content: "幫你補好了" }]);
-  if (req.method === "POST" && /\/channels\/\d+\/messages$/.test(req.url) && req.headers["content-type"]?.startsWith("multipart/")) return send({ id: "920000000000000001" });
+  if (req.method === "POST" && /\/channels\/[\w-]+\/messages$/.test(req.url) && req.headers["content-type"]?.startsWith("multipart/")) return send({ id: "920000000000000001" });
   if (req.method === "POST" && /\/channels\/\d+\/messages/.test(req.url)) return send({ id: String(900000000000000000n + BigInt(++msgSeq)) });
   if (req.method === "DELETE" && /^\/channels\/\d+$/.test(req.url)) { channels.delete(req.url.split("/")[2]); return send({}); }
   if (req.method === "PATCH" && req.url.includes("/webhooks/")) return send({ id: "910000000000000001" });
@@ -440,6 +441,40 @@ await test("別人不能關；開單的人按關閉 → 先確認 → 紀錄存�
   assert.ok(c.some((x) => x.method === "POST" && x.path === `/channels/dm-${EVE}/messages` && /已經結案/.test(x.body.content)), "要私訊開單的人");
   assert.ok(c.some((x) => x.method === "DELETE" && x.path === `/channels/${eveChan}`));
   assert.equal(db.discord_tickets.find((x) => x.channel_id === eveChan).status, "closed");
+});
+
+await test("同一張客服單關兩次只跑一次（不會重複存紀錄、私訊）", async () => {
+  const t = db.discord_tickets.find((x) => x.channel_id === eveChan);
+  const before = calls.length;
+  const r = await closeSupport({ ...t, status: "open" }, "boss", db.settings.find((x) => x.key === "discord").value);
+  assert.equal(r.reason, "already_closed");
+  assert.equal(calls.length, before, "不能再打 Discord");
+});
+await test("關單後 10 分鐘內不能馬上再開（防洗版）", async () => {
+  const r = await interact(topicSelect("other", member(EVE)));
+  assert.match(r.body.data.content, /分鐘後再開/);
+  const r2 = await interact(supportForm("other", "再一張", "我想再開一張看看", member(EVE)));
+  assert.equal(r2.body.type, 5);
+  assert.ok(!db.discord_tickets.some((x) => x.discord_user_id === EVE && x.kind === "support" && x.status === "open"), "表單直接送也不能開");
+});
+await test("說明裡的「藏起來的連結」會被拆開；別的伺服器按的不理", async () => {
+  SUPPORT_COOLDOWN_MS.value = 0;
+  const before = calls.length;
+  await interact(supportForm("other", "連結測試", "點這裡 [bybit.com](https://evil.example) 領獎", member(EVE)));
+  const welcome = calls.slice(before).find((x) => x.method === "POST" && /\/messages$/.test(x.path) && x.body?.embeds);
+  assert.ok(welcome && !/\]\(/.test(welcome.body.embeds[0].description), "不能有 [文字](網址)");
+  const other = await interact({ ...topicSelect("other", member(EVE)), guild_id: "999999999999999999" });
+  assert.match(other.body.data.content, /CCC 的 Discord 伺服器/);
+});
+
+await test("客服身分組改了：開著的客服單頻道權限跟著換", async () => {
+  const t = db.discord_tickets.find((x) => x.discord_user_id === EVE && x.kind === "support" && x.status === "open");
+  const before = calls.length;
+  const n = await resyncSupportTickets({ guildId: GUILD, botId: "123", staffRoleIds: ["888888888888888888"] });
+  assert.ok(n >= 1);
+  const p = calls.slice(before).find((x) => x.method === "PATCH" && x.path === `/channels/${t.channel_id}`);
+  const ids = p.body.permission_overwrites.map((o) => o.id);
+  assert.ok(ids.includes("888888888888888888") && !ids.includes(STAFF_ROLE) && ids.includes(EVE));
 });
 
 supa.close(); disc.close(); bingx.close();

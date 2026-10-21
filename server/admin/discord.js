@@ -12,7 +12,7 @@ import {
 import { panelMessage } from "../lib/discord-flow.js";
 import { setupGuild, inviteUrl, overwrites } from "../lib/discord-setup.js";
 import { categoryOverwrites } from "../lib/discord-ticket.js";
-import { setupSupport, supportOverwrites } from "../lib/discord-support.js";
+import { setupSupport, supportOverwrites, resyncSupportTickets } from "../lib/discord-support.js";
 
 const discordMsg = (e) => {
   if (e?.code === 50013) return "機器人的權限不夠（要有管理頻道、管理身分組、傳送訊息），請用後台的「把機器人加進伺服器」重新邀請一次";
@@ -100,6 +100,7 @@ export default route({
         if (next.reviewChannelId) await editChannel(next.reviewChannelId, { permission_overwrites: overwrites("review", ctx) });
         if (next.supportCategoryId) await editChannel(next.supportCategoryId, { permission_overwrites: supportOverwrites("category", ctx) });
         if (next.supportLogChannelId) await editChannel(next.supportLogChannelId, { permission_overwrites: supportOverwrites("log", ctx) });
+        await resyncSupportTickets(ctx); // 開著的客服單也改成新的客服身分組
         synced = true;
       } catch (e) {
         console.error("discord staff sync failed", e?.message);

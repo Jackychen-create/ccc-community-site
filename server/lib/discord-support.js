@@ -37,6 +37,8 @@ export function supportOverwrites(kind, { guildId, botId, staffRoleIds = [], use
 }
 
 // ── 訊息長相 ──
+// 使用者寫的說明：把 [文字](網址) 這種「藏起來的連結」拆開，網址會直接顯示，不會偽裝成官方連結
+export const plain = (s) => String(s || "").replace(/[\[\]]/g, (c) => (c === "[" ? "［" : "］"));
 const brand = (text = "CCC 交易實驗室｜客服中心") => ({ name: text, icon_url: LOGO });
 export function supportPanelMessage() {
   return {
@@ -50,7 +52,7 @@ export function supportPanelMessage() {
         "",
         "> 🔒 私人頻道，其他研究員看不到",
         "> ⚡ 客服會收到通知，看到就回你",
-        "> 🗂️ 結案後會私訊你一份紀錄",
+        "> 🗂️ 結案後會私訊你一份對話紀錄",
       ].join("\n"),
       color: GOLD,
       footer: { text: "請不要在任何頻道貼出密碼、私鑰、助記詞；客服不會跟你要這些", icon_url: LOGO },
@@ -82,14 +84,14 @@ export function supportTicketEmbed(t, { claimedBy = "" } = {}) {
   return {
     author: brand(`客服單 ${ticketNo(t.no)}`),
     title: `${tp.emoji} ${t.subject || tp.label}`,
-    description: String(t.detail || "").slice(0, 1500),
+    description: plain(t.detail).slice(0, 1500),
     color: claimedBy ? GREEN : GOLD,
     fields: [
       { name: "開單的人", value: `<@${t.discord_user_id}>`, inline: true },
       { name: "類型", value: tp.label, inline: true },
       { name: "狀態", value: claimedBy ? `🟢 ${claimedBy} 處理中` : "🟡 等待客服", inline: true },
     ],
-    footer: { text: "處理完任一方按「關閉客服單」；結案後紀錄會私訊給開單的人" },
+    footer: { text: "處理完任一方按「關閉客服單」；結案後會私訊一份對話紀錄給開單的人" },
     timestamp: t.created_at || new Date().toISOString(),
   };
 }
@@ -135,6 +137,17 @@ export function closedLogEmbed(t, { by, messages, closedAt = Date.now() }) {
 }
 
 // ── 資料庫 ──
+// 防洗版：同一個人關單後 10 分鐘內不能再開；整個伺服器同時最多 50 張開著的客服單
+export const SUPPORT_COOLDOWN_MS = { value: 10 * 60 * 1000 };
+export const SUPPORT_MAX_OPEN = 50;
+export async function supportBlocked(userId, now = Date.now()) {
+  const { data: mine } = await supabaseAdmin.from("discord_tickets").select("closed_at").eq("discord_user_id", userId).eq("kind", "support").eq("status", "closed").order("closed_at", { ascending: false }).limit(20);
+  const last = Math.max(0, ...(mine || []).map((r) => Date.parse(r.closed_at) || 0));
+  if (now - last < SUPPORT_COOLDOWN_MS.value) return `你剛關掉一張客服單，請 ${Math.ceil((SUPPORT_COOLDOWN_MS.value - (now - last)) / 60000)} 分鐘後再開。急的話可以私訊管理員。`;
+  const { data: open } = await supabaseAdmin.from("discord_tickets").select("channel_id").eq("kind", "support").eq("status", "open").limit(SUPPORT_MAX_OPEN);
+  if ((open || []).length >= SUPPORT_MAX_OPEN) return "客服單現在太多了，請稍後再試，或私訊管理員。";
+  return "";
+}
 export async function openSupportOf(userId) {
   const { data } = await supabaseAdmin.from("discord_tickets").select("*").eq("discord_user_id", userId).eq("kind", "support").eq("status", "open").limit(1);
   return data?.[0] || null;
@@ -159,6 +172,8 @@ export async function openSupport({ guildId, user, name, s, topic, subject, deta
     if (await exists(existing.channel_id)) return { channelId: existing.channel_id, created: false, ticket: existing };
     await supabaseAdmin.from("discord_tickets").update({ status: "closed", closed_at: new Date().toISOString(), closed_by: "頻道已經不在" }).eq("channel_id", existing.channel_id);
   }
+  const blocked = await supportBlocked(user.id);
+  if (blocked) return { blocked };
   const staffRoleIds = s.staffRoleIds || [];
   const parent = await ensureCategory(guildId, s);
   const tp = topicOf(topic);
@@ -188,15 +203,18 @@ export async function claimSupport(t, by) {
 // 整張客服單的對話（最多 1000 則，舊到新）
 export async function fetchAll(channelId, { api = discordApi, max = 10 } = {}) {
   const out = [];
-  let before = "";
+  let before = "", more = false;
   for (let i = 0; i < max; i++) {
     const page = await api("GET", `/channels/${channelId}/messages?limit=100${before ? `&before=${before}` : ""}`);
-    if (!page?.length) break;
+    if (!page?.length) { more = false; break; }
     out.push(...page);
     before = page[page.length - 1].id;
-    if (page.length < 100) break;
+    more = page.length === 100;
+    if (!more) break;
   }
-  return out.reverse();
+  const list = out.reverse();
+  list.truncated = more; // 超過 1000 則：最舊的沒抓到
+  return list;
 }
 export function supportTranscript(t, messages) {
   const tp = topicOf(t.topic);
@@ -211,6 +229,7 @@ export function supportTranscript(t, messages) {
     String(t.detail || ""),
     "=".repeat(48),
   ];
+  if (messages.truncated) lines.push(`（對話超過 ${messages.length} 則，更早的訊息沒有收進這份紀錄）`, "");
   for (const m of messages) {
     if (m.author?.bot && !m.content) continue;
     lines.push(`[${twStamp(Date.parse(m.timestamp))}] ${m.author?.global_name || m.author?.username || "?"}${m.author?.bot ? "（機器人）" : ""}`);
@@ -221,17 +240,44 @@ export function supportTranscript(t, messages) {
   return lines.join("\n") + "\n";
 }
 
+// 關單：先在資料庫把「開著」改成「關閉」，改到的才繼續（兩個人同時按只會跑一次）
+// 紀錄存不進客服紀錄頻道就不刪頻道（對話還在，管理員可以再按一次關閉）
 export async function closeSupport(t, by, s) {
+  const { data: won } = await supabaseAdmin.from("discord_tickets").update({ status: "closed", closed_at: new Date().toISOString(), closed_by: by || null }).eq("channel_id", t.channel_id).eq("status", "open").select("channel_id");
+  if (!won?.length) return { ok: false, reason: "already_closed" };
   let messages = [];
   try { messages = await fetchAll(t.channel_id); } catch (e) { console.error("support fetch failed", e?.message); }
   const human = messages.filter((m) => !m.author?.bot).length;
   const text = supportTranscript(t, messages);
   const file = { name: `ccc_ticket_${String(t.no || 0).padStart(4, "0")}.txt`, text };
   const embed = closedLogEmbed(t, { by, messages: human });
-  if (s.supportLogChannelId) await postWithFiles(s.supportLogChannelId, [embed], [file]).catch((e) => console.error("support log failed", e?.message));
-  await dm(t.discord_user_id, `🗂️ 你的客服單 ${ticketNo(t.no)}「${t.subject || ""}」已經結案，謝謝你！\n之後還有問題，隨時到客服中心再開一張。`);
-  await supabaseAdmin.from("discord_tickets").update({ status: "closed", closed_at: new Date().toISOString(), closed_by: by || null }).eq("channel_id", t.channel_id);
+  let saved = !s.supportLogChannelId;
+  if (s.supportLogChannelId) saved = await postWithFiles(s.supportLogChannelId, [embed], [file]).then(() => true, (e) => { console.error("support log failed", e?.message); return false; });
+  if (!saved) {
+    await supabaseAdmin.from("discord_tickets").update({ status: "open", closed_at: null, closed_by: null }).eq("channel_id", t.channel_id);
+    await sendMessage(t.channel_id, { content: "⚠️ 紀錄存不進「客服紀錄」頻道，這個頻道先保留。請管理員確認機器人看得到客服紀錄頻道，再按一次關閉。", allowed_mentions: { parse: [] } }).catch(() => {});
+    return { ok: false, reason: "log_failed" };
+  }
+  await dm(t.discord_user_id, `🗂️ 你的客服單 ${ticketNo(t.no)}「${t.subject || ""}」已經結案，謝謝你！附上這次的對話紀錄。\n之後還有問題，隨時到客服中心再開一張。`);
+  await dmFile(t.discord_user_id, file);
   try { await deleteChannel(t.channel_id); } catch (e) { if (e.status !== 404) throw e; }
+  return { ok: true };
+}
+async function dmFile(userId, file) {
+  try {
+    const ch = await discordApi("POST", "/users/@me/channels", { recipient_id: userId });
+    await postWithFiles(ch.id, [], [file]);
+  } catch { /* 對方關掉私訊就算了，紀錄頻道有存 */ }
+}
+
+// 客服身分組改了：開著的客服單頻道權限一起更新（拿掉的身分組就看不到了）
+export async function resyncSupportTickets(ctx) {
+  const { data } = await supabaseAdmin.from("discord_tickets").select("channel_id,discord_user_id").eq("kind", "support").eq("status", "open").limit(SUPPORT_MAX_OPEN);
+  let n = 0;
+  for (const t of data || []) {
+    try { await editChannel(t.channel_id, { permission_overwrites: supportOverwrites("ticket", { ...ctx, userId: t.discord_user_id }) }); n++; } catch (e) { if (e.status !== 404) console.error("support resync failed", e?.message); }
+  }
+  return n;
 }
 
 // 後台「一鍵建立客服中心」：分類、客服中心頻道、客服紀錄頻道、貼按鈕（已經有就沿用、權限調回正確）
