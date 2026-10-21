@@ -120,6 +120,9 @@
 /* Discord 審核 */
 .dc-ok { display: flex; align-items: center; gap: 6px; color: var(--down); margin: 6px 0 4px; }
 .dc-ok svg { width: 15px; height: 15px; }
+.dc-channels { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.dc-channels h3 { font-size: 15px; margin-bottom: 6px; }
+.dc-channels .btn { margin-top: 8px; }
 .dc-more { margin-top: 14px; }
 .dc-more summary { cursor: pointer; color: var(--ink-2); }
 .dc-more[open] summary { margin-bottom: 4px; }
