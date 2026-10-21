@@ -5,7 +5,7 @@
 export const GROUPS = ["台股", "美股", "加密", "社群"];
 export const BOTS = [
   { key: "tw_close", group: "台股", name: "台股盤後報告", desc: "加權、櫃買、成交值、三大法人、強弱族群、熱門股、技術面、CCC 盤後觀點", schedule: { days: "weekdays", at: "15:15", until: "17:30" }, when: "週一到五 15:15（休市日不發）" },
-  { key: "tw_news", group: "台股", name: "台股每日頭條", desc: "中央社、Yahoo 股市篩選可能影響台股的新聞，只放標題、來源、影響理由、原文連結", schedule: { days: "daily", at: "08:00" }, when: "每天 08:00", opts: [{ k: "max", label: "最多幾則", def: 8 }] },
+  { key: "tw_news", group: "台股", name: "台股每日頭條", desc: "中央社、Yahoo 股市篩選可能影響台股的新聞（標題、來源、影響理由、原文連結），附上昨晚美股、費半、台積電 ADR 溢價", schedule: { days: "daily", at: "08:00", until: "09:00" }, when: "每天 08:00", opts: [{ k: "max", label: "最多幾則", def: 8 }, { k: "overnight", label: "附昨晚美股（on／off）", def: "on" }] },
   { key: "tw_disclosure", group: "台股", name: "台股重大訊息雷達", desc: "上市櫃重大訊息：全市場高影響事件，自選股門檻較低", schedule: { days: "daily", every: 10, window: ["07:00", "23:00"] }, when: "每 10 分鐘（07:00–23:00）", opts: [{ k: "watch", label: "自選股（代號，逗號分開）", def: "2330,2317,2454,2308,2382,2303,3711,2891" }, { k: "minScore", label: "全市場門檻", def: 6 }, { k: "watchMinScore", label: "自選股門檻", def: 2 }] },
   { key: "tw_flow", group: "台股", name: "法人籌碼雷達", desc: "上市櫃外資、投信買賣超排行、同步買進、連買連賣、自選股籌碼", schedule: { days: "weekdays", at: "16:30", until: "19:00" }, when: "週一到五 16:30（休市日不發）", opts: [{ k: "watch", label: "自選股（代號，逗號分開）", def: "2330,2317,2454,2308,2382,2303,3711,2891" }] },
   { key: "us_news", group: "美股", name: "美股重點新聞", desc: "CNBC、MarketWatch、Fed、SEC 篩選影響美股的新聞，英文標題保留原文", schedule: { days: "daily", at: "19:30", until: "21:00" }, when: "每天 19:30", opts: [{ k: "max", label: "最多幾則", def: 8 }] },

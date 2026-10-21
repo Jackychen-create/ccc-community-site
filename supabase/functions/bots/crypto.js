@@ -54,14 +54,14 @@ export function digestEmbed(day, pools, { fng, missing = [] } = {}) {
 export async function cryptoDigest(ctx) {
   const day = twDate(ctx.now);
   const done = await ctx.db.getState("crypto_digest_done", {});
-  if (!ctx.force && done.day === day) return { skipped: "今天已經發過" };
+  if (!ctx.force && done.day === day && done.auto) return { skipped: "今天已經發過" };
   const [{ pools, missing }, fngRes] = await Promise.all([readPools(), getJson("https://api.alternative.me/fng/?limit=1").catch(() => null)]);
   if (!pools.length) throw new Error("DEX Screener 抓不到資料");
   const f = fngRes?.data?.[0];
   const embed = digestEmbed(day, pools, { fng: f ? { value: f.value, cls: f.value_classification } : null, missing });
   if (ctx.dryRun) return { preview: [embed] };
   await ctx.post({ embeds: [embed] });
-  await ctx.db.setState("crypto_digest_done", { day });
+  if (!ctx.force) await ctx.db.setState("crypto_digest_done", { day, auto: true }); // 「立即發一次」不算，排程照常發
   return { posted: 1, note: pools.map((p) => `${p.sym} ${pct(p.h24)}`).join("、") };
 }
 

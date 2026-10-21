@@ -4,7 +4,7 @@
 // 部署：supabase functions deploy bots --no-verify-jwt（用 x-cron-secret 自己驗證）
 // 這裡不放任何金鑰；Webhook 網址存在資料庫 settings.bots，只有 service role 讀得到
 import { makeDb } from "./core.js";
-import { runBot, dueBots } from "./engine.js";
+import { runBot, dueBots, checkMissed, weeklyReport } from "./engine.js";
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
 
@@ -30,6 +30,9 @@ Deno.serve(async (req: Request) => {
       return [k, { ok: false, note: String((e as Error)?.message || e) }];
     }
   }));
+  // 漏發檢查、週報（出錯不影響這一輪）
+  await checkMissed(db, settings, { now }).catch(() => {});
+  await weeklyReport(db, settings, { now }).catch(() => {});
   // 每天清一次 14 天前的執行紀錄
   if (now.getUTCHours() === 19 && now.getUTCMinutes() < 5) await db.req("DELETE", `/bot_runs?at=lt.${new Date(now.getTime() - 14 * 86400e3).toISOString()}`).catch(() => {});
   return json({ ran: Object.fromEntries(results) });

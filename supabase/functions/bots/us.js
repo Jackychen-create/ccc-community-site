@@ -28,7 +28,7 @@ export const US_RULES = [
 export async function usNews(ctx) {
   const day = twDate(ctx.now);
   const done = await ctx.db.getState("us_news_done", {});
-  if (!ctx.force && done.day === day) return { skipped: "今天已經發過" };
+  if (!ctx.force && done.day === day && done.auto) return { skipped: "今天已經發過" };
   const { items, failed } = await readFeeds(US_FEEDS);
   if (!items.length) throw new Error(`美股新聞來源都抓不到（${failed.join("、")}）`);
   const sent = await seenFilter(ctx.db, "us_news_seen", items.map((x) => x.link));
@@ -39,7 +39,7 @@ export async function usNews(ctx) {
   if (ctx.dryRun) return { preview: [embed] };
   await ctx.post({ embeds: [embed] });
   await sent.commit(pick.map((x) => x.link));
-  await ctx.db.setState("us_news_done", { day });
+  if (!ctx.force) await ctx.db.setState("us_news_done", { day, auto: true }); // 「立即發一次」不算，排程照常發
   return { posted: 1, note: `${pick.length} 則` };
 }
 
@@ -145,7 +145,7 @@ export function weekEmbed(days, events, { missing = [] } = {}) {
 export async function usWeek(ctx) {
   const days = nextWeek(ctx.now);
   const done = await ctx.db.getState("us_week_done", {});
-  if (!ctx.force && done.week === days[0]) return { skipped: "這週已經發過" };
+  if (!ctx.force && done.week === days[0] && done.auto) return { skipped: "這週已經發過" };
   const res = await Promise.allSettled(days.map((d) => nasdaq("economicevents", d)));
   const missing = days.filter((_, i) => res[i].status === "rejected").map(md);
   if (missing.length === days.length) throw new Error(`Nasdaq 經濟行事曆抓不到：${res[0].reason?.message || ""}`);
@@ -161,7 +161,7 @@ export async function usWeek(ctx) {
   const embed = weekEmbed(days, events, { missing });
   if (ctx.dryRun) return { preview: [embed] };
   await ctx.post({ embeds: [embed] });
-  await ctx.db.setState("us_week_done", { week: days[0] });
+  if (!ctx.force) await ctx.db.setState("us_week_done", { week: days[0], auto: true });
   return { posted: 1, note: `${events.length} 項事件` };
 }
 
@@ -186,7 +186,7 @@ export function earnEmbed(days, list, { missing = [], watch } = {}) {
 export async function earnWeek(ctx) {
   const days = nextWeek(ctx.now);
   const done = await ctx.db.getState("earn_week_done", {});
-  if (!ctx.force && done.week === days[0]) return { skipped: "這週已經發過" };
+  if (!ctx.force && done.week === days[0] && done.auto) return { skipped: "這週已經發過" };
   const watch = watchList(ctx.opts?.watch);
   const work = days.slice(0, 5);
   const res = await Promise.allSettled(work.map((d) => nasdaq("earnings", d)));
@@ -196,7 +196,7 @@ export async function earnWeek(ctx) {
   const embed = earnEmbed(days, list, { missing, watch });
   if (ctx.dryRun) return { preview: [embed] };
   await ctx.post({ embeds: [embed] });
-  await ctx.db.setState("earn_week_done", { week: days[0] });
+  if (!ctx.force) await ctx.db.setState("earn_week_done", { week: days[0], auto: true });
   return { posted: 1, note: `${list.length} 家` };
 }
 

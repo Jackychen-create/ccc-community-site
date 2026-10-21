@@ -1,7 +1,8 @@
 // 台股機器人：盤後報告、每日頭條、重大訊息雷達、法人籌碼雷達
 // 資料來源都是官方公開資料（TWSE、TPEx）和公開 RSS，不需要金鑰；不是投資建議
-import { getJson, getText, num, fmt, pct, yi, arrow, clip, md, twDate, twHM, twWeekday, rocToDate, normKeys, safeEmbed, footer, seenFilter, COLOR } from "./core.js";
+import { getJson, getText, num, fmt, pct, yi, arrow, clip, md, addDays, twDate, twHM, twWeekday, rocToDate, normKeys, safeEmbed, footer, seenFilter, COLOR } from "./core.js";
 import { parseFeed } from "./rss.js";
+import { readOvernight, overnightField } from "./markets.js";
 
 const TWSE = "https://www.twse.com.tw";
 const TWSE_OPEN = "https://openapi.twse.com.tw/v1";
@@ -180,29 +181,40 @@ export function closeEmbed({ day, twse, tpex, inst, tech }) {
 }
 
 export async function twClose(ctx) {
-  const day = twDate(ctx.now);
+  let day = twDate(ctx.now);
   if (!ctx.force && !(await isTradingDay(ctx.db, day))) return { skipped: "今天休市" };
   const done = await ctx.db.getState("tw_close_done", {});
-  if (!ctx.force && done.day === day) return { skipped: "今天已經發過" };
-  const [mi, bfi, tpi, tpq] = await Promise.all([
-    getJson(`${TWSE}/rwd/zh/afterTrading/MI_INDEX?date=${ymd(day)}&type=ALLBUT0999&response=json`),
+  if (!ctx.force && done.day === day && done.auto) return { skipped: "今天已經發過" };
+  const today = day;
+  const miOf = async (d) => parseTwse(await getJson(`${TWSE}/rwd/zh/afterTrading/MI_INDEX?date=${ymd(d)}&type=ALLBUT0999&response=json`));
+  let twse = await miOf(day);
+  // 「立即發一次」：今天的還沒出來（例如半夜按）就發最近一個交易日的
+  if (ctx.force && (twse.day !== day || !twse.stocks.length)) {
+    for (let i = 1; i <= 7; i++) {
+      const d = addDays(today, -i), wd = new Date(d + "T00:00:00Z").getUTCDay();
+      if (wd === 0 || wd === 6) continue;
+      const t = await miOf(d);
+      if (t.day === d && t.stocks.length) { twse = t; day = d; break; }
+    }
+  }
+  if (twse.day !== day || !twse.stocks.length) return { retry: true, skipped: "證交所今天的收盤資料還沒出來" };
+  const [bfi, tpi, tpq] = await Promise.all([
     getJson(`${TWSE}/rwd/zh/fund/BFI82U?type=day&dayDate=${ymd(day)}&response=json`).catch(() => null),
     getJson(`${TPEX_OPEN}/tpex_index`).catch(() => []),
     getJson(`${TPEX_OPEN}/tpex_mainboard_quotes`).catch(() => []),
   ]);
-  const twse = parseTwse(mi);
-  if (twse.day !== day || !twse.stocks.length) return { retry: true, skipped: "證交所今天的收盤資料還沒出來" };
   const tp = parseTpex(tpi, tpq);
   const tpex = tp.day === day ? tp : { otc: tp.otc?.day === day ? tp.otc : null, value: 0, stocks: [] };
   const inst = bfi?.date === ymd(day) ? parseInstitutions(bfi) : null;
   // 技術面只看成交值前段，所以只記成交值前 300 檔，資料不會越存越大
-  const hist = updateHistory(await ctx.db.getState("tw_hist", {}), day, [...twse.stocks, ...tpex.stocks].sort((a, b) => (b.value || 0) - (a.value || 0)).slice(0, 300));
+  const prevHist = await ctx.db.getState("tw_hist", {});
+  const hist = (prevHist?.days?.at(-1) || "") > day ? prevHist : updateHistory(prevHist, day, [...twse.stocks, ...tpex.stocks].sort((a, b) => (b.value || 0) - (a.value || 0)).slice(0, 300));
   const tech = technicals(hist, [...twse.stocks, ...tpex.stocks]);
   const embed = closeEmbed({ day, twse, tpex, inst, tech });
   if (ctx.dryRun) return { preview: [embed] };
   await ctx.post({ embeds: [embed] });
   await ctx.db.setState("tw_hist", hist);
-  await ctx.db.setState("tw_close_done", { day });
+  if (!ctx.force) await ctx.db.setState("tw_close_done", { day, auto: true }); // 「立即發一次」不算，排程照常發
   return { posted: 1, note: `加權 ${pct(twse.taiex?.pct)}${tpex.stocks.length ? "" : "（上櫃資料還沒出來）"}${inst ? "" : "（法人資料還沒出來）"}` };
 }
 
@@ -237,11 +249,12 @@ export function pickNews(items, { now, lookbackHours = 18, max = 8, minScore = 3
     .filter((x) => { const t = x.why.split("、")[0] || "其他"; const n = topics.get(t) || 0; if (n >= perTopic) return false; topics.set(t, n + 1); return true; })
     .slice(0, max);
 }
-export function newsEmbed(title, items, { color = COLOR.gold, note = DISCLAIMER } = {}) {
+export function newsEmbed(title, items, { color = COLOR.gold, note = DISCLAIMER, fields } = {}) {
   return safeEmbed({
     title,
     color,
-    description: items.map((x, i) => `**${i + 1}. [${clip(x.title, 90)}](${x.link})**\n${x.source}${x.ms ? `・${new Date(x.ms + 8 * 3600e3).toISOString().slice(5, 16).replace("-", "/").replace("T", " ")}` : ""}${x.why ? `・${x.why}` : ""}`).join("\n\n"),
+    fields,
+    description: items.length ? items.map((x, i) => `**${i + 1}. [${clip(x.title, 90)}](${x.link})**\n${x.source}${x.ms ? `・${new Date(x.ms + 8 * 3600e3).toISOString().slice(5, 16).replace("-", "/").replace("T", " ")}` : ""}${x.why ? `・${x.why}` : ""}`).join("\n\n") : "今天沒有特別重要的新聞。",
     footer: footer(note),
     timestamp: new Date().toISOString(),
   });
@@ -255,18 +268,26 @@ export async function readFeeds(feeds) {
 export async function twNews(ctx) {
   const day = twDate(ctx.now);
   const done = await ctx.db.getState("tw_news_done", {});
-  if (!ctx.force && done.day === day) return { skipped: "今天已經發過" };
+  if (!ctx.force && done.day === day && done.auto) return { skipped: "今天已經發過" };
   const { items, failed } = await readFeeds(NEWS_FEEDS);
   if (!items.length) throw new Error(`新聞來源都抓不到（${failed.join("、")}）`);
   const sent = await seenFilter(ctx.db, "tw_news_seen", items.map((x) => x.link));
   const fresh = new Set(ctx.force ? items.map((x) => x.link) : sent.fresh);
-  const pick = pickNews(items.filter((x) => fresh.has(x.link)), { now: ctx.now, ...(ctx.opts || {}) });
-  if (!pick.length) return { skipped: "沒有新的重要新聞" };
-  const embed = newsEmbed(`🗞️ 台股每日頭條｜${md(day)}`, pick, { note: `只放標題和原文連結${failed.length ? `；${failed.join("、")}暫時抓不到` : ""}` });
+  const pick = pickNews(items.filter((x) => fresh.has(x.link)), { now: ctx.now, max: Number(ctx.opts?.max) || 8 });
+  // 昨晚美股（抓不到就只發新聞）
+  let night = null;
+  if (String(ctx.opts?.overnight ?? "on").toLowerCase() !== "off") {
+    try {
+      const hist = await ctx.db.getState("tw_hist", {});
+      night = overnightField(await readOvernight(), { close2330: hist?.c?.["2330"]?.at(-1), now: ctx.now });
+    } catch { /* 美股報價暫時抓不到 */ }
+  }
+  if (!pick.length && !night) return { skipped: "沒有新的重要新聞" };
+  const embed = newsEmbed(`🗞️ 台股每日頭條｜${md(day)}`, pick, { fields: night ? [night] : undefined, note: `只放標題和原文連結${night ? "；美股報價來自 Yahoo Finance" : ""}${failed.length ? `；${failed.join("、")}暫時抓不到` : ""}` });
   if (ctx.dryRun) return { preview: [embed] };
   await ctx.post({ embeds: [embed] });
   await sent.commit(pick.map((x) => x.link));
-  await ctx.db.setState("tw_news_done", { day });
+  if (!ctx.force) await ctx.db.setState("tw_news_done", { day, auto: true }); // 「立即發一次」不算，排程照常發
   return { posted: 1, note: `${pick.length} 則` };
 }
 
@@ -379,24 +400,34 @@ export function flowEmbed(day, flows, streaks, watch) {
   return safeEmbed({ title: `🧾 法人籌碼雷達｜${day.replaceAll("-", "/")}`, description: "上市＋上櫃一般股票，張數＝官方股數 ÷ 1,000；排除 ETF、權證。", color: COLOR.gold, fields, footer: footer(DISCLAIMER), timestamp: new Date().toISOString() });
 }
 export async function twFlow(ctx) {
-  const day = twDate(ctx.now);
+  let day = twDate(ctx.now);
   if (!ctx.force && !(await isTradingDay(ctx.db, day))) return { skipped: "今天休市" };
   const done = await ctx.db.getState("tw_flow_done", {});
-  if (!ctx.force && done.day === day) return { skipped: "今天已經發過" };
-  const [t86, tp] = await Promise.all([
-    getJson(`${TWSE}/rwd/zh/fund/T86?date=${ymd(day)}&selectType=ALLBUT0999&response=json`),
-    getJson(`${TPEX_OPEN}/tpex_3insti_daily_trading`).catch(() => []),
-  ]);
+  if (!ctx.force && done.day === day && done.auto) return { skipped: "今天已經發過" };
+  const t86Of = (d) => getJson(`${TWSE}/rwd/zh/fund/T86?date=${ymd(d)}&selectType=ALLBUT0999&response=json`);
+  let t86 = await t86Of(day);
+  // 「立即發一次」：今天的還沒出來就發最近一個交易日的
+  if (ctx.force && (t86?.date !== ymd(day) || !t86?.data?.length)) {
+    const today = day;
+    for (let i = 1; i <= 7; i++) {
+      const d = addDays(today, -i), wd = new Date(d + "T00:00:00Z").getUTCDay();
+      if (wd === 0 || wd === 6) continue;
+      const t = await t86Of(d);
+      if (t?.date === ymd(d) && t?.data?.length) { t86 = t; day = d; break; }
+    }
+  }
+  const tp = await getJson(`${TPEX_OPEN}/tpex_3insti_daily_trading`).catch(() => []);
   if (t86?.date !== ymd(day) || !t86?.data?.length) return { retry: true, skipped: "證交所今天的法人資料還沒出來" };
   const tpToday = (tp || []).filter((r) => rocToDate(r.Date) === day);
   const flows = parseFlows(t86, tpToday);
-  const streaks = updateStreaks(await ctx.db.getState("tw_flow_streaks", {}), day, flows);
+  const prevStreaks = await ctx.db.getState("tw_flow_streaks", {});
+  const streaks = (prevStreaks?.day || "") > day ? prevStreaks : updateStreaks(prevStreaks, day, flows);
   const watch = new Set(String(ctx.opts?.watch || "2330,2317,2454,2308,2382,2303,3711,2891").split(/[\s,，、]+/).filter(Boolean));
   const embed = flowEmbed(day, flows, streaks, watch);
   if (ctx.dryRun) return { preview: [embed] };
   await ctx.post({ embeds: [embed] });
   await ctx.db.setState("tw_flow_streaks", streaks);
-  await ctx.db.setState("tw_flow_done", { day });
+  if (!ctx.force) await ctx.db.setState("tw_flow_done", { day, auto: true }); // 「立即發一次」不算，排程照常發
   return { posted: 1, note: `${flows.length} 檔${tpToday.length ? "" : "（上櫃資料還沒出來）"}` };
 }
 

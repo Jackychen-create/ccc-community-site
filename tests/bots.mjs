@@ -11,6 +11,8 @@ import { runBot, dueBots } from "../supabase/functions/bots/engine.js";
 import { nextWeek, etToTw, keyEvents, parseFomc, parseFilings, watchList } from "../supabase/functions/bots/us.js";
 import { bestPool, TOKENS, checkMoves, parseOkx, parseBybit } from "../supabase/functions/bots/crypto.js";
 import { questionOf, QUESTIONS } from "../supabase/functions/bots/community.js";
+import { parseSpark, adrPremium, overnightField } from "../supabase/functions/bots/markets.js";
+import { missedBots, checkMissed, weeklyEmbed, weeklyReport } from "../supabase/functions/bots/engine.js";
 
 let pass = 0, fail = 0;
 async function test(name, fn) {
@@ -430,6 +432,83 @@ await test("每支機器人都有程式、分類正確；排程（週日、每 1
   const sec = BOTS.find((b) => b.key === "earn_filings").schedule;
   assert.ok(isDue(sec, "00:00", 3) && isDue(sec, "23:30", 3) && !isDue(sec, "23:35", 3));
   assert.deepEqual([...new Set(BOTS.map((b) => b.group))], ["台股", "美股", "加密", "社群"]);
+});
+
+// ── 昨晚美股、漏發檢查、週報 ──
+await test("昨晚美股：指數、費半、台積電 ADR 溢價（ADR×匯率÷5 對台股收盤）、休市要寫哪天的收盤", () => {
+  const q = parseSpark(fxj("yahoo_spark.json"));
+  assert.equal(q["^SOX"].pct, 1.941);
+  assert.equal(Math.round(adrPremium(428.46, 30.415, 2500) * 100) / 100, 4.25);
+  const f = overnightField(q, { close2330: 2500, now: new Date(1792627200000 + 10 * 3600e3) });
+  assert.equal(f.name, "🌙 昨晚美股");
+  assert.ok(f.value.includes("🔺 費城半導體 11,502.86（+1.94%）") && f.value.includes("台積電 ADR 溢價 +4.25%") && f.value.includes("美 10 年債殖利率 4.12%"), f.value);
+  assert.ok(!f.value.includes("之後休市"));
+  assert.ok(overnightField(q, { now: new Date(1792627200000 + 50 * 3600e3) }).value.includes("之後休市"), "週末寫清楚");
+  assert.equal(overnightField({}), null);
+});
+await test("台股頭條：附上昨晚美股；可以關掉；美股抓不到照發新聞", async () => {
+  routes = { ...TW_ROUTES(), "finance/spark": fxj("yahoo_spark.json") };
+  const db = memDb({ outlets: [{ id: "s", url: HOOK }], bots: { tw_news: { enabled: true, outlet: "s" } } });
+  db.state.set("tw_hist", { days: ["2026-10-21"], c: { 2330: [2500] }, v: {} });
+  posts.length = 0;
+  await runBot("tw_news", { db, now: at(DAY, "08:00") });
+  const e = posts[0].body.embeds[0];
+  assert.ok(e.fields?.[0]?.value.includes("台積電 ADR 溢價"), JSON.stringify(e.fields));
+  routes = { ...TW_ROUTES(), "finance/spark": new Error("down") };
+  const r = await runBot("tw_news", { db: memDb({ outlets: [{ id: "s", url: HOOK }], bots: { tw_news: { enabled: true, outlet: "s" } } }), now: at(DAY, "08:00") });
+  assert.equal(r.posted, 1); assert.ok(!posts[1].body.embeds[0].fields);
+  const off = await runBot("tw_news", { db: memDb({ outlets: [{ id: "s", url: HOOK }], bots: { tw_news: { enabled: true, outlet: "s", opts: { overnight: "off" } } } }), now: at(DAY, "08:00"), force: true });
+  assert.equal(off.posted, 1);
+});
+await test("漏發檢查：盤後報告到 17:30 還沒發 → 通知；休市、已發過不通知", async () => {
+  const settings = { outlets: [{ id: "a", url: HOOK }], alertOutlet: "a", bots: { tw_close: { enabled: true, outlet: "a" }, tw_flow: { enabled: true, outlet: "a" } } };
+  assert.deepEqual(missedBots(settings, {}, at(DAY, "17:30")), ["tw_close"]);
+  assert.deepEqual(missedBots(settings, { tw_close: DAY }, at(DAY, "17:30")), []);
+  assert.deepEqual(missedBots(settings, {}, at(DAY, "17:35")), [], "只在那一輪檢查一次");
+  assert.deepEqual(missedBots(settings, {}, at("2026-10-24", "17:30")), [], "週末不檢查");
+  assert.deepEqual(missedBots(settings, {}, at(DAY, "19:00")), ["tw_flow"]);
+  // 休市日：盤後報告回「今天休市」也算處理完
+  routes = { ...TW_ROUTES(), holidaySchedule: [{ Name: "測試休市", Date: "1151021" }] };
+  const db = memDb(settings);
+  await runBot("tw_close", { db, now: at(DAY, "15:15") });
+  assert.equal((await db.getState("bot_day")).tw_close, DAY);
+  posts.length = 0;
+  const db2 = memDb(settings);
+  const missed = await checkMissed(db2, settings, { now: at(DAY, "17:30") });
+  assert.deepEqual(missed, ["tw_close"]);
+  assert.ok(posts[0].body.embeds[0].title.includes("台股盤後報告") && posts[0].body.embeds[0].description.includes("到 17:30 還沒發出去"));
+  assert.equal(db2.runs[0].ok, false);
+});
+await test("週報：週日 21:30 發到管理員 Webhook，寫每支發了幾則、出錯幾次；一週一次", async () => {
+  const settings = { outlets: [{ id: "a", url: HOOK }], alertOutlet: "a", bots: { tw_close: { enabled: true, outlet: "a" }, okx_news: { enabled: true, outlet: "a" } } };
+  const runs = [{ bot: "tw_close", ok: true, posted: 1 }, { bot: "tw_close", ok: true, posted: 1 }, { bot: "okx_news", ok: false, posted: 0, note: "www.okx.com 回應 503" }];
+  const e = weeklyEmbed(settings, runs, at(SUN, "21:30"));
+  assert.ok(e.description.includes("✅ 台股盤後報告：發了 2 則") && e.description.includes("⚠️ OKX 官方公告：發了 0 則，出錯 1 次（最近：www.okx.com 回應 503）") && e.description.includes("另外 11 支沒打開"), e.description);
+  const db = memDb(settings);
+  db.req = async () => runs;
+  posts.length = 0;
+  assert.equal(await weeklyReport(db, settings, { now: at(SUN, "21:30") }), true);
+  assert.equal(await weeklyReport(db, settings, { now: at(SUN, "21:32") }), false, "同一天只發一次");
+  assert.equal(await weeklyReport(db, settings, { now: at("2026-10-26", "21:30") }), false, "只有週日");
+  assert.equal(posts.length, 1);
+});
+
+await test("立即發一次：半夜按盤後報告 → 發最近一個交易日的；不會讓當天排程以為發過了", async () => {
+  routes = TW_ROUTES();
+  const db = memDb({ outlets: [{ id: "s", url: HOOK }], bots: { tw_close: { enabled: true, outlet: "s" }, tw_news: { enabled: true, outlet: "s" } } });
+  posts.length = 0;
+  const r = await runBot("tw_close", { db, now: at("2026-10-22", "00:35"), force: true });
+  assert.equal(r.posted, 1, r.note);
+  assert.equal(posts[0].body.embeds[0].title, "📋 台股盤後報告｜2026/10/21");
+  assert.equal((await db.getState("tw_close_done")).day, undefined, "手動的不記成「今天發過了」");
+  assert.equal((await db.getState("bot_day")).tw_close, undefined);
+  // 頭條：半夜手動發了，早上 08:00 照樣發（舊的「已發過」紀錄沒有 auto 也不算）
+  routes = { ...TW_ROUTES(), "finance/spark": new Error("x") };
+  await runBot("tw_news", { db, now: at("2026-10-22", "00:36"), force: true });
+  db.state.set("tw_news_done", { day: "2026-10-22" });
+  const morning = await runBot("tw_news", { db, now: at("2026-10-22", "08:00") });
+  assert.notEqual(morning.note, "今天已經發過", JSON.stringify(morning));
+  assert.equal((await db.getState("tw_news_done")).auto, true);
 });
 
 console.log(`\n機器人：${pass} 項通過，${fail} 項失敗`);
