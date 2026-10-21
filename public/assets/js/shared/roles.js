@@ -6,7 +6,7 @@ export const ROLE_LABEL = { owner: "主要管理員", editor: "協作管理員" 
 
 // 後台側欄每一頁誰看得到
 export const VIEWS_FOR = {
-  owner: ["videos", "lives", "invites", "discord", "members", "volumes", "oneonone", "stats", "feedback", "followup", "health", "chat"],
+  owner: ["videos", "lives", "invites", "discord", "members", "volumes", "oneonone", "stats", "feedback", "followup", "health", "chat", "bots"],
   editor: ["videos", "lives", "members", "oneonone", "stats", "feedback"],
 };
 

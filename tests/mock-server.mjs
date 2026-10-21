@@ -5,6 +5,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 // 規則跟正式網站讀同一份
 import { canUseApi } from "../public/assets/js/shared/roles.js";
+import { BOTS as BOT_LIST, GROUPS as BOT_GROUPS } from "../supabase/functions/bots/registry.js";
 import { EXCHANGES, AUTO_EXCHANGES, addDays, periodOf, nextPeriod, prevPeriod, COURSE_HOSTS as CH, courseUnlockDate, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR, BADGES, earnedBadges, themeUnlocked, courseTierOk, courseSkipSchedule, tierOf, tierStatus, FIRST_CYCLE_TIER, progressTo, tierName, tierRuleText, gapTo, TIERS, rankOneOnOne, oneOnOneScore, ONE_ON_ONE_HOSTS, ONE_ON_ONE_CAP, fmtAmount, streakOf, bestStreakOf, weekOf, QUESTS } from "../public/assets/js/shared/rules.js";
 
 const PORT = Number(process.env.PORT || 4321);
@@ -51,6 +52,7 @@ const invites = [
   { code: "GF7T-2FRE", max_uses: 1, used_count: 0, note: "贈送：小明", disabled: false, free: true, created_at: new Date(Date.now() - 1 * 86400e3).toISOString() },
 ];
 const chatCfg = { channels: [], report: "", mode: "own" };
+const botCfg = { outlets: [], bots: {}, alert: "", runs: [] };
 let chatStats = [];
 const members = [
   { user_id: users["amy@example.com"].id, email: "amy@example.com", invite_code: "K7QM-2XPA", banned: false, created_at: new Date(Date.now() - 18 * 86400e3).toISOString(), last_sign_in_at: new Date(Date.now() - 3600e3).toISOString(), watched_count: 2, min_tier: 2, min_tier_until: d(-5), note: "10 月交易量 120 口", notify: true },
@@ -490,6 +492,31 @@ const server = http.createServer(async (req, res) => {
         if (!l) return send(res, 404, { error: "找不到這場直播，或已經取消了" });
         l.status = "cancelled";
         return send(res, 200, livesOut({ announce: { posted: true } }));
+      }
+    }
+    // 機器人（假的：預覽回一張固定的卡片）
+    if (p === "/api/admin/bots") {
+      const masked = () => botCfg.outlets.map((o) => ({ id: o.id, name: o.name, tail: o.url.slice(-4), hasUrl: true, hookName: "CCC Market Lab", channelId: "100000000000000001" }));
+      if (req.method === "GET") return send(res, 200, { groups: BOT_GROUPS, bots: BOT_LIST.map((b) => ({ ...b, conf: botCfg.bots[b.key] || {}, runs: botCfg.runs.filter((r) => r.bot === b.key) })), outlets: masked(), alertOutlet: botCfg.alert, engineReady: true });
+      if (req.method === "PATCH") {
+        if (body.addOutlet) {
+          if (!/^https:\/\/discord(app)?\.com\/api\/webhooks\/\d{17,20}\/[\w-]{20,}$/.test(body.addOutlet.url || "")) return send(res, 400, { error: "Webhook 網址不對：要是 https://discord.com/api/webhooks/… 開頭" });
+          botCfg.outlets.push({ id: "o" + (botCfg.outlets.length + 1), name: body.addOutlet.name, url: body.addOutlet.url });
+        }
+        if (body.removeOutlet) botCfg.outlets = botCfg.outlets.filter((o) => o.id !== body.removeOutlet);
+        if (body.bot) {
+          const cur = botCfg.bots[body.bot] || {};
+          if (body.thread && !/^\d{17,20}$/.test(body.thread)) return send(res, 400, { error: "討論串 ID 是 17–20 位數字（對討論串按右鍵「複製討論串 ID」），不用就留空白" });
+          if (body.enabled && !body.outlet) return send(res, 400, { error: "先選要貼到哪個 Webhook 再打開" });
+          botCfg.bots[body.bot] = { ...cur, outlet: body.outlet ?? cur.outlet, thread: body.thread ?? cur.thread, opts: body.opts ?? cur.opts, ...(body.enabled !== undefined ? { enabled: body.enabled } : {}) };
+        }
+        if (body.alertOutlet !== undefined) botCfg.alert = body.alertOutlet;
+        return send(res, 200, { ok: true });
+      }
+      if (req.method === "POST") {
+        if (body.dryRun) return send(res, 200, { ok: true, posted: 0, preview: [{ title: "📋 台股盤後報告｜2026/10/21", color: 13198941, fields: [{ name: "📈 大盤", value: "加權 46,887.77　🔺 594.84（+1.28%）" }], footer: { text: "CCC Market Lab｜資訊整理，不是投資建議" } }] });
+        botCfg.runs.unshift({ bot: body.run, at: new Date().toISOString(), ok: true, posted: 1, note: "加權 +1.28%" });
+        return send(res, 200, { ok: true, posted: 1, note: "加權 +1.28%" });
       }
     }
     // 聊天統計（假的：頻道名稱照 ID 尾數，統計固定數字）

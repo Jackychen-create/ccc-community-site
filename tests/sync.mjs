@@ -16,6 +16,7 @@ import videosApi from "../server/videos.js";
 import oneonone from "../server/oneonone.js";
 import adminOneonone from "../server/admin/oneonone.js";
 import questsApi from "../server/quests.js";
+import adminBots from "../server/admin/bots.js";
 import { thisMonthTW } from "../server/lib/dates.js";
 
 let pass = 0, fail = 0;
@@ -26,7 +27,7 @@ const listen = (srv) => new Promise((r) => srv.listen(0, "127.0.0.1", () => r(`h
 const readJson = (req) => new Promise((r) => { let b = ""; req.on("data", (c) => (b += c)); req.on("end", () => { try { r(b ? JSON.parse(b) : null); } catch { r(null); } }); });
 
 // ── 假的 Supabase（PostgREST）──
-const db = { members: [], exchange_links: [], volumes: [], milestones: [], one_on_ones: [], checkins: [], quest_weeks: [], notes: [], discord_applications: [], videos: [], feedback: [], watch_progress: [], settings: [{ key: "volume_threshold", value: 1000000 }] };
+const db = { members: [], exchange_links: [], volumes: [], milestones: [], one_on_ones: [], checkins: [], quest_weeks: [], bot_runs: [], notes: [], discord_applications: [], videos: [], feedback: [], watch_progress: [], settings: [{ key: "volume_threshold", value: 1000000 }] };
 const tokens = { "tok-admin": { id: "admin-1", email: "boss@gmail.com", email_confirmed_at: "2026-01-01T00:00:00Z" } };
 const writes = [];
 function parseFilters(sp) {
@@ -439,6 +440,46 @@ await test("社群舊成員：設了第一輪起算日，加入網站前的 Bing
   assert.equal(v.amounts.BingX, 12952.62);
   assert.equal(r.diag.perUid["88880009"].inPeriod, 12952.62);
   assert.equal((await tierNow("u-old")).cycleTier, 1);
+});
+
+await test("後台「機器人」：新增 Webhook 會先跟 Discord 確認、網址不回傳；選 Webhook、討論串格式、沒選不能打開", async () => {
+  const hooks = http.createServer((req, res) => {
+    res.writeHead(req.url.includes("deadtoken") ? 404 : 200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(req.url.includes("deadtoken") ? { message: "Unknown Webhook" } : { name: "CCC Market Lab", channel_id: "100000000000000001" }));
+  });
+  env.DISCORD_API_BASE = await listen(hooks);
+  const HOOK = "https://discord.com/api/webhooks/123456789012345678/abcdefghijklmnopqrstuvwxyzABCDEF";
+  let r = await call(adminBots, { method: "PATCH", route: "admin/bots", body: { addOutlet: { name: "股市整合頻道", url: "https://evil.example/api/webhooks/1/2" } } });
+  assert.equal(r.statusCode, 400);
+  r = await call(adminBots, { method: "PATCH", route: "admin/bots", body: { addOutlet: { name: "x", url: "https://discord.com/api/webhooks/123456789012345678/deadtoken-xxxxxxxxxxxxxxxx" } } });
+  assert.equal(r.statusCode, 400); assert.ok(r.body.error.includes("不存在"));
+  r = await call(adminBots, { method: "PATCH", route: "admin/bots", body: { addOutlet: { name: "股市整合頻道", url: HOOK } } });
+  assert.equal(r.statusCode, 200, JSON.stringify(r.body));
+  assert.ok(!JSON.stringify(r.body).includes("abcdefghijklmnop"), "網址不回傳");
+  const id = r.body.outlets[0].id;
+  assert.deepEqual([r.body.outlets[0].tail, r.body.outlets[0].hookName], ["CDEF", "CCC Market Lab"]);
+  r = await call(adminBots, { method: "PATCH", route: "admin/bots", body: { bot: "tw_close", enabled: true } });
+  assert.equal(r.statusCode, 400, "沒選 Webhook 不能打開");
+  r = await call(adminBots, { method: "PATCH", route: "admin/bots", body: { bot: "tw_close", outlet: id, thread: "123" } });
+  assert.equal(r.statusCode, 400);
+  r = await call(adminBots, { method: "PATCH", route: "admin/bots", body: { bot: "tw_disclosure", outlet: id, thread: "777777777777777777", opts: { watch: "2330, 2317", minScore: "abc" } } });
+  assert.equal(r.statusCode, 400, "數字選項要填數字");
+  r = await call(adminBots, { method: "PATCH", route: "admin/bots", body: { bot: "tw_disclosure", outlet: id, thread: "777777777777777777", opts: { watch: "2330, 2317", minScore: "5" }, enabled: true } });
+  assert.equal(r.statusCode, 200, JSON.stringify(r.body));
+  assert.deepEqual(r.body.bots.tw_disclosure, { outlet: id, thread: "777777777777777777", opts: { watch: "2330, 2317", minScore: 5 }, enabled: true });
+  const saved = db.settings.find((x) => x.key === "bots").value;
+  assert.equal(saved.outlets[0].url, HOOK, "網址存在資料庫");
+  const g = await call(adminBots, { route: "admin/bots" });
+  assert.equal(g.statusCode, 200);
+  assert.ok(!JSON.stringify(g.body).includes("abcdefghijklmnop"));
+  assert.equal(g.body.bots.find((b) => b.key === "tw_disclosure").conf.enabled, true);
+  r = await call(adminBots, { method: "PATCH", route: "admin/bots", body: { removeOutlet: id } });
+  assert.equal(r.body.bots.tw_disclosure.enabled, false, "移除 Webhook：用到它的機器人關掉");
+  // 協作管理員不能用
+  const oc = await call(adminBots, { route: "admin/bots", token: "tok-oc" });
+  assert.equal(oc.statusCode, 403);
+  hooks.close();
+  delete env.DISCORD_API_BASE;
 });
 
 supa.close(); bingx.close(); bybit.close();

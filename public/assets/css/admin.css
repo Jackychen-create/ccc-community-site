@@ -7,6 +7,7 @@
 .nav a { display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 10px; border-radius: var(--r-md); color: var(--ink-2);
   text-decoration: none; font-size: 15px; transition: background .12s, color .12s; }
 .nav a + a { margin-top: 2px; }
+.nav-group { margin: 18px 10px 6px; font-size: 12.5px; font-weight: 600; letter-spacing: .04em; color: var(--ink-3); }
 .nav a:hover { background: var(--surface-2); color: var(--ink); }
 .nav a[aria-current="page"] { background: var(--surface-2); color: var(--ink); }
 .nav a[aria-current="page"] svg { color: var(--amber); }
@@ -177,3 +178,32 @@
 .chat-target .input { flex: 1; min-width: 200px; max-width: 320px; }
 .chat-target-st { display: flex; align-items: center; gap: 8px; flex-basis: 100%; padding-left: 4px; }
 .chat-target .input { max-width: 460px; }
+
+/* 機器人 */
+.bot-outlets { padding: 20px 22px; margin-bottom: 16px; }
+.bot-outlets h2, .bot-group h2 { font-size: 17px; }
+.bot-outlet { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid var(--line); }
+.bot-outlet:first-of-type { border-top: 0; }
+.bot-outlet .grow { flex: 1; min-width: 160px; }
+.bot-add { display: grid; grid-template-columns: minmax(0, 200px) minmax(0, 1fr) auto; gap: 8px; margin-top: 12px; }
+.bot-group { margin: 22px 0 10px; }
+.bot-card { padding: 16px 18px; margin-top: 10px; }
+.bot-head { display: flex; align-items: flex-start; gap: 12px; }
+.bot-head .grow { flex: 1; min-width: 0; }
+.bot-head h3 { font-size: 16px; }
+.bot-desc { margin-top: 4px; color: var(--ink-2); font-size: 14px; }
+.bot-when { margin-top: 4px; color: var(--ink-3); font-size: 13px; }
+.bot-cfg { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 220px) minmax(0, 1fr); gap: 8px 12px; margin-top: 12px; }
+.bot-cfg .field { margin: 0; }
+.bot-last { margin-top: 10px; font-size: 13px; color: var(--ink-3); }
+.bot-last .bad { color: var(--warn); }
+.bot-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.bot-preview { display: grid; gap: 12px; margin-top: 12px; }
+.bot-embed { border-left: 4px solid var(--amber); background: var(--sunken); border-radius: var(--r-sm); padding: 12px 14px; }
+.bot-embed h4 { font-size: 15px; }
+.bot-embed .f { margin-top: 10px; }
+.bot-embed .f b { display: block; font-size: 13.5px; }
+.bot-embed .f div, .bot-embed .d { white-space: pre-line; font-size: 13.5px; color: var(--ink-2); margin-top: 2px; }
+.bot-embed .ft { margin-top: 10px; font-size: 12px; color: var(--ink-3); }
+@media (max-width: 760px) { .bot-cfg, .bot-add { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .nav-group { display: none; } }

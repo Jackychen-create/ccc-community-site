@@ -35,15 +35,17 @@
       <a href="#videos" data-view="videos"><span data-ico="video"></span>影片<span class="count num" id="cVideos"></span></a>
       <a href="#lives" data-view="lives"><span data-ico="calendar"></span>直播預告<span class="count num" id="cLives"></span></a>
       <a href="#invites" data-view="invites"><span data-ico="ticket"></span>實驗室密碼<span class="count num" id="cInvites"></span></a>
-      <a href="#discord" data-view="discord"><span data-ico="shield"></span>Discord 審核<span class="count num" id="cDiscord"></span></a>
       <a href="#members" data-view="members"><span data-ico="users"></span>研究員<span class="count num" id="cMembers"></span></a>
       <a href="#volumes" data-view="volumes"><span data-ico="coins"></span>交易量</a>
       <a href="#oneonone" data-view="oneonone"><span data-ico="users"></span>一對一<span class="count num" id="cOne"></span></a>
       <a href="#feedback" data-view="feedback"><span data-ico="chat"></span>提問回報<span class="count num" id="cFeedback"></span></a>
       <a href="#followup" data-view="followup"><span data-ico="flag"></span>待跟進<span class="count num" id="cFollowup"></span></a>
       <a href="#stats" data-view="stats"><span data-ico="chart"></span>觀看統計</a>
-      <a href="#chat" data-view="chat"><span data-ico="news"></span>聊天統計</a>
       <a href="#health" data-view="health"><span data-ico="pulse"></span>網站狀況<span class="count num" id="cHealth"></span></a>
+      <div class="nav-group" id="navBotsHead">機器人</div>
+      <a href="#discord" data-view="discord" data-group="bots"><span data-ico="shield"></span>Discord 審核<span class="count num" id="cDiscord"></span></a>
+      <a href="#chat" data-view="chat" data-group="bots"><span data-ico="news"></span>聊天統計</a>
+      <a href="#bots" data-view="bots" data-group="bots"><span data-ico="pulse"></span>機器人<span class="count num" id="cBots"></span></a>
     </nav>
     <div class="foot">
       <div id="whoami"></div>
@@ -209,6 +211,17 @@
       </div>
       <div class="chips" id="fuFilter" role="group" aria-label="篩選" style="margin-bottom: 16px"></div>
       <div id="fuBox"></div>
+    </section>
+
+    <!-- 機器人（Supabase Edge Function「bots」：台股、美股、加密、社群） -->
+    <section id="v-bots" data-view-panel="bots" hidden>
+      <div class="page-head">
+        <div>
+          <h1>機器人</h1>
+          <p id="botsSub">台股、美股、加密、社群的定時機器人：在雲端跑，電腦關掉也照常。用 Discord Webhook 貼到你指定的頻道和討論串。</p>
+        </div>
+      </div>
+      <div id="botsBox"></div>
     </section>
 
     <!-- 聊天統計（Discord 大廳、研究員大廳） -->
