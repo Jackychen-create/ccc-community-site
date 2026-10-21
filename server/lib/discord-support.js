@@ -23,7 +23,7 @@ export const topicOf = (v) => SUPPORT_TOPICS.find((t) => t.value === v) || SUPPO
 export const SUPPORT_CHANNELS = {
   category: { name: "🎫 客服單", type: 4 },
   panel: { name: "🎫客服中心", type: 0, topic: "有問題按下面選單開客服單：只有你和客服看得到。" },
-  log: { name: "🗂️客服紀錄", type: 0, topic: "每張客服單結案後的完整紀錄。只有管理員和客服看得到。" },
+  log: { name: "📋客服紀錄", type: 0, topic: "每張客服單結案後的完整紀錄。只有管理員和客服看得到。" },
 };
 
 // ── 權限 ──
@@ -287,17 +287,27 @@ export async function setupSupport() {
   const ctx = { guildId: s.guildId, botId: env.DISCORD_APP_ID, staffRoleIds: s.staffRoleIds || [] };
   const ids = { supportCategoryId: s.supportCategoryId, supportPanelChannelId: s.supportPanelChannelId, supportLogChannelId: s.supportLogChannelId };
   const created = [];
-  if (await exists(ids.supportCategoryId)) await editChannel(ids.supportCategoryId, { permission_overwrites: supportOverwrites("category", ctx) });
-  else { ids.supportCategoryId = (await createChannel(s.guildId, { ...SUPPORT_CHANNELS.category, permission_overwrites: supportOverwrites("category", ctx) })).id; created.push(SUPPORT_CHANNELS.category.name); }
+  // 每一步都標清楚，出錯時看得出是哪一步；做好的先存起來，再按一次會從斷掉的地方繼續
+  const step = async (label, fn) => { try { return await fn(); } catch (e) { await saveDiscordSettings({ ...s, ...ids }).catch(() => {}); throw Object.assign(new Error(`${label}：${e.message}`), { status: e.status, code: e.code }); } };
+  await step("建立「🎫 客服單」分類", async () => {
+    if (await exists(ids.supportCategoryId)) await editChannel(ids.supportCategoryId, { permission_overwrites: supportOverwrites("category", ctx) });
+    else { ids.supportCategoryId = (await createChannel(s.guildId, { ...SUPPORT_CHANNELS.category, permission_overwrites: supportOverwrites("category", ctx) })).id; created.push(SUPPORT_CHANNELS.category.name); }
+  });
   for (const [kind, key] of [["panel", "supportPanelChannelId"], ["log", "supportLogChannelId"]]) {
     const def = SUPPORT_CHANNELS[kind];
-    if (await exists(ids[key])) await editChannel(ids[key], { permission_overwrites: supportOverwrites(kind, ctx) });
-    else { ids[key] = (await createChannel(s.guildId, { name: def.name, type: 0, topic: def.topic, parent_id: s.categoryId || undefined, permission_overwrites: supportOverwrites(kind, ctx) })).id; created.push(def.name); }
+    await step(`建立「${def.name}」頻道`, async () => {
+      if (await exists(ids[key])) return editChannel(ids[key], { permission_overwrites: supportOverwrites(kind, ctx) });
+      // 放在客服單分類底下（分類的權限是「只有客服看得到」，頻道自己的權限會蓋過去）
+      ids[key] = (await createChannel(s.guildId, { name: def.name, type: 0, topic: def.topic, parent_id: ids.supportCategoryId, permission_overwrites: supportOverwrites(kind, ctx) })).id;
+      created.push(def.name);
+    });
   }
   const next = { ...s, ...ids };
-  let repost = !s.supportPanelMessageId || s.supportPanelChannelId !== ids.supportPanelChannelId;
-  if (!repost) await editMessage(ids.supportPanelChannelId, s.supportPanelMessageId, supportPanelMessage()).catch((e) => { if (e.status === 404) repost = true; else throw e; });
-  if (repost) next.supportPanelMessageId = (await sendMessage(ids.supportPanelChannelId, supportPanelMessage())).id;
+  await step("貼開單選單", async () => {
+    let repost = !s.supportPanelMessageId || s.supportPanelChannelId !== ids.supportPanelChannelId;
+    if (!repost) await editMessage(ids.supportPanelChannelId, s.supportPanelMessageId, supportPanelMessage()).catch((e) => { if (e.status === 404) repost = true; else throw e; });
+    if (repost) next.supportPanelMessageId = (await sendMessage(ids.supportPanelChannelId, supportPanelMessage())).id;
+  });
   await saveDiscordSettings(next);
   return { ok: true, created, settings: next };
 }

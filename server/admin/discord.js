@@ -19,7 +19,7 @@ const discordMsg = (e) => {
   if (e?.code === 50001 || e?.status === 403) return "機器人沒有這個頻道的權限（要能看到頻道、傳送訊息）";
   if (e?.code === 10003 || e?.status === 404) return "找不到這個頻道，請確認頻道 ID";
   if (e?.status === 401) return "機器人 Token 不對，請檢查 Cloudflare 的 DISCORD_BOT_TOKEN";
-  return String(e?.message || e).slice(0, 200);
+  return String(e?.message || e).slice(0, 400);
 };
 
 export default route({

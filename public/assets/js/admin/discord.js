@@ -182,7 +182,7 @@ function supportCard() {
       : el("span", { class: "pill" }, el("span", { class: "dot" }), "已結案")));
   return el("div", { class: "dc-support" },
     el("h3", { text: "客服中心（取代 Ticket Tool）" }),
-    el("p", { class: "small sub", text: "研究員在「🎫客服中心」選要問的類型、填主旨和說明，機器人開一個只有他和客服身分組看得到的私人頻道。客服按「我來處理」接手，處理完按「關閉客服單」，完整對話會存到「🗂️客服紀錄」並私訊給他。" }),
+    el("p", { class: "small sub", text: "研究員在「🎫客服中心」選要問的類型、填主旨和說明，機器人開一個只有他和客服身分組看得到的私人頻道。客服按「我來處理」接手，處理完按「關閉客服單」，完整對話會存到「📋客服紀錄」並私訊給他。" }),
     btn,
     s.supportPanelChannelId ? el("p", { class: "small dc-ok", style: { marginTop: "8px" } }, icon("ok"), "客服中心已經建立；確認沒問題後可以把 Ticket Tool 移出伺服器。") : null,
     rows.length ? el("div", { class: "dc-tickets" }, el("p", { class: "small muted", text: "最近的客服單" }), ...rows) : null);
