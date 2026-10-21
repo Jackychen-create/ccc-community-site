@@ -79,11 +79,11 @@ export function questionEmbed(day, q) {
 export async function dailyQuestion(ctx) {
   const day = twDate(ctx.now);
   const done = await ctx.db.getState("daily_question_done", {});
-  if (!ctx.force && done.day === day) return { skipped: "今天已經發過" };
+  if (!ctx.force && done.day === day && done.auto) return { skipped: "今天已經發過" };
   const q = questionOf(day);
   const embed = questionEmbed(day, q);
   if (ctx.dryRun) return { preview: [embed] };
   await ctx.post({ embeds: [embed] });
-  await ctx.db.setState("daily_question_done", { day });
+  if (!ctx.force) await ctx.db.setState("daily_question_done", { day, auto: true }); // 「立即發一次」不算，排程照常發
   return { posted: 1, note: q.slice(0, 30) };
 }

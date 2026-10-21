@@ -205,5 +205,6 @@
 .bot-embed .f b { display: block; font-size: 13.5px; }
 .bot-embed .f div, .bot-embed .d { white-space: pre-line; font-size: 13.5px; color: var(--ink-2); margin-top: 2px; }
 .bot-embed .ft { margin-top: 10px; font-size: 12px; color: var(--ink-3); }
-@media (max-width: 760px) { .bot-cfg, .bot-add { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .bot-cfg, .bot-add { grid-template-columns: minmax(0, 1fr); } }
+.bot-cfg .label { overflow-wrap: anywhere; }
 @media (max-width: 900px) { .nav-group { display: none; } }
