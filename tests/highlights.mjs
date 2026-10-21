@@ -99,11 +99,11 @@ async function jwt(claims, { kid = "k1" } = {}) {
   return `${h}.${p}.${b64u(await crypto.subtle.sign("RSASSA-PKCS1-v1_5", kp.privateKey, new TextEncoder().encode(`${h}.${p}`)))}`;
 }
 const fakeJwks = async () => new Response(JSON.stringify({ keys: [jwk] }));
-const good = () => ({ iss: OIDC.issuer, aud: "ccc-highlights", exp: Math.floor(Date.now() / 1000) + 300, repository: "Jackychen-create/ccc-community-site", ref: "refs/heads/main", workflow_ref: "Jackychen-create/ccc-community-site/.github/workflows/highlights.yml@refs/heads/main" });
+const good = () => ({ iss: OIDC.issuer, aud: "ccc-highlights", exp: Math.floor(Date.now() / 1000) + 300, repository: "Jackychen-create/ccc-community-site", repository_id: "1412597765", repository_owner_id: "214575415", ref: "refs/heads/main", workflow_ref: "Jackychen-create/ccc-community-site/.github/workflows/highlights.yml@refs/heads/main" });
 await test("GitHub 身分證明：對的過、別的 repo／分支／流程／過期／簽名錯都擋", async () => {
   resetOidcCache();
   assert.ok(await verifyGithubOidc(await jwt(good()), { fetchImpl: fakeJwks }));
-  for (const bad of [{ repository: "evil/ccc-community-site" }, { ref: "refs/heads/feature" }, { workflow_ref: "Jackychen-create/ccc-community-site/.github/workflows/test.yml@refs/heads/main" }, { exp: 10 }, { aud: "other" }, { iss: "https://evil" }]) {
+  for (const bad of [{ repository: "evil/ccc-community-site" }, { repository_id: "1" }, { repository_owner_id: "2" }, { ref: "refs/heads/feature" }, { workflow_ref: "Jackychen-create/ccc-community-site/.github/workflows/test.yml@refs/heads/main" }, { exp: 10 }, { aud: "other" }, { iss: "https://evil" }]) {
     assert.equal(await verifyGithubOidc(await jwt({ ...good(), ...bad }), { fetchImpl: fakeJwks }), null, JSON.stringify(bad));
   }
   const t = await jwt(good());
@@ -115,9 +115,9 @@ await test("GitHub 身分證明：對的過、別的 repo／分支／流程／�
 // ── 整個流程：假的 Supabase、Discord、Workers AI ──
 const db = {
   videos: [
-    { id: 1, title: "週三直播", hosts: ["CCC"], duration_sec: 1200, r2_key: "videos/2026/10/aaaaaaaaaaaa-live.mp4", is_published: true, is_public: false, course_host: null, created_at: new Date().toISOString() },
-    { id: 2, title: "課程", hosts: ["CCC"], duration_sec: 1200, r2_key: "videos/2026/10/bbbbbbbbbbbb-c.mp4", is_published: true, is_public: false, course_host: "CCC", created_at: new Date().toISOString() },
-    { id: 3, title: "草稿", hosts: [], duration_sec: 1200, r2_key: "videos/2026/10/cccccccccccc-d.mp4", is_published: false, is_public: false, course_host: null, created_at: new Date().toISOString() },
+    { id: 1, title: "週三直播", hosts: ["CCC"], duration_sec: 1200, r2_key: "videos/2026/10/aaaaaaaaaaaa-live.mp4", is_published: true, is_public: false, course_host: null, published_at: new Date().toISOString().slice(0, 10), created_at: new Date().toISOString() },
+    { id: 2, title: "課程", hosts: ["CCC"], duration_sec: 1200, r2_key: "videos/2026/10/bbbbbbbbbbbb-c.mp4", is_published: true, is_public: false, course_host: "CCC", published_at: new Date().toISOString().slice(0, 10), created_at: new Date().toISOString() },
+    { id: 3, title: "草稿", hosts: [], duration_sec: 1200, r2_key: "videos/2026/10/cccccccccccc-d.mp4", is_published: false, is_public: false, course_host: null, published_at: new Date().toISOString().slice(0, 10), created_at: new Date().toISOString() },
   ],
   video_highlights: [],
   settings: [{ key: "discord", value: { highlightChannelId: "900000000000000001" } }],
@@ -131,7 +131,8 @@ function match(row, sp) {
     if (op === "eq" && String(cell) !== v) return false;
     if (op === "is" && (cell ?? null) !== val(v)) return false;
     if (op === "in" && !v.replace(/^\(|\)$/g, "").split(",").includes(String(cell))) return false;
-    if (op === "gte" && !(String(cell) >= v)) return false;
+    if (op === "gte" && !(typeof cell === "number" ? cell >= Number(v) : String(cell) >= v)) return false;
+    if (op === "lt" && !(String(cell) < v)) return false;
   }
   return true;
 }
@@ -226,7 +227,7 @@ await test("重做：不會再貼一次 Discord", async () => {
   assert.equal(r.body.ok, true); assert.equal(r.body.posted, false); assert.equal(posts.length, n);
 });
 await test("GitHub 那邊出錯：記成失敗；聽不到內容：略過", async () => {
-  db.videos.push({ id: 4, title: "安靜", hosts: [], duration_sec: 900, r2_key: "videos/2026/10/dddddddddddd-q.mp4", is_published: true, is_public: false, course_host: null, created_at: new Date().toISOString() });
+  db.videos.push({ id: 4, title: "安靜", hosts: [], duration_sec: 900, r2_key: "videos/2026/10/dddddddddddd-q.mp4", is_published: true, is_public: false, course_host: null, published_at: new Date().toISOString().slice(0, 10), created_at: new Date().toISOString() });
   assert.equal((await call("GET")).body.job.videoId, 4);
   await call("POST", { body: { video: 4, error: "影片下載失敗：403" } });
   const h = db.video_highlights.find((x) => x.video_id === 4);
@@ -242,6 +243,32 @@ await test("沒接 Workers AI：轉文字回 502、看得出原因", async () =>
   const r = await call("PUT", { query: { video: "4", chunk: "0" }, rawBytes: new Uint8Array([1]).buffer });
   env.AI = saved;
   assert.equal(r.statusCode, 502); assert.match(r.body.error, /Workers AI/);
+});
+
+await test("額度用完：回 429、排回去不算失敗次數", async () => {
+  const saved = AI.run;
+  AI.run = async () => { throw new Error("4006: you have used up your daily free allocation of 10,000 neurons"); };
+  const h = db.video_highlights.find((x) => x.video_id === 4);
+  Object.assign(h, { status: "processing", attempts: 1 });
+  const r = await call("PUT", { query: { video: "4", chunk: "0" }, rawBytes: new Uint8Array([1]).buffer });
+  AI.run = saved;
+  assert.equal(r.statusCode, 429); assert.equal(r.body.code, "quota");
+  await call("POST", { body: { video: 4, error: r.body.error, quota: true } });
+  assert.equal(h.status, "pending"); assert.equal(h.attempts, 0);
+});
+await test("卡在處理中、次數用完：下一次拿工作時標成失敗", async () => {
+  const h = db.video_highlights.find((x) => x.video_id === 4);
+  Object.assign(h, { status: "processing", attempts: 3, updated_at: new Date(Date.now() - 4 * 3600e3).toISOString() });
+  await call("GET");
+  assert.equal(h.status, "failed"); assert.match(h.error, /太久/);
+});
+await test("聲音上傳一定要有驗證和 content-length、邊讀邊算", async () => {
+  const { onRequest } = await import("../functions/api/[[path]].js");
+  const mk = (headers, body) => onRequest({ request: new Request("https://x/api/cron/highlights?video=1&chunk=0", { method: "PUT", headers, body, duplex: "half" }), env: { SUPABASE_URL: SUPA, SUPABASE_SERVICE_ROLE_KEY: "service-test", CRON_SECRET: "cron-secret-for-tests-1234", AI }, params: { path: ["cron", "highlights"] }, waitUntil() {} });
+  assert.equal((await mk({}, "x")).status, 401);
+  assert.equal((await mk({ "x-cron-secret": "nope", "content-length": String(9 * 1024 * 1024) }, "x")).status, 413);
+  const big = new ReadableStream({ start(c) { for (let i = 0; i < 9; i++) c.enqueue(new Uint8Array(1024 * 1024)); c.close(); } });
+  assert.equal((await mk({ "x-cron-secret": "nope", "content-length": "10" }, big)).status, 413, "content-length 說謊也擋得住");
 });
 
 supa.close(); disc.close();

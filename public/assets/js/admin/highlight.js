@@ -38,7 +38,7 @@ export function highlightField(v, { onApply }) {
     }
     if (h.status !== "done") {
       body.replaceChildren(el("p", { class: `small ${h.status === "failed" ? "warn-text" : "muted"}`, text: `${STATUS[h.status] || h.status}${h.error ? `：${h.error}` : ""}` }),
-        h.status === "processing" ? null : el("div", { class: "hl-actions" }, redo()));
+        h.status === "processing" && !h.stale ? null : el("div", { class: "hl-actions" }, redo()));
       return;
     }
     const chaps = h.chapters || [];

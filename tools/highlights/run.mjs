@@ -32,7 +32,7 @@ async function call(method, path, body, { tries = 3, type = "application/json" }
       const data = await r.json().catch(() => ({}));
       if (r.ok) return data;
       last = new Error(`${method} ${path || "/"} → ${r.status} ${data.error || ""}`);
-      if (r.status < 500) throw Object.assign(last, { fatal: true });
+      if (r.status < 500) throw Object.assign(last, { fatal: true, quota: r.status === 429 || data.code === "quota" });
     } catch (e) {
       if (e.fatal) throw e;
       last = e;
@@ -71,8 +71,9 @@ async function doJob(job) {
     log(`  完成：${done.points ?? 0} 個重點、${done.chapters ?? 0} 個章節${done.posted ? "，已貼到 Discord" : ""}${done.skipped ? "（沒有內容，略過）" : ""}`);
   } catch (e) {
     log(`  出錯：${e.message}`);
-    await call("POST", "", { video: job.videoId, error: String(e.message).slice(0, 400) }, { tries: 2 }).catch(() => {});
+    await call("POST", "", { video: job.videoId, error: String(e.message).slice(0, 400), quota: !!e.quota }, { tries: 2 }).catch(() => {});
     process.exitCode = 1;
+    if (e.quota) { log("Workers AI 今天的額度用完了，這支排回去，下一輪再做"); return "stop"; }
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -81,5 +82,5 @@ async function doJob(job) {
 for (let n = 0; n < MAX_JOBS; n++) {
   const { job } = await call("GET", "");
   if (!job) { log(n ? "沒有其他要做的了" : "沒有要做的直播"); break; }
-  await doJob(job);
+  if ((await doJob(job)) === "stop") break;
 }

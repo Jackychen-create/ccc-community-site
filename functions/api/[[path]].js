@@ -88,6 +88,25 @@ const MAX_BODY = 64 * 1024; // API 只收小小的 JSON，檔案一律直傳 R2
 // 例外：直播精華的聲音（GitHub Actions 一段一段送，每段 10 分鐘的 mp3）
 const RAW_ROUTES = { "cron/highlights": 8 * 1024 * 1024 };
 
+// 讀到上限就停：超過回 null
+async function readLimited(stream, max) {
+  if (!stream) return new ArrayBuffer(0);
+  const reader = stream.getReader();
+  const parts = [];
+  let n = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    n += value.byteLength;
+    if (n > max) { await reader.cancel().catch(() => {}); return null; }
+    parts.push(value);
+  }
+  const out = new Uint8Array(n);
+  let o = 0;
+  for (const p of parts) { out.set(p, o); o += p.byteLength; }
+  return out.buffer;
+}
+
 function json(status, data, headers = {}) {
   return new Response(JSON.stringify(data), {
     status,
@@ -136,9 +155,13 @@ export async function onRequest(context) {
   let rawText = "";
   let rawBytes = null;
   if (request.method === "PUT" && RAW_ROUTES[path]) {
-    if (Number(request.headers.get("content-length") || 0) > RAW_ROUTES[path]) return json(413, { error: "資料太大" });
-    rawBytes = await request.arrayBuffer();
-    if (rawBytes.byteLength > RAW_ROUTES[path]) return json(413, { error: "資料太大" });
+    // 沒帶驗證的不讀內容；一定要有 content-length；邊讀邊算，超過上限就停（不會整包讀進記憶體）
+    if (!request.headers.get("authorization") && !request.headers.get("x-cron-secret")) return json(401, { error: "unauthorized" });
+    const len = Number(request.headers.get("content-length"));
+    if (!Number.isFinite(len) || len <= 0) return json(411, { error: "要有 content-length" });
+    if (len > RAW_ROUTES[path]) return json(413, { error: "資料太大" });
+    rawBytes = await readLimited(request.body, RAW_ROUTES[path]);
+    if (!rawBytes) return json(413, { error: "資料太大" });
   } else if (request.method !== "GET" && request.method !== "HEAD" && request.method !== "DELETE") {
     const text = await request.text();
     rawText = text;

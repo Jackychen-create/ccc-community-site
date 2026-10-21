@@ -6,7 +6,7 @@
 // POST /api/cron/highlights { video, error }      GitHub 那邊出錯（例如影片抓不到）
 import { route, cronAuthorized, supabaseAdmin, signGet, toInt, readBody } from "../lib/index.js";
 import { verifyGithubOidc } from "../lib/oidc.js";
-import { CHUNK_SEC, MAX_CHUNKS, nextJob, transcribeChunk, transcriptOf, summarize, postHighlight } from "../lib/highlights.js";
+import { CHUNK_SEC, MAX_CHUNKS, nextJob, transcribeChunk, transcriptOf, summarize, postHighlight, isQuota } from "../lib/highlights.js";
 
 export const MAX_AUDIO = 8 * 1024 * 1024;
 
@@ -41,6 +41,8 @@ export default route({
     try {
       segs = await transcribeChunk(new Uint8Array(bytes), chunk * CHUNK_SEC);
     } catch (e) {
+      // 額度用完：回 429，GitHub 那邊就停下來，這支排回去下一輪再做（不算失敗次數）
+      if (isQuota(e)) return res.status(429).json({ error: `Workers AI 額度用完或被限流：${String(e?.message || e).slice(0, 160)}`, code: "quota" });
       return res.status(502).json({ error: `轉文字失敗：${String(e?.message || e).slice(0, 200)}` });
     }
     // 重新讀一次再寫（一段一段依序送，不會同時寫）
@@ -57,10 +59,15 @@ export default route({
     if (id === null) return res.status(400).json({ error: "bad request" });
     const row = await rowOf(id);
     if (!row || row.status !== "processing") return res.status(409).json({ error: "這支不在處理中" });
-    if (b.error) { await fail(id, b.error); return res.status(200).json({ ok: true }); }
+    if (b.error) {
+      if (b.quota) {
+        await supabaseAdmin.from("video_highlights").update({ status: "pending", attempts: Math.max(0, (row.attempts || 1) - 1), error: String(b.error).slice(0, 480), updated_at: new Date().toISOString() }).eq("video_id", id);
+      } else await fail(id, b.error);
+      return res.status(200).json({ ok: true });
+    }
     if (!b.done) return res.status(400).json({ error: "bad request" });
 
-    const { data: v } = await supabaseAdmin.from("videos").select("id, title, hosts, duration_sec, is_published, created_at").eq("id", id).maybeSingle();
+    const { data: v } = await supabaseAdmin.from("videos").select("id, title, hosts, duration_sec, is_published, published_at").eq("id", id).maybeSingle();
     if (!v) { await fail(id, "影片已經刪掉了", "skipped"); return res.status(200).json({ ok: false }); }
     const transcript = transcriptOf(row.chunks);
     if (transcript.length < 200) { await fail(id, "聽不到講話的內容（可能沒有聲音）", "skipped"); return res.status(200).json({ ok: false, skipped: true }); }
@@ -74,14 +81,19 @@ export default route({
     const now = new Date().toISOString();
     const { error } = await supabaseAdmin.from("video_highlights").update({ status: "done", summary: h.summary, points: h.points, tickers: h.tickers, chapters: h.chapters, model: h.model, error: null, updated_at: now }).eq("video_id", id);
     if (error) throw error;
-    // 第一次做好才貼 Discord（重做不再貼一次）；草稿不貼；上架超過 7 天的舊直播（第一次補做）不貼，免得洗版
+    // 第一次做好才貼 Discord（重做不再貼一次）；草稿不貼；直播日期超過 7 天的舊直播不自動貼，免得洗版
+    // 先搶到「還沒貼過」才貼（同一支同時送兩次「送完了」也只會貼一次）
     let posted = false;
-    if (!row.posted_at && v.is_published && Date.now() - Date.parse(v.created_at || 0) < 7 * 86400e3) {
-      try {
-        posted = await postHighlight(v, h);
-        if (posted) await supabaseAdmin.from("video_highlights").update({ posted_at: now }).eq("video_id", id);
-      } catch (e) {
-        console.error("highlight post failed", e?.message);
+    const recent = Date.now() - Date.parse(`${v.published_at || "1970-01-01"}T00:00:00+08:00`) < 8 * 86400e3;
+    if (!row.posted_at && v.is_published && recent) {
+      const { data: won } = await supabaseAdmin.from("video_highlights").update({ posted_at: now }).eq("video_id", id).is("posted_at", null).select("video_id");
+      if (won?.length) {
+        try {
+          posted = await postHighlight(v, h);
+        } catch (e) {
+          console.error("highlight post failed", e?.message);
+        }
+        if (!posted) await supabaseAdmin.from("video_highlights").update({ posted_at: null }).eq("video_id", id);
       }
     }
     return res.status(200).json({ ok: true, posted, points: h.points.length, chapters: h.chapters.length });

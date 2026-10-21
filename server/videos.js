@@ -124,7 +124,8 @@ async function detail(res, ctx, id, tier) {
     url: await signGet(v.r2_key),
     position_sec: p?.position_sec ?? 0,
     attachments,
-    highlight: hl?.status === "done" ? { summary: hl.summary, points: hl.points || [], tickers: hl.tickers || [], chapters: hl.chapters || [] } : null,
+    // 重做時（排隊、處理中）先顯示上一次的結果
+    highlight: hl?.summary ? { summary: hl.summary, points: hl.points || [], tickers: hl.tickers || [], chapters: hl.chapters || [] } : null,
   });
 }
 

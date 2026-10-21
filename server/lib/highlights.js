@@ -37,7 +37,9 @@ const VTT_RE = /(\d{1,2}:)?(\d{1,2}):(\d{2})[.,](\d{1,3})\s*-->\s*(\d{1,2}:)?(\d
 const vttSec = (h, m, s, ms) => (Number((h || "0:").slice(0, -1)) * 3600) + Number(m) * 60 + Number(s) + Number(ms) / 1000;
 export function parseWhisper(r, offset = 0) {
   const out = [];
-  for (const seg of r?.segments || []) {
+  const segs = r?.segments || [];
+  const hasTimes = segs.some((x) => x.start != null);
+  for (const seg of [...segs, ...(!hasTimes && r?.vtt ? [{ vtt: r.vtt }] : [])]) {
     const t = String(seg.text || "").trim();
     if (seg.start != null && t) { out.push({ s: round1(offset + Number(seg.start)), e: round1(offset + Number(seg.end ?? seg.start)), t }); continue; }
     for (const m of String(seg.vtt || "").matchAll(VTT_RE)) {
@@ -48,6 +50,8 @@ export function parseWhisper(r, offset = 0) {
   if (!out.length && String(r?.text || "").trim()) out.push({ s: offset, e: offset + CHUNK_SEC, t: String(r.text).trim() });
   return out.filter((x) => !/^(字幕|謝謝觀看|請不吝點贊|訂閱)/.test(x.t)); // whisper 安靜時常會亂補這些
 }
+// Workers AI 一天的免費額度用完、或被限流：分出來，GitHub 那邊就不浪費重試
+export const isQuota = (e) => /quota|limit|exceed|429|neuron|capacity|rate/i.test(String(e?.message || e));
 export async function transcribeChunk(bytes, offset) {
   const audio = Buffer.from(bytes).toString("base64");
   const r = await ai().run(WHISPER, { audio, language: "zh", task: "transcribe", vad_filter: true, initial_prompt: PROMPT_HINT });
@@ -125,9 +129,10 @@ export function cleanSummary(j, duration = 0) {
   return { summary, points, tickers, chapters };
 }
 export async function summarize(v, transcript) {
-  const p = summaryPrompt(v, fitTranscript(transcript));
   let last;
   for (const model of LLMS) {
+    // llama 一次能讀的比較少（約 24k token），給它短一點的
+    const p = summaryPrompt(v, fitTranscript(transcript, model.includes("gpt-oss") ? 45000 : 16000));
     try {
       const input = model.includes("gpt-oss")
         ? { instructions: p.system, input: p.user, reasoning: { effort: "low" } }
@@ -170,6 +175,8 @@ export async function postHighlight(v, h) {
 // ── 工作佇列 ──
 // 要做的：已發布的直播留檔（不是教學課程、不是公開影片）、長度 5 分鐘以上、45 天內上傳
 // 還沒做過、被設成重做、做到一半卡住超過 3 小時、失敗了（1 小時後再試，最多 3 次）
+export const WINDOW_DAYS = 14; // 只自動做最近兩週的直播（舊的要做可以在後台按「重新產生」）
+export const STALE_MS = 3 * 3600e3;
 export const LIVE_FILTER = (q) => q.eq("is_published", true).is("course_host", null).eq("is_public", false);
 export function pickJob(videos, rows, now = Date.now()) {
   const byId = new Map((rows || []).map((r) => [Number(r.video_id), r]));
@@ -177,7 +184,7 @@ export function pickJob(videos, rows, now = Date.now()) {
     if (!r) return true;
     const age = now - Date.parse(r.updated_at || 0);
     if (r.status === "pending") return true;
-    if (r.status === "processing") return age > 3 * 3600e3 && r.attempts < MAX_ATTEMPTS;
+    if (r.status === "processing") return age > STALE_MS && r.attempts < MAX_ATTEMPTS;
     if (r.status === "failed") return age > 3600e3 && r.attempts < MAX_ATTEMPTS;
     return false;
   };
@@ -185,19 +192,21 @@ export function pickJob(videos, rows, now = Date.now()) {
     .sort((a, b) => (byId.get(Number(a.id))?.status === "pending" ? -1 : 0) - (byId.get(Number(b.id))?.status === "pending" ? -1 : 0) || Date.parse(b.created_at) - Date.parse(a.created_at))[0] || null;
 }
 export async function nextJob(now = Date.now()) {
-  const since = new Date(now - 45 * 86400e3).toISOString();
-  const { data: vids, error } = await LIVE_FILTER(supabaseAdmin.from("videos").select("id, title, hosts, duration_sec, r2_key, created_at")).gte("created_at", since).order("created_at", { ascending: false }).limit(50);
+  // 卡住太久、次數用完的（GitHub 那邊被中斷沒回報）：標成失敗，後台可以按重做
+  await supabaseAdmin.from("video_highlights").update({ status: "failed", error: "處理太久沒有回報（GitHub 那邊可能被中斷）", updated_at: new Date(now).toISOString() })
+    .eq("status", "processing").gte("attempts", MAX_ATTEMPTS).lt("updated_at", new Date(now - STALE_MS).toISOString());
+  const since = new Date(now - WINDOW_DAYS * 86400e3 + 8 * 3600e3).toISOString().slice(0, 10);
+  const { data: vids, error } = await LIVE_FILTER(supabaseAdmin.from("videos").select("id, title, hosts, duration_sec, r2_key, created_at")).gte("published_at", since).order("created_at", { ascending: false }).limit(20);
   if (error) throw error;
-  if (!vids?.length) return null;
-  const { data: found } = await supabaseAdmin.from("video_highlights").select("video_id, status, attempts, updated_at").in("video_id", vids.map((v) => v.id));
+  const { data: found } = await supabaseAdmin.from("video_highlights").select("video_id, status, attempts, updated_at").in("video_id", (vids || []).map((v) => v.id));
   const rows = [...(found || [])];
   // 有人在後台按「重做」的不受 45 天限制
   const { data: redo } = await supabaseAdmin.from("video_highlights").select("video_id").eq("status", "pending").limit(5);
-  let list = vids;
-  const extra = (redo || []).map((r) => r.video_id).filter((id) => !vids.some((v) => Number(v.id) === Number(id)));
+  let list = vids || [];
+  const extra = (redo || []).map((r) => r.video_id).filter((id) => !list.some((v) => Number(v.id) === Number(id)));
   if (extra.length) {
     const { data: more } = await LIVE_FILTER(supabaseAdmin.from("videos").select("id, title, hosts, duration_sec, r2_key, created_at")).in("id", extra);
-    list = [...(more || []), ...vids];
+    list = [...(more || []), ...list];
     const { data: moreRows } = await supabaseAdmin.from("video_highlights").select("video_id, status, attempts, updated_at").in("video_id", extra);
     rows.push(...(moreRows || []));
   }

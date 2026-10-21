@@ -15,7 +15,9 @@ export default route({
     if (error) throw error;
     if (!h) return res.status(200).json({ highlight: null });
     const { chunks, ...rest } = h;
-    return res.status(200).json({ highlight: { ...rest, chunk_count: Object.keys(chunks || {}).length, transcript: transcriptOf(chunks).slice(0, 60000) } });
+    // 處理中超過 3 小時（GitHub 那邊可能被中斷）：後台可以按重做
+    const stale = h.status === "processing" && Date.now() - Date.parse(h.updated_at) > 3 * 3600e3;
+    return res.status(200).json({ highlight: { ...rest, stale, chunk_count: Object.keys(chunks || {}).length, transcript: transcriptOf(chunks).slice(0, 60000) } });
   },
 
   async POST(req, res) {
@@ -23,11 +25,12 @@ export default route({
     const b = readBody(req);
     const id = toInt(b.video);
     if (id === null) return res.status(400).json({ error: "影片編號不正確" });
-    const { data: v } = await supabaseAdmin.from("videos").select("id, title, hosts, duration_sec, is_published, course_host").eq("id", id).maybeSingle();
+    const { data: v } = await supabaseAdmin.from("videos").select("id, title, hosts, duration_sec, is_published, is_public, course_host").eq("id", id).maybeSingle();
     if (!v) return res.status(404).json({ error: "找不到這支影片" });
 
     if (b.action === "redo") {
-      if (v.course_host) return res.status(400).json({ error: "教學課程不做直播精華" });
+      if (v.course_host || v.is_public) return res.status(400).json({ error: "只有直播留檔會做直播精華" });
+      if (!v.is_published) return res.status(400).json({ error: "影片發布後才能產生" });
       const { error } = await supabaseAdmin.from("video_highlights").upsert({ video_id: id, status: "pending", attempts: 0, error: null, updated_at: new Date().toISOString() });
       if (error) throw error;
       return res.status(200).json({ ok: true });
