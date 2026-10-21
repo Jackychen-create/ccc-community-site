@@ -89,7 +89,7 @@ export function summaryPrompt(v, transcript) {
       "只輸出一個 JSON 物件，不要任何其他文字，格式：",
       '{"summary":"3 到 4 句話的摘要","points":["重點（每點 40 字內，4 到 6 點）"],"tickers":[{"name":"標的名稱或代號","note":"講到什麼（30 字內）"}],"chapters":[{"t":秒數,"title":"章節名稱（14 字內）"}]}',
       "tickers 只列逐字稿裡真的有討論的股票、幣、指數、期貨，最多 8 個，沒有就給空陣列。",
-      `chapters 依時間排序，第一個 t 是 0，大約每 5 到 10 分鐘一章、總共 4 到 12 章，t 要用逐字稿方括號裡的時間換成秒數，不能超過 ${v.duration_sec || mins * 60} 秒。`,
+      `chapters 依時間排序，第一個 t 是 0，總共 4 到 12 章。每一章的 t 要放在「話題真的換了」的那一行：用那一行方括號裡的時間換成秒數（例如 [12:34] → 754）。不要平均切（例如每 300 秒一章），章節長短本來就會不一樣。t 不能超過 ${v.duration_sec || mins * 60} 秒。`,
     ].join("\n"),
     user: `直播標題：${v.title}\n講者：${(v.hosts || []).join("、") || "CCC"}\n長度：約 ${mins} 分鐘\n\n逐字稿：\n${transcript}`,
   };
