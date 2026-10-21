@@ -89,7 +89,7 @@ export function summaryPrompt(v, transcript) {
       "只輸出一個 JSON 物件，不要任何其他文字，格式：",
       '{"summary":"3 到 4 句話的摘要","points":["重點（每點 40 字內，4 到 6 點）"],"tickers":[{"name":"標的名稱或代號","note":"講到什麼（30 字內）"}],"chapters":[{"t":秒數,"title":"章節名稱（14 字內）"}]}',
       "tickers 只列逐字稿裡真的有討論的股票、幣、指數、期貨，最多 8 個，沒有就給空陣列。",
-      `chapters 依時間排序，第一個 t 是 0，總共 4 到 12 章。每一章的 t 要放在「話題真的換了」的那一行：用那一行方括號裡的時間換成秒數（例如 [12:34] → 754）。不要平均切（例如每 300 秒一章），章節長短本來就會不一樣。t 不能超過 ${v.duration_sec || mins * 60} 秒。`,
+      `chapters 依時間排序，第一個 t 是 0，總共 4 到 12 章。每一章的 t 要放在「話題真的換了」的那一行：用那一行方括號裡的時間換成秒數（例如 [12:34] → 754）。不要平均切（例如每 300 秒一章），章節長短本來就會不一樣。章節要涵蓋整場：從開頭到結尾都要有，最後一章要在最後四分之一（${Math.round((v.duration_sec || mins * 60) * 0.75)} 秒之後）。t 不能超過 ${v.duration_sec || mins * 60} 秒。`,
     ].join("\n"),
     user: `直播標題：${v.title}\n講者：${(v.hosts || []).join("、") || "CCC"}\n長度：約 ${mins} 分鐘\n\n逐字稿：\n${transcript}`,
   };
@@ -128,9 +128,17 @@ export function cleanSummary(j, duration = 0) {
   if (chapters.length && chapters[0].t !== 0) chapters[0].t = 0;
   return { summary, points, tickers, chapters };
 }
+// 章節有沒有涵蓋整場：最後一章要在 60% 之後、相鄰兩章不能隔超過整場的 40%（短片不檢查）
+export function chaptersCover(chapters, duration) {
+  if (!duration || duration < 900 || !chapters?.length) return true;
+  const ts = [...chapters.map((c) => c.t), duration];
+  if (chapters[chapters.length - 1].t < duration * 0.6) return false;
+  return ts.every((t, i) => i === 0 || t - ts[i - 1] <= duration * 0.4);
+}
 export async function summarize(v, transcript) {
-  let last;
-  for (const model of LLMS) {
+  let last, best = null;
+  // gpt-oss 試兩次（章節沒涵蓋整場就再試），還不行再換 llama；都不理想就用最好的那一次
+  for (const model of [LLMS[0], ...LLMS]) {
     // llama 一次能讀的比較少（約 24k token），給它短一點的
     const p = summaryPrompt(v, fitTranscript(transcript, model.includes("gpt-oss") ? 45000 : 16000));
     try {
@@ -139,10 +147,17 @@ export async function summarize(v, transcript) {
         : { messages: [{ role: "system", content: p.system }, { role: "user", content: p.user }], max_tokens: 2048, temperature: 0.3 };
       const r = await ai().run(model, input);
       const out = cleanSummary(parseJsonLoose(textOf(r)), v.duration_sec || 0);
-      if (out) return { ...out, model };
+      if (out && chaptersCover(out.chapters, v.duration_sec || 0)) return { ...out, model };
+      if (out) {
+        // 章節只涵蓋前面：留著當備案，但後面沒涵蓋的章節不給（寧可少也不要誤導）
+        if (!best) best = { ...out, model };
+        last = new Error(`${model} 的章節沒有涵蓋整場`);
+        continue;
+      }
       last = new Error(`${model} 回傳的格式不對`);
     } catch (e) { last = e; }
   }
+  if (best) return { ...best, chapters: [] };
   throw last || new Error("AI 整理失敗");
 }
 
