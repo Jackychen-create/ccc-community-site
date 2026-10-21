@@ -9,7 +9,9 @@ docs_tmp/
 
 # 測試
 tests/node_modules/
-tests/fixtures/
+# 測試用影片是 make-fixtures.sh 產生的，不進 git；機器人的資料（從官方 API 截的一小段）要進 git
+tests/fixtures/*
+!tests/fixtures/bots/
 tests/output/
 
 # 教學影片錄製的暫存

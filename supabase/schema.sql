@@ -522,3 +522,39 @@ select cron.schedule('daily-chat-stats', '5 16 * * *', $cron$
   )
   from vault.decrypted_secrets s where s.name = 'cron_secret';
 $cron$);
+
+-- ── v1.23.0：定時機器人（Supabase Edge Function「bots」，見 supabase/functions/bots/）──
+create table if not exists public.bot_state (
+  key        text primary key check (char_length(key) <= 80),   -- 去重、技術面歷史、今天發過沒
+  value      jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+alter table public.bot_state enable row level security;
+create table if not exists public.bot_runs (
+  id      bigint generated always as identity primary key,
+  bot     text not null check (char_length(bot) <= 40),
+  at      timestamptz not null default now(),
+  ok      boolean not null,
+  posted  int not null default 0,
+  note    text check (char_length(note) <= 500),
+  ms      int
+);
+create index if not exists bot_runs_bot_at_idx on public.bot_runs (bot, at desc);
+alter table public.bot_runs enable row level security;
+-- Edge Function 驗證排程密碼（用 $1：vault.decrypted_secrets 自己也有一個叫 secret 的欄位）
+create or replace function public.bots_auth(secret text) returns boolean
+language sql security definer set search_path = vault, pg_catalog as $$
+  select exists (select 1 from vault.decrypted_secrets s where s.name = 'cron_secret' and s.decrypted_secret = $1 and length($1) >= 16);
+$$;
+revoke all on function public.bots_auth(text) from public, anon, authenticated;
+-- 每 5 分鐘叫一次 Edge Function，它決定這一輪跑哪些
+select cron.unschedule(jobid) from cron.job where jobname = 'bots-tick';
+select cron.schedule('bots-tick', '*/5 * * * *', $cron$
+  select net.http_post(
+    url := 'https://vwepwxihugvtezmrvavo.supabase.co/functions/v1/bots',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-cron-secret', s.decrypted_secret),
+    body := '{}'::jsonb,
+    timeout_milliseconds := 150000
+  )
+  from vault.decrypted_secrets s where s.name = 'cron_secret';
+$cron$);
