@@ -30,6 +30,17 @@ export class DiscordError extends Error {
 }
 
 // 呼叫 Discord API（用機器人的 Token）
+// 400「Invalid Form Body」時 Discord 會說是哪個欄位錯：{ parent_id: { _errors: [{ message }] } } → 「（parent_id：…）」
+export function formErrors(errors) {
+  const out = [];
+  const walk = (o, path) => {
+    if (!o || typeof o !== "object" || out.length >= 3) return;
+    if (Array.isArray(o._errors)) for (const e of o._errors) out.push(`${path.join(".")}：${e.message || e.code}`);
+    for (const [k, v] of Object.entries(o)) if (k !== "_errors") walk(v, [...path, k]);
+  };
+  walk(errors, []);
+  return out.length ? `（${out.slice(0, 3).join("；")}）` : "";
+}
 export async function discordApi(method, path, body) {
   const base = env.DISCORD_API_BASE || "https://discord.com/api/v10";
   const headers = {
@@ -48,7 +59,7 @@ export async function discordApi(method, path, body) {
   const text = await res.text();
   let data = null;
   try { data = text ? JSON.parse(text) : null; } catch {}
-  if (!res.ok) throw new DiscordError(res.status, data?.message || text.slice(0, 200), data?.code);
+  if (!res.ok) throw new DiscordError(res.status, (data?.message || text.slice(0, 200)) + formErrors(data?.errors), data?.code);
   return data;
 }
 

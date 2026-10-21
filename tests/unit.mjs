@@ -7,6 +7,7 @@ const pick = ({ tier, until, cycleTier }) => ({ tier, until, cycleTier });
 import { mergeBuckets } from "../server/lib/buckets.js";
 import { cleanTitle, cleanChapters, toInt, isDate } from "../server/lib/text.js";
 import { errorKind } from "../server/lib/http.js";
+import { formErrors } from "../server/lib/discord.js";
 import { retryReads, RETRY_DELAY_MS } from "../server/lib/env.js";
 import http from "node:http";
 import { env } from "../server/lib/env.js";
@@ -368,6 +369,11 @@ await (async () => {
     n === 1 && w.status === 555 ? (pass++, console.log("PASS 寫入不重試")) : (fail++, console.log("FAIL 寫入不該重試", n));
   } finally { globalThis.fetch = real; }
 })();
+test("Discord 400 說是哪個欄位錯", () => {
+  assert.equal(formErrors({ parent_id: { _errors: [{ code: "CHANNEL_PARENT_INVALID", message: "Category does not exist" }] } }), "（parent_id：Category does not exist）");
+  assert.equal(formErrors({ components: { 0: { components: { 0: { options: { 1: { emoji: { name: { _errors: [{ message: "Invalid emoji" }] } } } } } } } } }), "（components.0.components.0.options.1.emoji.name：Invalid emoji）");
+  assert.equal(formErrors(undefined), "");
+});
 test("伺服器 500 回大概原因（不回錯誤內容）", () => {
   assert.equal(errorKind({ code: "23505", message: "duplicate key" }), "db_23505");
   assert.equal(errorKind(Object.assign(new Error("The operation was aborted"), { name: "AbortError" })), "timeout");
