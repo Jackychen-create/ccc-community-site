@@ -1,6 +1,6 @@
 // 台股機器人：盤後報告、每日頭條、重大訊息雷達、法人籌碼雷達
 // 資料來源都是官方公開資料（TWSE、TPEx）和公開 RSS，不需要金鑰；不是投資建議
-import { getJson, getText, num, fmt, pct, yi, arrow, clip, md, addDays, twDate, twHM, twWeekday, rocToDate, normKeys, safeEmbed, footer, seenFilter, COLOR } from "./core.js";
+import { getJson, getText, num, fmt, pct, yi, arrow, clip, md, addDays, twDate, twHM, twWeekday, rocToDate, normKeys, safeEmbed, footer, author, bar, spark, RANK, weekday, dotTw, seenFilter, COLOR } from "./core.js";
 import { parseFeed } from "./rss.js";
 import { readOvernight, overnightField } from "./markets.js";
 
@@ -147,7 +147,7 @@ export function viewpoint({ taiex, otc, inst, up, down, sectors }) {
   return lines.length ? lines.join("；") + "。" : "";
 }
 
-export function closeEmbed({ day, twse, tpex, inst, tech }) {
+export function closeEmbed({ day, twse, tpex, inst, tech, trend = [] }) {
   const all = [...twse.stocks, ...tpex.stocks];
   const liquid = all.filter((s) => (s.value || 0) >= 5e7);
   const byVol = [...all].sort((a, b) => (b.vol || 0) - (a.vol || 0)).slice(0, 5);
@@ -155,24 +155,32 @@ export function closeEmbed({ day, twse, tpex, inst, tech }) {
   const sorted = [...twse.sectors].sort((a, b) => b.pct - a.pct);
   const total = (twse.value || 0) + (tpex.value || 0);
   const t = twse.taiex, o = tpex.otc;
-  const line = (s) => `${s.name}（${s.code}）${fmt(s.close)}　${pct(s.pct)}`;
+  const up = twse.up?.n || 0, down = twse.down?.n || 0;
+  const head = [
+    t ? `## ${arrow(t.change)} 加權 ${fmt(t.close)}` : "## 加權：資料還沒出來",
+    t ? `**${t.change > 0 ? "+" : ""}${fmt(t.change)}（${pct(t.pct)}）**${o ? `　櫃買 ${fmt(o.close)}（${pct(o.pct)}）` : ""}` : "",
+    `💰 成交值 **${fmt(total / 1e8, 0)} 億**（上市 ${fmt((twse.value || 0) / 1e8, 0)}＋上櫃 ${fmt((tpex.value || 0) / 1e8, 0)}）`,
+    up + down ? `漲 **${up}** ${bar(up / (up + down), 10, "🟥", "🟩")} 跌 **${down}**${twse.up?.limit || twse.down?.limit ? `　漲停 ${twse.up?.limit || 0}・跌停 ${twse.down?.limit || 0}` : ""}` : "",
+    trend.length >= 5 ? `近 ${trend.length} 日 \`${spark(trend)}\`` : "",
+  ].filter(Boolean).join("\n");
+  const instField = (name, v) => ({ name, value: v == null ? "—" : `${dotTw(v)} **${v > 0 ? "+" : ""}${yi(v)}**`, inline: true });
+  const rankLine = (s, i, extra = "") => `${RANK[i]} **${s.name}**（${s.code}）${fmt(s.close)}　${dotTw(s.pct)} ${pct(s.pct)}${extra}`;
   const fields = [
-    { name: "📈 大盤", value: [
-      t ? `加權 ${fmt(t.close)}　${arrow(t.change)} ${fmt(Math.abs(t.change))}（${pct(t.pct)}）` : "加權：資料還沒出來",
-      o ? `櫃買 ${fmt(o.close)}　${arrow(o.change)} ${fmt(Math.abs(o.change))}（${pct(o.pct)}）` : "",
-      `成交值　上市 ${fmt((twse.value || 0) / 1e8, 0)} 億＋上櫃 ${fmt((tpex.value || 0) / 1e8, 0)} 億＝${fmt(total / 1e8, 0)} 億`,
-      twse.up && twse.down ? `上市股票　漲 ${twse.up.n}（漲停 ${twse.up.limit}）・跌 ${twse.down.n}（跌停 ${twse.down.limit}）・平 ${twse.flat?.n ?? "—"}` : "",
-    ].filter(Boolean).join("\n") },
-    inst ? { name: "🏦 上市三大法人", value: `外資 ${yi(inst.foreign)}\n投信 ${yi(inst.trust)}\n自營商 ${yi(inst.dealer)}\n合計 ${yi(inst.total)}` } : { name: "🏦 上市三大法人", value: "資料還沒公布" },
-    sorted.length ? { name: "🔥 強弱族群（上市類股）", value: `強：${sorted.slice(0, 3).map((s) => `${s.name} ${pct(s.pct)}`).join("、")}\n弱：${sorted.slice(-3).reverse().map((s) => `${s.name} ${pct(s.pct)}`).join("、")}` } : null,
-    byVol.length ? { name: "📊 成交量前五（上市＋上櫃）", value: byVol.map((s) => `${line(s)}　${fmt((s.vol || 0) / 1000, 0)} 張`).join("\n") } : null,
-    byGain.length ? { name: "🚀 漲幅前五（成交值 5000 萬以上）", value: byGain.map(line).join("\n") } : null,
-    { name: "🧭 技術面觀察（成交值前 30 檔）", value: tech.list.length ? tech.list.map((s) => `${s.name}（${s.code}）：${s.tags.join("、")}`).join("\n") + (tech.ready ? "" : `\n（均線條件要累積 21 個交易日，目前 ${tech.days} 天）`) : tech.ready ? "沒有特別符合條件的個股" : `均線條件要累積 21 個交易日，目前 ${tech.days} 天` },
+    ...(inst ? [instField("🌏 外資", inst.foreign), instField("🏦 投信", inst.trust), instField("🏢 自營商", inst.dealer)] : [{ name: "🏦 上市三大法人", value: "資料還沒公布" }]),
+    ...(sorted.length ? [
+      { name: "🔥 強勢族群", value: sorted.slice(0, 3).map((x) => `${dotTw(x.pct)} ${x.name} **${pct(x.pct)}**`).join("\n"), inline: true },
+      { name: "🧊 弱勢族群", value: sorted.slice(3).slice(-3).reverse().map((x) => `${dotTw(x.pct)} ${x.name} **${pct(x.pct)}**`).join("\n") || "—", inline: true },
+    ] : []),
+    byVol.length ? { name: "📊 成交量 Top 5（上市＋上櫃）", value: byVol.map((x, i) => rankLine(x, i, `　${fmt((x.vol || 0) / 1000, 0)} 張`)).join("\n") } : null,
+    byGain.length ? { name: "🚀 漲幅 Top 5（成交值 5000 萬以上）", value: byGain.map((x, i) => rankLine(x, i)).join("\n") } : null,
+    { name: "🧭 技術面觀察（成交值前 30 檔）", value: tech.list.length ? tech.list.map((x) => `▸ **${x.name}**（${x.code}）${x.tags.map((g) => `\`${g}\``).join(" ")}`).join("\n") + (tech.ready ? "" : `\n（均線條件要累積 21 個交易日，目前 ${tech.days} 天）`) : tech.ready ? "沒有特別符合條件的個股" : `均線條件要累積 21 個交易日，目前 ${tech.days} 天` },
   ];
   const view = viewpoint({ taiex: t, otc: o, inst, up: twse.up, down: twse.down, sectors: twse.sectors });
-  if (view) fields.push({ name: "💡 CCC 盤後觀點", value: view });
+  if (view) fields.push({ name: "💡 CCC 盤後觀點", value: `> ${view}` });
   return safeEmbed({
-    title: `📋 台股盤後報告｜${day.replaceAll("-", "/")}`,
+    author: author("台股盤後"),
+    title: `📋 台股盤後報告｜${day.replaceAll("-", "/")}（${weekday(day)}）`,
+    description: head,
     color: t?.change >= 0 ? COLOR.up : COLOR.down, // 台股紅漲綠跌
     fields,
     footer: footer(DISCLAIMER),
@@ -210,10 +218,17 @@ export async function twClose(ctx) {
   const prevHist = await ctx.db.getState("tw_hist", {});
   const hist = (prevHist?.days?.at(-1) || "") > day ? prevHist : updateHistory(prevHist, day, [...twse.stocks, ...tpex.stocks].sort((a, b) => (b.value || 0) - (a.value || 0)).slice(0, 300));
   const tech = technicals(hist, [...twse.stocks, ...tpex.stocks]);
-  const embed = closeEmbed({ day, twse, tpex, inst, tech });
+  // 加權走勢：記最近 20 個交易日的收盤
+  const idx = await ctx.db.getState("tw_index", { days: [], close: [] });
+  const known = (idx.days || []).includes(day);
+  const trendDays = known ? idx.days : [...(idx.days || []), day];
+  const trendClose = known ? idx.close : [...(idx.close || []), twse.taiex?.close];
+  const order = trendDays.map((d, i) => [d, trendClose[i]]).sort((a, b) => a[0].localeCompare(b[0])).slice(-20);
+  const embed = closeEmbed({ day, twse, tpex, inst, tech, trend: order.map((x) => x[1]).filter((x) => x != null) });
   if (ctx.dryRun) return { preview: [embed] };
   await ctx.post({ embeds: [embed] });
   await ctx.db.setState("tw_hist", hist);
+  if (twse.taiex?.close != null) await ctx.db.setState("tw_index", { days: order.map((x) => x[0]), close: order.map((x) => x[1]) });
   if (!ctx.force) await ctx.db.setState("tw_close_done", { day, auto: true }); // 「立即發一次」不算，排程照常發
   return { posted: 1, note: `加權 ${pct(twse.taiex?.pct)}${tpex.stocks.length ? "" : "（上櫃資料還沒出來）"}${inst ? "" : "（法人資料還沒出來）"}` };
 }
@@ -249,12 +264,14 @@ export function pickNews(items, { now, lookbackHours = 18, max = 8, minScore = 3
     .filter((x) => { const t = x.why.split("、")[0] || "其他"; const n = topics.get(t) || 0; if (n >= perTopic) return false; topics.set(t, n + 1); return true; })
     .slice(0, max);
 }
-export function newsEmbed(title, items, { color = COLOR.gold, note = DISCLAIMER, fields } = {}) {
+export function newsEmbed(title, items, { color = COLOR.gold, note = DISCLAIMER, fields, section = "每日頭條", intro = "" } = {}) {
+  const time = (ms) => new Date(ms + 8 * 3600e3).toISOString().slice(5, 16).replace("-", "/").replace("T", " ");
   return safeEmbed({
+    author: author(section),
     title,
     color,
     fields,
-    description: items.length ? items.map((x, i) => `**${i + 1}. [${clip(x.title, 90)}](${x.link})**\n${x.source}${x.ms ? `・${new Date(x.ms + 8 * 3600e3).toISOString().slice(5, 16).replace("-", "/").replace("T", " ")}` : ""}${x.why ? `・${x.why}` : ""}`).join("\n\n") : "今天沒有特別重要的新聞。",
+    description: (intro ? `${intro}\n\n` : "") + (items.length ? items.map((x, i) => `${RANK[i] || "▸"} **[${clip(x.title, 90)}](${x.link})**\n　└ ${x.source}${x.ms ? `・${time(x.ms)}` : ""}${x.why ? `・\`${x.why}\`` : ""}`).join("\n") : "今天沒有特別重要的新聞。"),
     footer: footer(note),
     timestamp: new Date().toISOString(),
   });
@@ -333,9 +350,10 @@ export async function twDisclosure(ctx) {
     .filter((x) => x.score >= (x.watched ? watchMin : minScore)).sort((p, q) => Number(q.watched) - Number(p.watched) || q.score - p.score).slice(0, 8);
   if (!scored.length) { if (!ctx.dryRun) await sent.commit(all.map((x) => x.id)); return { skipped: "沒有新的高影響公告" }; }
   const embed = safeEmbed({
+    author: author("重大訊息"),
     title: `📣 台股重大訊息雷達｜${scored.length} 則`,
     color: COLOR.warn,
-    fields: scored.map((x) => ({ name: `${x.watched ? "⭐ " : ""}${x.name}（${x.code}・${x.market}）${x.tags.length ? `｜${x.tags.join("、")}` : ""}`, value: `${clip(x.subject, 300)}\n${x.date ? md(x.date) : ""} ${x.time.slice(0, 2)}:${x.time.slice(2, 4)}・[公開資訊觀測站](https://mops.twse.com.tw/mops/web/t05sr01_1)` })),
+    fields: scored.map((x) => ({ name: `${x.watched ? "⭐ " : x.score >= 7 ? "🚨 " : "📌 "}${x.name}（${x.code}・${x.market}）${x.tags.length ? `｜${x.tags.join("、")}` : ""}`, value: `${clip(x.subject, 300)}\n　└ ${x.date ? md(x.date) : ""} ${x.time.slice(0, 2)}:${x.time.slice(2, 4)}・[公開資訊觀測站](https://mops.twse.com.tw/mops/web/t05sr01_1)` })),
     footer: footer(`⭐ 是自選股；${DISCLAIMER}`),
     timestamp: new Date().toISOString(),
   });
@@ -379,25 +397,34 @@ export function updateStreaks(st, day, flows) {
 }
 const lots = (shares) => Math.round(shares / 1000);
 export function flowEmbed(day, flows, streaks, watch) {
-  const row = (x, k) => `${x.name}（${x.code}）${lots(x[k]) > 0 ? "+" : ""}${lots(x[k]).toLocaleString("en-US")} 張`;
+  const n = (v) => `${lots(v) > 0 ? "+" : ""}${lots(v).toLocaleString("en-US")}`;
+  const row = (x, k, i) => `${RANK[i]} **${x.name}** ${n(x[k])}`;
   const top = (k, dir) => [...flows].filter((x) => dir * x[k] > 0).sort((a, b) => dir * (b[k] - a[k])).slice(0, 5);
   const both = flows.filter((x) => x.foreign > 0 && x.trust > 0).sort((a, b) => b.foreign + b.trust - (a.foreign + a.trust)).slice(0, 5);
   const streak = (k, dir) => flows.map((x) => ({ ...x, n: streaks?.[k]?.[x.code] || 0 })).filter((x) => dir * x.n >= 3).sort((a, b) => dir * (b.n - a.n) || Math.abs(b.foreign) - Math.abs(a.foreign)).slice(0, 5);
   const mine = flows.filter((x) => watch.has(x.code));
+  const sum = (k) => flows.reduce((a, x) => a + x[k], 0);
   const fields = [
-    { name: "🌏 外資買超前五", value: top("foreign", 1).map((x) => row(x, "foreign")).join("\n") },
-    { name: "🌏 外資賣超前五", value: top("foreign", -1).map((x) => row(x, "foreign")).join("\n") },
-    { name: "🏦 投信買超前五", value: top("trust", 1).map((x) => row(x, "trust")).join("\n") },
-    { name: "🤝 外資＋投信同步買", value: both.map((x) => `${x.name}（${x.code}）外資 ${lots(x.foreign).toLocaleString("en-US")}・投信 ${lots(x.trust).toLocaleString("en-US")} 張`).join("\n") || "今天沒有" },
+    { name: "🌏 外資買超", value: top("foreign", 1).map((x, i) => row(x, "foreign", i)).join("\n") || "—", inline: true },
+    { name: "🌏 外資賣超", value: top("foreign", -1).map((x, i) => row(x, "foreign", i)).join("\n") || "—", inline: true },
+    { name: "\u200b", value: "\u200b", inline: true },
+    { name: "🏦 投信買超", value: top("trust", 1).map((x, i) => row(x, "trust", i)).join("\n") || "—", inline: true },
+    { name: "🤝 外資＋投信同步買", value: both.map((x, i) => `${RANK[i]} **${x.name}** ${n(x.foreign + x.trust)}`).join("\n") || "今天沒有", inline: true },
+    { name: "\u200b", value: "\u200b", inline: true },
   ];
   const sb = streak("f", 1), ss = streak("f", -1), tb = streak("t", 1);
   if (sb.length || ss.length || tb.length) fields.push({ name: "📅 連續買賣（3 天以上）", value: [
-    sb.length ? `外資連買：${sb.map((x) => `${x.name} ${x.n} 天`).join("、")}` : "",
-    ss.length ? `外資連賣：${ss.map((x) => `${x.name} ${-x.n} 天`).join("、")}` : "",
-    tb.length ? `投信連買：${tb.map((x) => `${x.name} ${x.n} 天`).join("、")}` : "",
+    sb.length ? `🔴 外資連買　${sb.map((x) => `${x.name} \`${x.n} 天\``).join("、")}` : "",
+    ss.length ? `🟢 外資連賣　${ss.map((x) => `${x.name} \`${-x.n} 天\``).join("、")}` : "",
+    tb.length ? `🔴 投信連買　${tb.map((x) => `${x.name} \`${x.n} 天\``).join("、")}` : "",
   ].filter(Boolean).join("\n") });
-  if (mine.length) fields.push({ name: "⭐ 自選股", value: mine.map((x) => `${x.name}（${x.code}）外資 ${lots(x.foreign).toLocaleString("en-US")}・投信 ${lots(x.trust).toLocaleString("en-US")}・自營 ${lots(x.dealer).toLocaleString("en-US")} 張`).join("\n") });
-  return safeEmbed({ title: `🧾 法人籌碼雷達｜${day.replaceAll("-", "/")}`, description: "上市＋上櫃一般股票，張數＝官方股數 ÷ 1,000；排除 ETF、權證。", color: COLOR.gold, fields, footer: footer(DISCLAIMER), timestamp: new Date().toISOString() });
+  if (mine.length) fields.push({ name: "⭐ 自選股籌碼（外資／投信／自營，張）", value: mine.map((x) => `**${x.name}**（${x.code}）${dotTw(x.foreign)} ${n(x.foreign)}／${dotTw(x.trust)} ${n(x.trust)}／${dotTw(x.dealer)} ${n(x.dealer)}`).join("\n") });
+  return safeEmbed({
+    author: author("台股籌碼"),
+    title: `🧾 法人籌碼雷達｜${day.replaceAll("-", "/")}（${weekday(day)}）`,
+    description: `外資合計 ${dotTw(sum("foreign"))} **${n(sum("foreign"))} 張**　投信合計 ${dotTw(sum("trust"))} **${n(sum("trust"))} 張**\n上市＋上櫃一般股票，張數＝股數 ÷ 1,000；排除 ETF、權證。`,
+    color: COLOR.gold, fields, footer: footer(DISCLAIMER), timestamp: new Date().toISOString(),
+  });
 }
 export async function twFlow(ctx) {
   let day = twDate(ctx.now);

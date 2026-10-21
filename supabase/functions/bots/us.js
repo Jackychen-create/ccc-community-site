@@ -1,6 +1,6 @@
 // 美股：每日新聞、下週重點事件、財報行事曆、SEC 正式申報
 // 來源：CNBC／MarketWatch／Fed／SEC 的公開 RSS、Nasdaq 公開行事曆（經濟事件、財報）、Fed 官方 FOMC 日程、SEC EDGAR
-import { COLOR, getText, getJson, safeEmbed, footer, seenFilter, twDate, addDays, md, clip, UA } from "./core.js";
+import { COLOR, getText, getJson, safeEmbed, footer, author, RANK, seenFilter, twDate, addDays, md, clip, UA } from "./core.js";
 import { readFeeds, pickNews, newsEmbed } from "./tw.js";
 
 const DISCLAIMER = "資訊整理，不是投資建議；以官方公告為準";
@@ -35,7 +35,7 @@ export async function usNews(ctx) {
   const fresh = new Set(ctx.force ? items.map((x) => x.link) : sent.fresh);
   const pick = pickNews(items.filter((x) => fresh.has(x.link)), { now: ctx.now, lookbackHours: 24, rules: US_RULES, max: Number(ctx.opts?.max) || 8, minScore: 3 });
   if (!pick.length) return { skipped: "沒有新的重要新聞" };
-  const embed = newsEmbed(`🇺🇸 美股重點新聞｜${md(day)}`, pick, { color: COLOR.info, note: `英文標題保留原文，分類是規則整理${failed.length ? `；${failed.join("、")}暫時抓不到` : ""}・${DISCLAIMER}` });
+  const embed = newsEmbed(`🇺🇸 美股重點新聞｜${md(day)}`, pick, { section: "美股新聞", color: COLOR.info, note: `英文標題保留原文，分類是規則整理${failed.length ? `；${failed.join("、")}暫時抓不到` : ""}・${DISCLAIMER}` });
   if (ctx.dryRun) return { preview: [embed] };
   await ctx.post({ embeds: [embed] });
   await sent.commit(pick.map((x) => x.link));
@@ -72,17 +72,17 @@ export function etToTw(day, hm) {
 }
 
 const EVENTS = [
-  { re: /^(Core )?CPI|Consumer Price Index/i, label: "CPI 消費者物價", src: "https://www.bls.gov/cpi/" },
+  { re: /^(Core )?CPI|Consumer Price Index/i, label: "CPI 消費者物價", src: "https://www.bls.gov/cpi/", hot: true },
   { re: /^(Core )?PPI|Producer Price Index/i, label: "PPI 生產者物價", src: "https://www.bls.gov/ppi/" },
-  { re: /Nonfarm Payrolls/i, label: "非農就業", src: "https://www.bls.gov/ces/" },
+  { re: /Nonfarm Payrolls/i, label: "非農就業", src: "https://www.bls.gov/ces/", hot: true },
   { re: /^Unemployment Rate/i, label: "失業率", src: "https://www.bls.gov/cps/" },
   { re: /JOLTs?/i, label: "JOLTS 職缺", src: "https://www.bls.gov/jlt/" },
   { re: /^GDP|Gross Domestic Product/i, label: "GDP", src: "https://www.bea.gov/data/gdp/gross-domestic-product" },
-  { re: /\bPCE\b|Personal Consumption/i, label: "PCE 物價", src: "https://www.bea.gov/data/personal-consumption-expenditures-price-index" },
+  { re: /\bPCE\b|Personal Consumption/i, label: "PCE 物價", src: "https://www.bea.gov/data/personal-consumption-expenditures-price-index", hot: true },
   { re: /^(Core )?Retail Sales/i, label: "零售銷售", src: "https://www.census.gov/retail/" },
   { re: /ISM (Manufacturing|Non-Manufacturing|Services) PMI/i, label: "ISM PMI", src: "https://www.ismworld.org/" },
   { re: /Michigan Consumer Sentiment/i, label: "密大消費者信心", src: "" },
-  { re: /Fed Interest Rate Decision|FOMC Statement/i, label: "FOMC 利率決議", src: "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm" },
+  { re: /Fed Interest Rate Decision|FOMC Statement/i, label: "FOMC 利率決議", src: "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm", hot: true },
   { re: /FOMC (Meeting )?Minutes/i, label: "FOMC 會議紀要", src: "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm" },
   { re: /Fed Chair .*Speaks|Powell Speaks/i, label: "Fed 主席談話", src: "" },
 ];
@@ -95,7 +95,7 @@ export function keyEvents(day, rows) {
     const ev = EVENTS.find((e) => e.re.test(clean(r.eventName)));
     if (!ev) continue;
     const k = ev.label;
-    const cur = out.get(k) || { day, label: ev.label, src: ev.src, time: clean(r.gmt), parts: [] };
+    const cur = out.get(k) || { day, label: ev.label, src: ev.src, hot: !!ev.hot, time: clean(r.gmt), parts: [] };
     const c = clean(r.consensus), p = clean(r.previous);
     // 同名的（Nasdaq 常把月增、年增寫成同一個名字）只留第一筆，最多 3 筆
     if (!cur.names?.has(clean(r.eventName)) && cur.parts.length < 3) cur.parts.push(`${clean(r.eventName)}${c ? ` 預估 ${c}` : ""}${p ? `（前值 ${p}）` : ""}`);
@@ -129,15 +129,16 @@ export function weekEmbed(days, events, { missing = [] } = {}) {
   const lines = days.map((d) => {
     const list = events.filter((e) => e.day === d);
     if (!list.length) return null;
-    return `**${md(d)}（${WD[new Date(d + "T00:00:00Z").getUTCDay()]}）**\n` + list.map((e) => {
+    return `### 📆 ${md(d)}（${WD[new Date(d + "T00:00:00Z").getUTCDay()]}）\n` + list.map((e) => {
       const tw = etToTw(d, e.time);
-      return `・${e.src ? `[${e.label}](${e.src})` : e.label}${tw ? `　台灣 ${tw.split("）")[1]}${tw.startsWith(md(d)) ? "" : "（隔天）"}` : ""}\n　${clip(e.parts.join("；"), 180)}`;
+      return `${e.hot ? "🔥" : "▸"} **${e.src ? `[${e.label}](${e.src})` : e.label}**${tw ? `　\`台灣 ${tw.split("）")[1]}${tw.startsWith(md(d)) ? "" : "（隔天）"}\`` : ""}\n　└ ${clip(e.parts.join("；"), 160)}`;
     }).join("\n");
   }).filter(Boolean);
   return safeEmbed({
+    author: author("美股行事曆"),
     title: `📅 美股下週重點事件｜${md(days[0])}–${md(days[6])}`,
     color: COLOR.info,
-    description: lines.length ? lines.join("\n\n") : "下週沒有排定的重點經濟數據。",
+    description: lines.length ? `🔥＝市場最關注（CPI、非農、PCE、FOMC）\n${lines.join("\n")}` : "下週沒有排定的重點經濟數據。",
     footer: footer(`時間換算成台灣時間；日期以 BLS、BEA、Fed 官方為準${missing.length ? `；${missing.join("、")}暫時抓不到` : ""}・${DISCLAIMER}`),
     timestamp: new Date().toISOString(),
   });
@@ -155,7 +156,7 @@ export async function usWeek(ctx) {
     const fomc = parseFomc(await getText("https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"));
     events = events.filter((e) => e.label !== "FOMC 利率決議" || fomc.includes(e.day));
     for (const d of days.filter((x) => fomc.includes(x))) {
-      if (!events.some((e) => e.day === d && e.label === "FOMC 利率決議")) events.push({ day: d, label: "FOMC 利率決議", src: "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm", time: "14:00", parts: ["Fed 官方日程：會議最後一天公布利率決議，之後主席記者會"] });
+      if (!events.some((e) => e.day === d && e.label === "FOMC 利率決議")) events.push({ day: d, label: "FOMC 利率決議", src: "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm", hot: true, time: "14:00", parts: ["Fed 官方日程：會議最後一天公布利率決議，之後主席記者會"] });
     }
   } catch { missing.push("Fed 日程"); }
   const embed = weekEmbed(days, events, { missing });
@@ -174,9 +175,11 @@ export function pickEarnings(day, rows, watch) {
   return (rows || []).filter((r) => set.has(String(r.symbol || "").toUpperCase())).map((r) => ({ day, symbol: r.symbol, name: r.name, time: TIME[r.time] || "時間未定", eps: clean(r.epsForecast), lastEps: clean(r.lastYearEPS), quarter: clean(r.fiscalQuarterEnding) }));
 }
 export function earnEmbed(days, list, { missing = [], watch } = {}) {
-  const lines = list.map((e) => `**${md(e.day)}（${WD[new Date(e.day + "T00:00:00Z").getUTCDay()]}）${e.time}　[${e.symbol}](https://www.nasdaq.com/market-activity/stocks/${e.symbol.toLowerCase()}/earnings)**　${clip(e.name, 40)}\n　${e.quarter ? `${e.quarter} 季` : ""}${e.eps ? `・EPS 預估 ${e.eps}` : ""}${e.lastEps ? `（去年同期 ${e.lastEps}）` : ""}`);
+  const TIME_ICON = { 盤前: "🌅", 盤後: "🌙", 時間未定: "🕒" };
+  const lines = list.map((e) => `${TIME_ICON[e.time] || "🕒"} **${md(e.day)}（${WD[new Date(e.day + "T00:00:00Z").getUTCDay()]}）${e.time}**　**[${e.symbol}](https://www.nasdaq.com/market-activity/stocks/${e.symbol.toLowerCase()}/earnings)** ${clip(e.name, 40)}\n　└ ${e.quarter ? `${e.quarter} 季` : ""}${e.eps ? `・EPS 預估 \`${e.eps}\`` : ""}${e.lastEps ? `（去年同期 ${e.lastEps}）` : ""}`);
   return safeEmbed({
-    title: `📊 財報雷達：下週財報｜${md(days[0])}–${md(days[6])}`,
+    author: author("財報雷達"),
+    title: `📊 下週財報｜${md(days[0])}–${md(days[6])}`,
     color: COLOR.gold,
     description: lines.length ? lines.join("\n") : `下週自選股（${watch.join("、")}）沒有預定財報。`,
     footer: footer(`日期是 Nasdaq 預告，可能變動；正式申報以 SEC 為準${missing.length ? `；${missing.join("、")}暫時抓不到` : ""}・${DISCLAIMER}`),
@@ -235,9 +238,10 @@ export function parseFilings(sym, j, { since }) {
 }
 export function filingsEmbed(list) {
   return safeEmbed({
-    title: `📑 財報雷達：SEC 新申報（${list.length}）`,
+    author: author("財報雷達"),
+    title: `📑 SEC 新申報（${list.length}）`,
     color: list.some((x) => x.earnings) ? COLOR.up : COLOR.info,
-    description: list.map((x) => `**[${x.sym}　${x.label}](${x.url})**${x.earnings ? "　📈 財報" : ""}\n　${x.day}${x.items.length ? `・${x.items.join("、")}` : ""}`).join("\n"),
+    description: list.map((x) => `${x.earnings ? "📈" : "📄"} **[${x.sym}　${x.label}](${x.url})**${x.earnings ? "　`財報`" : ""}\n　└ ${x.day}${x.items.length ? `・${x.items.join("、")}` : ""}`).join("\n"),
     footer: footer(`來源 SEC EDGAR 官方申報・${DISCLAIMER}`),
     timestamp: new Date().toISOString(),
   });

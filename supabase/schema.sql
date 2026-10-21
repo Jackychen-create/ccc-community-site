@@ -558,3 +558,17 @@ select cron.schedule('bots-tick', '*/5 * * * *', $cron$
   )
   from vault.decrypted_secrets s where s.name = 'cron_secret';
 $cron$);
+
+-- ── v1.25.0：Discord 客服單（取代 Ticket Tool）──
+-- 跟培訓計畫報名共用 discord_tickets：kind = apply（報名）或 support（客服單）；一個人兩種各只能開一個
+alter table public.discord_tickets add column if not exists kind text not null default 'apply';
+alter table public.discord_tickets drop constraint if exists discord_tickets_kind_check;
+alter table public.discord_tickets add constraint discord_tickets_kind_check check (kind in ('apply', 'support'));
+alter table public.discord_tickets add column if not exists no bigserial;            -- 客服單編號 #0001
+alter table public.discord_tickets add column if not exists topic text check (topic is null or char_length(topic) <= 20);
+alter table public.discord_tickets add column if not exists subject text check (subject is null or char_length(subject) <= 80);
+alter table public.discord_tickets add column if not exists detail text check (detail is null or char_length(detail) <= 1200);
+alter table public.discord_tickets add column if not exists claimed_by text;          -- 哪位客服在處理
+alter table public.discord_tickets add column if not exists message_id text;          -- 客服單第一則（狀態卡片）
+create unique index if not exists discord_tickets_one_open_kind on public.discord_tickets (discord_user_id, kind) where status = 'open';
+drop index if exists public.discord_tickets_one_open;

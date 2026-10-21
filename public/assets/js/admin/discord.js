@@ -100,6 +100,7 @@ function renderSettings() {
       ...invites,
       save,
       post),
+    supportCard(),
     el("div", { class: "dc-endpoint" },
       el("span", { class: "small muted", text: "Discord Developer Portal 的 Interactions Endpoint URL：" }),
       el("button", { class: "btn sm ghost", type: "button", onclick: () => A.copyText(endpoint), title: "複製" }, icon("copy"), el("span", { class: "num", text: endpoint }))),
@@ -152,4 +153,37 @@ function renderSettings() {
       A.setBusy(post, false);
     }
   });
+}
+
+// 客服中心（取代 Ticket Tool）：一鍵建立、最近的客服單
+const TOPIC = { member: "🧪 培訓計畫", exchange: "💱 交易所", site: "💻 網站", biz: "🤝 合作", other: "💬 其他" };
+function supportCard() {
+  const s = dc.settings;
+  const btn = el("button", { class: "btn primary block", type: "button", id: "dcSupport", style: { marginTop: "10px" } }, s.supportPanelChannelId ? "重新設定客服中心" : "一鍵建立客服中心");
+  btn.addEventListener("click", async () => {
+    A.setBusy(btn, true, "建立中…");
+    try {
+      const r = await api("/api/admin/discord", { method: "POST", body: { action: "support" } });
+      dc.settings = r.settings;
+      A.toast(r.created.length ? `建立了：${r.created.join("、")}` : "客服中心的頻道和權限都設定好了，開單選單也更新了");
+      renderSettings();
+    } catch (e) {
+      A.setBusy(btn, false);
+      fail(e);
+    }
+  });
+  const link = (ch) => (s.guildId ? `https://discord.com/channels/${s.guildId}/${ch}` : null);
+  const rows = (dc.support || []).map((t) => el("div", { class: "dc-ticket" },
+    el("div", { class: "grow" },
+      el("b", { text: `#${String(t.no || 0).padStart(4, "0")} ${t.subject || ""}` }),
+      el("div", { class: "small muted", text: `${TOPIC[t.topic] || "💬"}・${t.discord_name || "—"}・${A.fmtRel(t.created_at)}${t.claimed_by ? `・${t.claimed_by} 處理` : ""}` })),
+    t.status === "open"
+      ? (link(t.channel_id) ? el("a", { class: "pill brass", href: link(t.channel_id), target: "_blank", rel: "noopener" }, el("span", { class: "dot" }), "處理中") : el("span", { class: "pill brass" }, el("span", { class: "dot" }), "處理中"))
+      : el("span", { class: "pill" }, el("span", { class: "dot" }), "已結案")));
+  return el("div", { class: "dc-support" },
+    el("h3", { text: "客服中心（取代 Ticket Tool）" }),
+    el("p", { class: "small sub", text: "研究員在「🎫客服中心」選要問的類型、填主旨和說明，機器人開一個只有他和客服身分組看得到的私人頻道。客服按「我來處理」接手，處理完按「關閉客服單」，完整對話會存到「🗂️客服紀錄」並私訊給他。" }),
+    btn,
+    s.supportPanelChannelId ? el("p", { class: "small dc-ok", style: { marginTop: "8px" } }, icon("ok"), "客服中心已經建立；確認沒問題後可以把 Ticket Tool 移出伺服器。") : null,
+    rows.length ? el("div", { class: "dc-tickets" }, el("p", { class: "small muted", text: "最近的客服單" }), ...rows) : null);
 }

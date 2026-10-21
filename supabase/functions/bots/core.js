@@ -122,7 +122,24 @@ export function safeEmbed(e) {
   if (out.footer?.text) out.footer = { ...out.footer, text: clip(out.footer.text, 2048) };
   return out;
 }
-export const footer = (text) => ({ text: `${BRAND}｜${text}` });
+export const LOGO = "https://ccc-community-site.pages.dev/assets/brand/ccc-bot.png";
+export const footer = (text) => ({ text: `${BRAND}｜${text}`, icon_url: LOGO });
+// 卡片最上面的小標：CCC Market Lab｜台股盤後（附 logo）
+export const author = (section) => ({ name: `${BRAND}｜${section}`, icon_url: LOGO });
+// 小圖表：比例條 ▰▰▰▱▱、走勢 ▁▂▃▅▇、名次 🥇🥈🥉
+export const bar = (ratio, n = 10, on = "▰", off = "▱") => { const k = Math.max(0, Math.min(n, Math.round((Number(ratio) || 0) * n))); return on.repeat(k) + off.repeat(n - k); };
+export const spark = (vals) => {
+  const v = (vals || []).filter((x) => Number.isFinite(x));
+  if (v.length < 2) return "";
+  const lo = Math.min(...v), hi = Math.max(...v), ch = "▁▂▃▄▅▆▇█";
+  return v.map((x) => ch[hi === lo ? 3 : Math.round(((x - lo) / (hi - lo)) * 7)]).join("");
+};
+export const RANK = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
+const WEEK = ["日", "一", "二", "三", "四", "五", "六"];
+export const weekday = (day) => WEEK[new Date(day + "T00:00:00Z").getUTCDay()];
+// 漲跌色點：台股紅漲綠跌；美股、加密綠漲紅跌
+export const dotTw = (n) => (n == null ? "▫️" : n > 0 ? "🔴" : n < 0 ? "🟢" : "⚪");
+export const dotGlobal = (n) => (n == null ? "▫️" : n > 0 ? "🟢" : n < 0 ? "🔴" : "⚪");
 
 // ── 去重：記住已經發過的項目（最多留 n 筆）──
 export async function seenFilter(db, key, ids, { keep = 500 } = {}) {

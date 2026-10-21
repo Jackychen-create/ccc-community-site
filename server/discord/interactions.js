@@ -14,6 +14,7 @@ import {
   approvedMessage, notInvitedMessage, rejectedMessage,
 } from "../lib/discord-flow.js";
 import { openTicket, ticketOf, closeTicket, personalCode } from "../lib/discord-ticket.js";
+import { SUPPORT_TOPICS, supportModal, openSupport, openSupportOf, supportBlocked, claimSupport, claimedMessage, confirmCloseMessage, closeSupport } from "../lib/discord-support.js";
 
 const nameOf = (u) => u?.global_name || u?.username || "";
 const errText = (e) => String(e?.message || e).slice(0, 80);
@@ -159,7 +160,7 @@ export default route({
 
     const s = await getDiscordSettings();
     const user = i.member?.user || i.user;
-    if (!i.guild_id || !user) return res.status(200).json(reply("請在 CCC 的 Discord 伺服器裡使用。"));
+    if (!i.guild_id || !user || (s.guildId && i.guild_id !== s.guildId)) return res.status(200).json(reply("請在 CCC 的 Discord 伺服器裡使用。"));
     const hasRole = (i.member?.roles || []).includes(s.roleId);
     const channelId = i.channel_id || i.channel?.id || "";
     const id = i.data?.custom_id || "";
@@ -167,7 +168,7 @@ export default route({
     // 報名頻道裡的操作：只有申請人可以（管理員也可以關頻道）
     const ownTicket = async () => {
       const t = await ticketOf(channelId);
-      if (!t || t.status !== "open") return { error: reply(resultText("no_ticket")) };
+      if (!t || t.status !== "open" || t.kind === "support") return { error: reply(resultText("no_ticket")) };
       if (t.discord_user_id !== user.id) return { error: reply(resultText("not_owner")) };
       return { ticket: t };
     };
@@ -188,15 +189,66 @@ export default route({
       }
       if (id === "close_ticket") {
         const t = await ticketOf(channelId);
-        if (!t || t.status !== "open") return res.status(200).json(reply("這個頻道已經關閉了。"));
+        if (!t || t.status !== "open" || t.kind === "support") return res.status(200).json(reply("這個頻道已經關閉了。"));
         if (t.discord_user_id !== user.id && !canReview(i.member, s.staffRoleIds || [])) return res.status(200).json(reply(resultText("not_owner")));
         req.waitUntil?.(new Promise((r) => setTimeout(r, CLOSE_DELAY_MS.value))
           .then(() => closeTicket(channelId, nameOf(user)))
           .catch((e) => console.error("discord close failed", e?.message)));
         return res.status(200).json({ type: T.MESSAGE, data: { content: `🔒 ${nameOf(user)} 關閉了這個報名頻道，幾秒後會刪除。`, allowed_mentions: { parse: [] } } });
       }
+      // ── 客服單 ──
+      if (id === "support_topic") {
+        const topic = i.data?.values?.[0];
+        if (!SUPPORT_TOPICS.some((t) => t.value === topic)) return res.status(200).json(reply("請重新選一次類型。"));
+        const open = await openSupportOf(user.id);
+        if (open) return res.status(200).json(reply(`你已經有一張客服單了：<#${open.channel_id}>，直接在那裡說就可以。`));
+        const blocked = await supportBlocked(user.id);
+        if (blocked) return res.status(200).json(reply(blocked));
+        return res.status(200).json(supportModal(topic));
+      }
+      if (id === "support_claim" || id === "support_close" || id === "support_close_yes") {
+        const t = await ticketOf(channelId);
+        if (!t || t.status !== "open" || t.kind !== "support") return res.status(200).json(reply("這張客服單已經關閉了。"));
+        const staff = canReview(i.member, s.staffRoleIds || []);
+        if (id === "support_claim") {
+          if (!staff) return res.status(200).json(reply("只有客服可以接手處理。"));
+          const by = nameOf(user);
+          await claimSupport({ ...t, message_id: null }, by);
+          return res.status(200).json({ type: T.UPDATE, data: claimedMessage(t, by) });
+        }
+        if (t.discord_user_id !== user.id && !staff) return res.status(200).json(reply("只有開單的人或客服可以關閉。"));
+        if (id === "support_close") return res.status(200).json(confirmCloseMessage());
+        const by = nameOf(user);
+        req.waitUntil?.((async () => {
+          try {
+            await sendMessage(channelId, { content: `🔒 ${by} 關閉了這張客服單，正在存紀錄，幾秒後刪除頻道。`, allowed_mentions: { parse: [] } }).catch(() => {});
+            await new Promise((r) => setTimeout(r, CLOSE_DELAY_MS.value));
+            await closeSupport(t, by, s);
+          } catch (e) { console.error("support close failed", e?.message); }
+        })());
+        return res.status(200).json({ type: T.UPDATE, data: { content: "已關閉，紀錄整理中…", components: [] } });
+      }
       const m = /^(approve|reject):(\d+)$/.exec(id);
       if (m) return review(req, res, i, s, m[1], Number(m[2]));
+    }
+
+    // 客服單：填完主旨、說明送出 → 開私人頻道
+    if (i.type === 5 && /^support_form:/.test(id)) {
+      const topic = id.split(":")[1];
+      const subject = String(fieldValue(i.data.components, "subject") || "").replace(/\s+/g, " ").trim().slice(0, 60);
+      const detail = String(fieldValue(i.data.components, "detail") || "").trim().slice(0, 1000);
+      if (subject.length < 2 || detail.length < 5) return res.status(200).json(reply("主旨和說明請再寫清楚一點。"));
+      req.waitUntil?.((async () => {
+        try {
+          const { channelId: ch, created, blocked } = await openSupport({ guildId: i.guild_id, user, name: nameOf(user), s, topic, subject, detail });
+          if (blocked) return await editOriginal(i.token, { content: blocked, allowed_mentions: { parse: [] } });
+          await editOriginal(i.token, { content: created ? `✅ 客服單開好了：<#${ch}>，客服會在那裡回你。` : `你已經有一張客服單了：<#${ch}>`, allowed_mentions: { parse: [] } });
+        } catch (e) {
+          console.error("support open failed", e?.status, e?.message);
+          await editOriginal(i.token, { content: "開客服單失敗，請稍後再試，或私訊管理員。", allowed_mentions: { parse: [] } }).catch(() => {});
+        }
+      })());
+      return res.status(200).json({ type: T.DEFER, data: { flags: EPHEMERAL } });
     }
 
     // 填完 UID 送出
