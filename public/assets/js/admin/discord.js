@@ -92,6 +92,8 @@ function renderSettings() {
       el("label", { class: "field" }, el("span", { class: "label", text: "通過後給的身分組 ID" }), idInput("dcRole", s.roleId, "例如 1560542923173400596")),
       el("label", { class: "field" }, el("span", { class: "label", text: "報名頻道 ID（放報名按鈕）" }), idInput("dcPanel", s.panelChannelId, "對頻道按右鍵 → 複製頻道 ID")),
       el("label", { class: "field" }, el("span", { class: "label", text: "審核頻道 ID（有人等審核時通知在這裡）" }), idInput("dcReview", s.reviewChannelId, "只有管理員看得到的頻道")),
+      el("label", { class: "field" }, el("span", { class: "label", text: "直播精華頻道 ID（選填，直播上架後 AI 整理的重點貼在這裡）" }), idInput("dcHighlight", s.highlightChannelId, "建議用只有研究員看得到的頻道")),
+      el("label", { class: "field" }, el("span", { class: "label", text: "升級慶祝頻道 ID（選填，研究員升級後按「分享到 Discord」貼在這裡）" }), idInput("dcCelebrate", s.celebrateChannelId, "例如研究員大廳")),
       el("label", { class: "field" }, el("span", { class: "label", text: "客服身分組 ID（選填，看得到報名頻道、可以按通過）" }),
         el("input", { class: "input num", id: "dcStaff", type: "text", autocomplete: "off", maxlength: "120", value: (s.staffRoleIds || []).join(", "), placeholder: "多個用逗號分開" })),
       el("p", { class: "small muted", style: { marginTop: "12px" }, text: "一對一講師的 Discord 使用者 ID（選填）：有人選、改選、取消一對一時，在審核頻道 @ 他。對他的名字按右鍵 →「複製使用者 ID」。" }),
@@ -131,7 +133,7 @@ function renderSettings() {
       const hostIds = {};
       box.querySelectorAll("input[data-host]").forEach((i) => { if (i.value.trim()) hostIds[i.dataset.host] = i.value.trim(); });
       const r = await api("/api/admin/discord", { method: "PATCH", body: {
-        roleId: $("#dcRole").value.trim(), panelChannelId: $("#dcPanel").value.trim(), reviewChannelId: $("#dcReview").value.trim(), staffRoleIds: $("#dcStaff").value.trim(), invites: inv, hostIds,
+        roleId: $("#dcRole").value.trim(), panelChannelId: $("#dcPanel").value.trim(), reviewChannelId: $("#dcReview").value.trim(), highlightChannelId: $("#dcHighlight").value.trim(), celebrateChannelId: $("#dcCelebrate").value.trim(), staffRoleIds: $("#dcStaff").value.trim(), invites: inv, hostIds,
       } });
       dc.settings = r.settings;
       A.toast(r.synced === false ? "已儲存，但客服身分組的頻道權限沒更新成功，請按一次「一鍵建立 Discord 頻道」" : r.panelUpdated === false ? "已儲存，但報名按鈕那則沒更新成功，請按「重新張貼報名按鈕」" : r.panelUpdated ? "已儲存，報名頻道的註冊按鈕也更新了" : "已儲存 Discord 設定");

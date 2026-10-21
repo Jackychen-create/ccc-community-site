@@ -572,3 +572,24 @@ alter table public.discord_tickets add column if not exists claimed_by text;    
 alter table public.discord_tickets add column if not exists message_id text;          -- 客服單第一則（狀態卡片）
 create unique index if not exists discord_tickets_one_open_kind on public.discord_tickets (discord_user_id, kind) where status = 'open';
 drop index if exists public.discord_tickets_one_open;
+
+-- ── v1.26.0：直播精華（AI 逐字稿、摘要、重點、建議章節）、研究員等級卡分享 ──
+-- 一支直播一列；GitHub Actions 抽音訊 → 網站用 Cloudflare Workers AI 轉文字、整理（見 server/cron/highlights.js）
+create table if not exists public.video_highlights (
+  video_id    bigint primary key references public.videos(id) on delete cascade,
+  status      text not null default 'pending' check (status in ('pending', 'processing', 'done', 'failed', 'skipped')),
+  attempts    int not null default 0,
+  chunks      jsonb not null default '{}'::jsonb,   -- 每 10 分鐘一段的逐字稿 { "0": [{s, e, t}], "1": … }
+  summary     text check (summary is null or char_length(summary) <= 1200),
+  points      jsonb not null default '[]'::jsonb,   -- ["重點", …]
+  tickers     jsonb not null default '[]'::jsonb,   -- [{ name, note }]
+  chapters    jsonb not null default '[]'::jsonb,   -- [{ t, title }]
+  model       text,
+  error       text check (error is null or char_length(error) <= 500),
+  posted_at   timestamptz,                          -- 貼到 Discord 的時間（只貼一次）
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+alter table public.video_highlights enable row level security;
+-- 升級卡片分享到 Discord（每個等級每一輪只分享一次）
+alter table public.milestones add column if not exists shared_at timestamptz;

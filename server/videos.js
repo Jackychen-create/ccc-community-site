@@ -84,7 +84,7 @@ async function detail(res, ctx, id, tier) {
     if (unlock > todayTW()) return res.status(403).json({ error: `這一份課程 ${unlock} 解鎖`, code: "locked", unlock_on: unlock });
   }
 
-  const [{ data: atts }, { data: p }] = await Promise.all([
+  const [{ data: atts }, { data: p }, { data: hl }] = await Promise.all([
     supabaseAdmin
       .from("attachments")
       .select("id, title, r2_key, size_bytes")
@@ -96,6 +96,8 @@ async function detail(res, ctx, id, tier) {
       .eq("user_id", user.id)
       .eq("video_id", id)
       .maybeSingle(),
+    // 直播精華（AI 整理的摘要、重點、標的、章節）
+    supabaseAdmin.from("video_highlights").select("status, summary, points, tickers, chapters").eq("video_id", id).maybeSingle(),
   ]);
 
   const attachments = await Promise.all(
@@ -122,6 +124,8 @@ async function detail(res, ctx, id, tier) {
     url: await signGet(v.r2_key),
     position_sec: p?.position_sec ?? 0,
     attachments,
+    // 重做時（排隊、處理中）先顯示上一次的結果
+    highlight: hl?.summary ? { summary: hl.summary, points: hl.points || [], tickers: hl.tickers || [], chapters: hl.chapters || [] } : null,
   });
 }
 

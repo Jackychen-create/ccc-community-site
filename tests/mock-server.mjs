@@ -168,7 +168,10 @@ function questsM(m) {
   const weeksDone = [...questRows.entries()].filter(([k, v]) => k.startsWith(m.user_id + ":") && v.done_at).length;
   return { week: wk, quests, allDone, justDone, weeksDone };
 }
-const msUnseen = (m, p) => [...msRows.entries()].filter(([k, v]) => k.startsWith(`${m.user_id}:${p.start}:`) && !v.seen).map(([, v]) => v).sort((a, b) => b.level - a.level)[0] || null;
+const msUnseen = (m, p) => [...msRows.entries()].filter(([k, v]) => k.startsWith(`${m.user_id}:${p.start}:`) && !v.seen).map(([, v]) => ({ ...v, share: !!discordSettings.celebrateChannelId && !v.shared_at })).sort((a, b) => b.level - a.level)[0] || null;
+// 直播精華（AI 整理）：video_id → { status, summary, points, tickers, chapters, posted_at, transcript }
+const highlights = new Map();
+const sharePosts = [];
 function autoSyncUser(ex, userId) {
   const uid = autoLinks[ex].get(userId); if (!uid) return 0;
   const m = members.find((x) => x.user_id === userId); if (!m) return 0;
@@ -309,6 +312,8 @@ const server = http.createServer(async (req, res) => {
     // 測試用：補幾天之前的打卡（「這週打開網站 3 天」）
     // 測試用：把研究員的加入日往前移 days 天（進到第二輪以後），可以順便給上一輪的交易量
     if (p === "/api/__test/age") { const m = members.find((x) => x.email === body.email); if (!m) return send(res, 404, {}); m.created_at = new Date(Date.now() - body.days * 86400e3).toISOString(); if (body.prevAmounts) { const pp = prevPeriod(anchorOf(m), curP(m)); if (pp) vols.set(m.user_id + ":" + pp.start, { amounts: body.prevAmounts, qualified_at: null, updated_at: new Date().toISOString(), updated_by: "test" }); } return send(res, 200, { ok: true }); }
+    if (p === "/api/__test/highlight") { highlights.set(Number(body.video), body.highlight); return send(res, 200, { ok: true }); }
+    if (p === "/api/__test/shares") return send(res, 200, sharePosts);
     if (p === "/api/__test/checkin") { const m = members.find((x) => x.email === body.email); if (!m) return send(res, 404, {}); const set = checkinsM.get(m.user_id) || new Set(); for (const dd of body.days || []) set.add(dd); checkinsM.set(m.user_id, set); return send(res, 200, { ok: true }); }
     // 公開影片（不用登入）
     if (p === "/api/public-video") {
@@ -332,7 +337,7 @@ const server = http.createServer(async (req, res) => {
     const ts = mrow ? tierM(mrow) : null;
     // 第一級：教學課程（每位講師第 1 份）、播放、進度、筆記也可以（詳細的在各自的地方檢查）
     const t1ok = ts && ts.tier >= 1 && (["/api/course", "/api/progress", "/api/notes"].includes(p) || (p === "/api/videos" && url.searchParams.has("id")));
-    if (ts && ts.tier < 2 && !t1ok && !["/api/me", "/api/exchange-link", "/api/feedback", "/api/report", "/api/badges", "/api/oneonone", "/api/quests"].includes(p)) return send(res, 403, { error: `這個內容要第二級（這一輪 ${tierRuleText(2)}）`, code: "tier", tier: ts.tier });
+    if (ts && ts.tier < 2 && !t1ok && !["/api/me", "/api/exchange-link", "/api/feedback", "/api/report", "/api/badges", "/api/oneonone", "/api/quests", "/api/share"].includes(p)) return send(res, 403, { error: `這個內容要第二級（這一輪 ${tierRuleText(2)}）`, code: "tier", tier: ts.tier });
     if (p === "/api/me") {
       if (req.method === "PATCH") {
         if (body.theme !== undefined) {
@@ -444,7 +449,18 @@ const server = http.createServer(async (req, res) => {
       if (ts && (v.course_host ? !courseTierOk(ts.tier, v.course_part) : ts.tier < 2)) return send(res, 403, { error: `這個內容要第二級（這一輪 ${tierRuleText(2)}）`, code: "tier" });
       if (v.course_host && !admin && !courseSkipSchedule(ts?.tier ?? 0)) { const un = unlockOn(twDate(mrow.created_at), v.course_host, v.course_part); if (un > TODAY()) return send(res, 403, { error: `這一份課程 ${un} 解鎖`, code: "locked", unlock_on: un }); }
       const pr = progress.get(`${u.id}:${v.id}`);
-      return send(res, 200, { id: v.id, title: v.title, description: v.description, published_at: v.published_at, duration_sec: v.duration_sec, is_published: v.is_published, thumb_url: thumbUrl(v), hosts: v.hosts || [], chapters: v.chapters || [], course_host: v.course_host || null, course_part: v.course_part || null, url: "/media/" + (process.env.VIDEO || "live.webm") + "?sig=" + Date.now(), position_sec: pr?.position_sec || 0, attachments: v.attachments.map((a) => ({ ...a, url: "/media/thumb5.jpg?dl=1" })) });
+      return send(res, 200, { id: v.id, title: v.title, description: v.description, published_at: v.published_at, duration_sec: v.duration_sec, is_published: v.is_published, thumb_url: thumbUrl(v), hosts: v.hosts || [], chapters: v.chapters || [], course_host: v.course_host || null, course_part: v.course_part || null, url: "/media/" + (process.env.VIDEO || "live.webm") + "?sig=" + Date.now(), position_sec: pr?.position_sec || 0, attachments: v.attachments.map((a) => ({ ...a, url: "/media/thumb5.jpg?dl=1" })), highlight: (() => { const h = highlights.get(v.id); return h?.status === "done" ? { summary: h.summary, points: h.points, tickers: h.tickers, chapters: h.chapters } : null; })() });
+    }
+    // 升級後「分享到 Discord」
+    if (p === "/api/share" && req.method === "POST") {
+      if (!mrow) return send(res, 400, { error: "管理員帳號沒有等級可以分享" });
+      if (!discordSettings.celebrateChannelId) return send(res, 400, { error: "管理員還沒設定要分享到哪個頻道" });
+      const hit = [...msRows.entries()].find(([k, v]) => k.startsWith(mrow.user_id + ":") && v.level === Number(body.level));
+      if (!hit) return send(res, 404, { error: "找不到這次升級" });
+      if (hit[1].shared_at) return send(res, 409, { error: "這次升級已經分享過了" });
+      hit[1].shared_at = new Date().toISOString();
+      sharePosts.push({ user_id: mrow.user_id, level: Number(body.level), channel: discordSettings.celebrateChannelId });
+      return send(res, 200, { ok: true });
     }
     if (p === "/api/course") {
       const start = mrow ? twDate(mrow.created_at) : TODAY();
@@ -602,7 +618,7 @@ const server = http.createServer(async (req, res) => {
     if (p === "/api/admin/discord") {
       if (req.method === "GET") return send(res, 200, { configured: true, settings: discordSettings, applications: discordApps.map((a) => { const hit = members.find((m) => linkOf(m.user_id)[a.exchange] === a.exchange_uid); return { ...a, site_email: hit?.email || null }; }), inviteUrl: "https://discord.com/oauth2/authorize?client_id=111111111111111111&scope=bot&permissions=268528656" });
       if (req.method === "PATCH") {
-        for (const k of ["roleId", "panelChannelId", "reviewChannelId"]) {
+        for (const k of ["roleId", "panelChannelId", "reviewChannelId", "highlightChannelId", "celebrateChannelId"]) {
           if (body[k] === undefined) continue;
           const v = String(body[k] || "").trim();
           if (v && !/^\d{17,20}$/.test(v)) return send(res, 400, { error: "ID 是 17–20 位數字，請在 Discord 對頻道或身分組按右鍵「複製 ID」" });
@@ -653,6 +669,18 @@ const server = http.createServer(async (req, res) => {
         if (tierOf(amounts) > tierOf(prevRow?.amounts || {})) tierUps++;
       }
       return send(res, 200, { ...volSnap(which), saved, tierUps });
+    }
+    if (p === "/api/admin/highlights") {
+      const id = Number(req.method === "GET" ? url.searchParams.get("video") : body.video);
+      const v = videos.find((x) => x.id === id);
+      if (!v) return send(res, 404, { error: "找不到這支影片" });
+      if (req.method === "GET") { const h = highlights.get(id); return send(res, 200, { highlight: h ? { ...h, chunk_count: h.transcript ? 2 : 0 } : null }); }
+      if (body.action === "redo") { highlights.set(id, { ...(highlights.get(id) || {}), status: "pending", error: null }); return send(res, 200, { ok: true }); }
+      const h = highlights.get(id);
+      if (!h || h.status !== "done") return send(res, 400, { error: "精華還沒做好" });
+      if (body.action === "apply") { v.chapters = h.chapters; return send(res, 200, { ok: true, chapters: h.chapters }); }
+      if (body.action === "post") { if (!discordSettings.highlightChannelId) return send(res, 400, { error: "還沒設定直播精華要貼到哪個頻道（後台 Discord 審核 → 直播精華頻道）" }); h.posted_at = new Date().toISOString(); return send(res, 200, { ok: true }); }
+      return send(res, 400, { error: "不知道要做什麼" });
     }
     if (p === "/api/admin/notify" && videos.find((x) => x.id === body.videoId)?.course_host) return send(res, 400, { error: "教學課程依每個人的加入日期解鎖，不寄全體通知" });
     if (p === "/api/admin/notify") return send(res, 200, { ok: true, sent: members.filter((m) => !m.banned && m.notify !== false).length });

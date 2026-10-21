@@ -6,6 +6,7 @@ import { state } from "./state.js";
 import { fail } from "./common.js";
 import { renderVideos, deleteVideo } from "./videos.js";
 import { guessType, uploadRow, putFile } from "./transfer.js";
+import { highlightField } from "./highlight.js";
 
 const PARTS = Array.from({ length: COURSE_PARTS }, (_, i) => i + 1);
 
@@ -63,6 +64,7 @@ export function openEditor(id, { justUploaded = false } = {}) {
     publicFields.hidden = kind !== "public";
     pubLabel.textContent = kind === "public" ? "發布（拿到連結的人都看得到）" : "發布（研究員看得到）";
     if (hostField) hostField.hidden = kind === "course";
+    hlField.hidden = kind !== "live";
     const week = courseWeek(cHost.value, Number(cPart.value)) + 1;
     const taken = kind === "course" && state.videos.find((x) => x.id !== v.id && x.course_host === cHost.value && x.course_part === Number(cPart.value));
     courseHint.textContent = taken
@@ -87,6 +89,8 @@ export function openEditor(id, { justUploaded = false } = {}) {
   };
   chapText.addEventListener("input", updateChapHint);
   updateChapHint();
+  // 直播精華（只有直播留檔）：AI 建議的章節可以一鍵填進上面的章節欄
+  const hlField = highlightField(v, { onApply: (chaps) => { chapText.value = chaps.map((c) => `${A.fmtDur(c.t)} ${c.title}`).join("\n"); updateChapHint(); } });
 
   // 封面
   const coverImg = el("div", { class: "mini-thumb cover-preview" });
@@ -179,6 +183,7 @@ export function openEditor(id, { justUploaded = false } = {}) {
             coverInput))),
       el("label", { class: "field" }, el("span", { class: "label", text: "簡介" }), desc),
       el("label", { class: "field" }, el("span", { class: "label", text: "章節" }), chapText, chapHint),
+      hlField,
       el("div", { class: "field" }, el("label", { class: "switch" }, pub, el("span", { class: "track" }), pubLabel)),
       el("div", { class: "field" },
         el("div", { class: "section-label" }, el("span", { class: "label", text: "教材附件" }),

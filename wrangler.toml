@@ -3,3 +3,7 @@ name = "ccc-community"
 pages_build_output_dir = "public"
 compatibility_date = "2025-09-01"
 compatibility_flags = ["nodejs_compat"]
+
+# Cloudflare Workers AI：直播精華的語音轉文字、摘要（用帳號的 Workers AI 額度，不用另外的金鑰）
+[ai]
+binding = "AI"

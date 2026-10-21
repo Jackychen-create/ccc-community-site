@@ -1,0 +1,32 @@
+# 直播精華：每 2 小時看一次有沒有新上架的直播，有的話把聲音抽出來交給網站，
+# 網站用 Cloudflare Workers AI 轉成逐字稿、整理成摘要、重點、標的、章節，貼到 Discord（見 server/lib/highlights.js）
+# 不用在 GitHub 存任何密碼：網站用 GitHub 的身分證明（OIDC）確認是這個 repo main 分支上的這個流程
+# 也可以在 GitHub → Actions → 直播精華 → Run workflow 手動跑
+name: 直播精華
+
+on:
+  schedule:
+    - cron: "23 */2 * * *"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: highlights
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 安裝 ffmpeg
+        run: command -v ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
+      - name: 做直播精華
+        run: node tools/highlights/run.mjs

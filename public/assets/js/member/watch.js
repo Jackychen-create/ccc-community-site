@@ -62,6 +62,7 @@ export async function openWatch(id, { t = null } = {}) {
   $("#wMeta").replaceChildren();
   $("#wDesc").textContent = "";
   $("#wFiles").hidden = true;
+  $("#wHl").hidden = true;
   $("#videoLoading").hidden = false;
   setNotice(null);
   renderOthers(id);
@@ -109,6 +110,8 @@ export async function openWatch(id, { t = null } = {}) {
   if (!d.is_published) meta.append(el("span", { class: "pill warn", text: "草稿預覽（研究員看不到）" }));
   $("#wDesc").textContent = d.description || "";
 
+  renderHighlight(d.highlight);
+
   if (d.attachments?.length) {
     $("#wFiles").hidden = false;
     $("#wFileList").replaceChildren(...d.attachments.map(fileRow));
@@ -118,7 +121,8 @@ export async function openWatch(id, { t = null } = {}) {
   const nearEnd = d.duration_sec && pos > d.duration_sec - 20;
   P.pendingSeek = t !== null ? t : pos >= 15 && !nearEnd ? pos : null;
   if (t !== null) P.jumpedTo = t;
-  renderChapters(d);
+  // 沒有手動整理的章節時，用 AI 建議的章節
+  renderChapters(d.chapters?.length || !d.highlight?.chapters?.length ? d : { ...d, chapters: d.highlight.chapters });
   loadNotes(d.id);
 
   video.defaultPlaybackRate = store.get("speed", 1);
@@ -365,3 +369,16 @@ document.addEventListener("keydown", (e) => {
     $("#noteBody").focus({ preventScroll: false });
   }
 });
+
+// 直播精華：AI 整理的摘要、重點、提到的標的（點標的可以跳到章節沒有意義，所以只列出來）
+function renderHighlight(h) {
+  const box = $("#wHl");
+  if (!h?.summary) { box.hidden = true; return; }
+  box.hidden = false;
+  $("#wHlBody").replaceChildren(
+    el("p", { class: "ai-hl-sum", text: h.summary }),
+    h.points?.length ? el("ul", { class: "ai-hl-points" }, ...h.points.map((x) => el("li", { text: x }))) : null,
+    h.tickers?.length ? el("div", { class: "ai-hl-tickers" }, el("span", { class: "small muted", text: "提到的標的" }),
+      ...h.tickers.map((x) => el("span", { class: "pill", title: x.note || "", text: x.name }))) : null,
+  );
+}

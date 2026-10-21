@@ -3,7 +3,7 @@
 // PATCH /api/me { milestoneSeen: true }  看過里程碑恭喜了（不再跳）
 // PATCH /api/me { theme }  換外觀主題（要拿到對應徽章的主題會檢查）
 import { themeUnlocked } from "../public/assets/js/shared/rules.js";
-import { checkin, getDiscordSettings, supabaseAdmin, adminRole, unseenMilestone, markMilestonesSeen, earnedIds, requireMember, readBody, route, nextLive, needsName, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, periodFor, nextPeriod, anchorOf } from "./lib/index.js";
+import { checkin, getDiscordSettings, discordConfigured, supabaseAdmin, adminRole, unseenMilestone, markMilestonesSeen, earnedIds, requireMember, readBody, route, nextLive, needsName, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, periodFor, nextPeriod, anchorOf } from "./lib/index.js";
 
 export default route({
   async GET(req, res) {
@@ -36,6 +36,11 @@ export default route({
         // 這一輪還沒看過的升級，首頁跳一次恭喜；表還沒建立時當作沒有
         milestone: ctx.member.free ? null : await unseenMilestone(ctx.user.id, period.start).catch(() => null),
       };
+      // 升級畫面要不要出現「分享到 Discord」：後台有設升級慶祝頻道、這一級還沒分享過
+      if (volume.milestone) {
+        const ds = await getDiscordSettings().catch(() => ({}));
+        volume.milestone = { level: volume.milestone.level, reached_at: volume.milestone.reached_at, share: !!ds.celebrateChannelId && !volume.milestone.shared_at && discordConfigured() };
+      }
     }
     // 有沒有還沒看的提問回覆（右上角選單會亮一個點）
     const { count: unread } = await supabaseAdmin.from("feedback").select("id", { count: "exact", head: true }).eq("user_id", ctx.user.id).eq("seen_reply", false);

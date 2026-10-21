@@ -50,7 +50,7 @@ export default route({
     const b = readBody(req);
     const cur = await getDiscordSettings();
     const next = { ...cur };
-    for (const k of ["roleId", "panelChannelId", "reviewChannelId"]) {
+    for (const k of ["roleId", "panelChannelId", "reviewChannelId", "highlightChannelId", "celebrateChannelId"]) {
       if (b[k] === undefined) continue;
       const v = String(b[k] || "").trim();
       if (v && !isSnowflake(v)) return res.status(400).json({ error: "ID 是 17–20 位數字，請在 Discord 對頻道或身分組按右鍵「複製 ID」" });
