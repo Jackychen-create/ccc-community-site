@@ -6,6 +6,8 @@ import { oneOnOneNotice } from "../server/lib/oneonone.js";
 const pick = ({ tier, until, cycleTier }) => ({ tier, until, cycleTier });
 import { mergeBuckets } from "../server/lib/buckets.js";
 import { cleanTitle, cleanChapters, toInt, isDate } from "../server/lib/text.js";
+import { errorKind } from "../server/lib/http.js";
+import { retryReads, RETRY_DELAY_MS } from "../server/lib/env.js";
 import http from "node:http";
 import { env } from "../server/lib/env.js";
 import { buildCanonical, hmacHex, parseSafe, dayChunks, summarize, checkInvite, fetchDaily, commissionDay } from "../server/lib/bingx.js";
@@ -353,6 +355,25 @@ await atest("沒有設定 Supabase 或用假的 Bybit 時不轉送", async () =>
   env.BYBIT_BASE_URL = base; env.BYBIT_PROXY_URL = keep;
 });
 delete env.BYBIT_PROXY_URL;
+await (async () => {
+  RETRY_DELAY_MS.value = 0;
+  const real = globalThis.fetch;
+  let n = 0;
+  globalThis.fetch = async (u, init) => { n++; return new Response("{}", { status: n === 1 ? 555 : 200 }); };
+  try {
+    const r = await retryReads("https://x/rest/v1/members", { method: "GET" });
+    n === 2 && r.status === 200 ? (pass++, console.log("PASS Supabase 讀取閃一下（555）自動再試一次")) : (fail++, console.log("FAIL 讀取重試", n, r.status));
+    n = 0;
+    const w = await retryReads("https://x/rest/v1/members", { method: "POST" });
+    n === 1 && w.status === 555 ? (pass++, console.log("PASS 寫入不重試")) : (fail++, console.log("FAIL 寫入不該重試", n));
+  } finally { globalThis.fetch = real; }
+})();
+test("伺服器 500 回大概原因（不回錯誤內容）", () => {
+  assert.equal(errorKind({ code: "23505", message: "duplicate key" }), "db_23505");
+  assert.equal(errorKind(Object.assign(new Error("The operation was aborted"), { name: "AbortError" })), "timeout");
+  assert.equal(errorKind(new TypeError("fetch failed")), "upstream");
+  assert.equal(errorKind(new Error("x is not defined")), "app");
+});
 pfake.close();
 bfake.close();
 

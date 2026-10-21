@@ -12,5 +12,21 @@ export function setEnv(e) {
   }
   supabaseAdmin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: retryReads },
   });
+}
+
+// Supabase 偶爾閃一下（回 5xx，例如 555、503）：讀取的請求等一下自動再試一次；寫入不重試，免得寫兩次
+export const RETRY_DELAY_MS = { value: 400 };
+export async function retryReads(input, init = {}) {
+  const method = String(init.method || (input instanceof Request ? input.method : "GET")).toUpperCase();
+  if (method !== "GET" && method !== "HEAD") return fetch(input, init);
+  try {
+    const r = await fetch(input, init);
+    if (r.status < 500) return r;
+  } catch (e) {
+    if (init.signal?.aborted) throw e;
+  }
+  await new Promise((res) => setTimeout(res, RETRY_DELAY_MS.value));
+  return fetch(input, init);
 }

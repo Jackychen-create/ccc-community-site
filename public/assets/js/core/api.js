@@ -32,7 +32,7 @@ export async function api(path, { method = "GET", body, keepalive = false } = {}
   if (res.status === 204) return null;
   const data = await res.json().catch(() => ({}));
   // 伺服器出錯（500 以上）自動記到後台「網站狀況」
-  if (res.status >= 500 && !path.startsWith("/api/report")) report("api", `${method} ${path.split("?")[0]} → ${res.status}`, { error: data.error || "" });
+  if (res.status >= 500 && !path.startsWith("/api/report")) report("api", `${method} ${path.split("?")[0]} → ${res.status}`, { error: data.error || "", code: data.code || "" });
   if (!res.ok) {
     const e = new Error(data.error || "發生錯誤，請稍後再試");
     e.status = res.status;
@@ -69,13 +69,25 @@ function reloadOnceIfStale(message) {
   if (performance.now() > 20000 || !STALE_RE.test(message)) return;
   reloadOnceForStale();
 }
+// 不是網站自己的程式：瀏覽器外掛（翻譯、AI 側欄、廣告阻擋）或跨網域的錯誤，網站沒辦法修，不記
+const EXT_RE = /(?:chrome|moz|safari(?:-web)?)-extension:\/\/|webkit-masked-url:/;
+const notOurs = (src, stack = "") => EXT_RE.test(src) || EXT_RE.test(stack) || (src && !src.startsWith(location.origin));
 window.addEventListener("error", (e) => {
   if (!e.message || /ResizeObserver/.test(e.message)) return;
+  if (e.message === "Script error." || notOurs(String(e.filename || ""), String(e.error?.stack || ""))) return;
   report("js", e.message, { src: String(e.filename || "").split("/").pop(), line: e.lineno || 0, early: performance.now() < 20000 });
   reloadOnceIfStale(e.message);
 });
 window.addEventListener("unhandledrejection", (e) => {
   const m = e.reason?.message || String(e.reason || "");
   if (!m || e.reason?.status) return; // api() 的錯誤畫面上已經處理了
-  report("js", m, {});
+  // 被取消的（手機切到背景、換頁、影片換來源）不是錯誤
+  if (e.reason?.name === "AbortError" || /^The (operation|user) (was )?abort/i.test(m)) return;
+  if (!(e.reason instanceof Error)) return; // 網站自己的程式丟的都是 Error；丟字串的是外掛
+  const stack = String(e.reason?.stack || "");
+  if (notOurs("", stack)) return;
+  // 網站自己的錯誤才記；附上第一行出處，看得出是哪支程式
+  const at = stack.split("\n").find((l) => l.includes(location.origin)) || "";
+  if (stack && !at) return; // 有出處但不在網站的程式裡（外掛注入的）
+  report("js", m, { at: at.replace(location.origin, "").trim().slice(0, 150) });
 });
