@@ -5,7 +5,7 @@
 //   alertOutlet：出錯時通知哪個出口（管理員頻道）
 import { BOTS, botByKey, isDue } from "./registry.js";
 import { RUNNERS } from "./runners.js";
-import { postWebhook, twHM, twWeekday, twStamp, twDate, addDays } from "./core.js";
+import { postWebhook, twHM, twWeekday, twStamp, twDate, addDays, author, footer } from "./core.js";
 
 export async function runBot(key, { db, now = new Date(), settings, force = false, dryRun = false, base } = {}) {
   const meta = botByKey(key), fn = RUNNERS[key];
@@ -49,7 +49,7 @@ export async function alertFailure(db, s, key, note, { now, base }) {
   if (!outlet) return;
   const st = await db.getState("bot_alerts", {});
   if (st[key] && now.getTime() - st[key] < 6 * 3600e3) return;
-  await postWebhook(outlet.url, { embeds: [{ title: `⚠️ 機器人出錯：${botByKey(key)?.name || key}`, description: `${note}\n\n${twStamp(now.getTime())}（台灣時間）・到網站後台「機器人」看詳情`, color: 0xd08b57 }] }, { base });
+  await postWebhook(outlet.url, { embeds: [{ author: author("機器人管理"), title: `⚠️ ${botByKey(key)?.name || key} 出錯了`, description: `> ${note}\n\n🕒 ${twStamp(now.getTime())}（台灣時間）\n🔧 到網站後台「機器人」看詳情、按「立即發一次」補發`, color: 0xd08b57 }] }, { base });
   await db.setState("bot_alerts", { ...st, [key]: now.getTime() });
 }
 
@@ -94,10 +94,11 @@ export function weeklyEmbed(settings, runs, now = new Date()) {
   const off = BOTS.length - on.length;
   const day = twDate(now);
   return {
+    author: author("機器人管理"),
     title: `🩺 機器人週報｜${addDays(day, -6).slice(5).replace("-", "/")}–${day.slice(5).replace("-", "/")}`,
     color: lines.some((l) => l.startsWith("⚠️")) ? 0xd08b57 : 0x5fa285,
     description: (lines.length ? lines.join("\n") : "目前沒有打開的機器人。") + (off ? `\n\n另外 ${off} 支沒打開。` : ""),
-    footer: { text: "CCC Market Lab｜每週日 21:30・詳情在網站後台「機器人」" },
+    footer: footer("每週日 21:30・詳情在網站後台「機器人」"),
   };
 }
 export async function weeklyReport(db, settings, { now = new Date(), base } = {}) {

@@ -3,6 +3,7 @@
 // PATCH /api/admin/discord { roleId, panelChannelId, reviewChannelId, staffRoleIds, invites, hostIds }   改設定（hostIds：一對一講師的 Discord 使用者 ID）
 // POST  /api/admin/discord { action: "panel" }    在報名頻道張貼「報名培訓計畫」按鈕
 // POST  /api/admin/discord { action: "setup" }  一鍵建立分類、頻道、權限、報名按鈕
+// POST  /api/admin/discord { action: "support" }  一鍵建立客服中心（取代 Ticket Tool）：客服單分類、客服中心頻道、客服紀錄頻道、開單選單
 import { ONE_ON_ONE_HOSTS } from "../../public/assets/js/shared/rules.js";
 import {
   supabaseAdmin, requireAdmin, readBody, route, EXCHANGES, env,
@@ -11,6 +12,7 @@ import {
 import { panelMessage } from "../lib/discord-flow.js";
 import { setupGuild, inviteUrl, overwrites } from "../lib/discord-setup.js";
 import { categoryOverwrites } from "../lib/discord-ticket.js";
+import { setupSupport, supportOverwrites } from "../lib/discord-support.js";
 
 const discordMsg = (e) => {
   if (e?.code === 50013) return "機器人的權限不夠（要有管理頻道、管理身分組、傳送訊息），請用後台的「把機器人加進伺服器」重新邀請一次";
@@ -23,9 +25,10 @@ const discordMsg = (e) => {
 export default route({
   async GET(req, res) {
     if (!(await requireAdmin(req, res))) return;
-    const [settings, { data: apps }] = await Promise.all([
+    const [settings, { data: apps }, { data: support }] = await Promise.all([
       getDiscordSettings(),
       supabaseAdmin.from("discord_applications").select("id, discord_name, exchange, exchange_uid, status, auto, reviewed_by, created_at, reviewed_at, channel_id, invite_code").order("created_at", { ascending: false }).limit(30),
+      supabaseAdmin.from("discord_tickets").select("channel_id, no, discord_name, topic, subject, status, claimed_by, created_at, closed_at").eq("kind", "support").order("created_at", { ascending: false }).limit(15),
     ]);
     // 每筆申請對到網站上的哪個 Email（研究員在網站填了同一個交易所 UID）
     if (apps?.length) {
@@ -37,7 +40,7 @@ export default route({
       for (const a of apps) a.site_email = byUid.get(`${a.exchange}:${a.exchange_uid}`) || null;
     }
     return res.status(200).json({
-      configured: discordConfigured(), settings, applications: apps || [],
+      configured: discordConfigured(), settings, applications: apps || [], support: support || [],
       inviteUrl: env.DISCORD_APP_ID ? inviteUrl(env.DISCORD_APP_ID) : null,
     });
   },
@@ -95,6 +98,8 @@ export default route({
       try {
         if (next.ticketCategoryId) await editChannel(next.ticketCategoryId, { permission_overwrites: categoryOverwrites(ctx) });
         if (next.reviewChannelId) await editChannel(next.reviewChannelId, { permission_overwrites: overwrites("review", ctx) });
+        if (next.supportCategoryId) await editChannel(next.supportCategoryId, { permission_overwrites: supportOverwrites("category", ctx) });
+        if (next.supportLogChannelId) await editChannel(next.supportLogChannelId, { permission_overwrites: supportOverwrites("log", ctx) });
         synced = true;
       } catch (e) {
         console.error("discord staff sync failed", e?.message);
@@ -107,11 +112,19 @@ export default route({
   async POST(req, res) {
     if (!(await requireAdmin(req, res))) return;
     const b = readBody(req);
-    if (!["panel", "setup"].includes(b.action)) return res.status(400).json({ error: "不支援這個操作" });
+    if (!["panel", "setup", "support"].includes(b.action)) return res.status(400).json({ error: "不支援這個操作" });
     if (!discordConfigured()) return res.status(503).json({ error: "還沒設定 Discord 機器人（Cloudflare 的 DISCORD_APP_ID、DISCORD_PUBLIC_KEY、DISCORD_BOT_TOKEN）" });
     if (b.action === "setup") {
       try {
         const r = await setupGuild();
+        return res.status(r.ok ? 200 : 400).json(r.ok ? r : { error: r.error });
+      } catch (e) {
+        return res.status(502).json({ error: `建立失敗：${discordMsg(e)}` });
+      }
+    }
+    if (b.action === "support") {
+      try {
+        const r = await setupSupport();
         return res.status(r.ok ? 200 : 400).json(r.ok ? r : { error: r.error });
       } catch (e) {
         return res.status(502).json({ error: `建立失敗：${discordMsg(e)}` });

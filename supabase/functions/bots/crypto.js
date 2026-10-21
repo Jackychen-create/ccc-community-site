@@ -1,6 +1,9 @@
 // 加密：鏈上行情總覽、行情異動提醒、OKX／Bybit 官方公告
 // 行情來自 DEX Screener 公開 API（鏈上穩定幣交易池），不是交易所報價，也不是原生 BTC/ETH 的全市場價格
-import { COLOR, getJson, safeEmbed, footer, seenFilter, twDate, twStamp, md, clip, fmt, pct } from "./core.js";
+import { COLOR, getJson, safeEmbed, footer, author, bar, dotGlobal, seenFilter, twDate, twStamp, md, clip, fmt, pct } from "./core.js";
+const GREEN = 0x3fae7a, RED = 0xd8574f;
+const COIN = { BTC: "🟠", ETH: "🔷", SOL: "🟣" };
+const fngFace = (v) => (v < 25 ? "😱" : v < 45 ? "😟" : v < 55 ? "😐" : v < 75 ? "🙂" : "🤑");
 
 const DISCLAIMER = "資訊整理，不是投資建議";
 // 追蹤的代幣：以太坊 WBTC、WETH，Solana 包裝 SOL；只看 USDC／USDT 交易池
@@ -41,12 +44,17 @@ const FNG = { "Extreme Fear": "極度恐慌", Fear: "恐慌", Neutral: "中性",
 
 export function digestEmbed(day, pools, { fng, missing = [] } = {}) {
   const avg = pools.length ? pools.reduce((a, p) => a + (p.h24 || 0), 0) / pools.length : 0;
-  const mood = avg >= 3 ? "整體偏強" : avg <= -3 ? "整體偏弱" : "整體震盪";
+  const mood = avg >= 3 ? "整體偏強 💪" : avg <= -3 ? "整體偏弱 🥶" : "整體震盪 〰️";
+  const fv = fng ? Number(fng.value) : null;
   return safeEmbed({
+    author: author("加密鏈上"),
     title: `🪙 鏈上行情總覽｜${md(day)}`,
-    color: avg >= 0 ? COLOR.up : COLOR.down,
-    description: `${mood}（24 小時平均 ${pct(avg)}）${fng ? `・恐慌貪婪指數 **${fng.value}**（${FNG[fng.cls] || fng.cls}）` : ""}`,
-    fields: pools.map((p) => ({ name: `${p.sym}　${price(p.price)}`, value: `1 小時 ${pct(p.h1)}・24 小時 ${pct(p.h24)}\n池成交量 ${usd(p.vol)}・流動性 ${usd(p.liq)}\n[${p.dex}](${p.url})`, inline: true })),
+    color: avg >= 0 ? GREEN : RED,
+    description: [
+      `**${mood}**　24 小時平均 ${dotGlobal(avg)} **${pct(avg)}**`,
+      fng ? `${fngFace(fv)} 恐慌貪婪指數 **${fng.value}**（${FNG[fng.cls] || fng.cls}）\n\`${bar(fv / 100, 20)}\`` : "",
+    ].filter(Boolean).join("\n"),
+    fields: pools.map((p) => ({ name: `${COIN[p.sym] || "🪙"} ${p.sym}`, value: `## ${price(p.price)}\n1h ${dotGlobal(p.h1)} **${pct(p.h1)}**\n24h ${dotGlobal(p.h24)} **${pct(p.h24)}**\n量 ${usd(p.vol)}・池 ${usd(p.liq)}\n[${p.dex}](${p.url})`, inline: true })),
     footer: footer(`DEX Screener 鏈上穩定幣池報價，不是交易所報價；成交量是單一池${missing.length ? `；${missing.join("、")} 暫時抓不到` : ""}・${DISCLAIMER}`),
     timestamp: new Date().toISOString(),
   });
@@ -80,10 +88,18 @@ export function checkMoves(pools, state, { th1 = 3, th24 = 8 } = {}) {
   return { hits, next };
 }
 export function moveEmbed(hits, now) {
+  const line = (h) => `${dotGlobal(h.dir)} ${COIN[h.sym] || ""} **${h.sym}** ${h.k === "h1" ? "1 小時" : "24 小時"}${h.dir > 0 ? "急漲" : "急跌"} **${pct(h.v)}**`;
+  const [first, ...rest] = hits;
   return safeEmbed({
+    author: author("行情異動"),
     title: `⚡ 行情異動提醒`,
-    color: hits[0].dir > 0 ? COLOR.up : COLOR.down,
-    description: hits.map((h) => `**${h.sym}** ${h.k === "h1" ? "1 小時" : "24 小時"} ${h.dir > 0 ? "急漲" : "急跌"} **${pct(h.v)}**　現價 ${price(h.price)}\n　1 小時 ${pct(h.h1)}・24 小時 ${pct(h.h24)}・[${h.dex}](${h.url})`).join("\n"),
+    color: first.dir > 0 ? GREEN : RED,
+    description: [
+      `## ${line(first)}`,
+      ...rest.map(line),
+      "",
+      ...hits.map((h) => `${h.sym} 現價 **${price(h.price)}**　1h ${pct(h.h1)}・24h ${pct(h.h24)}・[${h.dex}](${h.url})`),
+    ].join("\n"),
     footer: footer(`${twStamp(now.getTime())}・DEX Screener 鏈上池報價，不是交易所報價・${DISCLAIMER}`),
     timestamp: new Date().toISOString(),
   });
@@ -118,11 +134,13 @@ export function parseBybit(j, { now, hours = 72 }) {
   return (j?.result?.list || []).filter((d) => BYBIT_TYPES[d.type?.key] && !PROMO.test(d.title) && Number(d.publishTime || d.dateTimestamp) >= since)
     .map((d) => ({ id: d.url, title: String(d.title).trim(), url: d.url, ms: Number(d.publishTime || d.dateTimestamp), tag: BYBIT_TYPES[d.type.key] }));
 }
+const BADGE = { 上新: "🆕", 下架: "⛔", 交易規則: "📜", 充提: "💸", API: "🔌", 維護: "🛠️", 最新: "📰", 費率: "💲", 維護與規則: "🛠️", 平台異動: "📰" };
 export function annEmbed(name, list, color) {
   return safeEmbed({
+    author: author(`${name} 公告`),
     title: `📢 ${name} 官方公告（${list.length}）`,
     color,
-    description: list.map((x) => `**[${clip(x.title, 120)}](${x.url})**\n${x.tag}・${twStamp(x.ms).slice(5)}`).join("\n\n"),
+    description: list.map((x) => `${BADGE[x.tag] || "📰"} **[${clip(x.title, 120)}](${x.url})**\n　└ \`${x.tag}\`・${twStamp(x.ms).slice(5)}`).join("\n"),
     footer: footer(`以 ${name} 官方公告為準・${DISCLAIMER}`),
     timestamp: new Date().toISOString(),
   });

@@ -51,7 +51,7 @@ export async function ensureTicketCategory(guildId, s) {
 }
 
 export async function openTicketOf(userId) {
-  const { data } = await supabaseAdmin.from("discord_tickets").select("*").eq("discord_user_id", userId).eq("status", "open").limit(1);
+  const { data } = await supabaseAdmin.from("discord_tickets").select("*").eq("discord_user_id", userId).eq("kind", "apply").eq("status", "open").limit(1);
   return data?.[0] || null;
 }
 export async function ticketOf(channelId) {
@@ -76,7 +76,7 @@ export async function openTicket({ guildId, user, name, s }) {
     topic: `${name || user.id} 的培訓計畫報名。選交易所、填 UID；完成後按「關閉這個頻道」。`,
     permission_overwrites: ticketOverwrites({ guildId, botId: env.DISCORD_APP_ID, userId: user.id, staffRoleIds }),
   });
-  const { error } = await supabaseAdmin.from("discord_tickets").insert({ channel_id: ch.id, discord_user_id: user.id, discord_name: name || null, status: "open" });
+  const { error } = await supabaseAdmin.from("discord_tickets").insert({ channel_id: ch.id, discord_user_id: user.id, discord_name: name || null, status: "open", kind: "apply" });
   if (error) {
     // 同一個人連按兩次：另一次已經開好了，把這次多開的刪掉
     await deleteChannel(ch.id).catch(() => {});

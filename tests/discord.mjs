@@ -39,10 +39,10 @@ const supa = http.createServer(async (req, res) => {
     const items = Array.isArray(body) ? body : [body];
     const out = [];
     for (const it of items) {
-      if (table === "discord_tickets" && rows.some((r) => r.status === "open" && r.discord_user_id === it.discord_user_id)) {
+      if (table === "discord_tickets" && rows.some((r) => r.status === "open" && r.discord_user_id === it.discord_user_id && (r.kind || "apply") === (it.kind || "apply"))) {
         res.writeHead(409, { "Content-Type": "application/json" }); return res.end(JSON.stringify({ code: "23505", message: "duplicate" }));
       }
-      if (table === "discord_tickets" || table === "invite_codes") { const row = { status: "open", used_count: 0, ...it }; rows.push(row); out.push(row); continue; }
+      if (table === "discord_tickets" || table === "invite_codes") { const row = { status: "open", used_count: 0, ...(table === "discord_tickets" ? { kind: "apply", no: rows.length + 1, created_at: new Date().toISOString() } : {}), ...it }; rows.push(row); out.push(row); continue; }
       if (table === "settings") {
         const i = rows.findIndex((r) => r.key === it.key);
         if (i >= 0) rows[i] = { ...rows[i], ...it }; else rows.push(it);
@@ -79,6 +79,8 @@ const disc = http.createServer(async (req, res) => {
     res.writeHead(204); return res.end();
   }
   if (req.method === "POST" && req.url === "/users/@me/channels") return send({ id: "dm-" + body.recipient_id });
+  if (req.method === "GET" && /\/channels\/\d+\/messages\?/.test(req.url)) return send(req.url.includes("before=") ? [] : [{ id: "1", timestamp: "2026-10-22T01:00:00Z", author: { id: "500000000000000005", global_name: "Eve" }, content: "我的交易量沒更新" }, { id: "2", timestamp: "2026-10-22T01:05:00Z", author: { id: "500000000000000009", global_name: "boss" }, content: "幫你補好了" }]);
+  if (req.method === "POST" && /\/channels\/\d+\/messages$/.test(req.url) && req.headers["content-type"]?.startsWith("multipart/")) return send({ id: "920000000000000001" });
   if (req.method === "POST" && /\/channels\/\d+\/messages/.test(req.url)) return send({ id: String(900000000000000000n + BigInt(++msgSeq)) });
   if (req.method === "DELETE" && /^\/channels\/\d+$/.test(req.url)) { channels.delete(req.url.split("/")[2]); return send({}); }
   if (req.method === "PATCH" && req.url.includes("/webhooks/")) return send({ id: "910000000000000001" });
@@ -375,6 +377,69 @@ await test("舊版預設的頻道名稱會改成新的、報名按鈕改成新�
   assert.ok(edit, "要把報名按鈕那則改成新文字");
   assert.equal(edit.body.components[0].components[0].label, "報名培訓計畫");
   assert.ok(!c.some((x) => x.method === "POST" && /\/messages$/.test(x.path)), "不用重貼");
+});
+
+// ── 客服單（取代 Ticket Tool）──
+const EVE = "500000000000000005", STAFF_ROLE = "666666666666666666";
+const topicSelect = (v, m) => ({ type: 3, guild_id: GUILD, token: "tok-s", member: m, channel_id: "555555555555555555", data: { custom_id: "support_topic", component_type: 3, values: [v] } });
+const supportForm = (topic, subject, detail, m) => ({ type: 5, guild_id: GUILD, token: "tok-sf", member: m, channel_id: "555555555555555555", data: { custom_id: `support_form:${topic}`, components: [{ type: 1, components: [{ type: 4, custom_id: "subject", value: subject }] }, { type: 1, components: [{ type: 4, custom_id: "detail", value: detail }] }] } });
+let eveChan;
+await test("客服中心：選類型 → 跳出主旨、說明的表單", async () => {
+  const r = await interact(topicSelect("exchange", member(EVE)));
+  assert.equal(r.body.type, 9);
+  assert.equal(r.body.data.custom_id, "support_form:exchange");
+  assert.deepEqual(r.body.data.components.map((c) => c.components[0].custom_id), ["subject", "detail"]);
+});
+await test("送出 → 開私人客服頻道（只有他、客服看得到），卡片寫主旨、說明、狀態，通知客服身分組", async () => {
+  db.settings.find((r) => r.key === "discord").value.staffRoleIds = [STAFF_ROLE];
+  const before = calls.length;
+  const r = await interact(supportForm("exchange", "BingX 交易量沒更新", "三天沒更新了，UID 12345678", member(EVE, { name: "Eve" })));
+  assert.equal(r.body.type, 5); assert.equal(r.body.data.flags, 64);
+  const t = db.discord_tickets.find((x) => x.discord_user_id === EVE && x.kind === "support");
+  assert.ok(t && t.status === "open" && t.subject === "BingX 交易量沒更新");
+  eveChan = t.channel_id;
+  const made = calls.slice(before).find((c) => c.method === "POST" && c.path === `/guilds/${GUILD}/channels` && c.body.parent_id);
+  assert.equal(made.body.name, "客服-Eve");
+  const ow = made.body.permission_overwrites;
+  assert.ok(BigInt(ow.find((o) => o.id === GUILD).deny) & (1n << 10n), "everyone 看不到");
+  assert.ok(BigInt(ow.find((o) => o.id === EVE).allow) & (1n << 10n), "開單的人看得到");
+  assert.ok(BigInt(ow.find((o) => o.id === STAFF_ROLE).allow) & (1n << 10n), "客服身分組看得到");
+  const welcome = postsTo(eveChan, before)[0].body;
+  assert.ok(welcome.content.includes(`<@&${STAFF_ROLE}>`));
+  assert.equal(welcome.embeds[0].title, "💱 BingX 交易量沒更新");
+  assert.ok(welcome.embeds[0].fields.some((f) => f.value === "🟡 等待客服"));
+  assert.deepEqual(welcome.components[0].components.map((b) => b.custom_id), ["support_claim", "support_close"]);
+  assert.match(lastEdit().body.content, new RegExp(`客服單開好了：<#${eveChan}>`));
+});
+await test("同一個人再開一張 → 給原本那張；報名頻道和客服單可以同時各一個", async () => {
+  const r = await interact(topicSelect("site", member(EVE)));
+  assert.match(r.body.data.content, new RegExp(`已經有一張客服單了：<#${eveChan}>`));
+});
+await test("只有客服能「我來處理」；接手後卡片變處理中", async () => {
+  assert.match((await interact(at(eveChan, button("support_claim", member(EVE))))).body.data.content, /只有客服/);
+  const r = await interact(at(eveChan, button("support_claim", member(BOSS, { roles: [STAFF_ROLE], name: "boss" }))));
+  assert.equal(r.body.type, 7);
+  assert.ok(r.body.data.embeds[0].fields.some((f) => f.value === "🟢 boss 處理中"));
+  assert.equal(r.body.data.components[0].components[0].disabled, true);
+  assert.equal(db.discord_tickets.find((x) => x.channel_id === eveChan).claimed_by, "boss");
+});
+await test("報名頻道的按鈕在客服單裡不能用", async () => {
+  assert.match((await interact(at(eveChan, { type: 3, guild_id: GUILD, token: "t", member: member(EVE), data: { custom_id: "apply_ex", values: ["BingX"] } }))).body.data.content, /報名培訓計畫/);
+});
+await test("別人不能關；開單的人按關閉 → 先確認 → 紀錄存到客服紀錄、私訊、刪頻道", async () => {
+  db.settings.find((r) => r.key === "discord").value.supportLogChannelId = "777777777777777777";
+  assert.match((await interact(at(eveChan, button("support_close", member(DAN))))).body.data.content, /只有開單的人或客服/);
+  const ask = await interact(at(eveChan, button("support_close", member(EVE))));
+  assert.equal(ask.body.data.components[0].components[0].custom_id, "support_close_yes");
+  const before = calls.length;
+  const r = await interact(at(eveChan, button("support_close_yes", member(EVE, { name: "Eve" }))));
+  assert.equal(r.body.type, 7);
+  const c = calls.slice(before);
+  assert.ok(c.some((x) => x.method === "GET" && x.path.startsWith(`/channels/${eveChan}/messages?limit=100`)), "要抓完整對話");
+  assert.ok(c.some((x) => x.method === "POST" && x.path === "/channels/777777777777777777/messages"), "紀錄要存到客服紀錄頻道");
+  assert.ok(c.some((x) => x.method === "POST" && x.path === `/channels/dm-${EVE}/messages` && /已經結案/.test(x.body.content)), "要私訊開單的人");
+  assert.ok(c.some((x) => x.method === "DELETE" && x.path === `/channels/${eveChan}`));
+  assert.equal(db.discord_tickets.find((x) => x.channel_id === eveChan).status, "closed");
 });
 
 supa.close(); disc.close(); bingx.close();

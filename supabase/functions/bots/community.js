@@ -1,5 +1,5 @@
 // 社群：皮老闆每日一題（中午發一題交易交流題目，題庫輪替，同一天不重複）
-import { COLOR, safeEmbed, footer, twDate, md } from "./core.js";
+import { COLOR, safeEmbed, footer, author, twDate, md, weekday } from "./core.js";
 
 export const QUESTIONS = [
   "你今天最想交易的一檔標的是什麼？理由用一句話說完。",
@@ -70,9 +70,10 @@ export function questionOf(day, bank = QUESTIONS) {
 }
 export function questionEmbed(day, q) {
   return safeEmbed({
-    title: `☕ 皮老闆每日一題｜${md(day)}`,
+    author: author("皮老闆每日一題"),
+    title: `☕ 今天的題目｜${md(day)}（${weekday(day)}）`,
     color: COLOR.gold,
-    description: `**${q}**\n\n直接在下面回覆，分享你的看法；沒有標準答案。`,
+    description: `## ${q}\n\n💬 直接在下面回覆你的看法，沒有標準答案`,
     footer: footer("交易交流，不是投資建議"),
   });
 }

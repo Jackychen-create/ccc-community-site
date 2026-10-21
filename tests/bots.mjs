@@ -138,14 +138,16 @@ await test("盤後報告：週三 15:15 發一則，內容有加權、櫃買、�
   assert.equal(r.ok, true, r.note); assert.equal(r.posted, 1);
   assert.equal(posts.length, 1); assert.equal(posts[0].thread, "777777777777777777");
   const e = posts[0].body.embeds[0];
-  assert.equal(e.title, "📋 台股盤後報告｜2026/10/21");
+  assert.equal(e.title, "📋 台股盤後報告｜2026/10/21（三）");
+  assert.equal(e.author.name, "CCC Market Lab｜台股盤後"); assert.ok(e.author.icon_url.endsWith("/assets/brand/ccc-bot.png"));
+  assert.ok(e.description.startsWith("## 🔺 加權 46,887.77\n**+594.84（+1.28%）**　櫃買 395.42") && e.description.includes("上市 8,746") && e.description.includes("漲 **600** 🟥"), e.description);
   const f = Object.fromEntries(e.fields.map((x) => [x.name, x.value]));
-  assert.ok(f["📈 大盤"].includes("加權 46,887.77　🔺 594.84（+1.28%）") && f["📈 大盤"].includes("櫃買 395.42") && f["📈 大盤"].includes("上市 8,746 億"), f["📈 大盤"]);
-  assert.ok(f["🏦 上市三大法人"].includes("外資 22.4 億") && f["🏦 上市三大法人"].includes("投信 128.0 億"), f["🏦 上市三大法人"]);
-  assert.ok(f["🔥 強弱族群（上市類股）"].startsWith("強：金融保險 +2.55%"), f["🔥 強弱族群（上市類股）"]);
-  assert.ok(f["🚀 漲幅前五（成交值 5000 萬以上）"].includes("環球晶（6488）"), "上櫃也算進來");
+  assert.equal(f["🌏 外資"], "🔴 **+22.4 億**"); assert.equal(f["🏦 投信"], "🔴 **+128.0 億**");
+  assert.ok(e.fields.filter((x) => x.inline).length >= 3, "法人三欄並排");
+  assert.ok(f["🔥 強勢族群"].startsWith("🔴 金融保險 **+2.55%**"), f["🔥 強勢族群"]);
+  assert.ok(f["🚀 漲幅 Top 5（成交值 5000 萬以上）"].includes("🥇 **環球晶**（6488）"), "上櫃也算進來");
   assert.ok(!JSON.stringify(e).includes("元大台灣50"), "ETF 不放進排行");
-  assert.ok(f["💡 CCC 盤後觀點"].includes("加權收紅"), f["💡 CCC 盤後觀點"]);
+  assert.ok(f["💡 CCC 盤後觀點"].startsWith("> 加權收紅"), f["💡 CCC 盤後觀點"]);
   assert.equal(e.color, 0xc9665d, "台股紅漲");
   const again = await runBot("tw_close", { db, now: at(DAY, "15:20") });
   assert.equal(again.skipped, true); assert.equal(posts.length, 1);
@@ -178,7 +180,7 @@ await test("出錯：記下原因、通知管理員出口（6 小時內只通知
   posts.length = 0;
   const r = await runBot("tw_close", { db, now: at(DAY, "15:15") });
   assert.equal(r.ok, false); assert.ok(r.note.includes("connect timeout"));
-  assert.equal(posts.length, 1); assert.ok(posts[0].body.embeds[0].title.includes("機器人出錯：台股盤後報告"));
+  assert.equal(posts.length, 1); assert.ok(posts[0].body.embeds[0].title.includes("⚠️ 台股盤後報告 出錯了"));
   await runBot("tw_close", { db, now: at(DAY, "15:20") });
   assert.equal(posts.length, 1, "不重複通知");
 });
@@ -248,11 +250,12 @@ await test("法人籌碼：上市櫃合併、排除 ETF、張數、同步買、�
   const r = await runBot("tw_flow", { db, now: at(DAY, "16:30") });
   assert.equal(r.ok, true, r.note);
   const f = Object.fromEntries(posts[0].body.embeds[0].fields.map((x) => [x.name, x.value]));
-  assert.ok(f["🌏 外資買超前五"].startsWith("友達（2409）+44,548 張"), f["🌏 外資買超前五"]);
-  assert.ok(f["🌏 外資賣超前五"].startsWith("鴻海（2317）-5,300 張"));
+  assert.ok(f["🌏 外資買超"].startsWith("🥇 **友達** +44,548"), f["🌏 外資買超"]);
+  assert.ok(f["🌏 外資賣超"].startsWith("🥇 **鴻海** -5,300"));
   assert.ok(f["🤝 外資＋投信同步買"].includes("環球晶"));
-  assert.ok(f["📅 連續買賣（3 天以上）"].includes("友達 3 天") && f["📅 連續買賣（3 天以上）"].includes("鴻海 5 天"), f["📅 連續買賣（3 天以上）"]);
-  assert.ok(f["⭐ 自選股"].includes("台積電（2330）"));
+  assert.ok(f["📅 連續買賣（3 天以上）"].includes("友達 `3 天`") && f["📅 連續買賣（3 天以上）"].includes("鴻海 `5 天`"), f["📅 連續買賣（3 天以上）"]);
+  assert.ok(f["⭐ 自選股籌碼（外資／投信／自營，張）"].includes("**台積電**（2330）"));
+  assert.ok(posts[0].body.embeds[0].description.startsWith("外資合計"));
 });
 await test("一般股票判斷：4 碼、不是 0 開頭", () => {
   assert.ok(isCommon("2330") && isCommon(" 6488 ") && !isCommon("0050") && !isCommon("00631L") && !isCommon("020041") && !isCommon("910861"));
@@ -322,8 +325,8 @@ await test("重點事件：只留美國重點、同類合併；FOMC 以 Fed 日�
   assert.equal(r.posted, 1, r.note);
   const e = posts[0].body.embeds[0];
   assert.equal(e.title, "📅 美股下週重點事件｜10/26–11/1");
-  assert.ok(e.description.includes("**10/28（三）**") && e.description.includes("FOMC 利率決議") && e.description.includes("台灣 02:00（隔天）"), e.description);
-  assert.ok(e.description.includes("**10/30（五）**\n・[PCE 物價]"), "週五只剩 PCE，FOMC 那筆是錯的日期");
+  assert.ok(e.description.includes("### 📆 10/28（三）") && e.description.includes("FOMC 利率決議") && e.description.includes("台灣 02:00（隔天）"), e.description);
+  assert.ok(e.description.includes("### 📆 10/30（五）\n🔥 **[PCE 物價]"), "週五只剩 PCE，FOMC 那筆是錯的日期");
   assert.ok(!e.description.includes("Jobless") && !e.description.includes("Car Registration"));
   assert.equal((await runBot("us_week", { db, now: at(SUN, "20:05") })).skipped, true, "同一週只發一次");
   assert.ok(nextWeek(at("2026-11-01", "20:00"))[0] === "2026-11-02");
@@ -345,7 +348,7 @@ await test("財報雷達：下週自選股財報；SEC 第一次只記基準，�
   posts.length = 0;
   await runBot("earn_week", { db, now: at(SUN, "19:30") });
   const d = posts[0].body.embeds[0].description;
-  assert.ok(d.includes("10/28（三）盤後　[MSFT]") && d.includes("[META]") && !d.includes("UNP") && d.includes("EPS 預估 $3.65"), d);
+  assert.ok(d.includes("🌙 **10/28（三）盤後**　**[MSFT]") && d.includes("[META]") && !d.includes("UNP") && d.includes("EPS 預估 `$3.65`"), d);
   const f = parseFilings("AAPL", fxj("sec_aapl.json"), { since: "2026-10-27" });
   assert.deepEqual(f.map((x) => x.form), ["10-K", "8-K"], "Form 4 和太舊的不算");
   assert.equal(f[1].items[0], "財報結果"); assert.ok(f[1].earnings);
@@ -383,7 +386,8 @@ await test("鏈上行情總覽：三個幣、恐慌貪婪、DEX 報價說明；�
   const r = await runBot("crypto_digest", { db, now: at(DAY, "21:00") });
   assert.equal(r.posted, 1, r.note);
   const e = posts[0].body.embeds[0];
-  assert.deepEqual(e.fields.map((f) => f.name), ["BTC　$84,333", "ETH　$3,121", "SOL　$182.31"]);
+  assert.deepEqual(e.fields.map((f) => f.name), ["🟠 BTC", "🔷 ETH", "🟣 SOL"]);
+  assert.ok(e.fields[0].value.startsWith("## $84,333\n1h 🟢 **+0.67%**"), e.fields[0].value);
   assert.ok(e.description.includes("恐慌貪婪指數 **63**（貪婪）") && e.footer.text.includes("不是交易所報價"));
   assert.equal((await runBot("crypto_digest", { db, now: at(DAY, "21:05") })).skipped, true);
 });
@@ -399,7 +403,7 @@ await test("異動提醒：第一次跨過門檻才發，同方向不重發，�
   const db = memDb({ outlets: [{ id: "c", url: HOOK }], bots: { crypto_alert: { enabled: true, outlet: "c" } } });
   posts.length = 0;
   assert.equal((await runBot("crypto_alert", { db, now: at(DAY, "21:10") })).posted, 1);
-  assert.ok(posts[0].body.embeds[0].description.includes("**ETH** 1 小時 急跌 **-3.40%**"));
+  assert.ok(posts[0].body.embeds[0].description.startsWith("## 🔴 🔷 **ETH** 1 小時急跌 **-3.40%**"));
   assert.equal((await runBot("crypto_alert", { db, now: at(DAY, "21:20") })).skipped, true);
 });
 await test("OKX／Bybit 公告：只收上新、下架、維護、規則；不收活動、太舊的；發過不重發", async () => {
@@ -499,7 +503,7 @@ await test("立即發一次：半夜按盤後報告 → 發最近一個交易日
   posts.length = 0;
   const r = await runBot("tw_close", { db, now: at("2026-10-22", "00:35"), force: true });
   assert.equal(r.posted, 1, r.note);
-  assert.equal(posts[0].body.embeds[0].title, "📋 台股盤後報告｜2026/10/21");
+  assert.equal(posts[0].body.embeds[0].title, "📋 台股盤後報告｜2026/10/21（三）");
   assert.equal((await db.getState("tw_close_done")).day, undefined, "手動的不記成「今天發過了」");
   assert.equal((await db.getState("bot_day")).tw_close, undefined);
   // 頭條：半夜手動發了，早上 08:00 照樣發（舊的「已發過」紀錄沒有 auto 也不算）

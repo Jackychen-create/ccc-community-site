@@ -18,7 +18,7 @@ const DISCORD_EPOCH = 1420070400000n;
 export const twDayStart = (day) => Date.parse(`${day}T00:00:00+08:00`);
 // 時間 → Discord 訊息編號（拿來當「從這之後」的起點）
 export const snowflakeAt = (ms) => String((BigInt(ms) - DISCORD_EPOCH) << 22n);
-const twStamp = (ms) => new Date(ms + 8 * 3600e3).toISOString().replace("T", " ").slice(0, 19);
+export const twStamp = (ms) => new Date(ms + 8 * 3600e3).toISOString().replace("T", " ").slice(0, 19);
 export const MAX_PAGES = 30; // 一個頻道一天最多抓 3000 則（Cloudflare 一次能發的請求有上限）
 
 // 抓某個頻道台灣時間 day 那一天的訊息（舊 → 新）
@@ -175,7 +175,7 @@ export async function webhookInfo(url) {
 }
 
 // 貼一則訊息（embed＋文字檔）：有 Webhook 用 Webhook，沒有用機器人
-async function postRecap(channelId, embeds, files, webhook = "") {
+export async function postWithFiles(channelId, embeds, files, webhook = "") {
   const base = env.DISCORD_API_BASE || "https://discord.com/api/v10";
   const form = new FormData();
   form.append("payload_json", JSON.stringify({ embeds, allowed_mentions: { parse: [] }, attachments: files.map((f, i) => ({ id: i, filename: f.name })) }));
@@ -233,7 +233,7 @@ export async function runChatlog(day, { post = true } = {}) {
       : ok.map((r) => { const c = channels.find((x) => x.id === r.id) || {}; return { channel: c.webhookChannelId || c.postTo || r.id, webhook: isWebhookUrl(c.webhook) ? c.webhook : "", items: [card(r)] }; });
     for (const j of jobs) {
       try {
-        await postRecap(j.channel, j.items.map((x) => x.embed), j.items.map((x) => x.file), j.webhook);
+        await postWithFiles(j.channel, j.items.map((x) => x.embed), j.items.map((x) => x.file), j.webhook);
         posts.push({ channel: j.channel, ok: true, via: j.webhook ? "webhook" : "bot" });
       } catch (e) {
         posts.push({ channel: j.channel, ok: false, error: String(e?.message || e).slice(0, 200) });
