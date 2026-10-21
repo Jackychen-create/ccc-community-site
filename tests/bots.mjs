@@ -387,7 +387,7 @@ await test("鏈上行情總覽：三個幣、恐慌貪婪、DEX 報價說明；�
   assert.equal(r.posted, 1, r.note);
   const e = posts[0].body.embeds[0];
   assert.deepEqual(e.fields.map((f) => f.name), ["🟠 BTC", "🔷 ETH", "🟣 SOL"]);
-  assert.ok(e.fields[0].value.startsWith("## $84,333\n1h 🟢 **+0.67%**"), e.fields[0].value);
+  assert.ok(e.fields[0].value.startsWith("**$84,333**\n1h 🟢 **+0.67%**"), e.fields[0].value);
   assert.ok(e.description.includes("恐慌貪婪指數 **63**（貪婪）") && e.footer.text.includes("不是交易所報價"));
   assert.equal((await runBot("crypto_digest", { db, now: at(DAY, "21:05") })).skipped, true);
 });

@@ -54,7 +54,7 @@ export function digestEmbed(day, pools, { fng, missing = [] } = {}) {
       `**${mood}**　24 小時平均 ${dotGlobal(avg)} **${pct(avg)}**`,
       fng ? `${fngFace(fv)} 恐慌貪婪指數 **${fng.value}**（${FNG[fng.cls] || fng.cls}）\n\`${bar(fv / 100, 20)}\`` : "",
     ].filter(Boolean).join("\n"),
-    fields: pools.map((p) => ({ name: `${COIN[p.sym] || "🪙"} ${p.sym}`, value: `## ${price(p.price)}\n1h ${dotGlobal(p.h1)} **${pct(p.h1)}**\n24h ${dotGlobal(p.h24)} **${pct(p.h24)}**\n量 ${usd(p.vol)}・池 ${usd(p.liq)}\n[${p.dex}](${p.url})`, inline: true })),
+    fields: pools.map((p) => ({ name: `${COIN[p.sym] || "🪙"} ${p.sym}`, value: `**${price(p.price)}**\n1h ${dotGlobal(p.h1)} **${pct(p.h1)}**\n24h ${dotGlobal(p.h24)} **${pct(p.h24)}**\n量 ${usd(p.vol)}・池 ${usd(p.liq)}\n[${p.dex}](${p.url})`, inline: true })),
     footer: footer(`DEX Screener 鏈上穩定幣池報價，不是交易所報價；成交量是單一池${missing.length ? `；${missing.join("、")} 暫時抓不到` : ""}・${DISCLAIMER}`),
     timestamp: new Date().toISOString(),
   });
