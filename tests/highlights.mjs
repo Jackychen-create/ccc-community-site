@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { setEnv, env } from "../server/lib/env.js";
 import handler from "../server/cron/highlights.js";
-import { parseWhisper, transcriptOf, fitTranscript, cleanSummary, parseJsonLoose, textOf, pickJob, highlightEmbed, summaryPrompt, mmss } from "../server/lib/highlights.js";
+import { chaptersCover, parseWhisper, transcriptOf, fitTranscript, cleanSummary, parseJsonLoose, textOf, pickJob, highlightEmbed, summaryPrompt, mmss } from "../server/lib/highlights.js";
 import { verifyGithubOidc, resetOidcCache, OIDC } from "../server/lib/oidc.js";
 import { levelCard } from "../server/share.js";
 import { mix, emblemSvg } from "../public/assets/js/member/sharecard.js";
@@ -47,9 +47,16 @@ await test("整理結果：限制長度、章節排序去重、第一章從 0、
   assert.deepEqual(r.chapters, [{ t: 0, title: "開場" }, { t: 300, title: "第二章" }]);
   assert.equal(cleanSummary({ points: ["沒有摘要"] }), null);
 });
+await test("章節要涵蓋整場：全擠在前面、中間隔太久都算沒涵蓋；短片不檢查", () => {
+  const ch = (...ts) => ts.map((t) => ({ t, title: "x" }));
+  assert.equal(chaptersCover(ch(0, 29, 71, 112, 751), 2132), false);
+  assert.equal(chaptersCover(ch(0, 300, 1500, 1900), 2132), false, "300→1500 隔太久");
+  assert.equal(chaptersCover(ch(0, 400, 800, 1200, 1700), 2132), true);
+  assert.equal(chaptersCover(ch(0, 60), 600), true);
+});
 await test("提示詞：要繁體中文、不要投資建議、章節不能超過影片長度", () => {
   const p = summaryPrompt({ title: "週三直播", hosts: ["CCC"], duration_sec: 3600 }, "[0:00] 大家好");
-  assert.match(p.system, /繁體中文/); assert.match(p.system, /不要給投資建議/); assert.match(p.system, /3600 秒/); assert.match(p.system, /不要平均切/);
+  assert.match(p.system, /繁體中文/); assert.match(p.system, /不要給投資建議/); assert.match(p.system, /3600 秒/); assert.match(p.system, /不要平均切/); assert.match(p.system, /涵蓋整場/);
   assert.match(p.user, /週三直播/);
 });
 await test("工作佇列：沒做過的先、卡住或失敗的過一陣子再試、做好的不再做、太短的不做", () => {
@@ -167,7 +174,7 @@ const AI = {
   async run(model, input) {
     aiCalls.push({ model, input });
     if (model.includes("whisper")) return { text: "x", segments: [{ start: 0, end: 5, text: "大家好今天我們來看比特幣的走勢" }, { start: 30, end: 40, text: "台積電的法說會也要注意".repeat(12) }] };
-    return { output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify({ summary: "這場講 BTC 和台積電。", points: ["BTC 回測支撐", "台積電法說"], tickers: [{ name: "BTC", note: "支撐" }, { name: "2330", note: "法說" }], chapters: [{ t: 0, title: "開場" }, { t: 600, title: "台積電" }] }) }] }] };
+    return { output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify({ summary: "這場講 BTC 和台積電。", points: ["BTC 回測支撐", "台積電法說"], tickers: [{ name: "BTC", note: "支撐" }, { name: "2330", note: "法說" }], chapters: [{ t: 0, title: "開場" }, { t: 400, title: "台積電" }, { t: 800, title: "結語" }] }) }] }] };
   },
 };
 setEnv({ SUPABASE_URL: SUPA, SUPABASE_SERVICE_ROLE_KEY: "service-test", CRON_SECRET: "cron-secret-for-tests-1234", DISCORD_BOT_TOKEN: "bot", DISCORD_API_BASE: DISC, R2_ACCOUNT_ID: "acc", R2_ACCESS_KEY_ID: "k", R2_SECRET_ACCESS_KEY: "s", R2_BUCKET: "b", AI });
@@ -209,7 +216,7 @@ await test("送完：AI 整理、存起來、貼到直播精華頻道（只貼�
   assert.equal(r.statusCode, 200); assert.equal(r.body.posted, true);
   const h = db.video_highlights.find((x) => x.video_id === 1);
   assert.equal(h.status, "done"); assert.equal(h.summary, "這場講 BTC 和台積電。");
-  assert.deepEqual(h.chapters, [{ t: 0, title: "開場" }, { t: 600, title: "台積電" }]);
+  assert.deepEqual(h.chapters, [{ t: 0, title: "開場" }, { t: 400, title: "台積電" }, { t: 800, title: "結語" }]);
   assert.ok(h.posted_at);
   const p = posts.find((x) => x.path === "/channels/900000000000000001/messages");
   assert.equal(p.body.embeds[0].title, "🎬 週三直播");
