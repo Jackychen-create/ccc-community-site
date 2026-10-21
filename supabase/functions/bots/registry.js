@@ -8,6 +8,15 @@ export const BOTS = [
   { key: "tw_news", group: "台股", name: "台股每日頭條", desc: "中央社、Yahoo 股市篩選可能影響台股的新聞，只放標題、來源、影響理由、原文連結", schedule: { days: "daily", at: "08:00" }, when: "每天 08:00", opts: [{ k: "max", label: "最多幾則", def: 8 }] },
   { key: "tw_disclosure", group: "台股", name: "台股重大訊息雷達", desc: "上市櫃重大訊息：全市場高影響事件，自選股門檻較低", schedule: { days: "daily", every: 10, window: ["07:00", "23:00"] }, when: "每 10 分鐘（07:00–23:00）", opts: [{ k: "watch", label: "自選股（代號，逗號分開）", def: "2330,2317,2454,2308,2382,2303,3711,2891" }, { k: "minScore", label: "全市場門檻", def: 6 }, { k: "watchMinScore", label: "自選股門檻", def: 2 }] },
   { key: "tw_flow", group: "台股", name: "法人籌碼雷達", desc: "上市櫃外資、投信買賣超排行、同步買進、連買連賣、自選股籌碼", schedule: { days: "weekdays", at: "16:30", until: "19:00" }, when: "週一到五 16:30（休市日不發）", opts: [{ k: "watch", label: "自選股（代號，逗號分開）", def: "2330,2317,2454,2308,2382,2303,3711,2891" }] },
+  { key: "us_news", group: "美股", name: "美股重點新聞", desc: "CNBC、MarketWatch、Fed、SEC 篩選影響美股的新聞，英文標題保留原文", schedule: { days: "daily", at: "19:30", until: "21:00" }, when: "每天 19:30", opts: [{ k: "max", label: "最多幾則", def: 8 }] },
+  { key: "us_week", group: "美股", name: "美股下週重點事件", desc: "下週一到週日的 CPI、PPI、非農、FOMC、GDP、PCE 等，換算成台灣時間，附官方連結", schedule: { days: [0], at: "20:00", until: "22:00" }, when: "每週日 20:00" },
+  { key: "earn_week", group: "美股", name: "財報雷達：下週財報", desc: "自選美股下週預定財報（盤前／盤後、EPS 預估）", schedule: { days: [0], at: "19:30", until: "21:00" }, when: "每週日 19:30", opts: [{ k: "watch", label: "自選美股（代號，逗號分開）", def: "NVDA,AAPL,MSFT,GOOGL,META,AMZN,TSLA,AMD,TSM" }] },
+  { key: "earn_filings", group: "美股", name: "財報雷達：SEC 新申報", desc: "自選美股在 SEC 的 10-Q、10-K、8-K、20-F、6-K 正式申報；第一次只記基準，不補發舊的", schedule: { days: "daily", every: 30 }, when: "每 30 分鐘", opts: [{ k: "watch", label: "自選美股（代號，逗號分開）", def: "NVDA,AAPL,MSFT,GOOGL,META,AMZN,TSLA,AMD,TSM" }] },
+  { key: "crypto_digest", group: "加密", name: "鏈上行情總覽", desc: "BTC、ETH、SOL 鏈上穩定幣池價格、1／24 小時漲跌、成交量、流動性，加恐慌貪婪指數（DEX Screener，不是交易所報價）", schedule: { days: "daily", at: "21:00", until: "22:00" }, when: "每天 21:00" },
+  { key: "crypto_alert", group: "加密", name: "行情異動提醒", desc: "1 小時或 24 小時漲跌第一次跨過門檻才發", schedule: { days: "daily", every: 10 }, when: "每 10 分鐘檢查", opts: [{ k: "th1", label: "1 小時門檻 %", def: 3 }, { k: "th24", label: "24 小時門檻 %", def: 8 }] },
+  { key: "okx_news", group: "加密", name: "OKX 官方公告", desc: "上新、下架、交易規則、充提、API、維護；不收活動", schedule: { days: "daily", every: 15 }, when: "每 15 分鐘" },
+  { key: "bybit_news", group: "加密", name: "Bybit 官方公告", desc: "繁中公告：上新、下架、維護、平台異動；不收活動抽獎", schedule: { days: "daily", every: 15 }, when: "每 15 分鐘" },
+  { key: "daily_question", group: "社群", name: "皮老闆每日一題", desc: "每天一題交易交流題目，60 題輪替；Webhook 取名「皮老闆」、換頭像就是皮老闆發的", schedule: { days: "daily", at: "12:00", until: "13:00" }, when: "每天 12:00" },
 ];
 export const botByKey = (k) => BOTS.find((b) => b.key === k) || null;
 

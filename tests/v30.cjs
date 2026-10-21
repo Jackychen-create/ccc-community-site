@@ -20,6 +20,7 @@ const errs = [];
       const nav = await p.locator(".nav").textContent();
       check("側欄有「機器人」一組：Discord 審核、聊天統計、機器人", (await p.isVisible("#navBotsHead")) && nav.indexOf("機器人") < nav.indexOf("Discord 審核") && nav.indexOf("Discord 審核") < nav.indexOf("聊天統計"));
       check("台股四支機器人分在「台股」", (await p.textContent("#botsBox")).includes("台股盤後報告") && (await p.locator(".bot-group:has(h2:text-is('台股')) .bot-card").count()) === 4);
+      check("美股 4、加密 4、社群 1 支，各自一類", (await p.locator(".bot-group:has(h2:text-is('美股')) .bot-card").count()) === 4 && (await p.locator(".bot-group:has(h2:text-is('加密')) .bot-card").count()) === 4 && (await p.locator(".bot-group:has(h2:text-is('社群')) .bot-card").count()) === 1);
       await p.fill("input[aria-label='Webhook 名字']", "股市整合頻道");
       await p.fill("input[aria-label='Webhook 網址']", "https://example.com/x");
       await p.click(".bot-add .btn.primary"); await p.waitForTimeout(300);

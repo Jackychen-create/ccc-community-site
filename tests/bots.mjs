@@ -8,6 +8,9 @@ import { parseTwse, parseTpex, parseInstitutions, holidaysFrom, updateHistory, t
 import { isDue, BOTS } from "../supabase/functions/bots/registry.js";
 import { RUNNERS } from "../supabase/functions/bots/runners.js";
 import { runBot, dueBots } from "../supabase/functions/bots/engine.js";
+import { nextWeek, etToTw, keyEvents, parseFomc, parseFilings, watchList } from "../supabase/functions/bots/us.js";
+import { bestPool, TOKENS, checkMoves, parseOkx, parseBybit } from "../supabase/functions/bots/crypto.js";
+import { questionOf, QUESTIONS } from "../supabase/functions/bots/community.js";
 
 let pass = 0, fail = 0;
 async function test(name, fn) {
@@ -35,6 +38,7 @@ globalThis.fetch = async (url, init = {}) => {
   if (v instanceof Error) throw v;
   return new Response(typeof v === "string" ? v : JSON.stringify(v), { status: 200 });
 };
+const fakeFetch = globalThis.fetch;
 const TW_ROUTES = () => ({
   "afterTrading/MI_INDEX": fxj("twse_mi_index_20261021.json"),
   "fund/BFI82U": fxj("twse_bfi82u_20261021.json"),
@@ -277,6 +281,155 @@ await test("資料庫（PostgREST）：讀寫狀態、記錄、驗證排程密�
   assert.equal(await db.auth("right-secret-123456"), true);
   assert.equal(await db.auth("wrong"), false);
   globalThis.fetch = realFetch;
+});
+
+// ── 美股 ──
+globalThis.fetch = fakeFetch;
+const US_ROUTES = () => ({
+  "cnbc.com/id/": fx("us_cnbc.xml"),
+  "dowjones.io": new Error("timeout"),
+  "federalreserve.gov/feeds": fx("fed_press.xml"),
+  "sec.gov/news/pressreleases": fx("fed_press.xml").replace(/Federal Reserve Board announces[^\]]+/, "SEC Charges Adviser With Fraud").replace(/monetary20261021a/g, "sec-1"),
+  "calendar/economicevents": (u) => { const d = new URL(u).searchParams.get("date"); return d === "2026-10-28" ? fxj("nasdaq_econ_20261028.json") : d === "2026-10-30" ? fxj("nasdaq_econ_20261030.json") : fxj("nasdaq_econ_empty.json"); },
+  "calendar/earnings": (u) => (new URL(u).searchParams.get("date") === "2026-10-28" ? fxj("nasdaq_earn_20261028.json") : { data: { rows: null } }),
+  "fomccalendars.htm": fx("fed_fomc.html"),
+  "CIK0000320193": fxj("sec_aapl.json"),
+  "data.sec.gov/submissions": fxj("sec_empty.json"),
+});
+const SUN = "2026-10-25";
+await test("美股時間：下週一到週日；美東換台灣（夏令 +12、冬令 +13，跨日）", () => {
+  assert.deepEqual(nextWeek(at(SUN, "20:00")), ["2026-10-26", "2026-10-27", "2026-10-28", "2026-10-29", "2026-10-30", "2026-10-31", "2026-11-01"]);
+  assert.equal(nextWeek(at("2026-10-21", "10:00"))[0], "2026-10-26");
+  assert.equal(etToTw("2026-10-28", "08:30"), "10/28（三）20:30");
+  assert.equal(etToTw("2026-10-28", "14:00"), "10/29（四）02:00");
+  assert.equal(etToTw("2026-11-06", "08:30"), "11/6（五）21:30", "11 月第一個週日後是冬令");
+  assert.equal(etToTw("2026-10-28", "24H"), null);
+});
+await test("Fed 官方 FOMC 日程：最後一天是決議日；跨月、跨年", () => {
+  const d = parseFomc(fx("fed_fomc.html"));
+  assert.deepEqual(d, ["2026-01-28", "2026-03-18", "2026-04-29", "2026-10-28", "2026-12-09", "2027-02-01"]);
+});
+await test("重點事件：只留美國重點、同類合併；FOMC 以 Fed 日程為準（週五那筆拿掉）", async () => {
+  assert.deepEqual(keyEvents("2026-10-28", fxj("nasdaq_econ_20261028.json").data.rows).map((e) => e.label), ["FOMC 利率決議"]);
+  const pce = keyEvents("2026-10-30", fxj("nasdaq_econ_20261030.json").data.rows).find((e) => e.label === "PCE 物價");
+  assert.equal(pce.parts.length, 2);
+  routes = US_ROUTES();
+  const db = memDb({ outlets: [{ id: "s", url: HOOK }], bots: { us_week: { enabled: true, outlet: "s", thread: "888888888888888888" } } });
+  posts.length = 0;
+  const r = await runBot("us_week", { db, now: at(SUN, "20:00") });
+  assert.equal(r.posted, 1, r.note);
+  const e = posts[0].body.embeds[0];
+  assert.equal(e.title, "📅 美股下週重點事件｜10/26–11/1");
+  assert.ok(e.description.includes("**10/28（三）**") && e.description.includes("FOMC 利率決議") && e.description.includes("台灣 02:00（隔天）"), e.description);
+  assert.ok(e.description.includes("**10/30（五）**\n・[PCE 物價]"), "週五只剩 PCE，FOMC 那筆是錯的日期");
+  assert.ok(!e.description.includes("Jobless") && !e.description.includes("Car Registration"));
+  assert.equal((await runBot("us_week", { db, now: at(SUN, "20:05") })).skipped, true, "同一週只發一次");
+  assert.ok(nextWeek(at("2026-11-01", "20:00"))[0] === "2026-11-02");
+});
+await test("美股新聞：英文規則篩選（拿掉食譜）、一個來源壞掉照樣發、同一天一次", async () => {
+  routes = US_ROUTES();
+  const db = memDb({ outlets: [{ id: "s", url: HOOK }], bots: { us_news: { enabled: true, outlet: "s" } } });
+  posts.length = 0;
+  const r = await runBot("us_news", { db, now: at("2026-10-22", "01:30") });
+  assert.equal(r.posted, 1, r.note);
+  const e = posts[0].body.embeds[0];
+  assert.ok(e.description.includes("Nvidia announces") && e.description.includes("Federal Reserve Board") && !e.description.includes("recipes"), e.description);
+  assert.ok(e.footer.text.includes("MarketWatch暫時抓不到"));
+});
+await test("財報雷達：下週自選股財報；SEC 第一次只記基準，之後只發新的 10-K／8-K（財報）", async () => {
+  routes = US_ROUTES();
+  assert.deepEqual(watchList("nvda, aapl，tsm、bad$"), ["NVDA", "AAPL", "TSM"]);
+  const db = memDb({ outlets: [{ id: "s", url: HOOK }], bots: { earn_week: { enabled: true, outlet: "s" }, earn_filings: { enabled: true, outlet: "s", opts: { watch: "AAPL,NVDA" } } } });
+  posts.length = 0;
+  await runBot("earn_week", { db, now: at(SUN, "19:30") });
+  const d = posts[0].body.embeds[0].description;
+  assert.ok(d.includes("10/28（三）盤後　[MSFT]") && d.includes("[META]") && !d.includes("UNP") && d.includes("EPS 預估 $3.65"), d);
+  const f = parseFilings("AAPL", fxj("sec_aapl.json"), { since: "2026-10-27" });
+  assert.deepEqual(f.map((x) => x.form), ["10-K", "8-K"], "Form 4 和太舊的不算");
+  assert.equal(f[1].items[0], "財報結果"); assert.ok(f[1].earnings);
+  assert.equal(f[0].url, "https://www.sec.gov/Archives/edgar/data/320193/000032019326000101/aapl-20260926.htm");
+  // 第一次：基準
+  routes = { ...US_ROUTES(), "CIK0000320193": { ...fxj("sec_aapl.json"), filings: { recent: { ...fxj("sec_aapl.json").filings.recent, accessionNumber: ["0000320193-26-000090"], filingDate: ["2026-10-30"], form: ["10-Q"], items: [""], primaryDocument: ["a.htm"] } } } };
+  const first = await runBot("earn_filings", { db, now: at("2026-10-31", "08:00") });
+  assert.ok(first.note.includes("基準"), first.note); assert.equal(posts.length, 1);
+  routes = US_ROUTES();
+  const r = await runBot("earn_filings", { db, now: at("2026-10-31", "08:30") });
+  assert.equal(r.posted, 1, r.note);
+  assert.ok(posts[1].body.embeds[0].description.includes("AAPL　年報 10-K") && posts[1].body.embeds[0].description.includes("財報結果"));
+  assert.equal((await runBot("earn_filings", { db, now: at("2026-10-31", "09:00") })).skipped, true);
+});
+
+// ── 加密 ──
+const CRYPTO_ROUTES = () => ({
+  "ethereum/0x2260": fxj("dex_wbtc.json"),
+  "ethereum/0xC02a": fxj("dex_weth.json"),
+  "solana/So111": fxj("dex_sol.json"),
+  "alternative.me": fxj("fng.json"),
+  "okx.com/api/v5/support/announcements": fxj("okx_ann.json"),
+  "bybit.com/v5/announcements": fxj("bybit_ann.json"),
+});
+await test("鏈上池：只留同一條鏈、配 USDC／USDT、流動性 10 萬以上，取流動性最高", () => {
+  const p = bestPool(TOKENS[0], fxj("dex_wbtc.json"));
+  assert.equal(p.dex, "uniswap WBTC/USDT"); assert.equal(p.price, 84333.17);
+  assert.equal(bestPool(TOKENS[2], fxj("dex_sol.json")).dex, "orca SOL/USDC");
+  assert.equal(bestPool(TOKENS[1], []), null);
+});
+await test("鏈上行情總覽：三個幣、恐慌貪婪、DEX 報價說明；同一天一次", async () => {
+  routes = CRYPTO_ROUTES();
+  const db = memDb({ outlets: [{ id: "c", url: HOOK }], bots: { crypto_digest: { enabled: true, outlet: "c", thread: "999999999999999999" } } });
+  posts.length = 0;
+  const r = await runBot("crypto_digest", { db, now: at(DAY, "21:00") });
+  assert.equal(r.posted, 1, r.note);
+  const e = posts[0].body.embeds[0];
+  assert.deepEqual(e.fields.map((f) => f.name), ["BTC　$84,333", "ETH　$3,121", "SOL　$182.31"]);
+  assert.ok(e.description.includes("恐慌貪婪指數 **63**（貪婪）") && e.footer.text.includes("不是交易所報價"));
+  assert.equal((await runBot("crypto_digest", { db, now: at(DAY, "21:05") })).skipped, true);
+});
+await test("異動提醒：第一次跨過門檻才發，同方向不重發，回到一半以內才重新計算", async () => {
+  const pools = [{ sym: "ETH", h1: -3.4, h24: -5.1 }, { sym: "SOL", h1: 1.2, h24: 9.4 }];
+  const a = checkMoves(pools, {});
+  assert.deepEqual(a.hits.map((h) => `${h.sym}_${h.k}`), ["ETH_h1", "SOL_h24"]);
+  assert.equal(checkMoves(pools, a.next).hits.length, 0);
+  const calm = checkMoves([{ sym: "ETH", h1: -1, h24: 0 }], a.next);
+  assert.equal(calm.next.ETH_h1, 0);
+  assert.equal(checkMoves([{ sym: "ETH", h1: -2, h24: 0 }], a.next).next.ETH_h1, -1, "還沒回到一半以內");
+  routes = CRYPTO_ROUTES();
+  const db = memDb({ outlets: [{ id: "c", url: HOOK }], bots: { crypto_alert: { enabled: true, outlet: "c" } } });
+  posts.length = 0;
+  assert.equal((await runBot("crypto_alert", { db, now: at(DAY, "21:10") })).posted, 1);
+  assert.ok(posts[0].body.embeds[0].description.includes("**ETH** 1 小時 急跌 **-3.40%**"));
+  assert.equal((await runBot("crypto_alert", { db, now: at(DAY, "21:20") })).skipped, true);
+});
+await test("OKX／Bybit 公告：只收上新、下架、維護、規則；不收活動、太舊的；發過不重發", async () => {
+  const now = new Date(1792590000000);
+  assert.deepEqual(parseOkx(fxj("okx_ann.json"), { now }).map((x) => x.tag), ["上新", "交易規則"]);
+  assert.deepEqual(parseBybit(fxj("bybit_ann.json"), { now }).map((x) => x.tag), ["下架", "上新", "維護與規則"], "迎新獎勵、折扣費率是活動");
+  routes = CRYPTO_ROUTES();
+  const db = memDb({ outlets: [{ id: "c", url: HOOK }], bots: { okx_news: { enabled: true, outlet: "c" }, bybit_news: { enabled: true, outlet: "c" } } });
+  posts.length = 0;
+  assert.equal((await runBot("okx_news", { db, now })).posted, 1);
+  assert.equal((await runBot("bybit_news", { db, now })).posted, 1);
+  assert.ok(posts[1].body.embeds[0].title.startsWith("📢 Bybit 官方公告（3）"));
+  assert.equal((await runBot("okx_news", { db, now })).skipped, true);
+});
+await test("皮老闆每日一題：同一天同一題、隔天換題、只發一次", async () => {
+  assert.equal(questionOf("2026-10-21"), questionOf("2026-10-21"));
+  assert.notEqual(questionOf("2026-10-21"), questionOf("2026-10-22"));
+  assert.equal(new Set(QUESTIONS).size, QUESTIONS.length, "題目不重複");
+  const db = memDb({ outlets: [{ id: "q", url: HOOK }], bots: { daily_question: { enabled: true, outlet: "q" } } });
+  posts.length = 0;
+  assert.equal((await runBot("daily_question", { db, now: at(DAY, "12:00") })).posted, 1);
+  assert.ok(posts[0].body.embeds[0].description.includes(questionOf(DAY)));
+  assert.equal((await runBot("daily_question", { db, now: at(DAY, "12:05") })).skipped, true);
+});
+await test("每支機器人都有程式、分類正確；排程（週日、每 15、30 分鐘）", () => {
+  for (const b of BOTS) assert.ok(RUNNERS[b.key], b.key);
+  assert.ok(isDue(BOTS.find((b) => b.key === "us_week").schedule, "20:00", 0) && !isDue(BOTS.find((b) => b.key === "us_week").schedule, "20:00", 1));
+  const okx = BOTS.find((b) => b.key === "okx_news").schedule;
+  assert.ok(isDue(okx, "10:15", 3) && !isDue(okx, "10:20", 3));
+  const sec = BOTS.find((b) => b.key === "earn_filings").schedule;
+  assert.ok(isDue(sec, "00:00", 3) && isDue(sec, "23:30", 3) && !isDue(sec, "23:35", 3));
+  assert.deepEqual([...new Set(BOTS.map((b) => b.group))], ["台股", "美股", "加密", "社群"]);
 });
 
 console.log(`\n機器人：${pass} 項通過，${fail} 項失敗`);
