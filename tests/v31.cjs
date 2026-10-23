@@ -91,6 +91,24 @@ const HL = { status: "done", summary: "這場講開盤區間怎麼畫，以及�
     await c.close();
   }
 
+  // ── v1.26.4：舊頁面配新程式（iPhone 剛更新時），直接開影片網址會自動重新整理一次 ──
+  {
+    const [c, p] = await ctx({ width: 390, height: 844 });
+    await login(p, "amy@example.com"); await closeAll(p);
+    let stale = 0;
+    await c.route((u) => new URL(u).pathname === "/", async (r) => {
+      if (stale++) return r.continue();
+      const res = await r.fetch(); const html = (await res.text()).replace(/<section class="ai-hl panel" id="wHl"[\s\S]*?<\/section>/, "");
+      return r.fulfill({ response: res, body: html });
+    });
+    const before = errs.length;
+    await p.goto("about:blank"); await p.goto(BASE + "/#/v/5");
+    await p.waitForSelector("#wHl:not([hidden])", { timeout: 15000 }).catch(() => {});
+    check("舊頁面打開影片會自動重新整理一次拿新版", stale >= 2 && (await p.isVisible("#wHl")), `載入 ${stale} 次`);
+    errs.splice(before); // 舊頁面那一次的錯誤是故意造出來的
+    await c.close();
+  }
+
   check("沒有頁面錯誤", !errs.length, errs.join(" | "));
   console.log(out.join("\n")); await b.close();
 })().catch((e) => { console.log(out.join("\n")); console.log("TEST CRASHED:", e.message); process.exit(1); });
