@@ -89,5 +89,7 @@ window.addEventListener("unhandledrejection", (e) => {
   // 網站自己的錯誤才記；附上第一行出處，看得出是哪支程式
   const at = stack.split("\n").find((l) => l.includes(location.origin)) || "";
   if (stack && !at) return; // 有出處但不在網站的程式裡（外掛注入的）
-  report("js", m, { at: at.replace(location.origin, "").trim().slice(0, 150) });
+  report("js", m, { at: at.replace(location.origin, "").trim().slice(0, 150), early: performance.now() < 20000 });
+  // 開頁時的 async 程式（像打開播放頁）也可能碰到「舊頁面配新程式」，一樣重新整理一次
+  reloadOnceIfStale(m);
 });
