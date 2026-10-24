@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { makeDb, rocToDate, num, WEBHOOK_RE, postWebhook } from "../supabase/functions/bots/core.js";
 import { parseFeed } from "../supabase/functions/bots/rss.js";
-import { parseTwse, parseTpex, parseInstitutions, holidaysFrom, updateHistory, technicals, scoreDisclosure, pickNews, parseFlows, updateStreaks, isCommon } from "../supabase/functions/bots/tw.js";
+import { parseTwse, parseTpex, parseInstitutions, holidaysFrom, updateHistory, technicals, scoreDisclosure, pickNews, parseFlows, updateStreaks, isCommon, misDay } from "../supabase/functions/bots/tw.js";
 import { isDue, BOTS } from "../supabase/functions/bots/registry.js";
 import { RUNNERS } from "../supabase/functions/bots/runners.js";
 import { runBot, dueBots } from "../supabase/functions/bots/engine.js";
@@ -513,6 +513,38 @@ await test("立即發一次：半夜按盤後報告 → 發最近一個交易日
   const morning = await runBot("tw_news", { db, now: at("2026-10-22", "08:00") });
   assert.notEqual(morning.note, "今天已經發過", JSON.stringify(morning));
   assert.equal((await db.getState("tw_news_done")).auto, true);
+});
+
+await test("颱風臨時休市：下午加權指數還停在前一天 → 記成休市、不叫漏發；資料只是晚出來、或抓不到即時行情 → 照常等", async () => {
+  assert.equal(misDay({ msgArray: [{ c: "t00", d: "20261022" }] }), "2026-10-22");
+  assert.equal(misDay({ msgArray: [] }), null);
+  assert.equal(misDay(null), null);
+  const TY = "2026-10-23"; // 週五，休市表裡沒有
+  const settings = { outlets: [{ id: "a", url: HOOK }], alertOutlet: "a", bots: { tw_close: { enabled: true, outlet: "a" }, tw_flow: { enabled: true, outlet: "a" } } };
+  routes = { ...TW_ROUTES(), getStockInfo: { msgArray: [{ c: "t00", n: "發行量加權股價指數", d: "20261022", t: "13:33:00" }], rtcode: "0000" } };
+  const db = memDb(settings);
+  posts.length = 0;
+  const dry = await runBot("tw_close", { db, now: at(TY, "15:15"), dryRun: true });
+  assert.ok(dry.skipped && dry.note.includes("臨時休市"), JSON.stringify(dry));
+  assert.ok(!(await db.getState("tw_holidays")).days?.includes(TY), "試跑不寫資料");
+  const r = await runBot("tw_close", { db, now: at(TY, "15:15") });
+  assert.ok(r.skipped && !r.retry && r.note.includes("臨時休市"), JSON.stringify(r));
+  assert.ok((await db.getState("tw_holidays")).days.includes(TY), "記進休市表");
+  const f = await runBot("tw_flow", { db, now: at(TY, "15:30") });
+  assert.equal(f.note, "今天休市");
+  assert.deepEqual(await checkMissed(db, settings, { now: at(TY, "17:30") }), []);
+  assert.deepEqual(await checkMissed(db, settings, { now: at(TY, "19:00") }), []);
+  assert.equal(posts.length, 0, "不發文、不發漏發通知");
+  // 有交易、只是資料還沒出來：照常等
+  routes = { ...TW_ROUTES(), getStockInfo: { msgArray: [{ c: "t00", d: "20261023" }] } };
+  const db2 = memDb(settings);
+  const w = await runBot("tw_close", { db: db2, now: at(TY, "15:15") });
+  assert.equal(w.retry, true, JSON.stringify(w));
+  // 即時行情抓不到：照常等
+  routes = { ...TW_ROUTES(), getStockInfo: new Error("down") };
+  const w2 = await runBot("tw_flow", { db: memDb(settings), now: at(TY, "16:00") });
+  assert.equal(w2.retry, true, JSON.stringify(w2));
+  assert.ok(!(await db2.getState("tw_holidays")).days?.includes(TY));
 });
 
 console.log(`\n機器人：${pass} 項通過，${fail} 項失敗`);

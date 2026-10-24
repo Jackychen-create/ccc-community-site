@@ -40,6 +40,27 @@ export async function isTradingDay(db, day) {
   return !st.days.includes(day);
 }
 
+// ── 臨時休市（颱風等）：休市表裡不會有，改看證交所即時行情裡加權指數最後一筆是哪一天 ──
+const MIS = "https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_t00.tw&json=1&delay=0";
+export function misDay(j) {
+  const rows = Array.isArray(j?.msgArray) ? j.msgArray : [];
+  const d = String((rows.find((x) => x?.c === "t00") || rows[0])?.d || "");
+  return /^\d{8}$/.test(d) ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6)}` : null;
+}
+// 下午兩點後，加權指數最後一筆還停在之前的日子＝今天整天沒交易；記進休市表，其他台股機器人今天也會跳過
+// 抓不到或看不出來就回 false，照原本的方式繼續等資料
+export async function closedToday(db, day, now, save = true) {
+  if (twHM(now) < "14:00") return false;
+  const last = misDay(await getJson(MIS, { retries: 0, timeout: 10000 }).catch(() => null));
+  if (!last || last >= day) return false;
+  const st = save ? await db.getState("tw_holidays", {}) : {};
+  if (save && st.year === day.slice(0, 4) && Array.isArray(st.days) && !st.days.includes(day)) {
+    await db.setState("tw_holidays", { ...st, days: [...st.days, day].sort() });
+  }
+  return true;
+}
+const CLOSED = "今天臨時休市（證交所整天沒有交易，例如颱風）";
+
 // ── 盤後報告 ──
 const sign = (html) => (/-/.test(String(html).replace(/<[^>]*>/g, "")) ? -1 : 1);
 const tableOf = (j, re) => (j.tables || []).find((t) => re.test(t.title || ""));
@@ -205,7 +226,10 @@ export async function twClose(ctx) {
       if (t.day === d && t.stocks.length) { twse = t; day = d; break; }
     }
   }
-  if (twse.day !== day || !twse.stocks.length) return { retry: true, skipped: "證交所今天的收盤資料還沒出來" };
+  if (twse.day !== day || !twse.stocks.length) {
+    if (!ctx.force && (await closedToday(ctx.db, day, ctx.now, !ctx.dryRun))) return { skipped: CLOSED };
+    return { retry: true, skipped: "證交所今天的收盤資料還沒出來" };
+  }
   const [bfi, tpi, tpq] = await Promise.all([
     getJson(`${TWSE}/rwd/zh/fund/BFI82U?type=day&dayDate=${ymd(day)}&response=json`).catch(() => null),
     getJson(`${TPEX_OPEN}/tpex_index`).catch(() => []),
@@ -444,7 +468,10 @@ export async function twFlow(ctx) {
     }
   }
   const tp = await getJson(`${TPEX_OPEN}/tpex_3insti_daily_trading`).catch(() => []);
-  if (t86?.date !== ymd(day) || !t86?.data?.length) return { retry: true, skipped: "證交所今天的法人資料還沒出來" };
+  if (t86?.date !== ymd(day) || !t86?.data?.length) {
+    if (!ctx.force && (await closedToday(ctx.db, day, ctx.now, !ctx.dryRun))) return { skipped: CLOSED };
+    return { retry: true, skipped: "證交所今天的法人資料還沒出來" };
+  }
   const tpToday = (tp || []).filter((r) => rocToDate(r.Date) === day);
   const flows = parseFlows(t86, tpToday);
   const prevStreaks = await ctx.db.getState("tw_flow_streaks", {});
