@@ -3,7 +3,7 @@
 # 每一組都會重新開一次模擬伺服器（資料重置），結果寫在 tests/output/
 cd "$(dirname "$0")"
 [ -d node_modules/playwright ] || { npm install --no-audit --no-fund && npx playwright install chromium; }
-[ -f fixtures/live.webm ] || bash make-fixtures.sh
+{ [ -f fixtures/live.webm ] && [ -f fixtures/silent.webm ]; } || bash make-fixtures.sh
 mkdir -p output/shots
 suites=("$@"); [ ${#suites[@]} -eq 0 ] && suites=(e2e v14 v15 v16 v17 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 v28 v29 v30 v31)
 total_fail=0

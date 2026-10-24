@@ -5,6 +5,8 @@ cd "$(dirname "$0")"
 mkdir -p fixtures
 ffmpeg -loglevel error -y -f lavfi -i "testsrc2=size=640x360:rate=10" -f lavfi -i "sine=frequency=440:sample_rate=48000" -t 90 \
   -c:v libvpx -b:v 300k -c:a libvorbis -shortest fixtures/live.webm
+# 沒有聲音軌的影片（測「影片沒有聲音軌」偵測）
+ffmpeg -loglevel error -y -f lavfi -i "testsrc=size=160x90:rate=15" -t 8 -c:v libvpx -b:v 50k -an fixtures/silent.webm
 for t in 5 20 40; do
   ffmpeg -loglevel error -y -ss $t -i fixtures/live.webm -frames:v 1 -q:v 4 fixtures/thumb$t.jpg
 done
