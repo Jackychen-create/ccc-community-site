@@ -109,6 +109,31 @@ const HL = { status: "done", summary: "這場講開盤區間怎麼畫，以及�
     await c.close();
   }
 
+  // ── v1.26.6：影片檔沒有聲音軌 → 記到網站狀況；有聲音的不記 ──
+  {
+    const fs = require("fs"), path = require("path");
+    const silent = fs.readFileSync(path.join(__dirname, "fixtures", "silent.webm"));
+    const play = async (p, id) => {
+      await p.evaluate((id) => (location.hash = "#/v/" + id), id);
+      await p.waitForFunction(() => document.querySelector("#video").readyState >= 2, null, { timeout: 15000 });
+      await p.evaluate(() => { const v = document.querySelector("#video"); v.muted = true; v.currentTime = 0; return v.play(); });
+      await p.waitForFunction(() => document.querySelector("#video").currentTime > 5, null, { timeout: 20000 });
+      await p.waitForTimeout(1500);
+    };
+    const tok = (await j("/sb/auth/v1/token", { method: "POST", body: { email: "boss@gmail.com", password: "password1" } })).body.access_token;
+    const noAudio = async () => (await j("/api/admin/errors", { token: tok })).body.groups.filter((g) => g.message.startsWith("影片沒有聲音軌"));
+    const [c, p] = await ctx({ width: 1280, height: 900 });
+    await login(p, "amy@example.com"); await closeAll(p);
+    await play(p, 5);
+    check("有聲音的影片不會記成沒聲音", (await noAudio()).length === 0, JSON.stringify(await noAudio()));
+    await c.route(/\/media\/live\.webm/, (r) => r.fulfill({ status: 200, contentType: "video/webm", body: silent }));
+    await p.goto("about:blank"); await p.goto(BASE + "/"); await p.waitForSelector("#appView:not([hidden])"); await closeAll(p);
+    await play(p, 5);
+    const g = await noAudio();
+    check("影片檔沒有聲音軌會記到網站狀況（寫影片名稱）", g.length === 1 && g[0].samples[0].context.video === 5 && g[0].message.length > "影片沒有聲音軌：".length, JSON.stringify(g));
+    await c.close();
+  }
+
   check("沒有頁面錯誤", !errs.length, errs.join(" | "));
   console.log(out.join("\n")); await b.close();
 })().catch((e) => { console.log(out.join("\n")); console.log("TEST CRASHED:", e.message); process.exit(1); });

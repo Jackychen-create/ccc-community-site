@@ -229,6 +229,25 @@ video.addEventListener("timeupdate", () => {
 });
 video.addEventListener("seeking", () => (lastBucket = -1));
 
+// ── 沒聲音偵測：研究員說「沒聲音」時，先分清楚是影片檔本身沒錄到聲音，還是網站的問題 ──
+// 影片檔沒有聲音軌就記到後台「網站狀況」（每支影片每次開頁記一次）
+// Safari 看 audioTracks、Firefox 看 mozHasAudio、Chrome 看播了幾秒後解出來的聲音資料量；看不出來就不記
+export function hasAudio(v) {
+  if (v.audioTracks && typeof v.audioTracks.length === "number") return v.audioTracks.length > 0;
+  if (typeof v.mozHasAudio === "boolean") return v.mozHasAudio;
+  if (typeof v.webkitAudioDecodedByteCount === "number") return v.webkitAudioDecodedByteCount > 0 ? true : v.currentTime >= 4 ? false : null;
+  return null;
+}
+const audioChecked = new Set();
+video.addEventListener("timeupdate", () => {
+  const cur = state.current;
+  if (!cur || audioChecked.has(cur.id) || video.paused || video.currentTime < 4) return;
+  const a = hasAudio(video);
+  if (a === null) return;
+  audioChecked.add(cur.id);
+  if (a === false) report("video", `影片沒有聲音軌：${cur.title}`, { video: cur.id, title: cur.title });
+});
+
 // ── 記住看到哪 ──
 function saveProgress(force) {
   const current = state.current;
