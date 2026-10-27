@@ -51,6 +51,7 @@ const errs = [];
   check("已解鎖 3／18", (await p.textContent("#courseCount")).includes("3／18"));
   check("第 2 週是 OC、第 3 週是 X", (await p.textContent(".course-row >> nth=1")).includes("OC") && (await p.textContent(".course-row >> nth=2")).includes("X"));
   check("第 4 週休息（第 4 列是第 5 週）", (await p.textContent(".course-row >> nth=3")).includes("第 5 週"));
+  check("每一份寫出自己的解鎖日期（照加入日期，像 11/18）", /^\d{1,2}\/\d{1,2}第 \d+ 週/.test((await p.textContent(".course-row .vdate >> nth=3")).trim()), await p.textContent(".course-row .vdate >> nth=3"));
   check("沒解鎖的寫解鎖日", (await p.textContent(".course-row >> nth=3")).includes("解鎖"));
   check("沒解鎖的不能點", (await p.locator(".course-row >> nth=3").evaluate((e) => e.tagName)) === "DIV");
   check("還沒上架的寫準備中", (await p.textContent(".course-row >> nth=6")).includes("解鎖") || (await p.textContent(".course-row >> nth=6")).includes("準備中"));

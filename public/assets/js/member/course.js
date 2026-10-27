@@ -3,7 +3,7 @@ import { $, el, api, icons, fmtDur } from "../core/index.js";
 import { COURSE_HOSTS } from "../shared/rules.js";
 import { state, SITE } from "./state.js";
 import { showPage } from "./views.js";
-import { md } from "./format.js";
+import { md, weekday } from "./format.js";
 import { statusOf, coverThumb, emptyBox, skelRow } from "./widgets.js";
 
 export async function loadCourse() {
@@ -79,7 +79,8 @@ function renderCourse() {
       s.unlocked && v?.duration_sec ? el("div", { class: "vm" }, el("span", { text: fmtDur(v.duration_sec) })) : null));
     const cls = "vrow course-row" + (s.unlocked ? "" : " locked") + (s.unlocked && v?.id ? "" : " static");
     const kids = [
-      el("span", { class: "vdate" }, `${s.week}`, el("small", { text: `第 ${s.week} 週` })),
+      // 照每個人加入的日期：這一份哪天解鎖（第三級提前解鎖的寫「已解鎖」）
+      el("span", { class: "vdate", title: `第 ${s.week} 週` }, md(s.unlock_on), el("small", { text: s.unlocked && s.unlock_on > (state.course.today || "") ? `第 ${s.week} 週・已解鎖` : `第 ${s.week} 週・${weekday(s.unlock_on)}` })),
       body,
       el("span", { class: "vfig r" + (v?.duration_sec && s.unlocked ? "" : " dim"), text: v?.duration_sec && s.unlocked ? fmtDur(v.duration_sec) : "—" }),
       el("span", { class: "vfig r" + (v?.attachment_count ? "" : " dim"), text: v?.attachment_count ? String(v.attachment_count) : "—" }),
