@@ -232,8 +232,12 @@ await test("機器人看不到的頻道：寫原因，其他頻道照跑", async
 await test("訊息內容都空的：提醒打開 Message Content Intent", async () => {
   const saved = channels[LOBBY];
   channels[LOBBY] = [msg(at(8, 0), A1, ""), msg(at(8, 1), B1, "")];
-  fresh(); const r = await runChatlog("2026-10-20", { post: false });
+  fresh(); const n = posted.length;
+  const r = await runChatlog("2026-10-20");
   assert.equal(r.noContent, true);
+  const lobby = posted.slice(n).find((p) => p.channel === LOBBY);
+  assert.ok(lobby.raw.includes("Message Content Intent"), "紀錄檔要寫出讀不到內容的原因");
+  assert.ok(!lobby.raw.includes("聊得比較零散"), "讀不到內容時不要寫「聊得比較零散」");
   channels[LOBBY] = saved;
 });
 const mk = (content, extra = {}) => ({ id: String(++seq), author: { id: String(seq % 4) }, content, type: 0, timestamp: at(9, 0), ...extra });
