@@ -548,8 +548,14 @@ const server = http.createServer(async (req, res) => {
           const c = { ...old, id, name: id.endsWith("1") ? "大廳" : "研究員大廳" };
           if (w === null) { delete c.webhook; delete c.webhookName; delete c.webhookChannelName; }
           else if (w) Object.assign(c, { webhook: w, webhookName: "CCC｜每日回顧", webhookChannelName: id.endsWith("1") ? "每日回顧" : "研究員大廳" });
+          if (body.alsoTo && body.alsoTo[id] !== undefined) {
+            const a = String(body.alsoTo[id] || "").trim();
+            if (a && !/^\d{17,20}$/.test(a)) return { bad: true };
+            if (a) Object.assign(c, { alsoTo: a, alsoToName: "實驗大廳", alsoLog: body.alsoLog?.[id] !== false }); else { delete c.alsoTo; delete c.alsoToName; delete c.alsoLog; }
+          }
           return c;
         });
+        if (chatCfg.channels.some((c) => c.bad)) { chatCfg.channels = chatCfg.channels.map(({ bad, ...c }) => c); return send(res, 400, { error: "「也貼到」頻道 ID 是 17–20 位數字" }); }
         chatCfg.report = body.reportChannelId || "";
         if (body.postMode === "single" && !chatCfg.report) return send(res, 400, { error: "選「全部貼到同一個頻道」要填那個頻道的 ID" });
         chatCfg.mode = body.postMode || "own";

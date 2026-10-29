@@ -150,10 +150,10 @@ export function recapEmbed(day, row, { others = [], uniqueAuthors = null, file =
   fields.push({ name: "🔥 討論主題", value: row.topics?.length ? row.topics.join("、") : row.messages ? "（聊得比較零散，沒有特別集中的主題）" : "（這一天沒有聊天）" });
   if (row.hottest) fields.push({ name: "💬 最多人回應", value: `${row.hottest.name}：「${row.hottest.text}」` });
   if (row.top?.length) fields.push({ name: "🗣️ 最活躍", value: row.top.slice(0, 3).map((t) => `${t.name} ${t.n} 則`).join("、") });
-  fields.push({ name: "📎 完整紀錄", value: `已附上 \`${file}\`，包含當日所有訊息、作者、時間、回覆標記與附件連結。請以附件內容為完整來源。` });
+  if (file) fields.push({ name: "📎 完整紀錄", value: `已附上 \`${file}\`，包含當日所有訊息、作者、時間、回覆標記與附件連結。請以附件內容為完整來源。` });
   return {
     title: `🗂️ ${BRAND}｜#${row.name} 每日回顧｜${ymdSlash(day)}`,
-    description: "完整紀錄版：卡片提供概況，附件保留這一天的全部訊息內容。",
+    description: file ? "完整紀錄版：卡片提供概況，附件保留這一天的全部訊息內容。" : "精簡版：只有當天的概況和主題。",
     color: COLOR,
     fields,
     footer: { text: "每天 00:05（台灣時間）自動產生｜請以原始討論為準" },
@@ -231,9 +231,18 @@ export async function runChatlog(day, { post = true } = {}) {
     const jobs = mode === "single"
       ? [{ channel: s.chatReportChannelId, items: ok.map(card) }]
       : ok.map((r) => { const c = channels.find((x) => x.id === r.id) || {}; return { channel: c.webhookChannelId || c.postTo || r.id, webhook: isWebhookUrl(c.webhook) ? c.webhook : "", items: [card(r)] }; });
+    // 「也貼到」：同一則回顧再由機器人貼到另一個頻道（例如給大家看的大廳）；可以選不附完整紀錄檔
+    if (mode === "own") {
+      for (const r of ok) {
+        const c = channels.find((x) => x.id === r.id) || {};
+        if (!isSnowflake(c.alsoTo || "")) continue;
+        const it = c.alsoLog === false ? { embed: recapEmbed(day, r, { others: ok.filter((x) => x !== r), uniqueAuthors: uniq, file: "" }), file: null } : card(r);
+        jobs.push({ channel: c.alsoTo, webhook: "", items: [it] });
+      }
+    }
     for (const j of jobs) {
       try {
-        await postWithFiles(j.channel, j.items.map((x) => x.embed), j.items.map((x) => x.file), j.webhook);
+        await postWithFiles(j.channel, j.items.map((x) => x.embed), j.items.map((x) => x.file).filter(Boolean), j.webhook);
         posts.push({ channel: j.channel, ok: true, via: j.webhook ? "webhook" : "bot" });
       } catch (e) {
         posts.push({ channel: j.channel, ok: false, error: String(e?.message || e).slice(0, 200) });

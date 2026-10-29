@@ -31,7 +31,15 @@ function render(r) {
     const status = el("span", { class: "small" + (c.hasWebhook ? "" : " muted"), text: c.hasWebhook ? `✓ 用「${c.webhookName || "Webhook"}」貼${c.webhookChannelName ? `到 #${c.webhookChannelName}` : ""}` : `還沒設定：由審核機器人貼回 ${label}` });
     const rm = c.hasWebhook ? el("button", { class: "btn sm ghost", type: "button", text: "移除", "aria-label": `移除 ${label} 的 Webhook` }) : null;
     rm?.addEventListener("click", () => { removed.add(c.id); status.textContent = "按儲存後移除，改回由審核機器人貼"; rm.disabled = true; });
-    return el("div", { class: "chat-target" }, el("span", { class: "pill", text: label }), input, el("div", { class: "chat-target-st" }, status, rm));
+    // 也貼到：同一則回顧再由機器人貼到另一個頻道（例如給大家看的大廳）
+    const also = el("input", { class: "input num", type: "text", inputmode: "numeric", maxlength: "20", value: c.alsoTo || "", placeholder: "也貼到哪個頻道（頻道 ID，選填）", "aria-label": `${label} 的回顧也貼到哪個頻道` });
+    also.dataset.also = c.id;
+    const log = el("input", { type: "checkbox" });
+    log.checked = c.alsoLog !== false;
+    log.dataset.alsolog = c.id;
+    return el("div", { class: "chat-target" }, el("span", { class: "pill", text: label }), input, el("div", { class: "chat-target-st" }, status, rm),
+      el("div", { class: "chat-also" }, also, el("label", { class: "small chat-also-log" }, log, " 附完整紀錄檔"),
+        el("span", { class: "small muted", text: c.alsoTo ? `✓ 也由機器人貼到 #${c.alsoToName || c.alsoTo}${c.alsoLog === false ? "（不附完整紀錄）" : ""}` : "選填：同一則回顧再貼一份到別的頻道，例如給大家看的大廳。研究員的聊天要貼到公開頻道時，建議不附完整紀錄。" })));
   });
   const err = el("div", { class: "form-error", role: "alert", hidden: true });
   const save = el("button", { class: "btn primary", type: "button", text: "儲存" });
@@ -40,7 +48,9 @@ function render(r) {
     A.setBusy(save, true, "向 Discord 確認中…");
     try {
       const webhooks = Object.fromEntries(targets.map((t) => t.querySelector("input")).map((x) => [x.dataset.channel, removed.has(x.dataset.channel) ? null : x.value.trim()]));
-      const x = await api("/api/admin/chatlog", { method: "PATCH", body: { channelIds: ids.value, webhooks, postMode: "own" } });
+      const alsoTo = Object.fromEntries([...box.querySelectorAll("input[data-also]")].map((x) => [x.dataset.also, x.value.trim()]));
+      const alsoLog = Object.fromEntries([...box.querySelectorAll("input[data-alsolog]")].map((x) => [x.dataset.alsolog, x.checked]));
+      const x = await api("/api/admin/chatlog", { method: "PATCH", body: { channelIds: ids.value, webhooks, alsoTo, alsoLog, postMode: "own" } });
       A.toast(`已儲存：統計 ${x.channels.map((c) => `#${c.name || c.id}`).join("、") || "（沒有頻道）"}`);
       loadChat();
     } catch (e) {

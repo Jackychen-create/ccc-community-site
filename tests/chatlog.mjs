@@ -173,6 +173,24 @@ await test("大廳設了 Webhook：用 Webhook 貼（不帶機器人 Token），
   assert.ok(r2.postError.includes("Webhook 已經被刪掉了"), r2.postError);
   delete db.settings[0].value.chatChannels[0].webhook;
 });
+await test("「也貼到」：大廳的回顧再由機器人貼一份到別的頻道（附紀錄）；研究員大廳也貼到公開頻道但不附紀錄", async () => {
+  const PUB = "100000000000000006";
+  db.settings[0].value.chatChannels[0].alsoTo = PUB;
+  db.settings[0].value.chatChannels[1].alsoTo = PUB;
+  db.settings[0].value.chatChannels[1].alsoLog = false;
+  const n = posted.length;
+  const r = await runChatlog(DAY);
+  const mine = posted.slice(n);
+  const extra = mine.filter((p) => p.channel === PUB);
+  assert.equal(extra.length, 2, mine.map((p) => p.channel).join());
+  const lobbyCopy = extra.find((p) => p.raw.includes("ccc_dc_recap_20261020_大廳.txt"));
+  assert.ok(lobbyCopy, "大廳那份附紀錄檔");
+  const labCopy = extra.find((p) => p !== lobbyCopy);
+  assert.ok(!labCopy.raw.includes("研究員聊天 ") && !labCopy.raw.includes("filename=") && labCopy.raw.includes("精簡版"), "研究員大廳那份不附紀錄");
+  assert.ok(mine.some((p) => p.channel === LAB) && mine.some((p) => p.channel === LOBBY), "原本的照貼");
+  assert.equal(r.posts.length, 4);
+  for (const c of db.settings[0].value.chatChannels) { delete c.alsoTo; delete c.alsoLog; }
+});
 await test("選全部貼到同一個頻道：一則訊息兩張卡片、兩個檔案", async () => {
   db.settings[0].value.chatPostMode = "single";
   const r = await runChatlog(DAY);
