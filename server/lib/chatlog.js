@@ -143,6 +143,7 @@ export function recapEmbed(day, row, { others = [], uniqueAuthors = null, file =
   const fields = [
     { name: "📊 討論概況", value: `訊息 ${row.messages} 則｜參與者 ${row.authors} 人｜區間 ${hm(row.first)}–${hm(row.last)}${row.truncated ? "\n（訊息太多，只算了前 3000 則）" : ""}` },
   ];
+  // 其他頻道的數字只在明確要求時放（預設不放：大廳的回顧不能出現研究員大廳的任何東西）
   if (others.length) {
     const all = [row, ...others];
     fields.push({ name: "🧪 全部大廳", value: all.map((r) => `#${r.name} ${r.messages} 則・${r.authors} 人`).join("\n") + (uniqueAuthors != null ? `\n合計 ${all.reduce((a, r) => a + r.messages, 0)} 則・${uniqueAuthors} 人（同一個人兩邊都講只算一次）` : "") });
@@ -227,7 +228,8 @@ export async function runChatlog(day, { post = true } = {}) {
   const uniq = many ? authorSet.size : null;
   const posts = [];
   if (post && ok.length) {
-    const card = (r) => ({ embed: recapEmbed(day, r, { others: ok.filter((x) => x !== r), uniqueAuthors: uniq, file: fileName(day, r.name, many) }), file: { name: fileName(day, r.name, many), text: r.text } });
+    // 每一張卡片只放自己頻道的內容，不放其他頻道的數字（大廳的回顧不能看到研究員大廳）
+    const card = (r) => ({ embed: recapEmbed(day, r, { file: fileName(day, r.name, many) }), file: { name: fileName(day, r.name, many), text: r.text } });
     const jobs = mode === "single"
       ? [{ channel: s.chatReportChannelId, items: ok.map(card) }]
       : ok.map((r) => { const c = channels.find((x) => x.id === r.id) || {}; return { channel: c.webhookChannelId || c.postTo || r.id, webhook: isWebhookUrl(c.webhook) ? c.webhook : "", items: [card(r)] }; });
@@ -236,7 +238,7 @@ export async function runChatlog(day, { post = true } = {}) {
       for (const r of ok) {
         const c = channels.find((x) => x.id === r.id) || {};
         if (!isSnowflake(c.alsoTo || "")) continue;
-        const it = c.alsoLog === false ? { embed: recapEmbed(day, r, { others: ok.filter((x) => x !== r), uniqueAuthors: uniq, file: "" }), file: null } : card(r);
+        const it = c.alsoLog === false ? { embed: recapEmbed(day, r, { file: "" }), file: null } : card(r);
         jobs.push({ channel: c.alsoTo, webhook: "", items: [it] });
       }
     }
