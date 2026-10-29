@@ -12,6 +12,22 @@ import {
 } from "../lib/index.js";
 import { addDays } from "../../public/assets/js/shared/rules.js";
 
+// 機器人讀不讀得到聊天文字：看應用程式的 Message Content Intent 開關，再實際讀第一個頻道最近 30 則確認
+// flags：1<<18 開了（已驗證的機器人）、1<<19 開了（100 個伺服器以下的機器人）
+export async function contentCheck(s) {
+  const app = await discordApi("GET", "/applications/@me").catch(() => null);
+  const f = Number(app?.flags || 0);
+  const intent = app ? ((f & (1 << 18)) || (f & (1 << 19)) ? "on" : "off") : "unknown";
+  let sample = "none";
+  const ch = (s.chatChannels || [])[0]?.id;
+  if (ch) {
+    const msgs = await discordApi("GET", `/channels/${ch}/messages?limit=30`).catch(() => null);
+    const human = (msgs || []).filter((m) => !m.author?.bot && (m.type === 0 || m.type === 19));
+    if (human.length) sample = human.some((m) => m.content) ? "ok" : "empty";
+  }
+  return { bot: app?.name || "", intent, sample };
+}
+
 export default route({
   async GET(req, res) {
     if (!(await requireAdmin(req, res))) return;
@@ -21,6 +37,7 @@ export default route({
     if (error) throw error;
     return res.status(200).json({
       configured: discordConfigured(),
+      content: discordConfigured() ? await contentCheck(s).catch(() => null) : null,
       channels: (s.chatChannels || []).map(({ webhook, ...c }) => ({ ...c, hasWebhook: !!webhook, webhookTail: webhook ? webhook.slice(-4) : "" })),
       reportChannelId: s.chatReportChannelId || "",
       postMode: s.chatPostMode === "single" ? "single" : "own",

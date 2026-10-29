@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import http from "node:http";
 import { setEnv } from "../server/lib/env.js";
+import { contentCheck } from "../server/admin/chatlog.js";
 import { runChatlog, fetchDay, summarizeDay, transcript, snowflakeAt, twDayStart, recapEmbed, topicsOf, hottestOf, isWebhookUrl, webhookInfo } from "../server/lib/chatlog.js";
 import cron from "../server/cron/chatlog.js";
 
@@ -55,6 +56,7 @@ const channels = {
   ],
   [LAB]: Array.from({ length: 150 }, (_, i) => msg(at(12, i % 60), i % 3 ? A1 : B1, `研究員聊天 ${i}`)),
 };
+let appFlags = 1 << 19;
 const posted = [];
 const calls = [];
 const disc = http.createServer(async (req, res) => {
@@ -68,6 +70,7 @@ const disc = http.createServer(async (req, res) => {
     posted.push({ channel: `webhook:${wm[1]}`, raw: (await readBody(req)).toString(), type: req.headers["content-type"], auth: req.headers.authorization || "", wait: u.searchParams.get("wait") });
     return send({ id: "6" });
   }
+  if (u.pathname === "/applications/@me") return send({ name: "實驗室助教", flags: appFlags });
   const m = u.pathname.match(/^\/channels\/(\d+)(\/messages)?$/);
   if (!m) return send({ message: "not found" }, 404);
   const id = m[1];
@@ -228,6 +231,15 @@ await test("機器人看不到的頻道：寫原因，其他頻道照跑", async
   assert.equal(r.rows.find((x) => x.id === SECRET).error, "機器人看不到這個頻道");
   assert.equal(r.rows.filter((x) => !x.error).length, 2);
   db.settings[0].value.chatChannels.pop();
+});
+await test("後台檢查讀不讀得到聊天文字：看開關、實際讀一次", async () => {
+  const s = { chatChannels: [{ id: LOBBY }] };
+  assert.deepEqual(await contentCheck(s), { bot: "實驗室助教", intent: "on", sample: "ok" });
+  const saved = channels[LOBBY];
+  channels[LOBBY] = [msg(at(8, 0), A1, ""), msg(at(8, 1), B1, "")];
+  appFlags = 0;
+  assert.deepEqual(await contentCheck(s), { bot: "實驗室助教", intent: "off", sample: "empty" });
+  channels[LOBBY] = saved; appFlags = 1 << 19;
 });
 await test("訊息內容都空的：提醒打開 Message Content Intent", async () => {
   const saved = channels[LOBBY];
