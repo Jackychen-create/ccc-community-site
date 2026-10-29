@@ -92,6 +92,8 @@ export default route({
             return res.status(400).json({ error: `#${c.name || c.id} 的「也貼到」頻道：${e?.status === 404 ? "找不到這個頻道" : "機器人看不到這個頻道，請在頻道權限把機器人加進去（檢視頻道、傳送訊息、附加檔案、嵌入連結）"}` });
           }
         }
+        const main = (isWebhookUrl(b.webhooks?.[c.id]) ? "" : c.webhookChannelId) || String(b.postTo?.[c.id] ?? c.postTo ?? "").trim() || c.id;
+        if (v === main) return res.status(400).json({ error: `#${c.name || c.id} 的「也貼到」跟每日回顧本來就會貼的頻道一樣，會貼兩次。不用填，留空就好` });
         list.push({ ...c, alsoTo: v, alsoToName, alsoLog });
       }
       next.chatChannels = list;
@@ -136,7 +138,7 @@ export default route({
     const b = readBody(req);
     const day = b.day || addDays(todayTW(), -1);
     if (!isDate(day) || day > todayTW()) return res.status(400).json({ error: "日期不正確" });
-    const r = await runChatlog(day, { post: b.post !== false });
+    const r = await runChatlog(day, { post: b.post !== false, force: b.force === true });
     return res.status(r.ok ? 200 : 400).json(r.ok ? r : { error: r.error });
   },
 });

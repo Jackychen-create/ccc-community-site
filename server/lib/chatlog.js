@@ -198,7 +198,17 @@ export async function postWithFiles(channelId, embeds, files, webhook = "") {
 }
 
 // 跑某一天（預設昨天，台灣時間）；post=false 只統計不貼
-export async function runChatlog(day, { post = true } = {}) {
+// 同一天、同一個頻道的回顧只貼一次（記在 bot_state 的 chatlog_posted：{ "2026-10-28": ["大廳 ID", "also:大廳 ID"] }，留 14 天）
+async function postedOf(day) {
+  const { data } = await supabaseAdmin.from("bot_state").select("value").eq("key", "chatlog_posted").maybeSingle();
+  return { all: data?.value || {}, list: new Set(data?.value?.[day] || []) };
+}
+async function markPosted(all, day, keys) {
+  const next = Object.fromEntries(Object.entries({ ...all, [day]: [...new Set([...(all[day] || []), ...keys])] }).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 14));
+  await supabaseAdmin.from("bot_state").upsert({ key: "chatlog_posted", value: next, updated_at: new Date().toISOString() });
+}
+// force：後台按「再貼一次」才會重貼已經貼過的
+export async function runChatlog(day, { post = true, force = false } = {}) {
   const s = await getDiscordSettings();
   const channels = (s.chatChannels || []).filter((c) => isSnowflake(c.id));
   if (!channels.length) return { ok: false, error: "還沒設定要統計的頻道" };
@@ -226,30 +236,37 @@ export async function runChatlog(day, { post = true } = {}) {
   }
   const many = ok.length > 1;
   const uniq = many ? authorSet.size : null;
-  const posts = [];
+  const posts = [], skipped = [];
   if (post && ok.length) {
     // 每一張卡片只放自己頻道的內容，不放其他頻道的數字（大廳的回顧不能看到研究員大廳）
     const card = (r) => ({ embed: recapEmbed(day, r, { file: fileName(day, r.name, many) }), file: { name: fileName(day, r.name, many), text: r.text } });
     const jobs = mode === "single"
-      ? [{ channel: s.chatReportChannelId, items: ok.map(card) }]
-      : ok.map((r) => { const c = channels.find((x) => x.id === r.id) || {}; return { channel: c.webhookChannelId || c.postTo || r.id, webhook: isWebhookUrl(c.webhook) ? c.webhook : "", items: [card(r)] }; });
+      ? [{ key: "single", channel: s.chatReportChannelId, items: ok.map(card) }]
+      : ok.map((r) => { const c = channels.find((x) => x.id === r.id) || {}; return { key: r.id, name: r.name, channel: c.webhookChannelId || c.postTo || r.id, webhook: isWebhookUrl(c.webhook) ? c.webhook : "", items: [card(r)] }; });
     // 「也貼到」：同一則回顧再由機器人貼到另一個頻道（例如給大家看的大廳）；可以選不附完整紀錄檔
     if (mode === "own") {
       for (const r of ok) {
         const c = channels.find((x) => x.id === r.id) || {};
         if (!isSnowflake(c.alsoTo || "")) continue;
+        // 「也貼到」跟主要貼的頻道一樣：不要同一個頻道貼兩次
+        if (c.alsoTo === (c.webhookChannelId || c.postTo || r.id)) continue;
         const it = c.alsoLog === false ? { embed: recapEmbed(day, r, { file: "" }), file: null } : card(r);
-        jobs.push({ channel: c.alsoTo, webhook: "", items: [it] });
+        jobs.push({ key: `also:${r.id}`, name: r.name, channel: c.alsoTo, webhook: "", items: [it] });
       }
     }
+    const done = await postedOf(day).catch(() => ({ all: {}, list: new Set() }));
+    const fresh = [];
     for (const j of jobs) {
+      if (!force && done.list.has(j.key)) { skipped.push(j.name || j.key); continue; }
       try {
         await postWithFiles(j.channel, j.items.map((x) => x.embed), j.items.map((x) => x.file).filter(Boolean), j.webhook);
         posts.push({ channel: j.channel, ok: true, via: j.webhook ? "webhook" : "bot" });
+        fresh.push(j.key);
       } catch (e) {
         posts.push({ channel: j.channel, ok: false, error: String(e?.message || e).slice(0, 200) });
       }
     }
+    if (fresh.length) await markPosted(done.all, day, fresh).catch((e) => console.error("chatlog mark failed", e?.message));
   }
   const failed = posts.filter((p) => !p.ok);
   return {
@@ -257,6 +274,7 @@ export async function runChatlog(day, { post = true } = {}) {
     rows: rows.map(({ text, ...r }) => r),
     total: { messages: ok.reduce((a, r) => a + r.messages, 0), authors: authorSet.size },
     posted: posts.length > 0 && !failed.length, posts,
+    alreadyPosted: [...new Set(skipped)], // 這一天已經貼過、這次沒有再貼的頻道
     postError: failed.length ? failed.map((p) => p.error).join("；") : null,
     noContent: rows.some((r) => r.noContent),
   };

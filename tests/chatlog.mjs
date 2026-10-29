@@ -13,7 +13,9 @@ const listen = (srv) => new Promise((r) => srv.listen(0, "127.0.0.1", () => r(`h
 const readBody = (req) => new Promise((r) => { const c = []; req.on("data", (x) => c.push(x)); req.on("end", () => r(Buffer.concat(c))); });
 
 // ── 假 Supabase：settings、chat_stats ──
-const db = { settings: [], chat_stats: [] };
+const db = { settings: [], chat_stats: [], bot_state: [] };
+// 每個測試前清掉「已經貼過」的紀錄（每日回顧同一天只貼一次）
+const fresh = () => { db.bot_state.length = 0; };
 const supa = http.createServer(async (req, res) => {
   const u = new URL(req.url, "http://x");
   const table = u.pathname.split("/").pop();
@@ -25,7 +27,7 @@ const supa = http.createServer(async (req, res) => {
   }
   const body = JSON.parse((await readBody(req)).toString() || "null");
   for (const it of Array.isArray(body) ? body : [body]) {
-    const k = table === "settings" ? (r) => r.key === it.key : (r) => r.day === it.day && r.channel_id === it.channel_id;
+    const k = table === "settings" || table === "bot_state" ? (r) => r.key === it.key : (r) => r.day === it.day && r.channel_id === it.channel_id;
     const i = db[table].findIndex(k);
     if (i >= 0) db[table][i] = { ...db[table][i], ...it }; else db[table].push(it);
   }
@@ -117,7 +119,7 @@ await test("還沒設定頻道：不跑", async () => {
 });
 db.settings.push({ key: "discord", value: { reviewChannelId: "100000000000000008", chatReportChannelId: REPORT, chatChannels: [{ id: LOBBY, name: "大廳" }, { id: LAB, name: "研究員大廳" }] } });
 await test("跑一天：兩個大廳分開算、合計人數不重複、存進資料庫", async () => {
-  const r = await runChatlog(DAY);
+  fresh(); const r = await runChatlog(DAY);
   assert.equal(r.ok, true, JSON.stringify(r));
   assert.deepEqual(r.rows.map((x) => [x.name, x.messages, x.authors]), [["大廳", 3, 2], ["研究員大廳", 150, 2]]);
   assert.deepEqual(r.total, { messages: 153, authors: 2 });
@@ -140,7 +142,7 @@ await test("預設各自貼回自己的頻道：大廳只附大廳的紀錄，�
   assert.ok(f["📎 完整紀錄"].includes("ccc_dc_recap_20261020_大廳.txt"));
 });
 await test("同一天再跑一次：資料庫覆蓋，不會重複", async () => {
-  await runChatlog(DAY, { post: false });
+  fresh(); await runChatlog(DAY, { post: false });
   assert.equal(db.chat_stats.length, 2);
   assert.equal(posted.length, 2);
 });
@@ -148,7 +150,7 @@ await test("大廳的回顧改貼到原本的每日回顧頻道；研究員大�
   const RECAP = "100000000000000007";
   db.settings[0].value.chatChannels[0].postTo = RECAP;
   const n = posted.length;
-  await runChatlog(DAY);
+  fresh(); await runChatlog(DAY);
   const mine = posted.slice(n);
   assert.deepEqual(mine.map((p) => p.channel).sort(), [LAB, RECAP].sort());
   assert.ok(mine.find((p) => p.channel === RECAP).raw.includes("ccc_dc_recap_20261020_大廳.txt"));
@@ -161,7 +163,7 @@ await test("大廳設了 Webhook：用 Webhook 貼（不帶機器人 Token），
   assert.deepEqual(await webhookInfo(HOOK), { name: "CCC｜每日回顧", channelId: "100000000000000007" });
   db.settings[0].value.chatChannels[0].webhook = HOOK;
   const n = posted.length;
-  const r = await runChatlog(DAY);
+  fresh(); const r = await runChatlog(DAY);
   const mine = posted.slice(n);
   const hook = mine.find((p) => p.channel === "webhook:123456789012345678");
   assert.ok(hook, mine.map((p) => p.channel).join());
@@ -170,7 +172,7 @@ await test("大廳設了 Webhook：用 Webhook 貼（不帶機器人 Token），
   assert.ok(mine.some((p) => p.channel === LAB));
   assert.deepEqual(r.posts.map((p) => p.via).sort(), ["bot", "webhook"]);
   db.settings[0].value.chatChannels[0].webhook = "https://discord.com/api/webhooks/123456789012345678/deleted-token-xxxxxxxxxxxxxx";
-  const r2 = await runChatlog(DAY);
+  fresh(); const r2 = await runChatlog(DAY);
   assert.ok(r2.postError.includes("Webhook 已經被刪掉了"), r2.postError);
   delete db.settings[0].value.chatChannels[0].webhook;
 });
@@ -180,7 +182,7 @@ await test("「也貼到」：大廳的回顧再由機器人貼一份到別的�
   db.settings[0].value.chatChannels[1].alsoTo = PUB;
   db.settings[0].value.chatChannels[1].alsoLog = false;
   const n = posted.length;
-  const r = await runChatlog(DAY);
+  fresh(); const r = await runChatlog(DAY);
   const mine = posted.slice(n);
   const extra = mine.filter((p) => p.channel === PUB);
   assert.equal(extra.length, 2, mine.map((p) => p.channel).join());
@@ -192,9 +194,28 @@ await test("「也貼到」：大廳的回顧再由機器人貼一份到別的�
   assert.equal(r.posts.length, 4);
   for (const c of db.settings[0].value.chatChannels) { delete c.alsoTo; delete c.alsoLog; }
 });
+await test("同一天的回顧只貼一次：再跑一次不會重複；「也貼到」跟主要頻道一樣也只貼一次；後台要再貼要明講", async () => {
+  fresh();
+  const n0 = posted.length;
+  await runChatlog(DAY);
+  const n1 = posted.length;
+  assert.equal(n1 - n0, 2);
+  const again = await runChatlog(DAY);
+  assert.equal(posted.length, n1, "第二次不能再貼");
+  assert.deepEqual(again.alreadyPosted.sort(), ["大廳", "研究員大廳"].sort());
+  const forced = await runChatlog(DAY, { force: true });
+  assert.equal(posted.length, n1 + 2, "後台按「再貼一次」才會重貼");
+  assert.equal(forced.posts.length, 2);
+  fresh();
+  db.settings[0].value.chatChannels[1].alsoTo = LAB; // 也貼到＝本來就會貼的頻道
+  const n2 = posted.length;
+  await runChatlog(DAY);
+  assert.equal(posted.filter((p, i) => i >= n2 && p.channel === LAB).length, 1, "同一個頻道只貼一次");
+  delete db.settings[0].value.chatChannels[1].alsoTo;
+});
 await test("選全部貼到同一個頻道：一則訊息兩張卡片、兩個檔案", async () => {
   db.settings[0].value.chatPostMode = "single";
-  const r = await runChatlog(DAY);
+  fresh(); const r = await runChatlog(DAY);
   assert.equal(r.mode, "single");
   const p = posted.at(-1);
   assert.equal(p.channel, REPORT);
@@ -203,7 +224,7 @@ await test("選全部貼到同一個頻道：一則訊息兩張卡片、兩個�
 });
 await test("機器人看不到的頻道：寫原因，其他頻道照跑", async () => {
   db.settings[0].value.chatChannels.push({ id: SECRET, name: "秘密" });
-  const r = await runChatlog(DAY, { post: false });
+  fresh(); const r = await runChatlog(DAY, { post: false });
   assert.equal(r.rows.find((x) => x.id === SECRET).error, "機器人看不到這個頻道");
   assert.equal(r.rows.filter((x) => !x.error).length, 2);
   db.settings[0].value.chatChannels.pop();
@@ -211,7 +232,7 @@ await test("機器人看不到的頻道：寫原因，其他頻道照跑", async
 await test("訊息內容都空的：提醒打開 Message Content Intent", async () => {
   const saved = channels[LOBBY];
   channels[LOBBY] = [msg(at(8, 0), A1, ""), msg(at(8, 1), B1, "")];
-  const r = await runChatlog("2026-10-20", { post: false });
+  fresh(); const r = await runChatlog("2026-10-20", { post: false });
   assert.equal(r.noContent, true);
   channels[LOBBY] = saved;
 });

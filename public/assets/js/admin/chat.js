@@ -71,7 +71,13 @@ function render(r) {
   run.addEventListener("click", async () => {
     A.setBusy(run, true, "統計中…");
     try {
-      const x = await api("/api/admin/chatlog", { method: "POST", body: { day: day.value } });
+      let x = await api("/api/admin/chatlog", { method: "POST", body: { day: day.value } });
+      // 這一天已經貼過了：問要不要再貼一次（預設不重複貼）
+      if (x.alreadyPosted?.length && !x.posts?.length) {
+        const again = await A.confirmDialog({ title: "這一天的回顧已經貼過了", message: `${x.alreadyPosted.map((n) => `#${n}`).join("、")} 的 ${md(x.day)} 回顧已經貼到 Discord，要再貼一次嗎？（會重複）`, confirmText: "再貼一次" });
+        if (!again) { A.setBusy(run, false); A.toast(`${md(x.day)} 已經貼過，沒有重複貼`); return; }
+        x = await api("/api/admin/chatlog", { method: "POST", body: { day: day.value, force: true } });
+      }
       const bad = x.rows.filter((y) => y.error);
       A.toast(bad.length ? `有 ${bad.length} 個頻道抓不到：${bad.map((y) => `#${y.name} ${y.error}`).join("、")}` : x.posted ? `${md(x.day)}：${x.total.messages} 則、${x.total.authors} 人，每日回顧已貼到 Discord` : `${md(x.day)}：${x.total.messages} 則、${x.total.authors} 人（沒有貼到 Discord：${x.postError || "沒有可以貼的頻道"}）`, bad.length || x.postError ? "err" : undefined);
       if (x.noContent) A.toast("聊天紀錄的內容是空的：請到 Discord Developer Portal → Bot 打開「Message Content Intent」", "err");
