@@ -1,6 +1,6 @@
 // 後台：聊天統計（只有主要管理員）
 // GET   /api/admin/chatlog                 設定（統計哪些頻道、回報頻道）＋最近 30 天每個頻道的統計
-// PATCH /api/admin/chatlog { channelIds, webhooks, postTo, postMode, reportChannelId }   改設定；會先跟 Discord 確認機器人看得到這些頻道
+// PATCH /api/admin/chatlog { channelIds, webhooks, postTo, alsoTo, alsoLog, postMode, reportChannelId }   改設定；會先跟 Discord 確認機器人看得到這些頻道
 //        webhooks：{ 統計的頻道 ID: Webhook 網址 }，空字串＝不改，null＝移除（改回機器人貼）
 //        Webhook 網址等同發文的鑰匙：只存在資料庫，GET 只回名字和頻道，不回網址
 //        postTo：{ 統計的頻道 ID: 回顧貼在哪個頻道 ID }，空白＝貼回自己的頻道（沒設 Webhook 時才用）
@@ -73,6 +73,26 @@ export default route({
           }
         }
         list.push({ ...c, postTo: v, postToName });
+      }
+      next.chatChannels = list;
+    }
+    // 「也貼到」：回顧再由機器人多貼一份到另一個頻道（alsoTo：{ 統計的頻道 ID: 頻道 ID 或空白 }，alsoLog：{ 同上: 要不要附完整紀錄檔 }）
+    if (b.alsoTo && typeof b.alsoTo === "object") {
+      const list = [];
+      for (const c of next.chatChannels || []) {
+        const v = String(b.alsoTo[c.id] ?? c.alsoTo ?? "").trim();
+        const alsoLog = b.alsoLog && typeof b.alsoLog === "object" && b.alsoLog[c.id] !== undefined ? b.alsoLog[c.id] !== false : c.alsoLog !== false;
+        if (!v) { const { alsoTo, alsoToName, alsoLog: _a, ...rest } = c; list.push(rest); continue; }
+        if (!isSnowflake(v)) return res.status(400).json({ error: `#${c.name || c.id} 的「也貼到」頻道 ID 是 17–20 位數字` });
+        let alsoToName = "";
+        if (discordConfigured()) {
+          try {
+            alsoToName = (await discordApi("GET", `/channels/${v}`))?.name || "";
+          } catch (e) {
+            return res.status(400).json({ error: `#${c.name || c.id} 的「也貼到」頻道：${e?.status === 404 ? "找不到這個頻道" : "機器人看不到這個頻道，請在頻道權限把機器人加進去（檢視頻道、傳送訊息、附加檔案、嵌入連結）"}` });
+          }
+        }
+        list.push({ ...c, alsoTo: v, alsoToName, alsoLog });
       }
       next.chatChannels = list;
     }
