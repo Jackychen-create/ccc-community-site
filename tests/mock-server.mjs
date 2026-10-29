@@ -561,8 +561,8 @@ const server = http.createServer(async (req, res) => {
           if (!rvCfg.perfChannelId) return send(res, 400, { error: "還沒設定交易績效頻道" });
           const fresh = rvWeeks.length ? 0 : 2;
           if (fresh) rvWeeks.unshift({ week: "2026-11-01", at: new Date().toISOString(), items: [
-            { id: "300000000000000001", channel: rvCfg.perfChannelId, author: "111111111111111111", authorName: "Amy", at: Date.parse("2026-10-29T03:00:00Z"), text: "NQ 開盤追空被掃，想請講師看進場點", attachments: 1, reviewed: false },
-            { id: "300000000000000002", channel: rvCfg.perfChannelId, author: "222222222222222222", authorName: "Bob", at: Date.parse("2026-10-30T13:30:00Z"), text: "", attachments: 2, reviewed: false }] });
+            { id: "300000000000000001", channel: rvCfg.perfChannelId, author: "111111111111111111", authorName: "Amy", at: Date.parse("2026-10-29T03:00:00Z"), text: "NQ 開盤追空被掃，想請講師看進場點", attachments: 1, votes: 5, reviewed: false },
+            { id: "300000000000000002", channel: rvCfg.perfChannelId, author: "222222222222222222", authorName: "Bob", at: Date.parse("2026-10-30T13:30:00Z"), text: "", attachments: 2, votes: 2, reviewed: false }] });
           return send(res, 200, { ok: true, week: "2026-11-01", count: rvWeeks[0].items.length, fresh, dms: fresh, posts: ["講師清單", "公開通知"] });
         }
         if (body.action === "reviewed") {

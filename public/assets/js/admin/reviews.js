@@ -57,7 +57,7 @@ function render(card, r) {
     A.setBusy(run, true, "整理中…");
     try {
       const x = await api("/api/admin/reviews", { method: "POST", body: { action: "run" } });
-      A.toast(x.fresh ? `新收到 ${x.fresh} 筆投稿（這週共 ${x.count} 筆），已私訊 ${x.dms} 人` : `沒有新的投稿（這週共 ${x.count} 筆）`);
+      A.toast(x.fresh ? `新增 ${x.fresh} 筆被投票的交易（這週共 ${x.count} 筆），已私訊 ${x.dms} 人` : `沒有新的（這週共 ${x.count} 筆，票數已更新）`);
       await load(card);
     } catch (e) { A.toast(e.message, "error"); A.setBusy(run, false); }
   });
@@ -79,14 +79,14 @@ function render(card, r) {
       return el("div", { class: "rv-item" + (it.reviewed ? " done" : "") },
         el("label", { class: "rv-check" }, box, el("span", { class: "small", text: "已點評" })),
         el("div", { class: "rv-body" },
-          el("div", { class: "small" }, el("b", { text: it.authorName }), el("span", { class: "muted num", text: `・${when(it.at)}` }), it.attachments ? el("span", { class: "muted", text: `・📎 ${it.attachments}` }) : null),
+          el("div", { class: "small" }, el("b", { text: it.authorName }), it.votes ? el("span", { class: "pill", text: `${it.votes} 票`, style: { marginLeft: "6px" } }) : null, el("span", { class: "muted num", text: `・${when(it.at)}` }), it.attachments ? el("span", { class: "muted", text: `・📎 ${it.attachments}` }) : null),
           el("p", { class: "rv-text", text: it.text || "（只有圖片）" }),
           r.guildId ? el("a", { class: "small", href: `https://discord.com/channels/${r.guildId}/${it.channel}/${it.id}`, target: "_blank", rel: "noopener", text: "在 Discord 看原文 ↗" }) : null));
     }))) : [el("p", { class: "small muted", text: r.perfChannelId ? "還沒有投稿。大家在交易績效自己的貼文按投稿表情，每週日 21:00 會整理到這裡。" : "先填交易績效頻道。" })];
 
   card.replaceChildren(...[
     el("h2", { text: "交易檢討投稿" }),
-    el("p", { class: "small sub", text: "大家在交易績效頻道自己的貼文按投稿表情就是投稿（別人幫按不算）。每週日 21:00 機器人整理：完整清單貼到審核頻道（只有管理員看得到），公開頻道只貼「本週收到 N 筆」，不寫是誰、投了什麼；投稿的人會收到私訊。點評完在下面勾「已點評」，機器人會再私訊告訴他。" }),
+    el("p", { class: "small sub", text: "大家在交易績效頻道對想聽講師點評的交易按投稿表情就是投票，自己的、別人的都可以，誰按都算一票。每週日 21:00 機器人整理：照票數排好的清單貼到審核頻道（只有管理員看得到），公開頻道只貼「本週有 N 筆」，不寫是哪幾筆；被投票的人會收到私訊。點評完在下面勾「已點評」，機器人會再私訊告訴他。" }),
     el("div", { class: "chat-target" },
       el("span", { class: "small chat-k", text: "交易績效" }), perf, r.perfChannelName ? el("span", { class: "small dc-ok", text: `✓ #${r.perfChannelName}` }) : null),
     el("div", { class: "chat-target" },
