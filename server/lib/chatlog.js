@@ -113,7 +113,7 @@ export function summarizeDay(messages) {
 }
 
 // 整天的完整紀錄（純文字）：[時間] 名字 → 下一行內容；回覆、附件、貼圖都寫出來
-export function transcript(channelName, day, messages, stats, truncated = false) {
+export function transcript(channelName, day, messages, stats, truncated = false, { noContent = false } = {}) {
   const start = twDayStart(day), end = twDayStart(addDays(day, 1));
   const lines = [
     `${BRAND}｜#${channelName}｜DC 每日完整討論紀錄`,
@@ -121,6 +121,8 @@ export function transcript(channelName, day, messages, stats, truncated = false)
     `訊息數：${stats.messages}${truncated ? `（訊息太多，只存了前 ${MAX_PAGES * 100} 則）` : ""}`,
     "=".repeat(64),
   ];
+  // 有訊息但文字全是空的：Discord 沒給機器人讀內容的權限（Message Content Intent）
+  if (noContent) lines.push("⚠️ 機器人讀不到這一天的文字內容（只看得到誰在什麼時間發言）。", "   管理員請到 Discord Developer Portal → 你的機器人 → Bot → Privileged Gateway Intents，打開「Message Content Intent」。", "");
   for (const m of messages.filter(isHuman)) {
     lines.push(`[${twStamp(Date.parse(m.timestamp))}] ${nameOf(m.author)}`);
     if (m.referenced_message) lines.push(`↪ 回覆 ${nameOf(m.referenced_message.author)}：${String(m.referenced_message.content || "").replace(/\s+/g, " ").slice(0, 40)}`);
@@ -148,7 +150,7 @@ export function recapEmbed(day, row, { others = [], uniqueAuthors = null, file =
     const all = [row, ...others];
     fields.push({ name: "🧪 全部大廳", value: all.map((r) => `#${r.name} ${r.messages} 則・${r.authors} 人`).join("\n") + (uniqueAuthors != null ? `\n合計 ${all.reduce((a, r) => a + r.messages, 0)} 則・${uniqueAuthors} 人（同一個人兩邊都講只算一次）` : "") });
   }
-  fields.push({ name: "🔥 討論主題", value: row.topics?.length ? row.topics.join("、") : row.messages ? "（聊得比較零散，沒有特別集中的主題）" : "（這一天沒有聊天）" });
+  if (!row.noContent) fields.push({ name: "🔥 討論主題", value: row.topics?.length ? row.topics.join("、") : row.messages ? "（聊得比較零散，沒有特別集中的主題）" : "（這一天沒有聊天）" });
   if (row.hottest) fields.push({ name: "💬 最多人回應", value: `${row.hottest.name}：「${row.hottest.text}」` });
   if (row.top?.length) fields.push({ name: "🗣️ 最活躍", value: row.top.slice(0, 3).map((t) => `${t.name} ${t.n} 則`).join("、") });
   if (file) fields.push({ name: "📎 完整紀錄", value: `已附上 \`${file}\`，包含當日所有訊息、作者、時間、回覆標記與附件連結。請以附件內容為完整來源。` });
@@ -223,7 +225,7 @@ export async function runChatlog(day, { post = true, force = false } = {}) {
       // 有訊息但內容都是空的：多半是沒開 Message Content Intent
       const noContent = messages.length > 0 && messages.filter(isHuman).every((m) => !m.content && !m.attachments?.length && !m.sticker_items?.length);
       st.authorIds.forEach((id) => authorSet.add(id));
-      rows.push({ id: c.id, name, messages: st.messages, authors: st.authors, top: st.top, topics: st.topics, hottest: st.hottest, first: st.first, last: st.last, truncated, noContent, text: transcript(name, day, messages, st, truncated) });
+      rows.push({ id: c.id, name, messages: st.messages, authors: st.authors, top: st.top, topics: st.topics, hottest: st.hottest, first: st.first, last: st.last, truncated, noContent, text: transcript(name, day, messages, st, truncated, { noContent }) });
     } catch (e) {
       rows.push({ id: c.id, name: c.name || c.id, error: e?.status === 403 || e?.code === 50001 ? "機器人看不到這個頻道" : e?.status === 404 ? "找不到頻道" : String(e?.message || e).slice(0, 80) });
     }
