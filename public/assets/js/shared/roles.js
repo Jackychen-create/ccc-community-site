@@ -18,6 +18,7 @@ const EDITOR_API = {
   "admin/attachments": "*",
   "admin/notify": "*",
   "admin/highlights": "*", // 直播精華（看、重做、套用章節）
+  "admin/reviews": "*", // 交易檢討投稿（講師勾已點評）
   "admin/feedback": "*",
   "admin/stats": "*",
   "admin/members": ["GET"], // 只能看
