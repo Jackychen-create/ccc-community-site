@@ -2,6 +2,7 @@
 // 由 Supabase 的 pg_cron 每 5 分鐘呼叫，見 supabase/schema.sql v1.15
 // POST /api/cron/lives   Header：X-Cron-Secret = Cloudflare 環境變數 CRON_SECRET
 import { supabaseAdmin, route, cronAuthorized, announceLive, REMIND_BEFORE_MIN } from "../lib/index.js";
+import { maybeWeeklyReviews } from "../lib/reviews.js";
 
 export default route({
   async POST(req, res) {
@@ -22,6 +23,8 @@ export default route({
       const r = await announceLive(live, "reminder");
       if (r.posted) reminded++;
     }
-    return res.status(200).json({ ok: true, due: (data || []).length, reminded });
+    // 順便：每週日 21:00 整理交易檢討投稿（server/lib/reviews.js）
+    const reviews = await maybeWeeklyReviews(now).catch((e) => ({ ok: false, error: String(e?.message || e) }));
+    return res.status(200).json({ ok: true, due: (data || []).length, reminded, reviews });
   },
 });

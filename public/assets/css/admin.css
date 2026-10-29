@@ -231,3 +231,12 @@
 .hl-points { margin: 0; padding-left: 1.2em; color: var(--ink-2); }
 .hl-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .hl-transcript pre { white-space: pre-wrap; max-height: 260px; overflow: auto; background: var(--surface-2); padding: 10px; border-radius: 8px; color: var(--ink-2); }
+
+/* 交易檢討投稿 */
+.rv-week { margin-top: 16px; }
+.rv-week-h { font-size: 14px; margin: 0 0 8px; }
+.rv-item { display: flex; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; margin-top: 8px; }
+.rv-item.done { opacity: .65; }
+.rv-check { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: none; }
+.rv-body { min-width: 0; flex: 1; }
+.rv-text { margin: 4px 0; font-size: 14px; overflow-wrap: anywhere; }

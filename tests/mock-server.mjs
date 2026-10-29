@@ -54,6 +54,9 @@ const invites = [
 const chatCfg = { channels: [], report: "", mode: "own" };
 const botCfg = { outlets: [], bots: {}, alert: "", runs: [] };
 let chatStats = [];
+const rvCfg = { perfChannelId: "", perfChannelName: "", reviewPublicChannelId: "", reviewPublicChannelName: "" };
+const rvWeeks = [];
+const rvDms = [];
 const members = [
   { user_id: users["amy@example.com"].id, email: "amy@example.com", invite_code: "K7QM-2XPA", banned: false, created_at: new Date(Date.now() - 18 * 86400e3).toISOString(), last_sign_in_at: new Date(Date.now() - 3600e3).toISOString(), watched_count: 2, min_tier: 2, min_tier_until: d(-5), note: "10 月交易量 120 口", notify: true },
   { user_id: users["banned@example.com"].id, email: "banned@example.com", invite_code: "HW3N-8RTE", banned: true, created_at: new Date(Date.now() - 9 * 86400e3).toISOString(), last_sign_in_at: null, watched_count: 0 },
@@ -314,6 +317,7 @@ const server = http.createServer(async (req, res) => {
     if (p === "/api/__test/age") { const m = members.find((x) => x.email === body.email); if (!m) return send(res, 404, {}); m.created_at = new Date(Date.now() - body.days * 86400e3).toISOString(); if (body.prevAmounts) { const pp = prevPeriod(anchorOf(m), curP(m)); if (pp) vols.set(m.user_id + ":" + pp.start, { amounts: body.prevAmounts, qualified_at: null, updated_at: new Date().toISOString(), updated_by: "test" }); } return send(res, 200, { ok: true }); }
     if (p === "/api/__test/highlight") { highlights.set(Number(body.video), body.highlight); return send(res, 200, { ok: true }); }
     if (p === "/api/__test/shares") return send(res, 200, sharePosts);
+    if (p === "/api/__test/review-dms") return send(res, 200, rvDms);
     if (p === "/api/__test/checkin") { const m = members.find((x) => x.email === body.email); if (!m) return send(res, 404, {}); const set = checkinsM.get(m.user_id) || new Set(); for (const dd of body.days || []) set.add(dd); checkinsM.set(m.user_id, set); return send(res, 200, { ok: true }); }
     // 公開影片（不用登入）
     if (p === "/api/public-video") {
@@ -533,6 +537,35 @@ const server = http.createServer(async (req, res) => {
         if (body.dryRun) return send(res, 200, { ok: true, posted: 0, preview: [{ title: "📋 台股盤後報告｜2026/10/21", color: 13198941, fields: [{ name: "📈 大盤", value: "加權 46,887.77　🔺 594.84（+1.28%）" }], footer: { text: "CCC Market Lab｜資訊整理，不是投資建議" } }] });
         botCfg.runs.unshift({ bot: body.run, at: new Date().toISOString(), ok: true, posted: 1, note: "加權 +1.28%" });
         return send(res, 200, { ok: true, posted: 1, note: "加權 +1.28%" });
+      }
+    }
+    // 交易檢討投稿（假的：兩筆投稿，勾已點評會記一次私訊）
+    if (p === "/api/admin/reviews") {
+      if (req.method === "GET") return send(res, 200, { configured: true, guildId: "900000000000000000", ...rvCfg, reviewChannelId: "100000000000000008", weeks: rvWeeks });
+      if (req.method === "PATCH") {
+        for (const k of ["perfChannelId", "reviewPublicChannelId"]) if (body[k] !== undefined) {
+          const v = String(body[k] || "").trim();
+          if (v && !/^\d{17,20}$/.test(v)) return send(res, 400, { error: `${k === "perfChannelId" ? "交易績效頻道" : "公開通知頻道"} ID 是 17–20 位數字（在 Discord 對頻道按右鍵「複製頻道 ID」）` });
+          rvCfg[k] = v; rvCfg[k.replace("Id", "Name")] = v ? (k === "perfChannelId" ? "交易績效" : "實驗大廳") : "";
+        }
+        return send(res, 200, { ok: true, ...rvCfg });
+      }
+      if (req.method === "POST") {
+        if (body.action === "run") {
+          if (!rvCfg.perfChannelId) return send(res, 400, { error: "還沒設定交易績效頻道" });
+          const fresh = rvWeeks.length ? 0 : 2;
+          if (fresh) rvWeeks.unshift({ week: "2026-11-01", at: new Date().toISOString(), items: [
+            { id: "300000000000000001", channel: rvCfg.perfChannelId, author: "111111111111111111", authorName: "Amy", at: Date.parse("2026-10-29T03:00:00Z"), text: "NQ 開盤追空被掃，想請講師看進場點", attachments: 1, reviewed: false },
+            { id: "300000000000000002", channel: rvCfg.perfChannelId, author: "222222222222222222", authorName: "Bob", at: Date.parse("2026-10-30T13:30:00Z"), text: "", attachments: 2, reviewed: false }] });
+          return send(res, 200, { ok: true, week: "2026-11-01", count: rvWeeks[0].items.length, fresh, dms: fresh, posts: ["講師清單", "公開通知"] });
+        }
+        if (body.action === "reviewed") {
+          const it = rvWeeks.find((w) => w.week === body.week)?.items.find((x) => x.id === body.id);
+          if (!it) return send(res, 404, { error: "找不到這筆投稿" });
+          if (body.reviewed !== false && !it.reviewed) rvDms.push(it.author);
+          it.reviewed = body.reviewed !== false;
+          return send(res, 200, { ok: true });
+        }
       }
     }
     // 聊天統計（假的：頻道名稱照 ID 尾數，統計固定數字）
