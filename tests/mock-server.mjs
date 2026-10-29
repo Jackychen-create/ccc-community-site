@@ -548,6 +548,10 @@ const server = http.createServer(async (req, res) => {
           const c = { ...old, id, name: id.endsWith("1") ? "大廳" : "研究員大廳" };
           if (w === null) { delete c.webhook; delete c.webhookName; delete c.webhookChannelName; }
           else if (w) Object.assign(c, { webhook: w, webhookName: "CCC｜每日回顧", webhookChannelName: id.endsWith("1") ? "每日回顧" : "研究員大廳" });
+          if (body.postTo && body.postTo[id] !== undefined) {
+            const t = String(body.postTo[id] || "").trim();
+            if (t && t !== id) Object.assign(c, { postTo: t, postToName: "公開回顧" }); else { delete c.postTo; delete c.postToName; }
+          }
           if (body.alsoTo && body.alsoTo[id] !== undefined) {
             const a = String(body.alsoTo[id] || "").trim();
             if (a && !/^\d{17,20}$/.test(a)) return { bad: true };

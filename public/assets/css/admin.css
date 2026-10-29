@@ -177,7 +177,11 @@
 .chat-bar { position: absolute; left: 0; top: 6px; bottom: 6px; background: var(--amber-soft); border-radius: 4px; z-index: 0; }
 .chat-table td > span { position: relative; z-index: 1; }
 .chat-day { width: auto; max-width: 200px; }
-.chat-target { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.chat-target { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
+.chat-target-head { display: flex; align-items: center; gap: 6px; flex-basis: 100%; }
+.chat-target-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex-basis: 100%; }
+.chat-target-row .input { flex: 1; min-width: 160px; max-width: 260px; }
+.chat-k { min-width: 2.5em; }
 .chat-target .input { flex: 1; min-width: 200px; max-width: 320px; }
 .chat-target-st { display: flex; align-items: center; gap: 8px; flex-basis: 100%; padding-left: 4px; }
 .chat-also { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex-basis: 100%; padding-left: 4px; }

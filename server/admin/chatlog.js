@@ -62,7 +62,7 @@ export default route({
       const list = [];
       for (const c of next.chatChannels || []) {
         const v = String(b.postTo[c.id] ?? c.postTo ?? "").trim();
-        if (!v || v === c.id) { list.push({ id: c.id, name: c.name }); continue; }
+        if (!v || v === c.id) { const { postTo, postToName, ...rest } = c; list.push(rest); continue; }
         if (!isSnowflake(v)) return res.status(400).json({ error: `#${c.name || c.id} 的回顧要貼的頻道 ID 是 17–20 位數字` });
         let postToName = "";
         if (discordConfigured()) {
