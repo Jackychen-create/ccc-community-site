@@ -8,7 +8,12 @@ import { supabaseAdmin } from "./env.js";
 import { discordApi, getDiscordSettings, sendMessage, dm, isSnowflake } from "./discord.js";
 import { snowflakeAt, twStamp, BRAND } from "./chatlog.js";
 
-export const REVIEW_EMOJIS = ["🔍", "🔎"];
+// 投稿用的表情：後台可以改（伺服器自訂表情記 id，例如熊熊）；預設放大鏡
+export const DEFAULT_REVIEW_EMOJIS = [{ name: "🔍" }, { name: "🔎" }];
+export const reviewEmojisOf = (s) => (Array.isArray(s?.reviewEmojis) && s.reviewEmojis.length ? s.reviewEmojis : DEFAULT_REVIEW_EMOJIS);
+const sameEmoji = (a, b) => (a.id || b.id ? a.id === b.id : a.name === b.name);
+// Discord 訊息裡顯示用：自訂表情 <:名字:id>
+export const emojiText = (e) => (e.id ? `<${e.animated ? "a" : ""}:${e.name}:${e.id}>` : e.name);
 const LOGO = "https://ccc-community-site.pages.dev/assets/brand/ccc-bot.png";
 const KEEP_WEEKS = 8;
 const clip = (s, n) => { s = String(s ?? "").replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
@@ -28,7 +33,7 @@ async function saveReviews(st) {
 }
 
 // 這一週（到 now 為止 7 天）交易績效裡，作者自己按了 🔍 的貼文
-export async function collectSubmissions(channelId, now = Date.now(), { api = discordApi, already = new Set() } = {}) {
+export async function collectSubmissions(channelId, now = Date.now(), { api = discordApi, already = new Set(), emojis = DEFAULT_REVIEW_EMOJIS } = {}) {
   const since = now - 7 * 86400e3;
   let after = snowflakeAt(since);
   const msgs = [];
@@ -43,11 +48,15 @@ export async function collectSubmissions(channelId, now = Date.now(), { api = di
   const out = [];
   for (const m of msgs) {
     if (m.author?.bot || already.has(m.id)) continue;
-    const emo = (m.reactions || []).map((r) => r.emoji?.name).find((n) => REVIEW_EMOJIS.includes(n));
-    if (!emo) continue;
-    // 只算作者自己按的（別人幫按不算）
-    const users = (await api("GET", `/channels/${channelId}/messages/${m.id}/reactions/${encodeURIComponent(emo)}?limit=100`).catch(() => [])) || [];
-    if (!users.some((u) => u.id === m.author?.id)) continue;
+    // 只算作者自己按的（別人幫按不算）；有好幾個投稿表情時，按其中一個就算
+    let mine = false;
+    for (const r of m.reactions || []) {
+      if (!r.emoji || !emojis.some((e) => sameEmoji(e, r.emoji))) continue;
+      const key = r.emoji.id ? `${r.emoji.name}:${r.emoji.id}` : r.emoji.name;
+      const users = (await api("GET", `/channels/${channelId}/messages/${m.id}/reactions/${encodeURIComponent(key)}?limit=100`).catch(() => [])) || [];
+      if (users.some((u) => u.id === m.author?.id)) { mine = true; break; }
+    }
+    if (!mine) continue;
     out.push({
       id: m.id, channel: channelId, author: m.author.id, authorName: nameOf(m.author),
       at: Date.parse(m.timestamp), text: clip(m.content, 300), attachments: (m.attachments || []).length,
@@ -72,11 +81,11 @@ export function hostListEmbed(week, items, guildId) {
   };
 }
 // 公開的那則：只有筆數，不寫是誰、投了什麼
-export function publicNotice(week, n, perfName = "交易績效") {
+export function publicNotice(week, n, perfName = "交易績效", emojis = DEFAULT_REVIEW_EMOJIS) {
   return {
     author: { name: `${BRAND}｜交易檢討投稿`, icon_url: LOGO },
     title: `📮 本週收到 ${n} 筆交易檢討投稿`,
-    description: `講師會在下次直播挑幾筆點評 🎙️\n想投稿：在 #${perfName} 你自己的貼文按 🔍，週日晚上會一起整理。`,
+    description: `講師會在下次直播挑幾筆點評 🎙️\n想投稿：在 #${perfName} 你自己的貼文按 ${emojiText(emojis[0])}，週日晚上會一起整理。`,
     color: 0xcda45e,
     footer: { text: "投稿內容只有講師看得到", icon_url: LOGO },
   };
@@ -91,7 +100,8 @@ export async function runWeeklyReviews(now = Date.now(), { force = false } = {})
   // auto＝週日排程整理過了（週中按「立即整理」不算，週日照樣會整理一次）
   if (!force && st.weeks[week]?.auto) return { ok: true, skipped: "這週已經整理過了" };
   const already = new Set(Object.values(st.weeks).flatMap((w) => (w.items || []).map((x) => x.id)));
-  const fresh = await collectSubmissions(s.perfChannelId, now, { already });
+  const emojis = reviewEmojisOf(s);
+  const fresh = await collectSubmissions(s.perfChannelId, now, { already, emojis });
   const cur = st.weeks[week] || { items: [] };
   const items = [...cur.items, ...fresh];
   const sunday = !force && !cur.auto; // 週日第一次：就算沒有新的也貼完整清單、公開筆數
@@ -101,7 +111,7 @@ export async function runWeeklyReviews(now = Date.now(), { force = false } = {})
   if (s.reviewChannelId && (fresh.length || sunday || !cur.at)) await sendMessage(s.reviewChannelId, { embeds: [hostListEmbed(week, items, s.guildId)], allowed_mentions: { parse: [] } }).then(() => posts.push("講師清單"), (e) => posts.push(`講師清單失敗：${e.message}`));
   if (isSnowflake(s.reviewPublicChannelId || "") && (fresh.length || (sunday && items.length))) {
     const perf = await discordApi("GET", `/channels/${s.perfChannelId}`).catch(() => null);
-    await sendMessage(s.reviewPublicChannelId, { embeds: [publicNotice(week, items.length, perf?.name)], allowed_mentions: { parse: [] } }).then(() => posts.push("公開通知"), (e) => posts.push(`公開通知失敗：${e.message}`));
+    await sendMessage(s.reviewPublicChannelId, { embeds: [publicNotice(week, items.length, perf?.name, emojis)], allowed_mentions: { parse: [] } }).then(() => posts.push("公開通知"), (e) => posts.push(`公開通知失敗：${e.message}`));
   }
   let dms = 0;
   for (const it of fresh) if (await dm(it.author, `📮 收到你這週的交易檢討投稿（${twStamp(it.at).slice(5, 16)} 那一筆），講師會在下次直播挑幾筆點評，被選到時會再通知你。`)) dms++;

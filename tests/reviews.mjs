@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { setEnv } from "../server/lib/env.js";
 import { snowflakeAt } from "../server/lib/chatlog.js";
-import { collectSubmissions, runWeeklyReviews, markReviewed, maybeWeeklyReviews, publicNotice, loadReviews } from "../server/lib/reviews.js";
+import { collectSubmissions, runWeeklyReviews, markReviewed, maybeWeeklyReviews, publicNotice, loadReviews, emojiText } from "../server/lib/reviews.js";
 
 let pass = 0, fail = 0;
 async function test(name, fn) {
@@ -29,7 +29,7 @@ const NOW = Date.parse("2026-11-01T13:03:00Z");
 const PERF = "100000000000000011", REVIEW = "100000000000000008", PUB = "100000000000000012";
 const AMY = { id: "111111111111111111", username: "amy", global_name: "Amy" }, BOB = { id: "222222222222222222", username: "bob" }, BOT = { id: "999999999999999999", username: "bot", bot: true };
 let seq = 0;
-const msg = (ms, author, content, react = null, extra = {}) => ({ id: String(BigInt(snowflakeAt(ms)) + BigInt(++seq)), timestamp: new Date(ms).toISOString(), author, content, attachments: [], reactions: react ? [{ emoji: { name: react.emoji }, count: react.by.length }] : [], _by: react?.by || [], ...extra });
+const msg = (ms, author, content, react = null, extra = {}) => ({ id: String(BigInt(snowflakeAt(ms)) + BigInt(++seq)), timestamp: new Date(ms).toISOString(), author, content, attachments: [], reactions: react ? [{ emoji: typeof react.emoji === "string" ? { name: react.emoji, id: null } : react.emoji, count: react.by.length }] : [], _by: react?.by || [], ...extra });
 const H = 3600e3;
 const perf = [
   msg(NOW - 8 * 86400e3, AMY, "八天前的不算", { emoji: "🔍", by: [AMY] }),
@@ -48,7 +48,8 @@ const disc = http.createServer(async (req, res) => {
   const body = req.method === "POST" ? JSON.parse((await readBody(req)) || "null") : null;
   if (u.pathname === "/users/@me/channels") { if (dmFail.has(body.recipient_id)) return send({ message: "Cannot send messages to this user", code: 50007 }, 403); return send({ id: "7" + body.recipient_id.slice(1) }); }
   const r = u.pathname.match(/^\/channels\/(\d+)\/messages\/(\d+)\/reactions\/([^/]+)$/);
-  if (r) { const m = perf.find((x) => x.id === r[2]); const e = decodeURIComponent(r[3]); return send(m && m.reactions[0]?.emoji.name === e ? m._by.map((a) => ({ id: a.id, username: a.username })) : []); }
+  if (r) { const m = perf.find((x) => x.id === r[2]); const e = decodeURIComponent(r[3]); const re = m?.reactions[0]?.emoji;
+    return send(re && (re.id ? `${re.name}:${re.id}` : re.name) === e ? m._by.map((a) => ({ id: a.id, username: a.username })) : []); }
   const m = u.pathname.match(/^\/channels\/(\d+)(\/messages)?$/);
   if (!m) return send({ message: "not found" }, 404);
   if (req.method === "POST") {
@@ -142,6 +143,19 @@ await test("排程時間：只有週日 21:00–21:10（台灣時間）會跑", 
   assert.equal(await maybeWeeklyReviews(Date.parse("2026-11-02T13:03:00Z")), null); // 週一
   const r = await maybeWeeklyReviews(Date.parse("2026-11-22T13:00:00Z"));
   assert.equal(r?.ok, true); assert.equal(r.week, "2026-11-22");
+});
+await test("自訂投稿表情（伺服器的熊熊）：按熊熊算、放大鏡就不算了；公開通知顯示熊熊", async () => {
+  const BEAR = { name: "bear_ok", id: "800000000000000001" };
+  const T = Date.parse("2026-12-06T13:03:00Z");
+  perf.push(msg(T - 2 * H, AMY, "按熊熊投稿", { emoji: BEAR, by: [AMY] }));
+  perf.push(msg(T - 1 * H, BOB, "按放大鏡", { emoji: "🔍", by: [BOB] }));
+  perf.push(msg(T - 1 * H + 1, BOB, "按別的自訂表情", { emoji: { name: "bear_ok", id: "800000000000000002" }, by: [BOB] }));
+  const items = await collectSubmissions(PERF, T, { emojis: [BEAR] });
+  assert.deepEqual(items.map((x) => x.text), ["按熊熊投稿"]);
+  const both = await collectSubmissions(PERF, T, { emojis: [BEAR, { name: "🔍" }] });
+  assert.deepEqual(both.map((x) => x.text), ["按熊熊投稿", "按放大鏡"]);
+  assert.equal(emojiText(BEAR), "<:bear_ok:800000000000000001>");
+  assert.ok(JSON.stringify(publicNotice("2026-12-06", 1, "績效", [BEAR])).includes("<:bear_ok:800000000000000001>"));
 });
 await test("公開通知沒有任何個人資料", () => {
   const e = JSON.stringify(publicNotice("2026-11-01", 3, "交易績效"));

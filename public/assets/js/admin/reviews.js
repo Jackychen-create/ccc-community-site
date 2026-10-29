@@ -24,13 +24,29 @@ async function load(card) {
 function render(card, r) {
   const perf = el("input", { class: "input num", type: "text", inputmode: "numeric", maxlength: "20", value: r.perfChannelId, placeholder: "交易績效頻道 ID", "aria-label": "交易績效頻道 ID", id: "rvPerf" });
   const pub = el("input", { class: "input num", type: "text", inputmode: "numeric", maxlength: "20", value: r.reviewPublicChannelId, placeholder: "公開通知頻道 ID（選填）", "aria-label": "公開通知頻道 ID", id: "rvPublic" });
+  // 投稿表情：放大鏡＋伺服器自己的表情（例如熊熊），可以選好幾個，按其中一個就算
+  const same = (a, b) => (a.id || b.id ? a.id === b.id : a.name === b.name);
+  const options = [{ name: "🔍" }, { name: "🔎" }, ...(r.guildEmojis || [])];
+  for (const e of r.reviewEmojis || []) if (!options.some((o) => same(o, e))) options.push(e);
+  const picked = options.filter((o) => (r.reviewEmojis || []).some((e) => same(o, e)));
+  const label = (e) => (e.id ? `:${e.name}:` : e.name);
+  const chips = options.map((e) => {
+    const b = el("button", { class: "rv-emo", type: "button", title: label(e), "aria-label": `投稿表情 ${label(e)}`, "aria-pressed": String(picked.includes(e)) },
+      e.id ? el("img", { src: `https://cdn.discordapp.com/emojis/${e.id}.${e.animated ? "gif" : "webp"}?size=48`, alt: label(e), width: 22, height: 22, loading: "lazy" }) : el("span", { text: e.name }));
+    b.addEventListener("click", () => {
+      const i = picked.indexOf(e);
+      if (i >= 0) { if (picked.length === 1) return A.toast("至少要留一個投稿表情", "error"); picked.splice(i, 1); } else picked.push(e);
+      b.setAttribute("aria-pressed", String(picked.includes(e)));
+    });
+    return b;
+  });
   const err = el("div", { class: "form-error", role: "alert", hidden: true });
   const save = el("button", { class: "btn primary", type: "button", text: "儲存" });
   save.addEventListener("click", async () => {
     err.hidden = true;
     A.setBusy(save, true, "向 Discord 確認中…");
     try {
-      await api("/api/admin/reviews", { method: "PATCH", body: { perfChannelId: perf.value.trim(), reviewPublicChannelId: pub.value.trim() } });
+      await api("/api/admin/reviews", { method: "PATCH", body: { perfChannelId: perf.value.trim(), reviewPublicChannelId: pub.value.trim(), reviewEmojis: picked.map((e) => (e.id ? { id: e.id, name: e.name } : { name: e.name })) } });
       A.toast("已儲存交易檢討投稿的頻道");
       await load(card);
     } catch (e) { err.textContent = e.message; err.hidden = false; A.setBusy(save, false); }
@@ -66,15 +82,18 @@ function render(card, r) {
           el("div", { class: "small" }, el("b", { text: it.authorName }), el("span", { class: "muted num", text: `・${when(it.at)}` }), it.attachments ? el("span", { class: "muted", text: `・📎 ${it.attachments}` }) : null),
           el("p", { class: "rv-text", text: it.text || "（只有圖片）" }),
           r.guildId ? el("a", { class: "small", href: `https://discord.com/channels/${r.guildId}/${it.channel}/${it.id}`, target: "_blank", rel: "noopener", text: "在 Discord 看原文 ↗" }) : null));
-    }))) : [el("p", { class: "small muted", text: r.perfChannelId ? "還沒有投稿。研究員在交易績效自己的貼文按 🔍，每週日 21:00 會整理到這裡。" : "先填交易績效頻道。" })];
+    }))) : [el("p", { class: "small muted", text: r.perfChannelId ? "還沒有投稿。大家在交易績效自己的貼文按投稿表情，每週日 21:00 會整理到這裡。" : "先填交易績效頻道。" })];
 
   card.replaceChildren(...[
     el("h2", { text: "交易檢討投稿" }),
-    el("p", { class: "small sub", text: "研究員在交易績效頻道自己的貼文按 🔍 就是投稿（別人幫按不算）。每週日 21:00 機器人整理：完整清單貼到審核頻道（只有管理員看得到），公開頻道只貼「本週收到 N 筆」，不寫是誰、投了什麼；投稿的人會收到私訊。點評完在下面勾「已點評」，機器人會再私訊告訴他。" }),
+    el("p", { class: "small sub", text: "大家在交易績效頻道自己的貼文按投稿表情就是投稿（別人幫按不算）。每週日 21:00 機器人整理：完整清單貼到審核頻道（只有管理員看得到），公開頻道只貼「本週收到 N 筆」，不寫是誰、投了什麼；投稿的人會收到私訊。點評完在下面勾「已點評」，機器人會再私訊告訴他。" }),
     el("div", { class: "chat-target" },
       el("span", { class: "small chat-k", text: "交易績效" }), perf, r.perfChannelName ? el("span", { class: "small dc-ok", text: `✓ #${r.perfChannelName}` }) : null),
     el("div", { class: "chat-target" },
       el("span", { class: "small chat-k", text: "公開通知" }), pub, r.reviewPublicChannelName ? el("span", { class: "small dc-ok", text: `✓ #${r.reviewPublicChannelName}` }) : el("span", { class: "small muted", text: "空白＝不貼公開通知" })),
+    el("div", { class: "chat-target" },
+      el("span", { class: "small chat-k", text: "投稿表情" }), el("div", { class: "rv-emos" }, ...chips),
+      el("span", { class: "small muted", text: "可以選好幾個，按其中一個就算。伺服器自己的表情（例如熊熊）也可以。" })),
     !r.reviewChannelId ? el("p", { class: "small warn-text", text: "還沒有審核頻道（Discord 頁的「審核頻道」），講師清單只會在這頁看得到。" }) : null,
     err,
     el("div", { class: "actions", style: { marginTop: "12px", flexWrap: "wrap" } }, save, run),

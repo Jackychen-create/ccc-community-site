@@ -54,7 +54,8 @@ const invites = [
 const chatCfg = { channels: [], report: "", mode: "own" };
 const botCfg = { outlets: [], bots: {}, alert: "", runs: [] };
 let chatStats = [];
-const rvCfg = { perfChannelId: "", perfChannelName: "", reviewPublicChannelId: "", reviewPublicChannelName: "" };
+const rvCfg = { perfChannelId: "", perfChannelName: "", reviewPublicChannelId: "", reviewPublicChannelName: "", reviewEmojis: [{ name: "🔍" }, { name: "🔎" }] };
+const rvGuildEmojis = [{ id: "800000000000000001", name: "bear_ok", animated: false }];
 const rvWeeks = [];
 const rvDms = [];
 const members = [
@@ -541,12 +542,17 @@ const server = http.createServer(async (req, res) => {
     }
     // 交易檢討投稿（假的：兩筆投稿，勾已點評會記一次私訊）
     if (p === "/api/admin/reviews") {
-      if (req.method === "GET") return send(res, 200, { configured: true, guildId: "900000000000000000", ...rvCfg, reviewChannelId: "100000000000000008", weeks: rvWeeks });
+      if (req.method === "GET") return send(res, 200, { configured: true, guildId: "900000000000000000", ...rvCfg, guildEmojis: rvGuildEmojis, reviewChannelId: "100000000000000008", weeks: rvWeeks });
       if (req.method === "PATCH") {
         for (const k of ["perfChannelId", "reviewPublicChannelId"]) if (body[k] !== undefined) {
           const v = String(body[k] || "").trim();
           if (v && !/^\d{17,20}$/.test(v)) return send(res, 400, { error: `${k === "perfChannelId" ? "交易績效頻道" : "公開通知頻道"} ID 是 17–20 位數字（在 Discord 對頻道按右鍵「複製頻道 ID」）` });
           rvCfg[k] = v; rvCfg[k.replace("Id", "Name")] = v ? (k === "perfChannelId" ? "交易績效" : "實驗大廳") : "";
+        }
+        if (body.reviewEmojis !== undefined) {
+          if (!Array.isArray(body.reviewEmojis) || !body.reviewEmojis.length || body.reviewEmojis.length > 5) return send(res, 400, { error: "投稿表情選 1 到 5 個" });
+          if (body.reviewEmojis.some((e) => e.id && !rvGuildEmojis.some((g) => g.id === e.id))) return send(res, 400, { error: "找不到這個伺服器表情（要是這個 Discord 伺服器自己的表情）" });
+          rvCfg.reviewEmojis = body.reviewEmojis.map((e) => (e.id ? rvGuildEmojis.find((g) => g.id === e.id) : { name: e.name }));
         }
         return send(res, 200, { ok: true, ...rvCfg });
       }
