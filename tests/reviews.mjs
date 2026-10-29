@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import http from "node:http";
 import { setEnv } from "../server/lib/env.js";
+import { flushAnnouncements } from "../server/lib/announce.js";
 import { snowflakeAt } from "../server/lib/chatlog.js";
 import { collectSubmissions, runWeeklyReviews, markReviewed, maybeWeeklyReviews, publicNotice, loadReviews, emojiText } from "../server/lib/reviews.js";
 
@@ -18,6 +19,12 @@ const supa = http.createServer(async (req, res) => {
   const table = u.pathname.split("/").pop();
   const one = /vnd\.pgrst\.object/.test(req.headers.accept || "");
   const send = (d, s = 200) => { res.writeHead(s, { "Content-Type": "application/json" }); res.end(JSON.stringify(one ? d[0] ?? null : d)); };
+  if (req.method === "DELETE") {
+    const key = (u.searchParams.get("key") || "").replace(/^eq\./, ""), up = (u.searchParams.get("updated_at") || "").replace(/^eq\./, "");
+    const gone = db[table].filter((r) => r.key === key && (!up || r.updated_at === up));
+    db[table] = db[table].filter((r) => !gone.includes(r));
+    return send(gone);
+  }
   if (req.method === "GET") { const key = u.searchParams.get("key"); return send(db[table].filter((r) => !key || r.key === key.replace(/^eq\./, ""))); }
   const body = JSON.parse((await readBody(req)) || "null");
   for (const it of Array.isArray(body) ? body : [body]) { const i = db[table].findIndex((r) => r.key === it.key); if (i >= 0) db[table][i] = { ...db[table][i], ...it }; else db[table].push(it); }
@@ -168,6 +175,17 @@ await test("自訂投稿表情（伺服器的熊熊）：按熊熊算、放大�
 await test("公開通知沒有任何個人資料", () => {
   const e = JSON.stringify(publicNotice("2026-11-01", 3, "交易績效"));
   assert.ok(e.includes("3 筆") && e.includes("🔍") && e.includes("別人的都可以"));
+});
+
+await test("公告佇列：貼一次就清掉、不 @ 任何人，第二次沒東西", async () => {
+  db.bot_state.push({ key: "announce_queue", value: { items: [{ channel: PUB, embeds: [{ title: "新功能" }] }, { channel: "x", content: "壞的" }] }, updated_at: "2026-10-30T00:00:00Z" });
+  const n = posted.length;
+  const r = await flushAnnouncements();
+  assert.deepEqual(r.map((x) => x.ok), [true, false]);
+  assert.equal(posted.length, n + 1);
+  assert.equal(posted.at(-1).channel, PUB); assert.deepEqual(posted.at(-1).body.allowed_mentions, { parse: [] });
+  assert.equal(await flushAnnouncements(), null);
+  assert.equal(posted.length, n + 1);
 });
 
 console.log(`\n${pass} 項通過，${fail} 項失敗`);
