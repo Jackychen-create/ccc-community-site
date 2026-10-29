@@ -3,6 +3,7 @@
 // POST /api/cron/lives   Header：X-Cron-Secret = Cloudflare 環境變數 CRON_SECRET
 import { supabaseAdmin, route, cronAuthorized, announceLive, REMIND_BEFORE_MIN } from "../lib/index.js";
 import { maybeWeeklyReviews } from "../lib/reviews.js";
+import { flushAnnouncements } from "../lib/announce.js";
 
 export default route({
   async POST(req, res) {
@@ -25,6 +26,8 @@ export default route({
     }
     // 順便：每週日 21:00 整理交易檢討投稿（server/lib/reviews.js）
     const reviews = await maybeWeeklyReviews(now).catch((e) => ({ ok: false, error: String(e?.message || e) }));
-    return res.status(200).json({ ok: true, due: (data || []).length, reminded, reviews });
+    // 順便：公告佇列（bot_state 的 announce_queue）
+    const announced = await flushAnnouncements().catch((e) => [{ ok: false, error: String(e?.message || e) }]);
+    return res.status(200).json({ ok: true, due: (data || []).length, reminded, reviews, announced });
   },
 });
