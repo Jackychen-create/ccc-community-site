@@ -135,7 +135,8 @@ await test("預設各自貼回自己的頻道：大廳只附大廳的紀錄，�
   assert.ok(embed.title.includes("#大廳 每日回顧｜2026/10/20"), embed.title);
   const f = Object.fromEntries(embed.fields.map((x) => [x.name, x.value]));
   assert.ok(f["📊 討論概況"].includes("訊息 3 則｜參與者 2 人｜區間 09:01–10:00"), f["📊 討論概況"]);
-  assert.ok(f["🧪 全部大廳"].includes("#研究員大廳 150 則") && f["🧪 全部大廳"].includes("合計 153 則・2 人"), f["🧪 全部大廳"]);
+  assert.equal(f["🧪 全部大廳"], undefined, "大廳的卡片不能有研究員大廳的數字");
+  assert.ok(!lobby.raw.includes("研究員大廳"), "大廳那則完全不能提到研究員大廳");
   assert.ok(f["📎 完整紀錄"].includes("ccc_dc_recap_20261020_大廳.txt"));
 });
 await test("同一天再跑一次：資料庫覆蓋，不會重複", async () => {
