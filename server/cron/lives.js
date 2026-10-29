@@ -4,6 +4,7 @@
 import { supabaseAdmin, route, cronAuthorized, announceLive, REMIND_BEFORE_MIN } from "../lib/index.js";
 import { maybeWeeklyReviews } from "../lib/reviews.js";
 import { flushAnnouncements } from "../lib/announce.js";
+import { runOnboarding } from "../lib/onboarding.js";
 
 export default route({
   async POST(req, res) {
@@ -28,6 +29,8 @@ export default route({
     const reviews = await maybeWeeklyReviews(now).catch((e) => ({ ok: false, error: String(e?.message || e) }));
     // 順便：公告佇列（bot_state 的 announce_queue）
     const announced = await flushAnnouncements().catch((e) => [{ ok: false, error: String(e?.message || e) }]);
-    return res.status(200).json({ ok: true, due: (data || []).length, reminded, reviews, announced });
+    // 順便：新人試用週，每天 20:00 私訊（server/lib/onboarding.js）
+    const onboarding = await runOnboarding(now).catch((e) => ({ ok: false, error: String(e?.message || e) }));
+    return res.status(200).json({ ok: true, due: (data || []).length, reminded, reviews, announced, onboarding });
   },
 });

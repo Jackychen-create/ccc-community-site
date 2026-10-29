@@ -32,6 +32,12 @@ const errs = [];
       const dms = await (await fetch(BASE + "/api/__test/review-dms")).json();
       check("勾已點評：私訊投稿的人", dms.length === 1 && dms[0] === "111111111111111111", JSON.stringify(dms));
       check("提示已私訊", (await p.textContent(".toast:last-child")).includes("已私訊 Amy"));
+      // v1.26.18 新人試用週
+      await p.waitForSelector("#onboardCard #obState");
+      check("新人試用週：預設沒打開、可以看 7 天內容", (await p.textContent("#obState")).includes("還沒打開") && (await p.locator("#onboardCard .ob-msg").count()) === 7 && (await p.textContent("#onboardCard .ob-msg")).includes("#頻道"));
+      await p.click("#onboardCard .btn:has-text('打開')"); await p.click(".modal .btn:has-text('打開')");
+      await p.waitForSelector("#obState.dc-ok");
+      check("打開後顯示已打開、列出這 7 天的新人", (await p.textContent("#onboardCard")).includes("新人小明") && (await p.textContent("#onboardCard")).includes("第 2 天"));
     } else {
       await p.waitForSelector("#reviewsCard .rv-item");
       check("手機沒有橫向捲動", await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));

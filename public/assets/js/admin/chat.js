@@ -4,6 +4,7 @@ import * as A from "../core/index.js";
 const { el, $, api, icon } = A;
 import { fail, loadingBox } from "./common.js";
 import { reviewsCard } from "./reviews.js";
+import { onboardingCard } from "./onboarding.js";
 
 const yesterday = () => { const d = new Date(Date.now() + 8 * 3600e3); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); };
 const md = (d) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
@@ -135,6 +136,7 @@ function render(r) {
       el("p", { class: "small sub", text: "每天 00:05（台灣時間）會自動統計前一天。想補某一天或先試試看，選日期按下面的按鈕。" }),
       el("div", { class: "actions", style: { marginTop: "10px", flexWrap: "wrap" } }, day, run)),
     reviewsCard(),
+    onboardingCard(),
     el("h2", { class: "chat-h", text: "最近 30 天" }),
     table);
 }

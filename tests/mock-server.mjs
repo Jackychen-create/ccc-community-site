@@ -58,6 +58,7 @@ const rvCfg = { perfChannelId: "", perfChannelName: "", reviewPublicChannelId: "
 const rvGuildEmojis = [{ id: "800000000000000001", name: "bear_ok", animated: false }];
 const rvWeeks = [];
 const rvDms = [];
+const obCfg = { on: false, since: null };
 const members = [
   { user_id: users["amy@example.com"].id, email: "amy@example.com", invite_code: "K7QM-2XPA", banned: false, created_at: new Date(Date.now() - 18 * 86400e3).toISOString(), last_sign_in_at: new Date(Date.now() - 3600e3).toISOString(), watched_count: 2, min_tier: 2, min_tier_until: d(-5), note: "10 月交易量 120 口", notify: true },
   { user_id: users["banned@example.com"].id, email: "banned@example.com", invite_code: "HW3N-8RTE", banned: true, created_at: new Date(Date.now() - 9 * 86400e3).toISOString(), last_sign_in_at: null, watched_count: 0 },
@@ -539,6 +540,12 @@ const server = http.createServer(async (req, res) => {
         botCfg.runs.unshift({ bot: body.run, at: new Date().toISOString(), ok: true, posted: 1, note: "加權 +1.28%" });
         return send(res, 200, { ok: true, posted: 1, note: "加權 +1.28%" });
       }
+    }
+    // 新人試用週（假的：一位新人）
+    if (p === "/api/admin/onboarding") {
+      const preview = Array.from({ length: 7 }, (_, i) => ({ title: `第 ${i + 1} 天｜引導 ${i + 1}`, description: `第 ${i + 1} 天的內容 <#100000000000000011>` }));
+      if (req.method === "GET") return send(res, 200, { on: obCfg.on, since: obCfg.since, people: obCfg.on ? [{ name: "新人小明", day: 2, last: 1, approvedAt: "2026-10-28T10:00:00Z" }] : [], preview });
+      if (req.method === "PATCH") { if (body.on && !obCfg.on) obCfg.since = new Date().toISOString(); obCfg.on = body.on === true; return send(res, 200, { ok: true, on: obCfg.on, since: obCfg.since }); }
     }
     // 交易檢討投稿（假的：兩筆投稿，勾已點評會記一次私訊）
     if (p === "/api/admin/reviews") {
