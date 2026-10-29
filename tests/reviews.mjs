@@ -34,7 +34,7 @@ const H = 3600e3;
 const perf = [
   msg(NOW - 8 * 86400e3, AMY, "八天前的不算", { emoji: "🔍", by: [AMY] }),
   msg(NOW - 50 * H, AMY, "NQ 開盤追空被掃，想請講師看進場點", { emoji: "🔍", by: [AMY] }, { attachments: [{ filename: "a.png" }] }),
-  msg(NOW - 40 * H, BOB, "別人幫我按的不算", { emoji: "🔍", by: [AMY] }),
+  msg(NOW - 40 * H, BOB, "別人按的也算", { emoji: "🔍", by: [AMY] }),
   msg(NOW - 30 * H, BOB, "", { emoji: "🔎", by: [BOB, AMY] }, { attachments: [{ filename: "b.png" }, { filename: "c.png" }] }),
   msg(NOW - 20 * H, AMY, "沒按的不算"),
   msg(NOW - 10 * H, BOT, "機器人的不算", { emoji: "🔍", by: [BOT] }),
@@ -66,9 +66,9 @@ const disc = http.createServer(async (req, res) => {
 const [SUPA, DISC] = await Promise.all([listen(supa), listen(disc)]);
 setEnv({ SUPABASE_URL: SUPA, SUPABASE_SERVICE_ROLE_KEY: "service-test", DISCORD_API_BASE: DISC, DISCORD_BOT_TOKEN: "t", DISCORD_APP_ID: "1", DISCORD_PUBLIC_KEY: "k" });
 
-await test("挑投稿：只算這 7 天、作者自己按 🔍／🔎 的；別人幫按、機器人、別的表情都不算", async () => {
+await test("投票：只算這 7 天、誰按 🔍／🔎 都算一票；機器人的貼文、別的表情不算；票多的排前面", async () => {
   const items = await collectSubmissions(PERF, NOW);
-  assert.deepEqual(items.map((x) => [x.authorName, x.text, x.attachments]), [["Amy", "NQ 開盤追空被掃，想請講師看進場點", 1], ["bob", "", 2]]);
+  assert.deepEqual(items.map((x) => [x.authorName, x.text, x.votes]), [["bob", "", 2], ["Amy", "NQ 開盤追空被掃，想請講師看進場點", 1], ["bob", "別人按的也算", 1]]);
   assert.ok(items.every((x) => x.reviewed === false && x.channel === PERF));
 });
 await test("還沒設定交易績效頻道：不跑", async () => {
@@ -80,17 +80,17 @@ await test("週日整理：講師清單貼到審核頻道、公開只貼筆數�
   dmFail = new Set([BOB.id]);
   const r = await runWeeklyReviews(NOW);
   assert.equal(r.ok, true, JSON.stringify(r));
-  assert.deepEqual([r.week, r.count, r.fresh, r.dms], ["2026-11-01", 2, 2, 1]); // Bob 關私訊，不影響
+  assert.deepEqual([r.week, r.count, r.fresh, r.dms], ["2026-11-01", 3, 3, 1]); // Bob 關私訊，不影響
   const host = posted.find((p) => p.channel === REVIEW), pub = posted.find((p) => p.channel === PUB);
   assert.ok(host && pub, posted.map((p) => p.channel).join());
   const he = JSON.stringify(host.body);
   assert.ok(he.includes("Amy") && he.includes("NQ 開盤追空") && he.includes(`https://discord.com/channels/900000000000000000/${PERF}/`), he);
   assert.deepEqual(host.body.allowed_mentions, { parse: [] });
   const pe = JSON.stringify(pub.body);
-  assert.ok(pe.includes("本週收到 2 筆"), pe);
+  assert.ok(pe.includes("本週有 3 筆") && he.includes("2 票"), pe);
   assert.ok(!pe.includes("Amy") && !pe.includes("bob") && !pe.includes("NQ 開盤追空") && !pe.includes("discord.com/channels"), "公開通知不能有名字、內容、連結：" + pe);
   assert.ok(pe.includes("#交易績效"));
-  assert.equal(dms.length, 1); assert.equal(dms[0].to, AMY.id); assert.ok(dms[0].content.includes("收到"));
+  assert.equal(dms.length, 1); assert.equal(dms[0].to, AMY.id); assert.ok(dms[0].content.includes("1 票"));
 });
 await test("同一週排程再叫一次：不重複", async () => {
   const before = [posted.length, dms.length];
@@ -115,12 +115,12 @@ await test("下一週：上週投過的不會再算一次，只算新的", async
 });
 await test("勾已點評：第一次私訊投稿的人，取消再勾不重複私訊", async () => {
   const st = await loadReviews();
-  const it = st.weeks["2026-11-01"].items[0];
+  const it = st.weeks["2026-11-01"].items.find((x) => x.author === AMY.id);
   const n = dms.length;
   assert.equal((await markReviewed("2026-11-01", it.id, true)).ok, true);
   assert.equal(dms.length, n + 1); assert.ok(dms.at(-1).content.includes("點評了") && dms.at(-1).to === AMY.id);
   await markReviewed("2026-11-01", it.id, false);
-  assert.equal((await loadReviews()).weeks["2026-11-01"].items[0].reviewed, false);
+  assert.equal((await loadReviews()).weeks["2026-11-01"].items.find((x) => x.id === it.id).reviewed, false);
   await markReviewed("2026-11-01", it.id, true);
   assert.equal(dms.length, n + 1);
   assert.equal((await markReviewed("2026-11-01", "1", true)).ok, false);
@@ -134,7 +134,7 @@ await test("週中按「立即整理」也算到這週日那一週", async () =>
   const sun = await runWeeklyReviews(Date.parse("2026-11-15T13:01:00Z")); // 週日排程照樣整理、貼公開筆數
   assert.ok(!sun.skipped, JSON.stringify(sun));
   assert.deepEqual([sun.count, sun.fresh], [1, 0]);
-  assert.ok(posted.slice(n).some((p) => p.channel === PUB && JSON.stringify(p.body).includes("本週收到 1 筆")));
+  assert.ok(posted.slice(n).some((p) => p.channel === PUB && JSON.stringify(p.body).includes("本週有 1 筆")));
   assert.ok((await runWeeklyReviews(Date.parse("2026-11-15T13:06:00Z"))).skipped);
 });
 await test("排程時間：只有週日 21:00–21:10（台灣時間）會跑", async () => {
@@ -143,6 +143,14 @@ await test("排程時間：只有週日 21:00–21:10（台灣時間）會跑", 
   assert.equal(await maybeWeeklyReviews(Date.parse("2026-11-02T13:03:00Z")), null); // 週一
   const r = await maybeWeeklyReviews(Date.parse("2026-11-22T13:00:00Z"));
   assert.equal(r?.ok, true); assert.equal(r.week, "2026-11-22");
+});
+await test("週中整理後票數變多：週日再整理會更新票數", async () => {
+  const m = perf.find((x) => x.content === "週三的");
+  m.reactions[0].count = 4;
+  const st = await loadReviews();
+  assert.equal(st.weeks["2026-11-15"].items[0].votes, 1);
+  await runWeeklyReviews(Date.parse("2026-11-15T13:20:00Z"), { force: true });
+  assert.equal((await loadReviews()).weeks["2026-11-15"].items[0].votes, 4);
 });
 await test("自訂投稿表情（伺服器的熊熊）：按熊熊算、放大鏡就不算了；公開通知顯示熊熊", async () => {
   const BEAR = { name: "bear_ok", id: "800000000000000001" };
@@ -159,7 +167,7 @@ await test("自訂投稿表情（伺服器的熊熊）：按熊熊算、放大�
 });
 await test("公開通知沒有任何個人資料", () => {
   const e = JSON.stringify(publicNotice("2026-11-01", 3, "交易績效"));
-  assert.ok(e.includes("3 筆") && e.includes("🔍"));
+  assert.ok(e.includes("3 筆") && e.includes("🔍") && e.includes("別人的都可以"));
 });
 
 console.log(`\n${pass} 項通過，${fail} 項失敗`);
