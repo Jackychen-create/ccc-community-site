@@ -116,6 +116,12 @@ function render(r) {
     el("section", { class: "card chat-set" },
       el("h2", { text: "設定" }),
       !r.configured ? el("p", { class: "form-error", text: "還沒設定 Discord 機器人（Cloudflare 的 DISCORD_BOT_TOKEN 等）" }) : null,
+      // 讀不讀得到聊天文字（紀錄檔都是「沒有文字」時看這裡）
+      r.content ? el("p", { class: "small " + (r.content.sample === "ok" ? "dc-ok" : "warn-text"), id: "chatContent", text: r.content.sample === "ok"
+        ? `✓ 機器人${r.content.bot ? `「${r.content.bot}」` : ""}讀得到聊天文字`
+        : r.content.sample === "empty"
+          ? `✗ 機器人${r.content.bot ? `「${r.content.bot}」` : ""}讀不到聊天文字（Message Content Intent ${r.content.intent === "on" ? "顯示已打開，但 Discord 還沒生效：等幾分鐘再重新整理這頁" : "還沒打開：Discord Developer Portal → 這個機器人 → Bot → Message Content Intent"}）`
+          : `機器人${r.content.bot ? `「${r.content.bot}」` : ""}：Message Content Intent ${r.content.intent === "on" ? "已打開" : r.content.intent === "off" ? "還沒打開" : "查不到"}` }) : null,
       el("label", { class: "field" }, el("span", { class: "label", text: "要統計的頻道（最多 5 個，用逗號分開）" }), ids,
         el("span", { class: "hint", text: "在 Discord 對頻道按右鍵「複製頻道 ID」（要先在 Discord 設定 → 進階 打開「開發者模式」）。機器人要能看到這些頻道、讀取訊息歷史。" })),
       r.channels.length ? el("div", { class: "field" }, el("span", { class: "label", style: { display: "block", marginBottom: "8px" }, text: "每個頻道的每日回顧貼到哪（卡片＋完整紀錄文字檔）" }), ...targets,
