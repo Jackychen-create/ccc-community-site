@@ -1,5 +1,5 @@
 // 執行方式：npm test（會自動開模擬伺服器）
-// v1.26.14：交易檢討投稿（後台「聊天統計」頁：填頻道、立即整理、勾已點評）
+// v1.26.14–15：交易檢討投稿（後台「聊天統計」頁：填頻道、投稿表情、立即整理、勾已點評）
 const { chromium } = require("playwright");
 const BASE = "http://localhost:4321";
 const FONT_CSS = ["noto-sans-tc/400","noto-sans-tc/500","noto-sans-tc/700","sofia-sans-semi-condensed/500","sofia-sans-semi-condensed/600","sofia-sans-semi-condensed/700"].map((f) => `@import url("${BASE}/__fonts/${f}.css");`).join("\n");
@@ -20,7 +20,10 @@ const errs = [];
       await p.fill("#rvPerf", "123"); await p.click("#reviewsCard .btn:has-text('儲存')"); await p.waitForTimeout(300);
       check("頻道 ID 格式不對會擋", !(await p.isHidden("#reviewsCard .form-error")) && (await p.textContent("#reviewsCard .form-error")).includes("17–20"));
       await p.fill("#rvPerf", "100000000000000011"); await p.fill("#rvPublic", "100000000000000012");
+      check("投稿表情：預設放大鏡，伺服器的熊熊也列出來", (await p.locator("#reviewsCard .rv-emo").count()) === 3 && (await p.getAttribute("#reviewsCard .rv-emo[aria-label*='bear_ok']", "aria-pressed")) === "false" && (await p.getAttribute("#reviewsCard .rv-emo >> nth=0", "aria-pressed")) === "true");
+      await p.click("#reviewsCard .rv-emo[aria-label*='bear_ok']"); await p.click("#reviewsCard .rv-emo >> nth=0"); await p.click("#reviewsCard .rv-emo >> nth=1");
       await p.click("#reviewsCard .btn:has-text('儲存')"); await p.waitForSelector("#reviewsCard .dc-ok");
+      check("只選熊熊、儲存後還是熊熊", (await p.locator("#reviewsCard .rv-emo[aria-pressed=true]").count()) === 1 && (await p.getAttribute("#reviewsCard .rv-emo[aria-pressed=true]", "aria-label")).includes("bear_ok"));
       check("儲存後顯示頻道名稱", (await p.textContent("#reviewsCard")).includes("#交易績效") && (await p.textContent("#reviewsCard")).includes("#實驗大廳"));
       await p.click("#reviewsCard .btn:has-text('立即整理')"); await p.click(".modal .btn:has-text('整理')");
       await p.waitForSelector("#reviewsCard .rv-item");

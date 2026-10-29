@@ -4,7 +4,14 @@
 // POST  /api/admin/reviews { action: "run" }        立即整理這一週（已整理過的只補新的）
 // POST  /api/admin/reviews { action: "reviewed", week, id, reviewed }   勾「已點評」（第一次勾會私訊投稿的人）
 import { requireAdmin, readBody, route, discordConfigured, getDiscordSettings, saveDiscordSettings, isSnowflake, discordApi } from "../lib/index.js";
-import { loadReviews, runWeeklyReviews, markReviewed } from "../lib/reviews.js";
+import { loadReviews, runWeeklyReviews, markReviewed, reviewEmojisOf } from "../lib/reviews.js";
+
+// 伺服器的自訂表情（後台選投稿表情用）
+const guildEmojis = async (guildId) => {
+  if (!guildId || !discordConfigured()) return [];
+  const list = (await discordApi("GET", `/guilds/${guildId}/emojis`).catch(() => [])) || [];
+  return list.filter((e) => e.id && e.available !== false).map((e) => ({ id: e.id, name: e.name, animated: !!e.animated }));
+};
 
 export default route({
   async GET(req, res) {
@@ -12,7 +19,7 @@ export default route({
     const s = await getDiscordSettings();
     const st = await loadReviews();
     const weeks = Object.entries(st.weeks).sort((a, b) => b[0].localeCompare(a[0])).map(([week, w]) => ({ week, at: w.at, items: w.items || [] }));
-    return res.status(200).json({ configured: discordConfigured(), guildId: s.guildId || "", perfChannelId: s.perfChannelId || "", perfChannelName: s.perfChannelName || "", reviewPublicChannelId: s.reviewPublicChannelId || "", reviewPublicChannelName: s.reviewPublicChannelName || "", reviewChannelId: s.reviewChannelId || "", weeks });
+    return res.status(200).json({ configured: discordConfigured(), guildId: s.guildId || "", reviewEmojis: reviewEmojisOf(s), guildEmojis: await guildEmojis(s.guildId), perfChannelId: s.perfChannelId || "", perfChannelName: s.perfChannelName || "", reviewPublicChannelId: s.reviewPublicChannelId || "", reviewPublicChannelName: s.reviewPublicChannelName || "", reviewChannelId: s.reviewChannelId || "", weeks });
   },
 
   async PATCH(req, res) {
@@ -35,8 +42,26 @@ export default route({
       next[k] = v;
       next[k.replace("Id", "Name")] = name;
     }
+    if (b.reviewEmojis !== undefined) {
+      const list = Array.isArray(b.reviewEmojis) ? b.reviewEmojis : [];
+      if (!list.length || list.length > 5) return res.status(400).json({ error: "投稿表情選 1 到 5 個" });
+      const custom = list.some((e) => e?.id) ? await guildEmojis(next.guildId) : [];
+      const clean = [];
+      for (const e of list) {
+        if (e?.id) {
+          const g = custom.find((x) => x.id === String(e.id));
+          if (!g) return res.status(400).json({ error: "找不到這個伺服器表情（要是這個 Discord 伺服器自己的表情）" });
+          clean.push(g);
+        } else {
+          const n = String(e?.name || "").trim();
+          if (!n || n.length > 16 || /[\s<>:]/.test(n)) return res.status(400).json({ error: "投稿表情不對" });
+          clean.push({ name: n });
+        }
+      }
+      next.reviewEmojis = clean;
+    }
     await saveDiscordSettings(next);
-    return res.status(200).json({ ok: true, perfChannelId: next.perfChannelId || "", perfChannelName: next.perfChannelName || "", reviewPublicChannelId: next.reviewPublicChannelId || "", reviewPublicChannelName: next.reviewPublicChannelName || "" });
+    return res.status(200).json({ ok: true, reviewEmojis: reviewEmojisOf(next), perfChannelId: next.perfChannelId || "", perfChannelName: next.perfChannelName || "", reviewPublicChannelId: next.reviewPublicChannelId || "", reviewPublicChannelName: next.reviewPublicChannelName || "" });
   },
 
   async POST(req, res) {
