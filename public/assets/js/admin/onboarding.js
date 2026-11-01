@@ -56,7 +56,7 @@ async function loadNudge(box) {
       A.setBusy(btn, true, "發送中…");
       try {
         const x = await api("/api/admin/onboarding", { method: "POST", body: { nudge: kind } });
-        A.toast(`已發給 ${x.sent} 人${x.failed?.length ? `，${x.failed.length} 人沒收到（關掉私訊或寄信失敗）` : ""}`);
+        A.toast(`已發給 ${x.sent} 人${x.mails ? `（${x.dms || 0} 人私訊、${x.mails} 人沒連 Discord 改寄信）` : ""}${x.failed?.length ? `，${x.failed.length} 人沒收到` : ""}`);
         await loadNudge(box);
       } catch (e) { A.toast(e.message, "error"); A.setBusy(btn, false); }
     });
@@ -68,5 +68,5 @@ async function loadNudge(box) {
   box.replaceChildren(
     el("h3", { class: "rv-week-h", style: { marginTop: "18px" }, text: "補發給之前的人" }),
     group("unregistered", "報名通過、還沒註冊網站", "助教私訊他自己的加入連結（實驗室密碼）。", r.unregistered, (p) => `${p.name || p.id}（${md(p.approvedAt)} 通過）`, "私訊提醒註冊"),
-    group("unwatched", "註冊了、一支影片都沒看過", "寄信推薦從 EP1（CCC 第 1 份課程）開始看。", r.unwatched, (p) => `${p.email}（${md(p.joinedAt)} 加入）`, "寄信推薦 EP1"));
+    group("unwatched", "註冊了、一支影片都沒看過", "助教私訊推薦從 EP1（CCC 第 1 份課程）開始看；沒連到 Discord 的人改寄信。", r.unwatched, (p) => `${p.email}（${md(p.joinedAt)} 加入・${p.discordId ? "私訊" : "寄信"}）`, "推薦 EP1"));
 }

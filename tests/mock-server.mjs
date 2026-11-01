@@ -564,9 +564,9 @@ const server = http.createServer(async (req, res) => {
       const preview = Array.from({ length: 7 }, (_, i) => ({ title: `第 ${i + 1} 天｜引導 ${i + 1}`, description: `第 ${i + 1} 天的內容 <#100000000000000011>` }));
       if (req.method === "GET" && url.searchParams.get("nudge")) return send(res, 200, {
         unregistered: [{ id: "111111111111111101", name: "還沒註冊的阿明", approvedAt: "2026-10-20T10:00:00Z", sentAt: nudgeSent.has("dc") ? new Date().toISOString() : null }],
-        unwatched: [{ id: "m-x", email: "never@example.com", joinedAt: "2026-10-15T10:00:00Z", sentAt: nudgeSent.has("m") ? new Date().toISOString() : null }],
+        unwatched: [{ id: "m-x", email: "never@example.com", discordId: null, joinedAt: "2026-10-15T10:00:00Z", sentAt: nudgeSent.has("m") ? new Date().toISOString() : null }],
       });
-      if (req.method === "POST") { const k = body.nudge === "unregistered" ? "dc" : body.nudge === "unwatched" ? "m" : null; if (!k) return send(res, 400, { error: "不知道要補發給誰" }); const first = !nudgeSent.has(k); nudgeSent.add(k); return send(res, 200, { ok: true, kind: body.nudge, sent: first ? 1 : 0, skipped: first ? 0 : 1, failed: [] }); }
+      if (req.method === "POST") { const k = body.nudge === "unregistered" ? "dc" : body.nudge === "unwatched" ? "m" : null; if (!k) return send(res, 400, { error: "不知道要補發給誰" }); const first = !nudgeSent.has(k); nudgeSent.add(k); return send(res, 200, { ok: true, kind: body.nudge, sent: first ? 1 : 0, dms: first ? 1 : 0, mails: 0, skipped: first ? 0 : 1, failed: [] }); }
       if (req.method === "GET") return send(res, 200, { on: obCfg.on, since: obCfg.since, people: obCfg.on ? [{ name: "新人小明", day: 2, last: 1, approvedAt: "2026-10-28T10:00:00Z" }] : [], preview });
       if (req.method === "PATCH") { if (body.on && !obCfg.on) obCfg.since = new Date().toISOString(); obCfg.on = body.on === true; return send(res, 200, { ok: true, on: obCfg.on, since: obCfg.since }); }
     }
