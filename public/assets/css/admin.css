@@ -249,3 +249,6 @@
 .ob-preview { margin-top: 12px; }
 .ob-msg { border-left: 3px solid var(--line); padding: 4px 10px; margin-top: 10px; }
 .ob-msg p { margin: 4px 0 0; white-space: pre-line; overflow-wrap: anywhere; }
+.ob-group { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-top: 10px; }
+.ob-group-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.ob-group p { margin: 4px 0 0; }

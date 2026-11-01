@@ -5,6 +5,7 @@
 //   3. PUT  /api/cron/highlights?video=&chunk=   每段聲音交給網站 → Workers AI 轉文字，存進 video_highlights.chunks
 //   4. POST /api/cron/highlights { video, done } → 網站把逐字稿交給 AI 整理、存起來、貼到 Discord
 // AI 用 Cloudflare 帳號的 Workers AI（wrangler.toml 的 [ai] binding），不用另外的金鑰
+import { linesOf } from "./search.js";
 import { supabaseAdmin, env } from "./env.js";
 import { getDiscordSettings, sendMessage } from "./discord.js";
 
@@ -60,16 +61,7 @@ export async function transcribeChunk(bytes, offset) {
 
 // ── 2. 逐字稿：把短句合成大約 20 秒一行「[12:34] …」──
 export function transcriptOf(chunks) {
-  const segs = Object.keys(chunks || {}).map(Number).sort((a, b) => a - b).flatMap((k) => chunks[k] || []);
-  const lines = [];
-  let cur = null;
-  for (const x of segs) {
-    if (cur && x.s - cur.s < 20 && cur.t.length < 160) { cur.t += (/[\p{L}\p{N}]$/u.test(cur.t) ? "，" : "") + x.t; continue; }
-    if (cur) lines.push(cur);
-    cur = { s: x.s, t: x.t };
-  }
-  if (cur) lines.push(cur);
-  return lines.map((l) => `[${mmss(l.s)}] ${l.t}`).join("\n");
+  return linesOf(chunks).map((l) => `[${mmss(l.s)}] ${l.t}`).join("\n");
 }
 // 太長就平均取樣（AI 一次能讀的有限）
 export function fitTranscript(text, max = 45000) {
@@ -87,7 +79,8 @@ export function summaryPrompt(v, transcript) {
       "你是「CCC 交易實驗室」的直播編輯，幫研究員整理直播重點。一律用繁體中文（台灣用語），白話、精準，不要誇大，也不要加入逐字稿裡沒有的內容。",
       "不要給投資建議、不要寫「建議買進／賣出」；講者的觀點要寫成「講者認為…」。",
       "只輸出一個 JSON 物件，不要任何其他文字，格式：",
-      '{"summary":"3 到 4 句話的摘要","points":["重點（每點 40 字內，4 到 6 點）"],"tickers":[{"name":"標的名稱或代號","note":"講到什麼（30 字內）"}],"chapters":[{"t":秒數,"title":"章節名稱（14 字內）"}]}',
+      '{"summary":"3 到 4 句話的摘要","points":[{"t":秒數,"text":"重點（每點 40 字內，4 到 6 點）"}],"tickers":[{"name":"標的名稱或代號","note":"講到什麼（30 字內）"}],"chapters":[{"t":秒數,"title":"章節名稱（14 字內）"}]}',
+      "points 的 t 是講到這個重點的那一行時間（方括號裡的時間換成秒數），研究員點了會跳到那裡。",
       "tickers 只列逐字稿裡真的有討論的股票、幣、指數、期貨，最多 8 個，沒有就給空陣列。",
       `chapters 依時間排序，第一個 t 是 0，總共 4 到 12 章。每一章的 t 要放在「話題真的換了」的那一行：用那一行方括號裡的時間換成秒數（例如 [12:34] → 754）。不要平均切（例如每 300 秒一章），章節長短本來就會不一樣。章節要涵蓋整場：從開頭到結尾都要有，最後一章要在最後四分之一（${Math.round((v.duration_sec || mins * 60) * 0.75)} 秒之後）。t 不能超過 ${v.duration_sec || mins * 60} 秒。`,
     ].join("\n"),
@@ -118,7 +111,9 @@ export function cleanSummary(j, duration = 0) {
   if (!j || typeof j !== "object") return null;
   const summary = clip(j.summary, 600);
   if (!summary) return null;
-  const points = (Array.isArray(j.points) ? j.points : []).map((x) => clip(typeof x === "string" ? x : x?.text, 80)).filter(Boolean).slice(0, 6);
+  const rawPoints = (Array.isArray(j.points) ? j.points : []).map((x) => ({ text: clip(typeof x === "string" ? x : x?.text, 80), t: typeof x === "object" && x && x.t != null && x.t !== "" ? Math.floor(toSec(x.t)) : NaN })).filter((x) => x.text).slice(0, 6);
+  const points = rawPoints.map((x) => x.text);
+  const pointTimesAi = rawPoints.map((x) => (Number.isFinite(x.t) ? x.t : null));
   const tickers = (Array.isArray(j.tickers) ? j.tickers : []).map((x) => ({ name: clip(x?.name, 20), note: clip(x?.note, 60) })).filter((x) => x.name).slice(0, 8);
   const max = duration > 0 ? duration : Infinity;
   const seen = new Set();
@@ -126,7 +121,7 @@ export function cleanSummary(j, duration = 0) {
     .filter((c) => Number.isFinite(c.t) && c.t >= 0 && c.t < max && c.title && !seen.has(c.t) && seen.add(c.t))
     .sort((a, b) => a.t - b.t).slice(0, 12);
   if (chapters.length && chapters[0].t !== 0) chapters[0].t = 0;
-  return { summary, points, tickers, chapters };
+  return { summary, points, pointTimesAi, tickers, chapters };
 }
 // 章節有沒有涵蓋整場：最後一章要在 60% 之後、相鄰兩章不能隔超過整場的 40%（短片不檢查）
 export function chaptersCover(chapters, duration) {

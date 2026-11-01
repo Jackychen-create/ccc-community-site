@@ -34,5 +34,39 @@ async function load(card) {
     el("p", { class: "small " + (r.on ? "dc-ok" : "muted"), id: "obState", text: r.on ? `✓ 已打開（${md(r.since)} 起通過的人）` : "還沒打開" }),
     el("div", { class: "actions", style: { marginTop: "8px" } }, toggle),
     el("h3", { class: "rv-week-h", style: { marginTop: "14px" }, text: "這 7 天的新人" }),
-    people, prev);
+    people, prev, nudgeBox());
+}
+
+// 補發給之前掉隊的人（30 天內同一個人只發一次）
+function nudgeBox() {
+  const box = el("div", { class: "ob-nudge", id: "obNudge" }, el("h3", { class: "rv-week-h", text: "補發給之前的人" }), el("p", { class: "small muted", text: "載入中…" }));
+  loadNudge(box);
+  return box;
+}
+async function loadNudge(box) {
+  let r;
+  try { r = await api("/api/admin/onboarding?nudge=1"); } catch (e) { box.replaceChildren(el("p", { class: "form-error", text: e.message })); return; }
+  const md = (iso) => { const d = new Date(Date.parse(iso) + 8 * 3600e3); return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`; };
+  const group = (kind, title, desc, list, label, btnText) => {
+    const todo = list.filter((p) => !p.sentAt);
+    const btn = el("button", { class: "btn sm" + (todo.length ? " primary" : ""), type: "button", text: todo.length ? `${btnText}（${todo.length} 人）` : "都補發過了", disabled: !todo.length });
+    btn.dataset.nudge = kind;
+    btn.addEventListener("click", async () => {
+      if (!(await A.confirmDialog({ title: `${btnText}？`, message: `${desc}\n會發給 ${todo.length} 人，30 天內同一個人不會再收到。`, confirmText: "發送" }))) return;
+      A.setBusy(btn, true, "發送中…");
+      try {
+        const x = await api("/api/admin/onboarding", { method: "POST", body: { nudge: kind } });
+        A.toast(`已發給 ${x.sent} 人${x.failed?.length ? `，${x.failed.length} 人沒收到（關掉私訊或寄信失敗）` : ""}`);
+        await loadNudge(box);
+      } catch (e) { A.toast(e.message, "error"); A.setBusy(btn, false); }
+    });
+    return el("div", { class: "ob-group" },
+      el("div", { class: "ob-group-head" }, el("b", { class: "small", text: `${title}・${list.length} 人` }), btn),
+      el("p", { class: "small muted", text: desc }),
+      list.length ? el("ul", { class: "ob-people" }, ...list.map((p) => el("li", { class: "small" }, el("span", { text: label(p) }), p.sentAt ? el("span", { class: "muted", text: `・${md(p.sentAt)} 補發過` }) : null))) : null);
+  };
+  box.replaceChildren(
+    el("h3", { class: "rv-week-h", style: { marginTop: "18px" }, text: "補發給之前的人" }),
+    group("unregistered", "報名通過、還沒註冊網站", "助教私訊他自己的加入連結（實驗室密碼）。", r.unregistered, (p) => `${p.name || p.id}（${md(p.approvedAt)} 通過）`, "私訊提醒註冊"),
+    group("unwatched", "註冊了、一支影片都沒看過", "寄信推薦從 EP1（CCC 第 1 份課程）開始看。", r.unwatched, (p) => `${p.email}（${md(p.joinedAt)} 加入）`, "寄信推薦 EP1"));
 }

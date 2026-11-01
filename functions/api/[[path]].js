@@ -26,6 +26,7 @@ import cronChatlog from "../../server/cron/chatlog.js";
 import cronHighlights from "../../server/cron/highlights.js";
 import adminHighlights from "../../server/admin/highlights.js";
 import share from "../../server/share.js";
+import search from "../../server/search.js";
 import adminReviews from "../../server/admin/reviews.js";
 import adminOnboarding from "../../server/admin/onboarding.js";
 import adminChatlog from "../../server/admin/chatlog.js";
@@ -67,6 +68,7 @@ const ROUTES = {
   "cron/highlights": cronHighlights,
   "admin/highlights": adminHighlights,
   "share": share,
+  "search": search,
   "admin/reviews": adminReviews,
   "admin/onboarding": adminOnboarding,
   "admin/chatlog": adminChatlog,

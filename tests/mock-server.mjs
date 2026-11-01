@@ -59,6 +59,7 @@ const rvGuildEmojis = [{ id: "800000000000000001", name: "bear_ok", animated: fa
 const rvWeeks = [];
 const rvDms = [];
 const obCfg = { on: false, since: null };
+const nudgeSent = new Set();
 const members = [
   { user_id: users["amy@example.com"].id, email: "amy@example.com", invite_code: "K7QM-2XPA", banned: false, created_at: new Date(Date.now() - 18 * 86400e3).toISOString(), last_sign_in_at: new Date(Date.now() - 3600e3).toISOString(), watched_count: 2, min_tier: 2, min_tier_until: d(-5), note: "10 月交易量 120 口", notify: true },
   { user_id: users["banned@example.com"].id, email: "banned@example.com", invite_code: "HW3N-8RTE", banned: true, created_at: new Date(Date.now() - 9 * 86400e3).toISOString(), last_sign_in_at: null, watched_count: 0 },
@@ -441,6 +442,23 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { ok: true });
       }
     }
+    // 直播留檔搜尋（假的：標題、章節、AI 重點、逐字稿「[m:ss] 文字」）
+    if (p === "/api/search") {
+      const q = String(url.searchParams.get("q") || "").trim().toLowerCase();
+      if ([...q].length < 2) return send(res, 400, { error: "至少打兩個字" });
+      const sec = (s) => s.split(":").map(Number).reduce((a, x) => a * 60 + x, 0);
+      const results = [];
+      for (const v of videos.filter((x) => x.is_published && !x.course_host && !x.is_public)) {
+        const h = highlights.get(v.id);
+        const hits = [];
+        for (const c of v.chapters || []) if (c.title.toLowerCase().includes(q)) hits.push({ t: c.t, text: `章節：${c.title}` });
+        (h?.status === "done" ? h.points : []).forEach((x, i) => { if (x.toLowerCase().includes(q)) hits.push({ t: h.point_times?.[i] ?? null, text: `重點：${x}` }); });
+        for (const line of String(h?.transcript || "").split("\n")) { const m = line.match(/^\[(\d+:\d\d)\] (.*)$/); if (m && m[2].toLowerCase().includes(q)) hits.push({ t: sec(m[1]), text: m[2] }); }
+        const titleHit = v.title.toLowerCase().includes(q);
+        if (titleHit || hits.length) results.push({ id: v.id, title: v.title, published_at: v.published_at, duration_sec: v.duration_sec, titleHit, hits: hits.slice(0, 6) });
+      }
+      return send(res, 200, { q, results });
+    }
     if (p === "/api/videos" && !url.searchParams.has("id")) {
       return send(res, 200, {
         videos: videos.filter((v) => v.is_published && !v.course_host && !v.is_public).map((v) => {
@@ -455,7 +473,7 @@ const server = http.createServer(async (req, res) => {
       if (ts && (v.course_host ? !courseTierOk(ts.tier, v.course_part) : ts.tier < 2)) return send(res, 403, { error: `這個內容要第二級（這一輪 ${tierRuleText(2)}）`, code: "tier" });
       if (v.course_host && !admin && !courseSkipSchedule(ts?.tier ?? 0)) { const un = unlockOn(twDate(mrow.created_at), v.course_host, v.course_part); if (un > TODAY()) return send(res, 403, { error: `這一份課程 ${un} 解鎖`, code: "locked", unlock_on: un }); }
       const pr = progress.get(`${u.id}:${v.id}`);
-      return send(res, 200, { id: v.id, title: v.title, description: v.description, published_at: v.published_at, duration_sec: v.duration_sec, is_published: v.is_published, thumb_url: thumbUrl(v), hosts: v.hosts || [], chapters: v.chapters || [], course_host: v.course_host || null, course_part: v.course_part || null, url: "/media/" + (process.env.VIDEO || "live.webm") + "?sig=" + Date.now(), position_sec: pr?.position_sec || 0, attachments: v.attachments.map((a) => ({ ...a, url: "/media/thumb5.jpg?dl=1" })), highlight: (() => { const h = highlights.get(v.id); return h?.status === "done" ? { summary: h.summary, points: h.points, tickers: h.tickers, chapters: h.chapters } : null; })() });
+      return send(res, 200, { id: v.id, title: v.title, description: v.description, published_at: v.published_at, duration_sec: v.duration_sec, is_published: v.is_published, thumb_url: thumbUrl(v), hosts: v.hosts || [], chapters: v.chapters || [], course_host: v.course_host || null, course_part: v.course_part || null, url: "/media/" + (process.env.VIDEO || "live.webm") + "?sig=" + Date.now(), position_sec: pr?.position_sec || 0, attachments: v.attachments.map((a) => ({ ...a, url: "/media/thumb5.jpg?dl=1" })), highlight: (() => { const h = highlights.get(v.id); return h?.status === "done" ? { summary: h.summary, points: h.points, point_times: h.point_times || [], tickers: h.tickers, chapters: h.chapters } : null; })() });
     }
     // 升級後「分享到 Discord」
     if (p === "/api/share" && req.method === "POST") {
@@ -544,6 +562,11 @@ const server = http.createServer(async (req, res) => {
     // 新人試用週（假的：一位新人）
     if (p === "/api/admin/onboarding") {
       const preview = Array.from({ length: 7 }, (_, i) => ({ title: `第 ${i + 1} 天｜引導 ${i + 1}`, description: `第 ${i + 1} 天的內容 <#100000000000000011>` }));
+      if (req.method === "GET" && url.searchParams.get("nudge")) return send(res, 200, {
+        unregistered: [{ id: "111111111111111101", name: "還沒註冊的阿明", approvedAt: "2026-10-20T10:00:00Z", sentAt: nudgeSent.has("dc") ? new Date().toISOString() : null }],
+        unwatched: [{ id: "m-x", email: "never@example.com", joinedAt: "2026-10-15T10:00:00Z", sentAt: nudgeSent.has("m") ? new Date().toISOString() : null }],
+      });
+      if (req.method === "POST") { const k = body.nudge === "unregistered" ? "dc" : body.nudge === "unwatched" ? "m" : null; if (!k) return send(res, 400, { error: "不知道要補發給誰" }); const first = !nudgeSent.has(k); nudgeSent.add(k); return send(res, 200, { ok: true, kind: body.nudge, sent: first ? 1 : 0, skipped: first ? 0 : 1, failed: [] }); }
       if (req.method === "GET") return send(res, 200, { on: obCfg.on, since: obCfg.since, people: obCfg.on ? [{ name: "新人小明", day: 2, last: 1, approvedAt: "2026-10-28T10:00:00Z" }] : [], preview });
       if (req.method === "PATCH") { if (body.on && !obCfg.on) obCfg.since = new Date().toISOString(); obCfg.on = body.on === true; return send(res, 200, { ok: true, on: obCfg.on, since: obCfg.since }); }
     }

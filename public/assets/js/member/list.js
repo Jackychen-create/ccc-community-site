@@ -10,6 +10,10 @@ import { loadRecentNotes } from "./notes.js";
 let filter = "all";
 let host = ""; // 主講人篩選，空字串＝全部
 let query = "";
+// 伺服器搜尋（逐字稿、AI 重點）：影片 id → [{ t, text }]；打字停 350 毫秒才問（v1.26.19）
+let serverHits = new Map();
+let serverQ = "";
+let searchTimer = 0;
 let searchMissTimer = null;
 let listScroll = 0;
 let asideAnimated = false; // 右側統計數字、進度條：進到列表時跑一次
@@ -91,8 +95,11 @@ function hostList() {
 // 搜尋到章節時，列出符合的章節，點了直接跳到那個時間
 function chapterHits(v) {
   const q = query.trim().toLowerCase();
-  if (!q || !v.chapters?.length) return null;
-  const hits = v.chapters.filter((c) => c.title.toLowerCase().includes(q)).slice(0, 3);
+  if (!q) return null;
+  // 伺服器找到的（章節、重點、講到這個字的那一分鐘）優先；還沒回來就先用本地章節
+  const sv = serverQ === q ? (serverHits.get(v.id) || []).filter((x) => Number.isFinite(x.t)).map((x) => ({ t: x.t, title: x.text.replace(/^(章節|重點)：/, "") })) : [];
+  const local = (v.chapters || []).filter((c) => c.title.toLowerCase().includes(q));
+  const hits = [...sv, ...local.filter((c) => !sv.some((x) => x.t === c.t))].slice(0, 4);
   if (!hits.length) return null;
   return el("div", { class: "chap-hits" }, ...hits.map((c) =>
     el("span", { class: "chap-hit", role: "link", tabindex: "0", onclick: (e) => {
@@ -108,7 +115,7 @@ function filtered() {
     if (filter === "unfinished" && isWatched(v)) return false;
     if (filter.startsWith("m:") && monthKey(v) !== filter.slice(2)) return false;
     if (host && !(v.hosts || []).includes(host)) return false;
-    if (q && !`${v.title} ${v.description || ""} ${(v.hosts || []).join(" ")} ${(v.chapters || []).map((c) => c.title).join(" ")}`.toLowerCase().includes(q)) return false;
+    if (q && !(serverQ === q && serverHits.has(v.id)) && !`${v.title} ${v.description || ""} ${(v.hosts || []).join(" ")} ${(v.chapters || []).map((c) => c.title).join(" ")}`.toLowerCase().includes(q)) return false;
     return true;
   });
 }
@@ -130,8 +137,8 @@ function renderList() {
     const q = query.trim();
     clearTimeout(searchMissTimer);
     // 搜不到東西也記到後台「網站狀況」，知道大家在找什麼
-    if (q.length >= 2) searchMissTimer = setTimeout(() => query.trim() === q && report("search_empty", q, { q }), 1500);
-    const box = emptyBox("找不到符合的場次", q ? `沒有標題或簡介包含「${q}」的場次。` : "換個篩選條件試試看。");
+    if (q.length >= 2) searchMissTimer = setTimeout(() => query.trim() === q && serverQ === q.toLowerCase() && report("search_empty", q, { q }), 1500);
+    const box = emptyBox(q && serverQ !== q.toLowerCase() ? "搜尋中…" : "找不到符合的場次", q ? (serverQ !== q.toLowerCase() ? "連逐字稿一起找，等一下。" : `標題、章節、直播內容都沒有講到「${q}」。`) : "換個篩選條件試試看。");
     box.append(el("button", { class: "btn sm", type: "button", style: { marginTop: "14px" }, text: "顯示全部場次", onclick: () => {
       filter = "all";
       host = "";
@@ -248,5 +255,19 @@ function renderAside() {
 $("#search").addEventListener("input", (e) => {
   query = e.target.value;
   if (state.loadedList) renderList();
+  clearTimeout(searchTimer);
+  const q = query.trim();
+  if ([...q].length < 2) return;
+  searchTimer = setTimeout(async () => {
+    try {
+      const r = await api(`/api/search?q=${encodeURIComponent(q)}`);
+      if (query.trim() !== q) return; // 已經改字了
+      serverHits = new Map((r.results || []).map((x) => [x.id, x.hits || []]));
+      serverQ = q.toLowerCase();
+    } catch {
+      serverHits = new Map(); serverQ = q.toLowerCase(); // 搜尋壞了就只用標題、章節
+    }
+    if (state.loadedList && !$("#listView").hidden) renderList();
+  }, 350);
 });
 

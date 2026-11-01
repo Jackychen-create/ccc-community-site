@@ -6,6 +6,7 @@
 // POST /api/cron/highlights { video, error }      GitHub 那邊出錯（例如影片抓不到）
 import { route, cronAuthorized, supabaseAdmin, signGet, toInt, readBody } from "../lib/index.js";
 import { verifyGithubOidc } from "../lib/oidc.js";
+import { pointTimesOf } from "../lib/search.js";
 import { CHUNK_SEC, MAX_CHUNKS, nextJob, transcribeChunk, transcriptOf, summarize, postHighlight, isQuota } from "../lib/highlights.js";
 
 export const MAX_AUDIO = 8 * 1024 * 1024;
@@ -79,7 +80,7 @@ export default route({
       return res.status(502).json({ error: "AI 整理失敗" });
     }
     const now = new Date().toISOString();
-    const { error } = await supabaseAdmin.from("video_highlights").update({ status: "done", summary: h.summary, points: h.points, tickers: h.tickers, chapters: h.chapters, model: h.model, error: null, updated_at: now }).eq("video_id", id);
+    const { error } = await supabaseAdmin.from("video_highlights").update({ status: "done", summary: h.summary, points: h.points, point_times: pointTimesOf(h.points, row.chunks, h.pointTimesAi || [], v.duration_sec || 0), tickers: h.tickers, chapters: h.chapters, model: h.model, error: null, updated_at: now }).eq("video_id", id);
     if (error) throw error;
     // 第一次做好才貼 Discord（重做不再貼一次）；草稿不貼；直播日期超過 7 天的舊直播不自動貼，免得洗版
     // 先搶到「還沒貼過」才貼（同一支同時送兩次「送完了」也只會貼一次）

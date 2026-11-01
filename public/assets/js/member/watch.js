@@ -389,15 +389,23 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+const fmtT = (s) => { s = Math.floor(s); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = String(s % 60).padStart(2, "0"); return h ? `${h}:${String(m).padStart(2, "0")}:${x}` : `${m}:${x}`; };
 // 直播精華：AI 整理的摘要、重點、提到的標的（點標的可以跳到章節沒有意義，所以只列出來）
 function renderHighlight(h) {
   const box = $("#wHl");
   if (!h?.summary) { box.hidden = true; return; }
   box.hidden = false;
-  $("#wHlBody").replaceChildren(
+  $("#wHlBody").replaceChildren(...[
     el("p", { class: "ai-hl-sum", text: h.summary }),
-    h.points?.length ? el("ul", { class: "ai-hl-points" }, ...h.points.map((x) => el("li", { text: x }))) : null,
+    // 有時間的重點可以點，跳到講到那裡（v1.26.19）
+    h.points?.length ? el("ul", { class: "ai-hl-points" }, ...h.points.map((x, i) => {
+      const t = h.point_times?.[i];
+      if (!Number.isFinite(t)) return el("li", { text: x });
+      const b = el("button", { class: "ai-hl-jump", type: "button", "aria-label": `跳到 ${fmtT(t)}：${x}` }, el("span", { class: "ai-hl-t num", text: fmtT(t) }), el("span", { text: x }));
+      b.addEventListener("click", () => { video.currentTime = t; video.play().catch(() => {}); video.scrollIntoView({ behavior: "smooth", block: "center" }); });
+      return el("li", { class: "has-t" }, b);
+    })) : null,
     h.tickers?.length ? el("div", { class: "ai-hl-tickers" }, el("span", { class: "small muted", text: "提到的標的" }),
       ...h.tickers.map((x) => el("span", { class: "pill", title: x.note || "", text: x.name }))) : null,
-  );
+  ].filter(Boolean));
 }
