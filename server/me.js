@@ -2,6 +2,7 @@
 // PATCH /api/me { notify }  研究員自己開關「新影片寄信通知」
 // PATCH /api/me { milestoneSeen: true }  看過里程碑恭喜了（不再跳）
 // PATCH /api/me { theme }  換外觀主題（要拿到對應徽章的主題會檢查）
+import { linkedOf } from "./lib/discord-link.js";
 import { themeUnlocked } from "../public/assets/js/shared/rules.js";
 import { checkin, getDiscordSettings, discordConfigured, supabaseAdmin, adminRole, unseenMilestone, markMilestonesSeen, earnedIds, requireMember, readBody, route, nextLive, needsName, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, periodFor, nextPeriod, anchorOf } from "./lib/index.js";
 
@@ -52,6 +53,8 @@ export default route({
     const streak = ctx.member ? await checkin(ctx.user.id).catch(() => null) : null;
     // 各交易所的 CCC 邀請連結（後台「Discord 審核」設定的），還沒到第二級的人在首頁看得到
     const invites = ctx.member ? (await getDiscordSettings().catch(() => ({}))).invites || {} : {};
+    // 自己連結的 Discord 帳號（右上角選單「連結 Discord」）；表還沒建立時當作沒有
+    const dc = ctx.member ? await linkedOf(ctx.user.id).catch(() => null) : null;
     return res.status(200).json({
       email: ctx.user.email,
       feedbackUnread: unread || 0,
@@ -61,6 +64,7 @@ export default route({
       free: !!ctx.member?.free, // 贈送名額：不用綁交易所、沒有交易量門檻
       theme: ctx.member?.theme || null, // 外觀主題（存在帳號裡，換電腦也一樣）
       notify: ctx.member ? ctx.member.notify !== false : null,
+      discord: ctx.member ? { linked: !!dc, name: dc?.discord_name || "" } : null,
       volume,
       links,
       streak, // { days 連續幾天, best 最長幾天 }

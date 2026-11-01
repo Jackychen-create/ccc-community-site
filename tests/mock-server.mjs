@@ -60,6 +60,8 @@ const rvWeeks = [];
 const rvDms = [];
 const obCfg = { on: false, since: null };
 const nudgeSent = new Set();
+const dcLinks = new Map(); // user_id → { id, name }
+const dcTokens = new Map();
 const members = [
   { user_id: users["amy@example.com"].id, email: "amy@example.com", invite_code: "K7QM-2XPA", banned: false, created_at: new Date(Date.now() - 18 * 86400e3).toISOString(), last_sign_in_at: new Date(Date.now() - 3600e3).toISOString(), watched_count: 2, min_tier: 2, min_tier_until: d(-5), note: "10 月交易量 120 口", notify: true },
   { user_id: users["banned@example.com"].id, email: "banned@example.com", invite_code: "HW3N-8RTE", banned: true, created_at: new Date(Date.now() - 9 * 86400e3).toISOString(), last_sign_in_at: null, watched_count: 0 },
@@ -321,6 +323,7 @@ const server = http.createServer(async (req, res) => {
     if (p === "/api/__test/highlight") { highlights.set(Number(body.video), body.highlight); return send(res, 200, { ok: true }); }
     if (p === "/api/__test/shares") return send(res, 200, sharePosts);
     if (p === "/api/__test/review-dms") return send(res, 200, rvDms);
+    if (p === "/api/__test/discord-token") { const token = crypto.randomBytes(24).toString("hex"); dcTokens.set(token, { id: body.id || "111111111111111199", name: body.name || "amy_dc", exp: Date.now() + (body.expired ? -1 : 15 * 60e3) }); return send(res, 200, { token }); }
     if (p === "/api/__test/checkin") { const m = members.find((x) => x.email === body.email); if (!m) return send(res, 404, {}); const set = checkinsM.get(m.user_id) || new Set(); for (const dd of body.days || []) set.add(dd); checkinsM.set(m.user_id, set); return send(res, 200, { ok: true }); }
     // 公開影片（不用登入）
     if (p === "/api/public-video") {
@@ -344,7 +347,22 @@ const server = http.createServer(async (req, res) => {
     const ts = mrow ? tierM(mrow) : null;
     // 第一級：教學課程（每位講師第 1 份）、播放、進度、筆記也可以（詳細的在各自的地方檢查）
     const t1ok = ts && ts.tier >= 1 && (["/api/course", "/api/progress", "/api/notes"].includes(p) || (p === "/api/videos" && url.searchParams.has("id")));
-    if (ts && ts.tier < 2 && !t1ok && !["/api/me", "/api/exchange-link", "/api/feedback", "/api/report", "/api/badges", "/api/oneonone", "/api/quests", "/api/share"].includes(p)) return send(res, 403, { error: `這個內容要第二級（這一輪 ${tierRuleText(2)}）`, code: "tier", tier: ts.tier });
+    if (ts && ts.tier < 2 && !t1ok && !["/api/me", "/api/exchange-link", "/api/feedback", "/api/report", "/api/badges", "/api/oneonone", "/api/quests", "/api/share", "/api/discord-link"].includes(p)) return send(res, 403, { error: `這個內容要第二級（這一輪 ${tierRuleText(2)}）`, code: "tier", tier: ts.tier });
+    // 連結 Discord（假的：__test/discord-token 開一次性連結）
+    if (p === "/api/discord-link") {
+      if (!mrow) return send(res, 400, { error: "管理員帳號不用連結" });
+      if (req.method === "GET") return send(res, 200, { linked: dcLinks.has(mrow.user_id), name: dcLinks.get(mrow.user_id)?.name || "", where: "https://discord.com/channels/900000000000000000/100000000000000020/100000000000000021", channelName: "實驗室公告" });
+      if (req.method === "DELETE") { dcLinks.delete(mrow.user_id); return send(res, 200, { ok: true }); }
+      if (req.method === "POST") {
+        const t = dcTokens.get(String(body.token || ""));
+        if (!t || t.used || t.exp < Date.now()) return send(res, 410, { error: "這個連結過期或用過了，請回 Discord 再按一次「連結網站帳號」" });
+        t.used = true;
+        const other = [...dcLinks].find(([uid, x]) => x.id === t.id && uid !== mrow.user_id);
+        if (other) return send(res, 409, { error: "這個 Discord 帳號已經連到另一個網站帳號了。要換的話先用那個網站帳號解除，或找管理員" });
+        dcLinks.set(mrow.user_id, { id: t.id, name: t.name });
+        return send(res, 200, { ok: true, name: t.name });
+      }
+    }
     if (p === "/api/me") {
       if (req.method === "PATCH") {
         if (body.theme !== undefined) {
@@ -355,7 +373,7 @@ const server = http.createServer(async (req, res) => {
         mrow.notify = body.notify;
         return send(res, 200, { ok: true, notify: body.notify });
       }
-      return send(res, 200, { links: mrow ? EXCHANGES.map((ex) => ({ exchange: ex, auto: AUTO_EXCHANGES.includes(ex), enabled: true, uid: autoLinks[ex].get(mrow.user_id) || null, accountName: accNames.get(`${ex}:${mrow.user_id}`) || null, needsName: needsName(ex), boundAt: null })) : null, feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, adminRole: admin ? role : null, tier: mrow ? ts.tier : null, streak: mrow ? checkinM(mrow) : null, invites: mrow ? Object.fromEntries(Object.entries(discordSettings.invites || {}).filter(([, x]) => /^https:\/\//.test(String(x)))) : {}, free: !!mrow?.free, theme: mrow?.theme || null, notify: mrow ? mrow.notify !== false : null, nextLive: (() => { const l = liveNext(); return l ? { title: l.title, startsAt: l.starts_at, hosts: l.hosts || [], note: l.note, link: l.link } : null; })(), volume: mrow ? (() => { const p = curP(mrow); const v = vols.get(mrow.user_id + ":" + p.start); return { periodStart: p.start, periodEnd: p.end, nextEnd: nextPeriod(anchorOf(mrow), p).end, exchanges: EX, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, tier: ts.tier, tierUntil: ts.until, cycleTier: ts.cycleTier, milestone: mrow.free ? null : msUnseen(mrow, p) }; })() : null });
+      return send(res, 200, { links: mrow ? EXCHANGES.map((ex) => ({ exchange: ex, auto: AUTO_EXCHANGES.includes(ex), enabled: true, uid: autoLinks[ex].get(mrow.user_id) || null, accountName: accNames.get(`${ex}:${mrow.user_id}`) || null, needsName: needsName(ex), boundAt: null })) : null, feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, adminRole: admin ? role : null, tier: mrow ? ts.tier : null, streak: mrow ? checkinM(mrow) : null, invites: mrow ? Object.fromEntries(Object.entries(discordSettings.invites || {}).filter(([, x]) => /^https:\/\//.test(String(x)))) : {}, free: !!mrow?.free, theme: mrow?.theme || null, notify: mrow ? mrow.notify !== false : null, discord: mrow ? { linked: dcLinks.has(mrow.user_id), name: dcLinks.get(mrow.user_id)?.name || "" } : null, nextLive: (() => { const l = liveNext(); return l ? { title: l.title, startsAt: l.starts_at, hosts: l.hosts || [], note: l.note, link: l.link } : null; })(), volume: mrow ? (() => { const p = curP(mrow); const v = vols.get(mrow.user_id + ":" + p.start); return { periodStart: p.start, periodEnd: p.end, nextEnd: nextPeriod(anchorOf(mrow), p).end, exchanges: EX, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, tier: ts.tier, tierUntil: ts.until, cycleTier: ts.cycleTier, milestone: mrow.free ? null : msUnseen(mrow, p) }; })() : null });
     }
     if (p === "/api/badges") {
       const all = BADGES.map(({ id, icon, name, desc }) => ({ id, icon, name, desc }));
