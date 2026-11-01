@@ -4,7 +4,7 @@ import http from "node:http";
 import { setEnv } from "../server/lib/env.js";
 import { linesOf, hitsIn, metaHits, likeEscape, cleanQuery, matchTime, pointTimesOf, snippet } from "../server/lib/search.js";
 import { cleanSummary, transcriptOf } from "../server/lib/highlights.js";
-import { unlocksToday, courseMailHtml } from "../server/lib/course-mail.js";
+import { unlocksToday, courseMailHtml, courseUnlockEmbed } from "../server/lib/course-mail.js";
 import { nudgeLists, runNudge, unregisteredEmbed } from "../server/lib/nudge.js";
 
 let pass = 0, fail = 0;
@@ -74,6 +74,10 @@ await test("課程解鎖提醒：今天解鎖的人收到（加入當天那份�
   const html = courseMailHtml(r[0].list);
   assert.ok(html.includes("/#/v/2") && html.includes("OC 講師第 1 份"));
 });
+await test("課程解鎖私訊卡片：有連結、不想收怎麼關", () => {
+  const e = courseUnlockEmbed([{ host: "OC", part: 1, id: 2, title: "訂單流" }]);
+  assert.ok(e.title.includes("OC 講師第 1 份") && e.description.includes("/#/v/2") && e.footer.text.includes("關掉"));
+});
 await test("影片還沒上傳的那份不寄", () => {
   const r = unlocksToday([{ user_id: "a", email: "a@x", created_at: "2026-10-26T02:00:00Z" }], tiers, CV.filter((v) => v.course_host !== "OC"), "2026-11-02");
   assert.equal(r.length, 0);
@@ -88,6 +92,7 @@ const db = {
     { discord_user_id: "111111111111111101", discord_name: "沒註冊", invite_code: "AAAA-0001", status: "approved", reviewed_at: new Date(NOW - 10 * D).toISOString() },
     { discord_user_id: "111111111111111102", discord_name: "已註冊", invite_code: "BBBB-0001", status: "approved", reviewed_at: new Date(NOW - 10 * D).toISOString() },
     { discord_user_id: "111111111111111103", discord_name: "昨天才通過", invite_code: "CCCC-0001", status: "approved", reviewed_at: new Date(NOW - 1 * D).toISOString() },
+    { discord_user_id: "111111111111111106", discord_name: "連到的人", invite_code: null, exchange: "OKX", exchange_uid: "55550001", status: "approved", reviewed_at: new Date(NOW - 20 * D).toISOString() },
   ],
   members: [
     { user_id: "m1", email: "watched@x", banned: false, invite_code: "BBBB-0001", created_at: new Date(NOW - 20 * D).toISOString() },
@@ -95,8 +100,10 @@ const db = {
     { user_id: "m3", email: "new@x", banned: false, invite_code: "YY", created_at: new Date(NOW - 1 * D).toISOString() },
     { user_id: "m4", email: "boss@gmail.com", banned: false, invite_code: null, created_at: new Date(NOW - 20 * D).toISOString() },
     { user_id: "m5", email: "banned@x", banned: true, invite_code: null, created_at: new Date(NOW - 20 * D).toISOString() },
+    { user_id: "m6", email: "linked@x", banned: false, invite_code: "QQ", created_at: new Date(NOW - 20 * D).toISOString() }, // 用交易所 UID 連到 Discord
   ],
   watch_progress: [{ user_id: "m1" }],
+  exchange_links: [{ user_id: "m6", exchange: "OKX", exchange_uid: "55550001" }],
   videos: [{ id: 1, title: "EP1 我的進出場規則以及邏輯", is_published: true, course_host: "CCC", course_part: 1 }],
 };
 const supa = http.createServer(async (req, res) => {
@@ -111,6 +118,7 @@ const supa = http.createServer(async (req, res) => {
       if (v === "not.is.null") { rows = rows.filter((r) => r[k] != null); continue; }
       const [op, ...rest] = v.split("."); const val = rest.join(".");
       if (op === "eq") rows = rows.filter((r) => String(r[k]) === val);
+      if (op === "in") { const list = val.replace(/^\(|\)$/g, "").split(",").map((x) => x.replace(/^"|"$/g, "")); rows = rows.filter((r) => list.includes(String(r[k]))); }
     }
     return send(rows);
   }
@@ -137,23 +145,27 @@ globalThis.fetch = (url, opt) => realFetch(String(url).startsWith("https://api.b
 
 await test("補發名單：通過沒註冊（昨天才通過的不算）、註冊了沒看過影片（管理員、停權、剛加入的不算）", async () => {
   const { unregistered, unwatched } = await nudgeLists(NOW);
-  assert.deepEqual(unregistered.map((p) => p.name), ["沒註冊"]);
-  assert.deepEqual(unwatched.map((p) => p.email), ["never@x"]);
+  assert.deepEqual(unregistered.map((p) => p.name), ["沒註冊"]); // 「連到的人」沒有實驗室密碼，用 UID 連的，不算
+  assert.deepEqual(unwatched.map((p) => [p.email, p.discordId]), [["never@x", null], ["linked@x", "111111111111111106"]]);
 });
 await test("私訊提醒註冊：附他自己的加入連結；30 天內不再發", async () => {
   const r = await runNudge("unregistered", NOW);
   assert.equal(r.sent, 1);
   assert.equal(dms[0].to, "111111111111111101");
+  assert.equal(dms.length, 1); // 已經註冊的「連到的人」不在這組
   assert.ok(dms[0].body.embeds[0].description.includes("/?invite=AAAA-0001"));
   const again = await runNudge("unregistered", NOW + D / 2);
   assert.deepEqual([again.sent, again.skipped], [0, 1]);
   assert.ok((await nudgeLists(NOW + D / 2)).unregistered[0].sentAt);
 });
-await test("寄信推薦 EP1：連到 EP1；30 天內不再寄", async () => {
+await test("推薦 EP1：有連 Discord 的私訊、沒連的寄信，都連到 EP1；30 天內不再發", async () => {
   const r = await runNudge("unwatched", NOW);
-  assert.equal(r.sent, 1, JSON.stringify(r));
+  assert.deepEqual([r.sent, r.dms, r.mails], [2, 1, 1], JSON.stringify(r));
+  assert.equal(mails.length, 1);
   assert.equal(mails[0].messageVersions[0].to[0].email, "never@x");
   assert.ok(mails[0].htmlContent.includes("/#/v/1") && mails[0].htmlContent.includes("EP1"));
+  const d = dms.find((x) => x.to === "111111111111111106");
+  assert.ok(d && d.body.embeds[0].description.includes("/#/v/1"));
   assert.equal((await runNudge("unwatched", NOW + D / 2)).sent, 0);
 });
 await test("提醒註冊的私訊內容", () => {

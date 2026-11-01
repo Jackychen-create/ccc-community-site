@@ -40,7 +40,7 @@ export default route({
 <p style="font-size:18px;font-weight:700;margin:8px 0">${esc(v.title)}</p>
 <p style="color:#555">${esc(v.published_at)}<br>${hosts}${esc(v.description || "")}</p>
 <p><a href="${link}" style="display:inline-block;background:#CDA45E;color:#16120A;padding:10px 18px;border-radius:10px;text-decoration:none;font-weight:700">打開來看</a></p>
-<p style="color:#888;font-size:13px">不想收到這種通知？登入後在右上角選單關掉「新影片寄信通知」。</p>
+<p style="color:#888;font-size:13px">不想收到這種通知？登入後在右上角選單關掉「新影片、課程解鎖通知」。</p>
 </div>`;
 
     // 每位研究員各寄一封（不會看到彼此的 Email），一次最多 1000 位
