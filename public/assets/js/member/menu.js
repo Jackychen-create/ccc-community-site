@@ -29,7 +29,7 @@ export function renderMenu() {
     el("a", { href: "#/feedback", role: "menuitem", onclick: () => toggleMenu(false) }, icon("chat"), "我的提問", me?.feedbackUnread ? el("span", { class: "menu-dot", "aria-label": "有新回覆" }) : null),
     me && me.notify !== null && !me.isAdmin
       ? el("button", { type: "button", role: "menuitemcheckbox", "aria-checked": String(!!me.notify), onclick: toggleNotify },
-          icon("mail"), el("span", { style: { flex: "1" }, text: "新影片寄信通知" }), el("span", { class: "menu-state" + (me.notify ? " on" : ""), text: me.notify ? "開" : "關" }))
+          icon("mail"), el("span", { style: { flex: "1" }, text: "新影片、課程解鎖寄信通知" }), el("span", { class: "menu-state" + (me.notify ? " on" : ""), text: me.notify ? "開" : "關" }))
       : null,
     el("button", { type: "button", role: "menuitem", onclick: () => { toggleMenu(false); openThemePicker(); } }, icon("image"), "外觀主題"),
     el("button", { type: "button", role: "menuitem", onclick: () => { toggleMenu(false); tutorial(); } }, icon("play"), "使用教學"),

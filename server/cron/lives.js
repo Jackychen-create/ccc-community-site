@@ -5,6 +5,7 @@ import { supabaseAdmin, route, cronAuthorized, announceLive, REMIND_BEFORE_MIN }
 import { maybeWeeklyReviews } from "../lib/reviews.js";
 import { flushAnnouncements } from "../lib/announce.js";
 import { runOnboarding } from "../lib/onboarding.js";
+import { runCourseMail } from "../lib/course-mail.js";
 
 export default route({
   async POST(req, res) {
@@ -31,6 +32,8 @@ export default route({
     const announced = await flushAnnouncements().catch((e) => [{ ok: false, error: String(e?.message || e) }]);
     // 順便：新人試用週，每天 20:00 私訊（server/lib/onboarding.js）
     const onboarding = await runOnboarding(now).catch((e) => ({ ok: false, error: String(e?.message || e) }));
-    return res.status(200).json({ ok: true, due: (data || []).length, reminded, reviews, announced, onboarding });
+    // 順便：每天 9:00 課程解鎖提醒信（server/lib/course-mail.js）
+    const courseMail = await runCourseMail(now).catch((e) => ({ ok: false, error: String(e?.message || e) }));
+    return res.status(200).json({ ok: true, due: (data || []).length, reminded, reviews, announced, onboarding, courseMail });
   },
 });

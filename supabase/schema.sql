@@ -593,3 +593,22 @@ create table if not exists public.video_highlights (
 alter table public.video_highlights enable row level security;
 -- 升級卡片分享到 Discord（每個等級每一輪只分享一次）
 alter table public.milestones add column if not exists shared_at timestamptz;
+
+-- ── v1.26.19（2026-11-02）：直播留檔搜尋、AI 重點對時間 ──
+-- 每個 AI 重點講到的秒數（跟 points 一樣順序；對不到是 null），播放頁點重點會跳過去
+alter table public.video_highlights add column if not exists point_times jsonb not null default '[]'::jsonb;
+-- 搜尋逐字稿：先在資料庫篩出有這個字的直播（q 已經跳脫 % _ \），網站再找是哪幾行
+create or replace function public.search_highlights(q text)
+returns table (video_id bigint, chunks jsonb)
+language sql stable security definer set search_path = public
+as $$
+  select h.video_id, h.chunks
+  from public.video_highlights h
+  join public.videos v on v.id = h.video_id
+  where h.status = 'done' and v.is_published and v.course_host is null and not v.is_public
+    and char_length(q) between 2 and 80
+    and h.chunks::text ilike '%' || q || '%'
+  limit 30;
+$$;
+revoke all on function public.search_highlights(text) from public, anon, authenticated;
+grant execute on function public.search_highlights(text) to service_role;

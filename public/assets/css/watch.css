@@ -69,5 +69,11 @@
 .ai-hl-sum { line-height: 1.75; color: var(--ink); }
 .ai-hl-points { margin: 10px 0 0; padding-left: 1.2em; color: var(--ink-2); line-height: 1.7; }
 .ai-hl-points li + li { margin-top: 4px; }
+.ai-hl-points li.has-t { list-style: none; margin-left: -1.2em; }
+.ai-hl-points li.has-t + li.has-t { margin-top: 0; }
+.ai-hl-jump { display: flex; gap: 10px; align-items: baseline; width: 100%; text-align: left; background: none; border: 0; padding: 4px 6px; margin: 0 -6px; border-radius: 8px; color: inherit; font: inherit; line-height: 1.7; cursor: pointer; }
+.ai-hl-jump:hover { background: var(--panel-2, rgba(127,127,127,.08)); }
+.ai-hl-jump:focus-visible { outline: 2px solid var(--accent, #cda45e); outline-offset: 1px; }
+.ai-hl-t { flex: none; min-width: 3.4em; font-size: 13px; color: var(--accent, #cda45e); }
 .ai-hl-tickers { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; }
 .ai-hl-tickers .small { margin-right: 4px; }

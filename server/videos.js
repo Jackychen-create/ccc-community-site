@@ -2,6 +2,7 @@
 // GET /api/videos?id=12    單支影片的播放連結、教材下載連結、上次看到哪
 import { supabaseAdmin, requireMember, signGet, toInt, route, todayTW, twDate, courseUnlockDate } from "./lib/index.js";
 import { SITE_TIER, courseTierOk, courseSkipSchedule, tierRuleText } from "../public/assets/js/shared/rules.js";
+import { pointTimesOf } from "./lib/search.js";
 
 // 三級制度：直播留檔要第二級；教學課程第一級看得到每位講師的第 1 份
 const needTier2 = (res) => res.status(403).json({ error: `這個內容要第二級（這一輪 ${tierRuleText(SITE_TIER)}）`, code: "tier" });
@@ -97,8 +98,15 @@ async function detail(res, ctx, id, tier) {
       .eq("video_id", id)
       .maybeSingle(),
     // 直播精華（AI 整理的摘要、重點、標的、章節）
-    supabaseAdmin.from("video_highlights").select("status, summary, points, tickers, chapters").eq("video_id", id).maybeSingle(),
+    supabaseAdmin.from("video_highlights").select("status, summary, points, point_times, tickers, chapters").eq("video_id", id).maybeSingle(),
   ]);
+
+  // 舊的精華還沒有重點的時間：用逐字稿對一次，存起來（只會做一次）
+  if (hl?.summary && hl.points?.length && (hl.point_times || []).length !== hl.points.length) {
+    const { data: c } = await supabaseAdmin.from("video_highlights").select("chunks").eq("video_id", id).maybeSingle();
+    hl.point_times = pointTimesOf(hl.points, c?.chunks || {}, [], v.duration_sec || 0);
+    await supabaseAdmin.from("video_highlights").update({ point_times: hl.point_times }).eq("video_id", id);
+  }
 
   const attachments = await Promise.all(
     (atts || []).map(async (a) => ({
@@ -125,7 +133,7 @@ async function detail(res, ctx, id, tier) {
     position_sec: p?.position_sec ?? 0,
     attachments,
     // 重做時（排隊、處理中）先顯示上一次的結果
-    highlight: hl?.summary ? { summary: hl.summary, points: hl.points || [], tickers: hl.tickers || [], chapters: hl.chapters || [] } : null,
+    highlight: hl?.summary ? { summary: hl.summary, points: hl.points || [], point_times: hl.point_times || [], tickers: hl.tickers || [], chapters: hl.chapters || [] } : null,
   });
 }
 
