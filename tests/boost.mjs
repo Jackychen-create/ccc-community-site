@@ -104,6 +104,7 @@ const db = {
   ],
   watch_progress: [{ user_id: "m1" }],
   exchange_links: [{ user_id: "m6", exchange: "OKX", exchange_uid: "55550001" }],
+  member_discord: [],
   videos: [{ id: 1, title: "EP1 我的進出場規則以及邏輯", is_published: true, course_host: "CCC", course_part: 1 }],
 };
 const supa = http.createServer(async (req, res) => {

@@ -5,6 +5,7 @@
 //   報名頻道按「報名培訓計畫」→ 開一個只有他和管理員看得到的報名頻道
 //   → 在報名頻道選交易所、填 UID → Bybit、BingX 自動確認；OKX、UM 由管理員在同一個頻道按通過
 //   → 通過：給身分組，在頻道裡給他專用的實驗室密碼（也私訊一份）→ 按「關閉這個頻道」
+import { LINK_BUTTON_ID, createLinkToken, linkedUserOfDiscord } from "../lib/discord-link.js";
 import {
   supabaseAdmin, route, AUTO_EXCHANGES, EXCHANGES, PROVIDERS,
   discordConfigured, verifyDiscord, getDiscordSettings, addRole, sendMessage, editOriginal, dm, canReview, cleanExId, exIdOk, needsName, cleanAccountName, accountNameOk,
@@ -175,6 +176,12 @@ export default route({
 
     // 按鈕、選單
     if (i.type === 3) {
+      // 🔗 連結網站帳號：只給他自己看的一次性連結（server/lib/discord-link.js）
+      if (id === LINK_BUTTON_ID) {
+        const { url } = await createLinkToken(user.id, nameOf(user));
+        const already = await linkedUserOfDiscord(user.id);
+        return res.status(200).json(reply(`${already ? "你已經連結過網站帳號了；要換成別的網站帳號，先在網站解除再用這個連結。\n\n" : ""}用**登入研究員專區的那個瀏覽器**打開下面的連結就完成了（15 分鐘內有效、只能用一次，不要給別人）。`, { components: [{ type: 1, components: [{ type: 2, style: 5, label: "打開網站完成連結", url }] }] }));
+      }
       if (id === "apply") {
         if (hasRole) return res.status(200).json(reply(resultText("already_member")));
         req.waitUntil?.(processOpen({ i, s, user }));

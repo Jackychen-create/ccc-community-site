@@ -612,3 +612,24 @@ as $$
 $$;
 revoke all on function public.search_highlights(text) from public, anon, authenticated;
 grant execute on function public.search_highlights(text) to service_role;
+
+-- ── v1.26.21（2026-11-02）：研究員自己連結 Discord 帳號 ──
+-- 網站帳號 ↔ Discord 帳號（一對一）；助教私訊（課程解鎖、升級、推薦）先看這裡，再看報名通過的紀錄
+create table if not exists public.member_discord (
+  user_id          uuid primary key references auth.users(id) on delete cascade,
+  discord_user_id  text not null unique check (discord_user_id ~ '^\d{17,20}$'),
+  discord_name     text check (discord_name is null or char_length(discord_name) <= 80),
+  linked_at        timestamptz not null default now()
+);
+alter table public.member_discord enable row level security;
+-- 在 Discord 按「連結網站帳號」拿到的一次性連結（15 分鐘內、用一次）
+create table if not exists public.discord_link_tokens (
+  token            text primary key check (char_length(token) between 32 and 80),
+  discord_user_id  text not null check (discord_user_id ~ '^\d{17,20}$'),
+  discord_name     text check (discord_name is null or char_length(discord_name) <= 80),
+  expires_at       timestamptz not null,
+  used_at          timestamptz,
+  created_at       timestamptz not null default now()
+);
+create index if not exists discord_link_tokens_created_idx on public.discord_link_tokens (created_at);
+alter table public.discord_link_tokens enable row level security;

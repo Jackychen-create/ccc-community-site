@@ -59,6 +59,11 @@ export async function notifyMilestones(hits) {
 // 研究員 → Discord 帳號：在 Discord 報名通過時拿到的專用實驗室密碼，或填的交易所 UID 跟通過的報名一樣
 export async function discordIds(userIds, memBy) {
   const out = new Map();
+  // 研究員自己在網站連結的（v1.26.21）最準，先用
+  if (userIds.length) {
+    const { data: own } = await supabaseAdmin.from("member_discord").select("user_id, discord_user_id").in("user_id", userIds);
+    for (const r of own || []) out.set(r.user_id, r.discord_user_id);
+  }
   const codes = userIds.map((id) => memBy.get(id)?.invite_code).filter(Boolean);
   const [{ data: byCode }, { data: links }] = await Promise.all([
     codes.length ? supabaseAdmin.from("discord_applications").select("discord_user_id, invite_code").eq("status", "approved").in("invite_code", codes) : { data: [] },
@@ -67,7 +72,7 @@ export async function discordIds(userIds, memBy) {
   const codeTo = new Map((byCode || []).map((a) => [a.invite_code, a.discord_user_id]));
   for (const id of userIds) {
     const d = codeTo.get(memBy.get(id)?.invite_code);
-    if (d) out.set(id, d);
+    if (d && !out.has(id)) out.set(id, d);
   }
   const rest = (links || []).filter((l) => !out.has(l.user_id));
   if (rest.length) {

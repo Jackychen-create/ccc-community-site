@@ -1,5 +1,6 @@
 // 右上角帳號選單：課程、筆記、提問、寄信通知、使用教學、更新紀錄、修改密碼、登出
 import { openThemePicker } from "./badges.js";
+import { openDiscordLink } from "./discord-link.js";
 import { rankRing } from "./levelup.js";
 import { $, el, api, sb, icon, modal, setBusy, toast, tutorial, whatsNew } from "../core/index.js";
 import { state } from "./state.js";
@@ -31,6 +32,9 @@ export function renderMenu() {
       ? el("button", { type: "button", role: "menuitemcheckbox", "aria-checked": String(!!me.notify), onclick: toggleNotify },
           icon("mail"), el("span", { style: { flex: "1" }, text: "新影片、課程解鎖通知" }), el("span", { class: "menu-state" + (me.notify ? " on" : ""), text: me.notify ? "開" : "關" }))
       : null,
+    me?.discord ? el("button", { type: "button", role: "menuitem", id: "menuDiscord", onclick: () => { toggleMenu(false); openDiscordLink(renderMenu); } },
+      icon("chat"), el("span", { style: { flex: "1" }, text: me.discord.linked ? "Discord 已連結" : "連結 Discord" }),
+      el("span", { class: "menu-state" + (me.discord.linked ? " on" : ""), text: me.discord.linked ? (me.discord.name || "✓") : "私訊提醒" })) : null,
     el("button", { type: "button", role: "menuitem", onclick: () => { toggleMenu(false); openThemePicker(); } }, icon("image"), "外觀主題"),
     el("button", { type: "button", role: "menuitem", onclick: () => { toggleMenu(false); tutorial(); } }, icon("play"), "使用教學"),
     me?.isAdmin ? el("button", { type: "button", role: "menuitem", onclick: () => { toggleMenu(false); tutorial("admin"); } }, icon("play"), "管理員使用教學") : null,

@@ -21,12 +21,20 @@ import { openWatch } from "./watch.js";
 import { openCourse } from "./course.js";
 import { openNotes } from "./notes.js";
 import { openFeedback } from "./feedback.js";
+import { finishLink } from "./discord-link.js";
 
 document.querySelectorAll("[data-site-name]").forEach((n) => (n.textContent = SITE));
 document.title = SITE;
 
 function route() {
   if (!state.me) return;
+  // Discord 給的一次性連結：完成連結，回首頁
+  const link = location.hash.match(/^#\/link-discord\?t=([0-9a-f]{48})$/);
+  if (link) {
+    history.replaceState(null, "", location.pathname + location.search + "#/");
+    finishLink(link[1], () => { renderMenu(); route(); });
+    return;
+  }
   const m = location.hash.match(/^#\/v\/(\d+)(?:\?t=(\d+))?/);
   // 還沒到第二級：首頁換成升級說明；第一級還是看得到教學課程（每位講師第 1 份）、筆記；提問每一級都可以
   if (locked()) {
