@@ -1,5 +1,6 @@
 // 上傳到 R2 的基本工具：猜檔案格式、上傳進度列、直傳 R2、讀影片片長和封面
 import * as A from "../core/index.js";
+import { putErrorText } from "../shared/upload.js";
 const { el, icon } = A;
 
 export function guessType(name) {
@@ -102,7 +103,7 @@ export function putFile(url, file, contentType, ui) {
       const left = speed ? (e.total - e.loaded) / speed : 0;
       ui.progress(p, `${Math.floor(p * 100)}%　${A.fmtBytes(e.loaded)} / ${A.fmtBytes(e.total)}${speed ? `　剩 ${left > 90 ? Math.ceil(left / 60) + " 分" : Math.ceil(left) + " 秒"}` : ""}`);
     };
-    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`影片空間（R2）拒絕了這次上傳（代碼 ${xhr.status}）。通常是 R2 金鑰設定不對（例如換了金鑰，但 Cloudflare 還沒重新部署）。`)));
+    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(putErrorText(xhr.status))));
     xhr.onerror = () => reject(new Error(navigator.onLine === false ? "網路斷線了，連上網路後按「重新上傳」。" : "連不上影片空間（R2）。網路正常的話，通常是 R2 的 CORS 設定還沒允許這個網址。"));
     xhr.onabort = () => reject(Object.assign(new Error("已取消"), { aborted: true }));
     ui.setAbort(() => xhr.abort());

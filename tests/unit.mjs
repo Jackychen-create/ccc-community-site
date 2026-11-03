@@ -14,6 +14,7 @@ import { env } from "../server/lib/env.js";
 import { buildCanonical, hmacHex, parseSafe, dayChunks, summarize, checkInvite, fetchDaily, commissionDay } from "../server/lib/bingx.js";
 import { bybitSign, bybitQuery, capRange, checkBybitClient, fetchBybitVolumes, bybitProxyUrl } from "../server/lib/bybit.js";
 import { syncPeriods } from "../server/lib/volume.js";
+import { putErrorText } from "../public/assets/js/shared/upload.js";
 
 let pass = 0, fail = 0;
 function test(name, fn) {
@@ -379,6 +380,12 @@ test("伺服器 500 回大概原因（不回錯誤內容）", () => {
   assert.equal(errorKind(Object.assign(new Error("The operation was aborted"), { name: "AbortError" })), "timeout");
   assert.equal(errorKind(new TypeError("fetch failed")), "upstream");
   assert.equal(errorKind(new Error("x is not defined")), "app");
+});
+test("影片上傳：R2 5xx 說是暫時出錯、4xx 才說金鑰設定", () => {
+  assert.match(putErrorText(500), /暫時出錯/);
+  assert.match(putErrorText(503), /重新上傳/);
+  assert.doesNotMatch(putErrorText(500), /金鑰/);
+  assert.match(putErrorText(403), /金鑰/);
 });
 pfake.close();
 bfake.close();
