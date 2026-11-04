@@ -6,6 +6,7 @@ import { maybeWeeklyReviews } from "../lib/reviews.js";
 import { flushAnnouncements } from "../lib/announce.js";
 import { runOnboarding } from "../lib/onboarding.js";
 import { runCourseMail } from "../lib/course-mail.js";
+import { runExchangeRoles } from "../lib/exchange-roles.js";
 
 export default route({
   async POST(req, res) {
@@ -34,6 +35,8 @@ export default route({
     const onboarding = await runOnboarding(now).catch((e) => ({ ok: false, error: String(e?.message || e) }));
     // 順便：每天 9:00 課程解鎖提醒信（server/lib/course-mail.js）
     const courseMail = await runCourseMail(now).catch((e) => ({ ok: false, error: String(e?.message || e) }));
-    return res.status(200).json({ ok: true, due: (data || []).length, reminded, reviews, announced, onboarding, courseMail });
+    // 順便：每小時補發交易所活動身分組（server/lib/exchange-roles.js）
+    const exchangeRoles = await runExchangeRoles(now).catch((e) => ({ ok: false, error: String(e?.message || e) }));
+    return res.status(200).json({ ok: true, due: (data || []).length, reminded, reviews, announced, onboarding, courseMail, exchangeRoles });
   },
 });
