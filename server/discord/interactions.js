@@ -5,6 +5,7 @@
 //   報名頻道按「報名培訓計畫」→ 開一個只有他和管理員看得到的報名頻道
 //   → 在報名頻道選交易所、填 UID → Bybit、BingX 自動確認；OKX、UM 由管理員在同一個頻道按通過
 //   → 通過：給身分組，在頻道裡給他專用的實驗室密碼（也私訊一份）→ 按「關閉這個頻道」
+import { grantExchangeRole } from "../lib/exchange-roles.js";
 import { LINK_BUTTON_ID, createLinkToken, linkedUserOfDiscord } from "../lib/discord-link.js";
 import {
   supabaseAdmin, route, AUTO_EXCHANGES, EXCHANGES, PROVIDERS,
@@ -84,6 +85,7 @@ async function processApplication({ i, s, ex, uid, accountName, user, channelId 
       if (check?.invited) {
         try {
           await addRole(i.guild_id, user.id, s.roleId);
+          await grantExchangeRole(s, i.guild_id, user.id, ex); // 交易所活動身分組（例如 Bybit）
           const app = await insertApp({ ...base, status: "approved", auto: true, reviewed_by: `${ex} 自動確認`, reviewed_at: new Date().toISOString() });
           const code = await grantCode(s, app);
           return done(approvedMessage({ userId: user.id, roleId: s.roleId, code, by: `${ex} 自動確認`, labChannelId: s.labChannelId }));
@@ -120,6 +122,7 @@ async function review(req, res, i, s, action, id) {
   if (action === "approve") {
     try {
       await addRole(i.guild_id, app.discord_user_id, s.roleId);
+      await grantExchangeRole(s, i.guild_id, app.discord_user_id, app.exchange); // 交易所活動身分組（例如 Bybit）
     } catch (e) {
       return res.status(200).json(reply(`給身分組失敗：${String(e?.message || e).slice(0, 150)}\n請確認機器人有「管理身分組」權限，而且機器人的身分組排在 <@&${s.roleId}> 上面。`));
     }
