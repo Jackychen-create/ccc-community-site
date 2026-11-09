@@ -5,7 +5,7 @@
 //       三級制度：那一輪達到第幾級就是下一輪的等級（規則在 shared/rules.js 的 TIERS，門檻固定、後台不能改）
 import {
   supabaseAdmin, requireAdmin, readBody, route,
-  EXCHANGES, AUTO_EXCHANGES, TIERS, tierOf, todayTW, isDate, saveVolumes, periodFor, nextPeriod, anchorOf, tiersFor,
+  EXCHANGES, AUTO_EXCHANGES, LOCKED_AUTO, TIERS, tierOf, todayTW, isDate, saveVolumes, periodFor, nextPeriod, anchorOf, tiersFor,
 } from "../lib/index.js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -33,7 +33,8 @@ async function snapshot(which) {
     which,
     today,
     exchanges: EXCHANGES,
-    autoExchanges: AUTO_EXCHANGES,
+    autoExchanges: LOCKED_AUTO, // 表格裡不能改的欄位
+    syncExchanges: AUTO_EXCHANGES,
     tiers: TIERS.map(({ tier, usdt, lots }) => ({ tier, usdt, lots })),
     rows: list.map(({ m, p }) => {
       const v = byKey.get(`${m.user_id}:${p.start}`);

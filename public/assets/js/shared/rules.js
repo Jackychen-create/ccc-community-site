@@ -41,10 +41,13 @@ export const nextPeriod = (anchor, period) => periodOf(anchor, addDays(period.en
 export const prevPeriod = (anchor, period) => (period.index > 0 ? periodOf(anchor, addDays(period.start, -1)) : null);
 
 // ── 交易量 ──
-// 合作交易所：OKX、UM 由管理員填；Bybit、BingX 由網站每天自動抓（研究員綁定 UID 後）
+// 交易所：UM 由管理員填；Bybit、BingX、OKX 由網站每天自動抓（研究員綁定 UID 後；OKX 2026-11-10 起）
 // UM（Ultima Markets，MT5）用「手」算，其他用 USDT 成交金額
 export const EXCHANGES = ["OKX", "UM", "Bybit", "BingX"];
-export const AUTO_EXCHANGES = ["Bybit", "BingX"];
+export const AUTO_EXCHANGES = ["Bybit", "BingX", "OKX"];
+// 自動同步，但管理員還是可以手動填：OKX 只給累計交易量，這一輪開始前沒記到累計的人，這一輪的數字由管理員填
+export const EDITABLE_AUTO = ["OKX"];
+export const LOCKED_AUTO = AUTO_EXCHANGES.filter((ex) => !EDITABLE_AUTO.includes(ex));
 export const LOT_EXCHANGES = ["UM"];
 export const isLots = (ex) => LOT_EXCHANGES.includes(ex);
 // 交易所帳號：OKX、Bybit、BingX 填 UID；UM 填 MT5 帳號（一樣是一串數字），另外填在 UM 開戶的英文姓名，

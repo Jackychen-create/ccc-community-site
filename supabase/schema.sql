@@ -633,3 +633,15 @@ create table if not exists public.discord_link_tokens (
 );
 create index if not exists discord_link_tokens_created_idx on public.discord_link_tokens (created_at);
 alter table public.discord_link_tokens enable row level security;
+
+-- ── v1.26.30（2026-11-10）：OKX 交易量自動同步 ──
+-- OKX 推薦人 API 只給「累計交易量」（totalVol）：每天記一次，一輪的交易量＝現在的累計－這一輪開始那天的累計
+create table if not exists public.okx_snapshots (
+  uid        text not null check (uid ~ '^\d{4,20}$'),
+  day        date not null,
+  total_vol  numeric not null default 0,
+  join_time  timestamptz,
+  created_at timestamptz not null default now(),
+  primary key (uid, day)
+);
+alter table public.okx_snapshots enable row level security;

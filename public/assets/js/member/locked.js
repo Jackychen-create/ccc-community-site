@@ -34,7 +34,7 @@ export function openLocked() {
         el("div", { class: "tier-head" }, el("b", { text: tierName(t.tier) }), t.tier === tier ? el("span", { class: "pill good", text: "你在這裡" }) : null),
         el("div", { class: "tier-goal num", text: tierRuleText(t.tier) }),
         el("ul", null, ...t.perks.map((x) => el("li", { text: x })))))),
-    el("p", { class: "small muted", text: "每人從加入那天起算，一輪一個月；這一輪達到第幾級，下一輪就是第幾級。交易量每天自動更新（Bybit、BingX），OKX、UM 由管理員更新。會員直播的時間看右邊的「下一場直播」和 Discord「研究員專屬公告」。" }),
+    el("p", { class: "small muted", text: "每人從加入那天起算，一輪一個月；這一輪達到第幾級，下一輪就是第幾級。交易量每天自動更新（Bybit、BingX、OKX），UM 由管理員更新。會員直播的時間看右邊的「下一場直播」和 Discord「研究員專屬公告」。" }),
     invites.length ? el("div", { class: "lock-signup" },
       el("div", { class: "small", text: "還沒有交易所帳號？用 CCC 的邀請連結註冊，交易量才算得到：" }),
       el("div", { class: "chips" }, ...invites.map(([ex, url]) => el("a", { class: "btn sm", href: url, target: "_blank", rel: "noopener", text: SIGNUP[ex] || ex })))) : null));
