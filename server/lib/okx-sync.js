@@ -1,6 +1,6 @@
 // OKX 自動同步：OKX 推薦人 API 只給每個人的「累計交易量」（totalVol），沒有每天的明細
 // 所以每天記一次累計（okx_snapshots），一輪的交易量＝今天的累計－這一輪開始那天（或之前最近一天）的累計
-// 這一輪開始之後才在 OKX 註冊的人（joinTime ≥ 開始那天）：起點就是 0
+// 這一輪開始之後才在 OKX 註冊、或第一筆交易在這一輪開始之後、或累計是 0 的人：起點就是 0（不用等快照）
 // 對不到起點（網站開始記錄之前就開始的那一輪）：先不動，保留管理員填的數字；下一輪起就會自動
 import { supabaseAdmin } from "./env.js";
 import { todayTW, twDate } from "./dates.js";
@@ -13,9 +13,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // 一輪的交易量（純計算，測試用）：list＝這個人的每日累計（照日期排好），from／end＝這一輪的起訖，今天的累計 totalVol
 // 對不到起點回傳 null（不動，保留管理員填的）
-export function okxPeriodVolume({ list = [], totalVol = 0, joinDay = null, from, end, today }) {
+export function okxPeriodVolume({ list = [], totalVol = 0, joinDay = null, firstTradeDay = null, from, end, today }) {
   let base = null;
-  if (joinDay && joinDay >= from) base = 0;
+  if ((joinDay && joinDay >= from) || (firstTradeDay && firstTradeDay >= from) || !(Number(totalVol) > 0)) base = 0;
   else {
     const before = list.filter((s) => s.day <= from);
     if (before.length) base = Number(before[before.length - 1].total_vol) || 0;
@@ -61,7 +61,8 @@ export async function syncOkx({ uid } = {}) {
     const list = byUid.get(String(l.exchange_uid)) || [];
     for (const p of syncPeriods(l.member, today)) {
       const joinDay = r.joinTime ? twDate(new Date(r.joinTime).toISOString()) : null;
-      const total = okxPeriodVolume({ list, totalVol: r.totalVol, joinDay, from: countFrom(l.member, p), end: p.end, today });
+      const firstTradeDay = r.firstTrade ? twDate(new Date(r.firstTrade).toISOString()) : null;
+      const total = okxPeriodVolume({ list, totalVol: r.totalVol, joinDay, firstTradeDay, from: countFrom(l.member, p), end: p.end, today });
       if (total === null) { result.noBase++; continue; }
       entries.push({ user_id: l.user_id, period: p, amounts: { OKX: total }, qualifiedOn: today });
     }
