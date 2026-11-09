@@ -375,11 +375,13 @@ await test("一對一：第三級才能選；每位講師 5 位，超過照交�
   assert.equal(list.find((e) => e.email === "one1@example.com").confirmed, true);
   assert.equal(list.find((e) => e.email === "one2@example.com").confirmed, false);
   // 約好的不能自己改選或取消
-  const sw = await call(oneonone, { token: "tok-one1", method: "POST", body: { host: "OC" } });
+  const sw = await call(oneonone, { token: "tok-one1", method: "POST", body: { host: "X" } });
   assert.equal(sw.statusCode, 400);
-  // one2 改選 OC → 馬上確定
-  const r2 = await call(oneonone, { token: "tok-one2", method: "POST", body: { host: "OC" } });
-  assert.deepEqual([r2.body.mine.host, r2.body.mine.confirmed], ["OC", true]);
+  // one2 改選 X → 馬上確定
+  const r2 = await call(oneonone, { token: "tok-one2", method: "POST", body: { host: "X" } });
+  assert.deepEqual([r2.body.mine.host, r2.body.mine.confirmed], ["X", true]);
+  // OC 停止合作（2026-11-09）：不能再選
+  assert.equal((await call(oneonone, { token: "tok-one4", method: "POST", body: { host: "OC" } })).statusCode, 400);
   // 講師名字亂填不收
   assert.equal((await call(oneonone, { token: "tok-one3", method: "POST", body: { host: "Bob" } })).statusCode, 400);
 });
@@ -425,6 +427,16 @@ await test("協作管理員：交易量、待跟進被擋，主要管理員不�
   assert.equal(m.body.adminRole, "editor");
   const one = await call(adminOneonone, { token: "tok-oc", route: "admin/oneonone" });
   assert.equal(one.statusCode, 200); // 講師（OC）看得到一對一名單
+});
+await test("停止合作的管理員（removed）：後台、管理員身分看網站都擋掉，就算還在 ADMIN_EMAILS", async () => {
+  db.settings.find((x) => x.key === "admin_roles").value["oc@gmail.com"] = "removed";
+  const one = await call(adminOneonone, { token: "tok-oc", route: "admin/oneonone" });
+  assert.equal(one.statusCode, 403);
+  const v = await call(adminVolumes, { token: "tok-oc", route: "admin/volumes" });
+  assert.equal(v.statusCode, 403);
+  const m = await call(me, { token: "tok-oc" });
+  assert.equal(m.statusCode, 403);
+  assert.equal((await call(adminVolumes, { token: "tok-admin", route: "admin/volumes" })).statusCode, 200);
 });
 
 await test("社群舊成員：設了第一輪起算日，加入網站前的 BingX 量也算進第一輪", async () => {

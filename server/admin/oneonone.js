@@ -1,5 +1,5 @@
 // 後台：一對一交流（第三級研究員每個月選一位講師，每位最多 5 位，超過照交易量排）
-// GET   /api/admin/oneonone?month=2026-10        三位講師的名單（確定／候補、交易量、約好了沒）
+// GET   /api/admin/oneonone?month=2026-10        每位講師的名單（確定／候補、交易量、約好了沒）
 // PATCH /api/admin/oneonone { userId, month, booked }   標記「已約好」（約好的一定算確定）
 // DELETE /api/admin/oneonone?userId=&month=           把這位從名單拿掉
 // 協作管理員（OC）也可以用（他自己也是講師）

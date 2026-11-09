@@ -70,9 +70,9 @@ export const unitOf = (ex) => (isLots(ex) ? "手" : "USDT");
 // 新研究員的第一輪先給第二級（FIRST_CYCLE_TIER，2026-10-19 從第一級改）；管理員可以手動給「至少第幾級到哪天」（members.min_tier、min_tier_until）
 // 贈送名額不分級：網站內容照第二級開，但不顯示等級、不升降級、不收升級通知
 export const TIERS = [
-  { tier: 1, usdt: 10000, lots: 0.01, perks: ["Discord 研究員身分組", "會員直播（不提供留檔）", "教學課程三位講師的第 1 份"] },
+  { tier: 1, usdt: 10000, lots: 0.01, perks: ["Discord 研究員身分組", "會員直播（不提供留檔）", "每一組教學課程的第 1 份"] },
   { tier: 2, usdt: 200000, lots: 2, perks: ["全部交易系統分享影音（之後的更新）", "直播留檔", "研究員專屬網站"] },
-  { tier: 3, usdt: 1500000, lots: 15, perks: ["教學課程全部直接解鎖，不用等排程", "每個月一次一對一交流（CCC、OC、X 三選一）"] },
+  { tier: 3, usdt: 1500000, lots: 15, perks: ["教學課程全部直接解鎖，不用等排程", "每個月一次一對一交流（CCC、X 二選一）"] },
 ];
 export const MAX_TIER = TIERS.length;
 export const SITE_TIER = 2; // 網站內容（直播留檔、教學課程、教材、筆記）要第二級
@@ -143,10 +143,11 @@ export function tierStatus({ anchor, today, amountsOf, override = null }) {
 }
 
 // ── 一對一交流（第三級，2026-10-18）──
-// 第三級的研究員每個月（台灣時間的月份）從三位講師選一位；每位講師一個月最多 5 位
+// 第三級的研究員每個月（台灣時間的月份）從講師裡選一位（OC 2026-11-09 停止合作後是 CCC、X 二選一）；每位講師一個月最多 5 位
 // 選同一位的超過 5 位 → 照這一輪的交易量排（換算成「到第三級門檻的幾倍」，UM 和 USDT 才比得了），前 5 位確定、其他候補（可以改選別位）
 // 管理員按「已約好」的人一定算確定，不會被擠掉
-export const ONE_ON_ONE_HOSTS = ["CCC", "OC", "X"];
+// OC 2026-11-09 停止合作：一對一只剩 CCC、X（他的教學影片照舊留在課程裡）
+export const ONE_ON_ONE_HOSTS = ["CCC", "X"];
 export const ONE_ON_ONE_CAP = 5;
 export const oneOnOneScore = (amounts) => progressTo(amounts || {}, MAX_TIER).ratio;
 // entries: [{ user_id, host, score, booked, created_at }] → 同一位講師的排好順序，加上 rank（第幾位）、confirmed（確定）
