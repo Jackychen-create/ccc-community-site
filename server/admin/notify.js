@@ -22,7 +22,7 @@ export default route({
     if (!v) return res.status(404).json({ error: "找不到這支影片" });
     if (!v.is_published) return res.status(400).json({ error: "影片還是草稿，發布後才能寄通知" });
     if (v.is_public) return res.status(400).json({ error: "公開影片是給還沒加入的人看的，不寄全體通知" });
-    if (v.course_host) return res.status(400).json({ error: "教學課程依每個人的加入日期解鎖，不寄全體通知" });
+    if (v.course_host) return res.status(400).json({ error: "系統分享依每個人的加入日期解鎖，不寄全體通知" });
 
     // 收件人：開著通知、沒被停權、資格沒過期的研究員
     const { data: members, error: mErr } = await supabaseAdmin.from("members").select("user_id, email, banned, notify, created_at, free, min_tier, min_tier_until");

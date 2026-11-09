@@ -1,4 +1,4 @@
-// 課程解鎖提醒：每天早上 9 點（台灣時間），今天解鎖新一份教學課程的研究員收到提醒
+// 課程解鎖提醒：每天早上 9 點（台灣時間），今天解鎖新一份系統分享的研究員收到提醒
 // 怎麼發（v1.26.20）：有連到 Discord 帳號（報名通過的那個）就助教私訊；沒有才寄信
 // 誰：沒停權、開著通知（members.notify）、等級看得到那一份、不是第三級（第三級全部已經解鎖）
 // 加入當天（第 0 週）那份不寄；影片還沒上傳的那份不寄
@@ -16,9 +16,9 @@ import { BRAND } from "./chatlog.js";
 // 私訊用的卡片
 export function courseUnlockEmbed(list) {
   return {
-    author: { name: `${BRAND}｜教學課程`, icon_url: `${SITE_URL}/assets/brand/ccc-bot.png` },
-    title: list.length === 1 ? `🔓 今天解鎖：${list[0].host} 講師第 ${list[0].part} 份` : `🔓 今天解鎖 ${list.length} 份教學課程`,
-    description: list.map((x) => `**[${x.host} 講師第 ${x.part} 份：${x.title}](${SITE_URL}/#/v/${x.id})**`).join("\n") + `\n\n每週解鎖一份，照順序看效果最好。全部課程和解鎖日期在網站「教學課程」。`,
+    author: { name: `${BRAND}｜系統分享`, icon_url: `${SITE_URL}/assets/brand/ccc-bot.png` },
+    title: list.length === 1 ? `🔓 今天解鎖：${list[0].host} 主講第 ${list[0].part} 份` : `🔓 今天解鎖 ${list.length} 份系統分享`,
+    description: list.map((x) => `**[${x.host} 主講第 ${x.part} 份：${x.title}](${SITE_URL}/#/v/${x.id})**`).join("\n") + `\n\n每週解鎖一份，照順序看效果最好。全部課程和解鎖日期在網站「系統分享」。`,
     color: 0xcda45e,
     footer: { text: "不想收到：網站右上角選單關掉「新影片、課程解鎖通知」" },
   };
@@ -59,9 +59,9 @@ export function unlocksToday(members, tiers, courseVideos, today) {
 }
 
 export function courseMailHtml(list) {
-  const items = list.map((x) => `<li style="margin:6px 0"><a href="${SITE_URL}/#/v/${x.id}" style="color:#9a6b1f;font-weight:700">${escHtml(x.host)} 講師第 ${x.part} 份：${escHtml(x.title)}</a></li>`).join("");
-  return `<p>今天你的教學課程解鎖了新的一份：</p><ul style="padding-left:18px">${items}</ul>
-<p>每週解鎖一份，照順序看效果最好。全部課程和你每一份的解鎖日期在網站「教學課程」。</p>
+  const items = list.map((x) => `<li style="margin:6px 0"><a href="${SITE_URL}/#/v/${x.id}" style="color:#9a6b1f;font-weight:700">${escHtml(x.host)} 主講第 ${x.part} 份：${escHtml(x.title)}</a></li>`).join("");
+  return `<p>今天你的系統分享解鎖了新的一份：</p><ul style="padding-left:18px">${items}</ul>
+<p>每週解鎖一份，照順序看效果最好。全部課程和你每一份的解鎖日期在網站「系統分享」。</p>
 <p><a href="${SITE_URL}/#/course" style="display:inline-block;background:#cda45e;color:#1b1f1d;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700">去看課程</a></p>
 <p style="color:#7a817d;font-size:13px">不想收到通知：網站右上角選單 →「新影片、課程解鎖通知」關掉。</p>`;
 }
@@ -87,7 +87,7 @@ export async function runCourseMail(now = Date.now(), { force = false } = {}) {
   const dc = due.length ? await discordIds(due.map((d) => d.user_id), new Map(alive.map((m) => [m.user_id, m]))) : new Map();
   let dms = 0, mails = 0;
   for (const d of due) {
-    const subject = d.list.length === 1 ? `🔓 今天解鎖：${d.list[0].host} 講師第 ${d.list[0].part} 份課程` : `🔓 今天解鎖 ${d.list.length} 份教學課程`;
+    const subject = d.list.length === 1 ? `🔓 今天解鎖：${d.list[0].host} 主講第 ${d.list[0].part} 份課程` : `🔓 今天解鎖 ${d.list.length} 份系統分享`;
     const how = await dmOrMail(dc.get(d.user_id), d.email, { embed: courseUnlockEmbed(d.list), subject, html: courseMailHtml(d.list) });
     if (how === "dm") dms++; else if (how === "mail") mails++;
   }

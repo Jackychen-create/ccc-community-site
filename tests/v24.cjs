@@ -40,10 +40,10 @@ const closeAll = async (p) => { const seen = []; for (let i = 0; i < 6; i++) { a
   check("階梯三格都沒亮（這一輪還沒交易量）", (await p.locator("#volPanel .ms-step").count()) === 3 && (await p.locator("#volPanel .ms-step.on").count()) === 0);
   check("繼續看、課程、筆記這些不顯示", !(await p.isVisible("#continueList")) && !(await p.isVisible("#statsPanel")) && !(await p.isVisible("#recentNotes")));
   check("沒有跳恭喜", !(await closeAll(p)).includes("升上"));
-  check("第一級：首頁有「先看教學課程第 1 份」", await p.isVisible(".lock-free"));
+  check("第一級：首頁有「先看系統分享第 1 份」", await p.isVisible(".lock-free"));
   await p.click(".lock-free"); await p.waitForSelector("#courseView:not([hidden]) .course-row");
   const rows = await p.locator("#courseList .course-row").allTextContents();
-  check("第一級看得到教學課程：第 1 份照解鎖時間、第 2 份以後寫第二級解鎖", rows.some((t) => t.includes("第 1 份") && !t.includes("第二級解鎖")) && rows.filter((t) => t.includes("第 2 份")).every((t) => t.includes("第二級解鎖")), rows.slice(0, 5).join(" | "));
+  check("第一級看得到系統分享：第 1 份照解鎖時間、第 2 份以後寫第二級解鎖", rows.some((t) => t.includes("第 1 份") && !t.includes("第二級解鎖")) && rows.filter((t) => t.includes("第 2 份")).every((t) => t.includes("第二級解鎖")), rows.slice(0, 5).join(" | "));
   await p.click("#courseList a.course-row >> nth=0"); await p.waitForSelector("#watchView:not([hidden])"); await p.waitForTimeout(600);
   check("第一級可以播第 1 份", !(await p.textContent("#wTitle")).includes("第二級"), await p.textContent("#wTitle"));
   await p.evaluate(() => (location.hash = "#/v/6")); await p.waitForTimeout(800);
@@ -86,7 +86,7 @@ const closeAll = async (p) => { const seen = []; for (let i = 0; i < 6; i++) { a
   check("升上第三級：寫一對一", t3.includes("升上第三級") && t3.includes("一對一"), t3.slice(0, 200));
   check("階梯三格都亮", (await p.locator("#volPanel .ms-step.on").count()) === 3);
   await p.evaluate(() => (location.hash = "#/course")); await p.waitForSelector("#courseView:not([hidden]) .course-row");
-  check("第三級：教學課程全部直接解鎖", (await p.locator("#courseList .course-row.locked").count()) === 0 && (await p.textContent("#courseCount")).includes("18／18"), await p.textContent("#courseCount"));
+  check("第三級：系統分享全部直接解鎖", (await p.locator("#courseList .course-row.locked").count()) === 0 && (await p.textContent("#courseCount")).includes("12／12"), await p.textContent("#courseCount"));
   await p.evaluate(() => (location.hash = "#/")); await p.waitForSelector("#grid .vrow");
   await p.locator("#volPanel").screenshot({ path: "output/shots/v24-tier3-panel.png" });
   await c.close();

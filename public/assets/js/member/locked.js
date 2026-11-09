@@ -1,4 +1,4 @@
-// 還沒到第二級的研究員：首頁換成「升上第二級，打開整個網站」（直播留檔、教學課程、筆記都鎖著）
+// 還沒到第二級的研究員：首頁換成「升上第二級，打開整個網站」（直播留檔、系統分享、筆記都鎖著）
 // 右欄的直播預告、我的等級、徽章照樣顯示；規則在 shared/rules.js 的 TIERS
 import { $, el } from "../core/index.js";
 import { state, SITE } from "./state.js";
@@ -25,9 +25,9 @@ export function openLocked() {
     el("div", { class: "lock-hero" },
       el("span", { class: "pill" }, `你現在是${tierName(tier)}`),
       el("h2", { text: "升上第二級，打開整個網站" }),
-      el("p", { class: "sub", text: `直播留檔、教學課程之後的更新，第二級以上才看得到。這一輪（${md(v.periodStart)}～${md(v.periodEnd)}）${tierRuleText(SITE_TIER)} 就能升級，${v.amounts ? gapTo(v.amounts, SITE_TIER, v.exchanges) : "還沒有交易量"}。` })),
+      el("p", { class: "sub", text: `直播留檔、系統分享之後的更新，第二級以上才看得到。這一輪（${md(v.periodStart)}～${md(v.periodEnd)}）${tierRuleText(SITE_TIER)} 就能升級，${v.amounts ? gapTo(v.amounts, SITE_TIER, v.exchanges) : "還沒有交易量"}。` })),
     tier >= 1 ? el("a", { class: "lock-free", href: "#/course" },
-      el("div", null, el("b", { text: "先看教學課程第 1 份" }), el("div", { class: "small muted", text: "第一級看得到每一組教學課程的第 1 份（照解鎖時間）；第 2 份以後要第二級。" })),
+      el("div", null, el("b", { text: "先看系統分享第 1 份" }), el("div", { class: "small muted", text: "第一級看得到每一組系統分享的第 1 份（照解鎖時間）；第 2 份以後要第二級。" })),
       el("span", { class: "btn sm", text: "去看" })) : null,
     el("ol", { class: "tier-table" },
       ...TIERS.map((t) => el("li", { class: "tier-card" + (t.tier === tier ? " me" : "") + (t.tier <= tier ? " got" : "") },

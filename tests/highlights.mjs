@@ -193,7 +193,7 @@ await test("沒有密碼、亂給的 Bearer 都不能用", async () => {
   assert.equal((await call("GET", { headers: {} })).statusCode, 401);
   assert.equal((await call("GET", { headers: { authorization: "Bearer abc.def.ghi" } })).statusCode, 401);
 });
-await test("拿工作：只給已發布的直播留檔（不給教學課程、草稿），附 6 小時的下載連結、標成處理中", async () => {
+await test("拿工作：只給已發布的直播留檔（不給系統分享、草稿），附 6 小時的下載連結、標成處理中", async () => {
   const r = await call("GET");
   assert.equal(r.body.job.videoId, 1);
   assert.match(r.body.job.url, /X-Amz-Expires=21600/);

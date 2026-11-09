@@ -18,7 +18,7 @@ export function milestoneText({ level, amounts, period, nextEnd }) {
     `${tierInfo(level).perks.join("、")}，至少到 **${md(nextEnd)}**。`,
   ];
   if (level < MAX_TIER) lines.push(`再往上：${tierName(level + 1)}${gapTo(amounts, level + 1, EXCHANGES)}（${tierInfo(level + 1).perks.join("、")}）。`);
-  if (level >= 3) lines.push("到網站右邊「一對一交流」選這個月的講師（CCC、X 二選一，每位最多 5 位）。");
+  if (level >= 3) lines.push("到網站右邊「一對一交流」選這個月的主講（CCC、X 二選一，每位最多 5 位）。");
   lines.push(SITE);
   return lines.join("\n");
 }

@@ -51,7 +51,7 @@ export default route({
       }
       if (!mem.free && ts.tier >= 3) {
         const pk = pickOf.get(mem.user_id);
-        if (!pk) reasons.push({ key: "oneonone", label: "第三級：這個月還沒選一對一講師", level: 1 });
+        if (!pk) reasons.push({ key: "oneonone", label: "第三級：這個月還沒選一對一主講", level: 1 });
         else if (!pk.booked) reasons.push({ key: "oneonone", label: `一對一：${pk.host} 第 ${pk.rank} 位（${pk.confirmed ? "確定，還沒約時間" : "候補"}）`, level: pk.confirmed ? 2 : 1 });
       }
 

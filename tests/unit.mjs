@@ -91,7 +91,7 @@ test("等級：這一輪達到的撐到下一輪結束、上一輪的撐到這�
   // 交易量比手動給的高 → 照交易量
   assert.equal(tierStatus({ anchor: "2026-09-10", today: "2026-10-18", amountsOf: am({ "2026-10-10": { UM: 15 } }), override: { tier: 2, until: null } }).tier, 3);
 });
-test("一對一：每位講師最多 5 位，超過照交易量排，已約好的一定確定", () => {
+test("一對一：每位主講最多 5 位，超過照交易量排，已約好的一定確定", () => {
   assert.equal(ONE_ON_ONE_CAP, 5);
   assert.ok(oneOnOneScore({ UM: 15 }) === oneOnOneScore({ OKX: 1500000 }), "UM 和 USDT 換算成第三級門檻的幾倍才比得了");
   const e = [1, 2, 3, 4, 5, 6, 7].map((i) => ({ user_id: "u" + i, host: "CCC", score: i, created_at: `2026-10-0${i}`, booked: false }));
@@ -107,7 +107,7 @@ test("一對一：每位講師最多 5 位，超過照交易量排，已約好�
   const r3 = rankOneOnOne([{ user_id: "a", host: "X", score: 1, created_at: "2026-10-02" }, { user_id: "b", host: "X", score: 1, created_at: "2026-10-01" }], "X");
   assert.deepEqual(r3.map((x) => x.user_id), ["b", "a"]);
 });
-test("一對一的 Discord 通知：有填講師 ID 就 @ 他，沒填寫名字", () => {
+test("一對一的 Discord 通知：有填主講 ID 就 @ 他，沒填寫名字", () => {
   const pick = oneOnOneNotice({ kind: "pick", email: "a@x.com", host: "OC", rank: 6, confirmed: false, month: "2026-11", hostIds: { OC: "123456789012345678" } });
   assert.ok(pick.content.includes("<@123456789012345678>") && pick.content.includes("11 月") && pick.content.includes("a@x.com") && pick.content.includes("第 6 位（候補）"), pick.content);
   assert.deepEqual(pick.allowed_mentions.users, ["123456789012345678"]);

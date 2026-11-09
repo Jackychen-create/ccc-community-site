@@ -72,11 +72,11 @@ await test("課程解鎖提醒：今天解鎖的人收到（加入當天那份�
   const r = unlocksToday(ms, tiers, CV, today);
   assert.deepEqual(r.map((x) => [x.email, x.list.map((y) => `${y.host}${y.part}`).join()]), [["a@x", "X1"], ["f@x", "CCC2"]]);
   const html = courseMailHtml(r[0].list);
-  assert.ok(html.includes("/#/v/3") && html.includes("X 講師第 1 份"));
+  assert.ok(html.includes("/#/v/3") && html.includes("X 主講第 1 份"));
 });
 await test("課程解鎖私訊卡片：有連結、不想收怎麼關", () => {
   const e = courseUnlockEmbed([{ host: "X", part: 1, id: 3, title: "X 一" }]);
-  assert.ok(e.title.includes("X 講師第 1 份") && e.description.includes("/#/v/3") && e.footer.text.includes("關掉"));
+  assert.ok(e.title.includes("X 主講第 1 份") && e.description.includes("/#/v/3") && e.footer.text.includes("關掉"));
 });
 await test("影片還沒上傳的那份不寄", () => {
   const r = unlocksToday([{ user_id: "a", email: "a@x", created_at: "2026-10-26T02:00:00Z" }], tiers, CV.filter((v) => v.course_host !== "X"), "2026-11-02");

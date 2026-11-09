@@ -1,4 +1,4 @@
-// 右上角帳號選單：課程、筆記、提問、寄信通知、使用教學、更新紀錄、修改密碼、登出
+// 右上角帳號選單：課程、筆記、提問、寄信通知、使用說明、更新紀錄、修改密碼、登出
 import { openThemePicker } from "./badges.js";
 import { openDiscordLink } from "./discord-link.js";
 import { rankRing } from "./levelup.js";
@@ -25,7 +25,7 @@ export function renderMenu() {
   menuPanel.replaceChildren(...[
     el("div", { class: "who" }, el("div", { text: "登入身分" }), el("div", { style: { color: "var(--ink)" }, text: me?.email || "" })),
     me?.isAdmin ? el("a", { href: "/admin", role: "menuitem" }, icon("settings"), "後台管理") : null,
-    el("a", { href: "#/course", role: "menuitem", onclick: () => toggleMenu(false) }, icon("book"), "教學課程"),
+    el("a", { href: "#/course", role: "menuitem", onclick: () => toggleMenu(false) }, icon("book"), "系統分享"),
     el("a", { href: "#/notes", role: "menuitem", onclick: () => toggleMenu(false) }, icon("note"), "我的筆記"),
     el("a", { href: "#/feedback", role: "menuitem", onclick: () => toggleMenu(false) }, icon("chat"), "我的提問", me?.feedbackUnread ? el("span", { class: "menu-dot", "aria-label": "有新回覆" }) : null),
     me && me.notify !== null && !me.isAdmin
@@ -36,8 +36,8 @@ export function renderMenu() {
       icon("chat"), el("span", { style: { flex: "1" }, text: me.discord.linked ? "Discord 已連結" : "連結 Discord" }),
       el("span", { class: "menu-state" + (me.discord.linked ? " on" : ""), text: me.discord.linked ? (me.discord.name || "✓") : "私訊提醒" })) : null,
     el("button", { type: "button", role: "menuitem", onclick: () => { toggleMenu(false); openThemePicker(); } }, icon("image"), "外觀主題"),
-    el("button", { type: "button", role: "menuitem", onclick: () => { toggleMenu(false); tutorial(); } }, icon("play"), "使用教學"),
-    me?.isAdmin ? el("button", { type: "button", role: "menuitem", onclick: () => { toggleMenu(false); tutorial("admin"); } }, icon("play"), "管理員使用教學") : null,
+    el("button", { type: "button", role: "menuitem", onclick: () => { toggleMenu(false); tutorial(); } }, icon("play"), "使用說明"),
+    me?.isAdmin ? el("button", { type: "button", role: "menuitem", onclick: () => { toggleMenu(false); tutorial("admin"); } }, icon("play"), "管理員使用說明") : null,
     el("button", { type: "button", role: "menuitem", onclick: () => { toggleMenu(false); whatsNew({ all: true }); } }, icon("news"), "更新紀錄"),
     el("button", { type: "button", role: "menuitem", onclick: changePassword }, icon("key"), "修改密碼"),
     el("button", { type: "button", role: "menuitem", onclick: () => sb.auth.signOut() }, icon("logout"), "登出"),

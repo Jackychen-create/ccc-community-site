@@ -1,5 +1,5 @@
 // 執行方式：npm test（會自動開模擬伺服器）
-// v1.20：一對一交流：第三級在右邊選講師（三選一），看排第幾；後台三位講師的名單、標記已約好；協作管理員也看得到
+// v1.20：一對一交流：第三級在右邊選主講（三選一），看排第幾；後台三位主講的名單、標記已約好；協作管理員也看得到
 const { chromium } = require("playwright");
 const BASE = "http://localhost:4321";
 const FONT_CSS = ["noto-sans-tc/400","noto-sans-tc/500","noto-sans-tc/700","sofia-sans-semi-condensed/500","sofia-sans-semi-condensed/600","sofia-sans-semi-condensed/700"].map((f) => `@import url("${BASE}/__fonts/${f}.css");`).join("\n");
@@ -43,10 +43,10 @@ const closeAll = async (p) => { for (let i = 0; i < 6; i++) { await p.waitForTim
   check("第二級沒有一對一", !(await p.isVisible("#onePanel")));
   await c.close();
 
-  // 第三級：選講師
+  // 第三級：選主講
   [c, p] = await ctx({ width: 1280, height: 900 });
   await login(p, "t3@example.com"); await p.waitForSelector("#onePanel:not([hidden])"); await closeAll(p);
-  check("第三級看得到一對一，兩位講師", (await p.locator("#onePanel .one-host").count()) === 2 && (await p.textContent("#onePanel")).includes("選一位講師"));
+  check("第三級看得到一對一，兩位主講", (await p.locator("#onePanel .one-host").count()) === 2 && (await p.textContent("#onePanel")).includes("選一位主講"));
   check("X 名額已滿寫 5／5", (await p.textContent("#onePanel .one-host:has-text('X')")).includes("5／5"));
   await p.click("#onePanel .one-host:has-text('X')"); await p.waitForSelector("#onePanel .pill:has-text('候補')");
   check("選滿的 X：候補第 1 位、說可以改選", (await p.textContent("#onePanel")).includes("候補第 1 位") && (await p.textContent("#onePanel")).includes("改選"), await p.textContent("#onePanel"));
@@ -60,7 +60,7 @@ const closeAll = async (p) => { for (let i = 0; i < 6; i++) { await p.waitForTim
   [c, p] = await ctx({ width: 1440, height: 900 });
   await login(p, "boss@gmail.com");
   await p.goto(BASE + "/admin#oneonone"); await p.waitForSelector(".one-cols");
-  check("後台兩位講師各一欄", (await p.locator(".one-col").count()) === 2);
+  check("後台兩位主講各一欄", (await p.locator(".one-col").count()) === 2);
   const oc = p.locator(".one-col").nth(1);
   check("X 5／5、交易量高的排前面", (await oc.textContent()).includes("5／5") && (await oc.locator("li").first().textContent()).includes("big4@example.com"));
   const ccc = p.locator(".one-col", { hasText: "CCC" }).first();
@@ -74,7 +74,7 @@ const closeAll = async (p) => { for (let i = 0; i < 6; i++) { await p.waitForTim
   [c, p] = await ctx({ width: 390, height: 844 });
   await login(p, "t3@example.com"); await p.waitForSelector("#onePanel:not([hidden])"); await closeAll(p);
   check("研究員看到已約好", (await p.textContent("#onePanel")).includes("已經跟 CCC 約好了"));
-  check("約好之後別位講師不能按", await p.locator("#onePanel .one-host:has-text('X')").isDisabled());
+  check("約好之後別位主講不能按", await p.locator("#onePanel .one-host:has-text('X')").isDisabled());
   check("手機沒有橫向捲動", await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
   await c.close();
 

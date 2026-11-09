@@ -94,9 +94,9 @@ export default route({
     if (b.is_published !== undefined) patch.is_published = b.is_published === true;
     if (b.hosts !== undefined) patch.hosts = cleanHosts(b.hosts);
     if (b.chapters !== undefined) patch.chapters = cleanChapters(b.chapters);
-    // 公開影片：不用登入就能看（分享連結 /watch?v=id）；公開的不能同時是教學課程
+    // 公開影片：不用登入就能看（分享連結 /watch?v=id）；公開的不能同時是系統分享
     if (b.is_public !== undefined) patch.is_public = b.is_public === true;
-    // 教學課程：course_host + course_part（1–6）一起給；都給 null 就變回直播留檔
+    // 系統分享：course_host + course_part（1–6）一起給；都給 null 就變回直播留檔
     if (b.course_host !== undefined || b.course_part !== undefined) {
       if (b.course_host === null || b.course_host === "") {
         patch.course_host = null;
@@ -104,13 +104,13 @@ export default route({
       } else {
         const part = toInt(b.course_part);
         if (!COURSE_HOSTS.includes(b.course_host) || part === null || part < 1 || part > COURSE_PARTS) {
-          return res.status(400).json({ error: "教學課程要選主講和第幾份（1–6）" });
+          return res.status(400).json({ error: "系統分享要選主講和第幾份（1–6）" });
         }
         patch.course_host = b.course_host;
         patch.course_part = part;
       }
     }
-    if (patch.is_public && (patch.course_host || (patch.course_host === undefined && b.course_part))) return res.status(400).json({ error: "公開影片不能同時是教學課程" });
+    if (patch.is_public && (patch.course_host || (patch.course_host === undefined && b.course_part))) return res.status(400).json({ error: "公開影片不能同時是系統分享" });
     // 換封面：新的封面要是 upload-url 發的路徑，舊封面存好後再刪
     let oldThumb = null;
     if (b.thumb_key !== undefined) {

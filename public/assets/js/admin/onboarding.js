@@ -30,7 +30,7 @@ async function load(card) {
     ...r.preview.map((e) => el("div", { class: "ob-msg" }, el("b", { class: "small", text: e.title }), el("p", { class: "small", text: e.description.replace(/<#\d+>/g, "#頻道").replace(/<a?:(\w+):\d+>/g, ":$1:") }))));
   card.replaceChildren(
     el("h2", { text: "新人試用週" }),
-    el("p", { class: "small sub", text: "在 Discord 報名通過後的第 1～7 天，每天晚上 8 點助教私訊一則引導：註冊網站（還沒註冊的會提醒）、教學課程、直播精華、交易投票、研究員大廳、等級、有問題找誰。對方關掉私訊就略過。" }),
+    el("p", { class: "small sub", text: "在 Discord 報名通過後的第 1～7 天，每天晚上 8 點助教私訊一則引導：註冊網站（還沒註冊的會提醒）、系統分享、直播精華、交易投票、研究員大廳、等級、有問題找誰。對方關掉私訊就略過。" }),
     el("p", { class: "small " + (r.on ? "dc-ok" : "muted"), id: "obState", text: r.on ? `✓ 已打開（${md(r.since)} 起通過的人）` : "還沒打開" }),
     el("div", { class: "actions", style: { marginTop: "8px" } }, toggle),
     el("h3", { class: "rv-week-h", style: { marginTop: "14px" }, text: "這 7 天的新人" }),

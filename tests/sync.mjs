@@ -307,7 +307,7 @@ await test("研究員 /api/me：這一輪的日期、等級、升級恭喜", asy
   const r2 = await call(me, { token: "tok-a" });
   assert.equal(r2.body.volume.milestone, null);
 });
-await test("沒有等級的研究員：/api/me 打得開，教學課程被擋（第一級才有第 1 份）", async () => {
+await test("沒有等級的研究員：/api/me 打得開，系統分享被擋（第一級才有第 1 份）", async () => {
   tokens["tok-e2"] = { id: "u-e2", email: "u-e2@example.com", email_confirmed_at: null };
   const r = await call(me, { token: "tok-e2" });
   assert.equal(r.statusCode, 200, JSON.stringify(r.body));
@@ -322,7 +322,7 @@ await test("沒有等級的研究員：/api/me 打得開，教學課程被擋（
   assert.ok(ok2.body.slots.some((x) => !x.unlocked && !x.tier_locked));
 });
 
-await test("第一級：教學課程只開每位講師第 1 份，直播留檔被擋", async () => {
+await test("第一級：系統分享只開每位主講第 1 份，直播留檔被擋", async () => {
   const id = "00000000-0000-4000-8000-0000000000a1";
   const join = addDays(today, -40); // 第二輪，上一輪只到第一級
   db.members.push(member(id, join, { email: "t1@example.com" }));
@@ -342,7 +342,7 @@ await test("第一級：教學課程只開每位講師第 1 份，直播留檔�
   const list = await call(videosApi, { token: "tok-t1" });
   assert.equal(list.statusCode, 403);
 });
-await test("一對一：第三級才能選；每位講師 5 位，超過照交易量排；已約好的不會被擠掉", async () => {
+await test("一對一：第三級才能選；每位主講 5 位，超過照交易量排；已約好的不會被擠掉", async () => {
   const P = periodOf(today, today);
   const ids = [1, 2, 3, 4, 5, 6].map((i) => `00000000-0000-4000-8000-0000000001${String(i).padStart(2, "0")}`);
   ids.forEach((id, i) => {
@@ -382,7 +382,7 @@ await test("一對一：第三級才能選；每位講師 5 位，超過照交�
   assert.deepEqual([r2.body.mine.host, r2.body.mine.confirmed], ["X", true]);
   // OC 停止合作（2026-11-09）：不能再選
   assert.equal((await call(oneonone, { token: "tok-one4", method: "POST", body: { host: "OC" } })).statusCode, 400);
-  // 講師名字亂填不收
+  // 主講名字亂填不收
   assert.equal((await call(oneonone, { token: "tok-one3", method: "POST", body: { host: "Bob" } })).statusCode, 400);
 });
 await test("本週小目標、連續打卡：看完 1 部、記 1 則筆記、這週打開 3 天，三個都完成算一週", async () => {
@@ -426,7 +426,7 @@ await test("協作管理員：交易量、待跟進被擋，主要管理員不�
   const m = await call(me, { token: "tok-oc" });
   assert.equal(m.body.adminRole, "editor");
   const one = await call(adminOneonone, { token: "tok-oc", route: "admin/oneonone" });
-  assert.equal(one.statusCode, 200); // 講師（OC）看得到一對一名單
+  assert.equal(one.statusCode, 200); // 主講（OC）看得到一對一名單
 });
 await test("停止合作的管理員（removed）：後台、管理員身分看網站都擋掉，就算還在 ADMIN_EMAILS", async () => {
   db.settings.find((x) => x.key === "admin_roles").value["oc@gmail.com"] = "removed";

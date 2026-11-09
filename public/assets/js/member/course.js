@@ -1,4 +1,4 @@
-// 教學課程：右欄小卡、#/course 分頁。解鎖規則在 shared/rules.js，伺服器算好才給
+// 系統分享：右欄小卡、#/course 分頁。解鎖規則在 shared/rules.js，伺服器算好才給
 import { $, el, api, icons, fmtDur } from "../core/index.js";
 import { COURSE_HOSTS } from "../shared/rules.js";
 import { state, SITE } from "./state.js";
@@ -31,7 +31,7 @@ function renderCoursePanel() {
   box.hidden = false;
   box.replaceChildren(
     el("div", { class: "panel-head", style: { padding: "14px 18px" } },
-      el("h2", { text: "教學課程" }),
+      el("h2", { text: "系統分享" }),
       el("span", { class: "small muted num", text: `${open.length}／${course.slots.length} 已解鎖` })),
     el("div", { class: "course-mini" },
       latest
@@ -49,7 +49,7 @@ function renderCoursePanel() {
 }
 
 export async function openCourse() {
-  showPage("courseView", { nav: "course", title: `教學課程｜${SITE}` });
+  showPage("courseView", { nav: "course", title: `系統分享｜${SITE}` });
   if (state.course) renderCourse();
   else $("#courseList").replaceChildren(skelRow());
   await loadCourse();

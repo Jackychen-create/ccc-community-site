@@ -78,7 +78,7 @@ export function levelUp({ level, prev = level - 1, amounts = {}, exchanges, unti
     ...Array.from({ length: 18 }, (_, i) => el("i", { style: { "--a": `${(360 / 18) * i + Math.random() * 12}deg`, "--d": `${90 + Math.random() * 90}px`, "--s": `${4 + Math.random() * 5}px`, "--t": `${Math.random() * 0.25}s` } })));
   const bar = el("div", { class: "lvl-xp" }, el("i"));
   const list = el("ul", { class: "lvl-perks" }, ...perks.map((p) => el("li", null, el("span", { class: "lvl-check", "aria-hidden": "true", text: "✓" }), p)),
-    oneOnOne ? el("li", null, el("span", { class: "lvl-check", "aria-hidden": "true", text: "✓" }), "右邊「一對一交流」選這個月的講師") : null);
+    oneOnOne ? el("li", null, el("span", { class: "lvl-check", "aria-hidden": "true", text: "✓" }), "右邊「一對一交流」選這個月的主講") : null);
   const back = el("div", { class: "lvl-back" + (motion ? " anim" : ""), role: "dialog", "aria-modal": "true", "aria-label": `升上${toName}` },
     el("div", { class: "lvl-card" },
       sparks,

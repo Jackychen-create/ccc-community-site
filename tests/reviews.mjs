@@ -40,7 +40,7 @@ const msg = (ms, author, content, react = null, extra = {}) => ({ id: String(Big
 const H = 3600e3;
 const perf = [
   msg(NOW - 8 * 86400e3, AMY, "八天前的不算", { emoji: "🔍", by: [AMY] }),
-  msg(NOW - 50 * H, AMY, "NQ 開盤追空被掃，想請講師看進場點", { emoji: "🔍", by: [AMY] }, { attachments: [{ filename: "a.png" }] }),
+  msg(NOW - 50 * H, AMY, "NQ 開盤追空被掃，想請主講看進場點", { emoji: "🔍", by: [AMY] }, { attachments: [{ filename: "a.png" }] }),
   msg(NOW - 40 * H, BOB, "別人按的也算", { emoji: "🔍", by: [AMY] }),
   msg(NOW - 30 * H, BOB, "", { emoji: "🔎", by: [BOB, AMY] }, { attachments: [{ filename: "b.png" }, { filename: "c.png" }] }),
   msg(NOW - 20 * H, AMY, "沒按的不算"),
@@ -75,7 +75,7 @@ setEnv({ SUPABASE_URL: SUPA, SUPABASE_SERVICE_ROLE_KEY: "service-test", DISCORD_
 
 await test("投票：只算這 7 天、誰按 🔍／🔎 都算一票；機器人的貼文、別的表情不算；票多的排前面", async () => {
   const items = await collectSubmissions(PERF, NOW);
-  assert.deepEqual(items.map((x) => [x.authorName, x.text, x.votes]), [["bob", "", 2], ["Amy", "NQ 開盤追空被掃，想請講師看進場點", 1], ["bob", "別人按的也算", 1]]);
+  assert.deepEqual(items.map((x) => [x.authorName, x.text, x.votes]), [["bob", "", 2], ["Amy", "NQ 開盤追空被掃，想請主講看進場點", 1], ["bob", "別人按的也算", 1]]);
   assert.ok(items.every((x) => x.reviewed === false && x.channel === PERF));
 });
 await test("還沒設定交易績效頻道：不跑", async () => {
@@ -83,7 +83,7 @@ await test("還沒設定交易績效頻道：不跑", async () => {
   assert.equal(r.ok, false);
 });
 db.settings.push({ key: "discord", value: { guildId: "900000000000000000", reviewChannelId: REVIEW, perfChannelId: PERF, reviewPublicChannelId: PUB } });
-await test("週日整理：講師清單貼到審核頻道、公開只貼筆數、每個投稿的人收到私訊", async () => {
+await test("週日整理：主講清單貼到審核頻道、公開只貼筆數、每個投稿的人收到私訊", async () => {
   dmFail = new Set([BOB.id]);
   const r = await runWeeklyReviews(NOW);
   assert.equal(r.ok, true, JSON.stringify(r));

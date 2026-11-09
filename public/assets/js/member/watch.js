@@ -36,11 +36,11 @@ function setNotice(node) {
   $("#watchNotice").replaceChildren(...(node ? [node] : []));
 }
 
-// 「← 直播留檔」或「← 教學課程」
+// 「← 直播留檔」或「← 系統分享」
 function setWatchBack(isCourse) {
   const a = $("#watchBack");
   a.href = isCourse ? "#/course" : "#/";
-  a.lastChild.textContent = isCourse ? "教學課程" : "直播留檔";
+  a.lastChild.textContent = isCourse ? "系統分享" : "直播留檔";
 }
 
 export async function openWatch(id, { t = null } = {}) {
@@ -75,7 +75,7 @@ export async function openWatch(id, { t = null } = {}) {
       $("#videoLoading").hidden = true;
       setWatchBack(true);
       $("#wTitle").textContent = "這一部要第二級才看得到";
-      $("#wDesc").textContent = `${e.message}。第一級可以先看教學課程每位講師的第 1 份。`;
+      $("#wDesc").textContent = `${e.message}。第一級可以先看系統分享每位主講的第 1 份。`;
       return;
     }
     if (e.code === "locked") {
@@ -104,7 +104,7 @@ export async function openWatch(id, { t = null } = {}) {
   if (d.course_host) {
     setWatchBack(true);
     $("#wDate").textContent = "課程";
-    meta.replaceChildren(el("span", null, "教學課程・", el("span", { class: "host", text: d.course_host }), ` 第 ${d.course_part} 份`));
+    meta.replaceChildren(el("span", null, "系統分享・", el("span", { class: "host", text: d.course_host }), ` 第 ${d.course_part} 份`));
   } else if (d.hosts?.length) meta.append(el("span", null, "主講 ", ...d.hosts.map((h) => el("span", { class: "host", text: h }))));
   if (d.duration_sec) meta.append(el("span", { class: "num", text: fmtDur(d.duration_sec) }));
   if (!d.is_published) meta.append(el("span", { class: "pill warn", text: "草稿預覽（研究員看不到）" }));
