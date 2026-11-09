@@ -167,7 +167,7 @@ function renderVolumes() {
 // 自動同步狀態：每間交易所一列（設定好了沒、綁定幾位、上次同步）、一顆「立即同步」
 function syncBar() {
   if (!sync) return null;
-  const list = vol.autoExchanges.filter((ex) => sync[ex]);
+  const list = (vol.syncExchanges || vol.autoExchanges).filter((ex) => sync[ex]);
   if (!list.length) return null;
   const ready = list.filter((ex) => sync[ex].configured);
   const line = (ex) => {

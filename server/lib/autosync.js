@@ -5,11 +5,16 @@ import { bingxConfigured, checkInvite } from "./bingx.js";
 import { syncBingx } from "./bingx-sync.js";
 import { bybitConfigured, checkBybitClient } from "./bybit.js";
 import { syncBybit } from "./bybit-sync.js";
+import { okxConfigured, checkOkxClient, okxInviteCode } from "./okx.js";
+import { syncOkx } from "./okx-sync.js";
+import { getDiscordSettings } from "./discord.js";
 import { AUTO_EXCHANGES } from "../../public/assets/js/shared/rules.js";
 
 export const PROVIDERS = {
   BingX: { configured: bingxConfigured, check: checkInvite, sync: syncBingx, keys: "BINGX_API_KEY、BINGX_SECRET_KEY" },
   Bybit: { configured: bybitConfigured, check: checkBybitClient, sync: syncBybit, keys: "BYBIT_API_KEY、BYBIT_SECRET_KEY" },
+  // OKX：邀請碼要是 CCC 那一組（後台 Discord 設定的 OKX 邀請連結）
+  OKX: { configured: okxConfigured, check: async (uid) => checkOkxClient(uid, { code: okxInviteCode((await getDiscordSettings().catch(() => ({}))).invites?.OKX) }), sync: syncOkx, keys: "OKX_API_KEY、OKX_SECRET_KEY、OKX_PASSPHRASE" },
 };
 
 async function readStatus() {

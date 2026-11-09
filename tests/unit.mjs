@@ -49,7 +49,7 @@ test("資格一輪：12/1 跨年 → 12/31", () => assert.equal(cycleEnd("2026-1
 test("資格一輪：12/20 跨年 → 1/19", () => assert.equal(cycleEnd("2026-12-20"), "2027-01-19"));
 test("日期加減跨月", () => assert.equal(addDays("2026-10-30", 3), "2026-11-02"));
 
-test("交易所：OKX、UM 手填，Bybit、BingX 自動同步", () => { assert.deepEqual(EXCHANGES, ["OKX", "UM", "Bybit", "BingX"]); assert.deepEqual(AUTO_EXCHANGES, ["Bybit", "BingX"]); });
+test("交易所：UM 手填，Bybit、BingX、OKX 自動同步", () => { assert.deepEqual(EXCHANGES, ["OKX", "UM", "Bybit", "BingX"]); assert.deepEqual(AUTO_EXCHANGES, ["Bybit", "BingX", "OKX"]); });
 test("三級門檻：1 萬／0.01 手、20 萬／2 手、150 萬／15 手", () => {
   assert.deepEqual(TIERS.map((t) => [t.tier, t.usdt, t.lots]), [[1, 10000, 0.01], [2, 200000, 2], [3, 1500000, 15]]);
   assert.equal(tierOf({}), 0);

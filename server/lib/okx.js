@@ -92,3 +92,25 @@ export async function okxProbe(uid) {
   }
   return out;
 }
+
+// OKX 的錯誤碼 50xxx 是 API Key、簽名、限流、系統忙這類「設定或暫時」的問題：丟出去，讓管理員人工確認
+const SETUP_ERROR = (code) => /^50\d{3}$/.test(String(code)) || code === "not_configured" || /^http_/.test(String(code));
+
+// CCC 的 OKX 邀請碼（後台 Discord 設定的 OKX 邀請連結 …/join/99357363）；拿不到就不比對
+export function okxInviteCode(link) {
+  const m = String(link || "").match(/\/join\/([A-Za-z0-9]+)/);
+  return m ? m[1] : "";
+}
+
+// 這個 UID 是不是用 CCC 的 OKX 連結註冊的（推薦帳號底下的人、而且邀請碼是 CCC 那一組）
+export async function checkOkxClient(uid, { code = "" } = {}) {
+  try {
+    const d = await okxInvitee(uid);
+    if (!d) return { invited: false };
+    if (code && d.affiliateCode && String(d.affiliateCode) !== String(code)) return { invited: false, otherCode: true };
+    return { invited: true, direct: true, totalVol: Number(d.totalVol) || 0, joinTime: Number(d.joinTime) || null };
+  } catch (e) {
+    if (e instanceof OkxError && !SETUP_ERROR(e.code)) return { invited: false, code: e.code };
+    throw e;
+  }
+}

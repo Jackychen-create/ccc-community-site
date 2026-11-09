@@ -2,9 +2,9 @@
 // 每人從加入那天起算，每一輪剛好一個月；這一輪達到第幾級 → 下一輪就是第幾級（等級怎麼算在 tier.js）
 import { supabaseAdmin } from "./env.js";
 import { twDate, todayTW } from "./dates.js";
-import { EXCHANGES, AUTO_EXCHANGES, SITE_TIER, FIRST_CYCLE_TIER, tierOf, periodOf, nextPeriod, prevPeriod, addDays } from "../../public/assets/js/shared/rules.js";
+import { EXCHANGES, LOCKED_AUTO, SITE_TIER, FIRST_CYCLE_TIER, tierOf, periodOf, nextPeriod, prevPeriod, addDays } from "../../public/assets/js/shared/rules.js";
 import { notifyMilestones } from "./milestone.js";
-export { EXCHANGES, AUTO_EXCHANGES, TIERS, SITE_TIER, tierOf, tierName, goalFor, unitOf, gapTo, tierRuleText, periodOf, nextPeriod, prevPeriod, addMonths, idLabel, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR } from "../../public/assets/js/shared/rules.js";
+export { EXCHANGES, AUTO_EXCHANGES, LOCKED_AUTO, TIERS, SITE_TIER, tierOf, tierName, goalFor, unitOf, gapTo, tierRuleText, periodOf, nextPeriod, prevPeriod, addMonths, idLabel, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR } from "../../public/assets/js/shared/rules.js";
 
 // 只收合作交易所、0 以上的數字，四捨五入到小數 2 位
 export function cleanAmounts(v) {
@@ -66,7 +66,7 @@ export async function saveVolumes({ entries, updatedBy, merge = false, keepAuto 
     if (!m) continue;
     const old = before.get(`${m.user_id}:${e.period.start}`);
     let raw = merge ? { ...(old?.amounts || {}), ...e.amounts } : { ...(e.amounts || {}) };
-    if (keepAuto) for (const ex of AUTO_EXCHANGES) {
+    if (keepAuto) for (const ex of LOCKED_AUTO) {
       if (old?.amounts?.[ex] !== undefined) raw[ex] = old.amounts[ex];
       else delete raw[ex];
     }
