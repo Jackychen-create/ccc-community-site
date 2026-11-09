@@ -6,7 +6,7 @@ import crypto from "node:crypto";
 // 規則跟正式網站讀同一份
 import { canUseApi } from "../public/assets/js/shared/roles.js";
 import { BOTS as BOT_LIST, GROUPS as BOT_GROUPS } from "../supabase/functions/bots/registry.js";
-import { EXCHANGES, AUTO_EXCHANGES, addDays, periodOf, nextPeriod, prevPeriod, COURSE_HOSTS as CH, courseUnlockDate, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR, BADGES, earnedBadges, themeUnlocked, courseTierOk, courseSkipSchedule, tierOf, tierStatus, FIRST_CYCLE_TIER, progressTo, tierName, tierRuleText, gapTo, TIERS, rankOneOnOne, oneOnOneScore, ONE_ON_ONE_HOSTS, ONE_ON_ONE_CAP, fmtAmount, streakOf, bestStreakOf, weekOf, QUESTS } from "../public/assets/js/shared/rules.js";
+import { EXCHANGES, AUTO_EXCHANGES, addDays, periodOf, nextPeriod, prevPeriod, COURSE_HOSTS as CH, courseUnlockDate, courseWeek, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR, BADGES, earnedBadges, themeUnlocked, courseTierOk, courseSkipSchedule, tierOf, tierStatus, FIRST_CYCLE_TIER, progressTo, tierName, tierRuleText, gapTo, TIERS, rankOneOnOne, oneOnOneScore, ONE_ON_ONE_HOSTS, ONE_ON_ONE_CAP, fmtAmount, streakOf, bestStreakOf, weekOf, QUESTS } from "../public/assets/js/shared/rules.js";
 
 const PORT = Number(process.env.PORT || 4321);
 const ROOT = path.join(path.dirname(new URL(import.meta.url).pathname), "..");
@@ -511,7 +511,7 @@ const server = http.createServer(async (req, res) => {
         const un = unlockOn(start, h, part); const tierLocked = !!mrow && !courseTierOk(ts.tier, part); const unlocked = !mrow || ((un <= TODAY() || courseSkipSchedule(ts.tier)) && !tierLocked);
         const v = videos.find((x) => x.is_published && x.course_host === h && x.course_part === part);
         const pr = v && progress.get(`${u.id}:${v.id}`);
-        slots.push({ host: h, part, week: (part - 1) * 4 + CH.indexOf(h) + 1, unlock_on: un, unlocked, tier_locked: tierLocked,
+        slots.push({ host: h, part, week: courseWeek(h, part) + 1, unlock_on: un, unlocked, tier_locked: tierLocked,
           video: v ? (unlocked ? { id: v.id, title: v.title, description: v.description, duration_sec: v.duration_sec, thumb_url: thumbUrl(v), position_sec: pr?.position_sec || 0, watched_at: pr?.updated_at || null, attachment_count: v.attachments.length, chapters: v.chapters || [] } : { title: v.title }) : null });
       }
       slots.sort((a, b) => a.week - b.week);
