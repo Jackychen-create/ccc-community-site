@@ -34,7 +34,7 @@ export function openEditor(id, { justUploaded = false } = {}) {
     }));
   const pickedHosts = () => hostOpts.filter((h) => hostSet.has(h));
 
-  // 類型：直播留檔／教學課程（CCC、OC、X 各 6 份，研究員加入後每週解鎖一份）／公開影片（不用登入，例如培訓計畫介紹）
+  // 類型：直播留檔／教學課程（CCC、X 各 6 份，研究員加入後每週解鎖一份）／公開影片（不用登入，例如培訓計畫介紹）
   let kind = v.is_public ? "public" : v.course_host ? "course" : "live";
   const kindBtns = [["live", "直播留檔"], ["course", "教學課程"], ["public", "公開影片（不用登入）"]].map(([k, label]) => {
     const b = el("button", { class: "chip", type: "button", "aria-pressed": String(kind === k), text: label });

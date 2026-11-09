@@ -76,7 +76,7 @@ export const TIERS = [
 ];
 export const MAX_TIER = TIERS.length;
 export const SITE_TIER = 2; // 網站內容（直播留檔、教學課程、教材、筆記）要第二級
-// 第一級也看得到教學課程每位講師的第 1 份（CCC、OC、X 各一部，照原本的解鎖時間），第 2 份以後的更新要第二級（2026-10-18）
+// 第一級也看得到教學課程每位講師的第 1 份（每位講師各一部，照原本的解鎖時間），第 2 份以後的更新要第二級（2026-10-18）
 export const TIER1_COURSE_PARTS = 1;
 export const courseTierOk = (tier, part) => tier >= SITE_TIER || (tier >= 1 && part <= TIER1_COURSE_PARTS);
 // 第三級：教學課程全部直接解鎖，不用等每週的排程（2026-10-18）
@@ -190,11 +190,12 @@ export const QUESTS = [
 ];
 
 // ── 教學課程 ──
-// CCC、OC、X 的教學影片各 6 份，共 18 份。每位研究員從加入那天起：
-// 每 4 週為一輪，前 3 週依序解鎖 CCC、OC、X 各一份，第 4 週休息。
-export const COURSE_HOSTS = ["CCC", "OC", "X"]; // 解鎖順序
+// CCC、X 的教學影片各 6 份，共 12 份。每位研究員從加入那天起：
+// 每 3 週為一輪，前 2 週依序解鎖 CCC、X 各一份，第 3 週休息（2026-11-10 起，原本三位講師、每 4 週一輪；改了之後每一份只會比原本早解鎖）。
+export const COURSE_HOSTS = ["CCC", "X"]; // 解鎖順序
 export const COURSE_PARTS = 6;
-export const COURSE_CYCLE_WEEKS = 4;
+export const COURSE_CYCLE_WEEKS = COURSE_HOSTS.length + 1;
+export const COURSE_TOTAL = COURSE_HOSTS.length * COURSE_PARTS;
 export function courseWeek(host, part) {
   return (part - 1) * COURSE_CYCLE_WEEKS + COURSE_HOSTS.indexOf(host); // 從 0 起算：第 0 週＝加入當天
 }
@@ -219,7 +220,7 @@ export const BADGES = [
   { id: "streak3", icon: "🔥", name: "連續三輪", desc: "連續 3 輪第二級以上", test: (f) => f.streak >= 3 },
   { id: "live10", icon: "📺", name: "全勤觀眾", desc: "看完 10 場直播留檔", test: (f) => f.liveDone >= 10 },
   { id: "host6", icon: "🎓", name: "學完一位", desc: "看完任一位主講的 6 份課程", test: (f) => f.hostsDone.length >= 1 },
-  { id: "course18", icon: "🧠", name: "全部修完", desc: "看完 18 份教學課程", test: (f) => f.courseDone >= 18 },
+  { id: "course18", icon: "🧠", name: "全部修完", desc: "看完全部教學課程", test: (f) => f.courseDone >= COURSE_TOTAL }, // id 沿用（已經拿到的人記錄在資料庫）
   { id: "notes10", icon: "✍️", name: "筆記達人", desc: "寫了 10 則筆記", test: (f) => f.notes >= 10 },
   { id: "question", icon: "🙋", name: "勇於發問", desc: "第一次提問", test: (f) => f.questions >= 1 },
   { id: "quests4", icon: "🗓️", name: "小目標達人", desc: "累積 4 週完成本週小目標", test: (f) => (f.questWeeks || 0) >= 4 },

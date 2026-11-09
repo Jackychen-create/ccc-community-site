@@ -150,18 +150,17 @@ test("連續第二級以上：照每人自己的輪算最長的一段", () => {
   assert.equal(longestStreak("2026-01-16", [q("2026-01-16"), { period_start: "2026-02-16", amounts: { OKX: 5 }, qualified_at: null }, q("2026-03-16")]), 1);
   assert.equal(longestStreak("2026-01-16", []), 0);
 });
-test("課程順序是 CCC → OC → X，各 6 份", () => { assert.deepEqual(COURSE_HOSTS, ["CCC", "OC", "X"]); assert.equal(COURSE_PARTS, 6); });
+test("課程順序是 CCC → X，各 6 份", () => { assert.deepEqual(COURSE_HOSTS, ["CCC", "X"]); assert.equal(COURSE_PARTS, 6); });
 test("課程：加入當天解鎖 CCC 第 1 份", () => assert.equal(courseUnlockDate("2026-10-01", "CCC", 1), "2026-10-01"));
-test("課程：第 2 週 OC、第 3 週 X、第 4 週休息", () => {
-  assert.equal(courseUnlockDate("2026-10-01", "OC", 1), "2026-10-08");
-  assert.equal(courseUnlockDate("2026-10-01", "X", 1), "2026-10-15");
-  assert.equal(courseUnlockDate("2026-10-01", "CCC", 2), "2026-10-29"); // 中間 10/22 那週休息
+test("課程：第 2 週 X、第 3 週休息", () => {
+  assert.equal(courseUnlockDate("2026-10-01", "X", 1), "2026-10-08");
+  assert.equal(courseUnlockDate("2026-10-01", "CCC", 2), "2026-10-22"); // 中間 10/15 那週休息
 });
-test("課程：18 份的週次不重複，最後一份在第 23 週", () => {
+test("課程：12 份的週次不重複，最後一份在第 17 週", () => {
   const weeks = COURSE_HOSTS.flatMap((h) => Array.from({ length: COURSE_PARTS }, (_, i) => courseWeek(h, i + 1)));
-  assert.equal(new Set(weeks).size, 18);
-  assert.equal(Math.max(...weeks), 22); // 從 0 起算
-  assert.ok(!weeks.some((w) => w % 4 === 3), "第 4、8、12… 週應該休息");
+  assert.equal(new Set(weeks).size, 12);
+  assert.equal(Math.max(...weeks), 16); // 從 0 起算
+  assert.ok(!weeks.some((w) => w % 3 === 2), "第 3、6、9… 週應該休息");
 });
 
 

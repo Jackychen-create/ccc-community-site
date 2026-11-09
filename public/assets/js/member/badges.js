@@ -2,7 +2,7 @@
 // 規則在 shared/rules.js 的 BADGES、THEMES
 import { $, el, api, modal, toast, applyTheme, currentTheme } from "../core/index.js";
 import { state } from "./state.js";
-import { THEMES, themeUnlocked, badgeById } from "../shared/rules.js";
+import { THEMES, themeUnlocked, badgeById, COURSE_TOTAL } from "../shared/rules.js";
 
 let data = null; // GET /api/badges 的結果
 const earned = () => (data?.badges || []).map((b) => b.id);
@@ -16,7 +16,7 @@ function hint(id, p) {
     streak3: `目前最多連續 ${p.streak} 輪`,
     live10: `已看完 ${p.liveDone}／10 場`,
     host6: "看完同一位主講的 6 份",
-    course18: `已看完 ${p.courseDone}／18 份`,
+    course18: `已看完 ${p.courseDone}／${COURSE_TOTAL} 份`,
     notes10: `已寫 ${p.notes}／10 則`,
   }[id] || "";
 }

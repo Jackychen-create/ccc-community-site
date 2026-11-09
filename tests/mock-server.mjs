@@ -38,7 +38,7 @@ const videos = [
 videos.push(
   { id: 20, course_host: "CCC", course_part: 1, hosts: ["CCC"], title: "交易計畫怎麼寫", description: "課程第一份。", published_at: d(40), is_published: true, duration_sec: 90, size_bytes: 1, thumb: null, attachments: [] },
   { id: 21, course_host: "X", course_part: 1, hosts: ["X"], title: "看懂市場結構", description: null, published_at: d(40), is_published: true, duration_sec: 90, size_bytes: 1, thumb: null, attachments: [] },
-  { id: 22, course_host: "OC", course_part: 1, hosts: ["OC"], title: "開盤前的準備", description: null, published_at: d(40), is_published: true, duration_sec: 90, size_bytes: 1, thumb: null, attachments: [] },
+  { id: 22, course_host: "X", course_part: 2, hosts: ["X"], title: "開盤前的準備", description: null, published_at: d(40), is_published: true, duration_sec: 90, size_bytes: 1, thumb: null, attachments: [] },
   { id: 23, course_host: "CCC", course_part: 2, hosts: ["CCC"], title: "部位大小怎麼算", description: null, published_at: d(40), is_published: true, duration_sec: 90, size_bytes: 1, thumb: null, attachments: [] },
 );
 const progress = new Map([

@@ -53,13 +53,13 @@ export function renderVideos() {
       ))
     );
   });
-  // 教學課程進度：CCC、OC、X 各 6 份，哪幾份上架了
+  // 教學課程進度：CCC、X 各 6 份，哪幾份上架了
   const slot = (h, n) => state.videos.find((x) => x.course_host === h && x.course_part === n);
   const filled = COURSE_HOSTS.reduce((a, h) => a + PARTS.filter((n) => slot(h, n)?.is_published).length, 0);
   const courseCard = el("div", { class: "card course-grid-card" },
     el("div", { class: "course-grid-head" },
       el("h2", { text: "教學課程" }),
-      el("span", { class: "small muted", text: `已上架 ${filled}／${COURSE_HOSTS.length * COURSE_PARTS}・研究員加入後每週解鎖一份（CCC→OC→X，每 4 週休息一週）` })),
+      el("span", { class: "small muted", text: `已上架 ${filled}／${COURSE_HOSTS.length * COURSE_PARTS}・研究員加入後每週解鎖一份（CCC→X，每 3 週休息一週）` })),
     el("div", { class: "course-grid" },
       ...COURSE_HOSTS.map((h) => el("div", { class: "course-grid-row" },
         el("span", { class: "host", text: h }),
