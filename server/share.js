@@ -18,7 +18,7 @@ export function levelCard({ level, discordId, streak = 0, badges = 0 }) {
     embeds: [{
       author: { name: "CCC 交易實驗室｜研究員升級", icon_url: LOGO },
       title: `LEVEL UP → ${tierName(level)}`,
-      description: level >= MAX_TIER ? "實驗室最高等級 🏆 這個月可以選一位講師一對一交流。" : `下一站：${tierName(level + 1)}（${tierInfo(level + 1).perks[0]}）`,
+      description: level >= MAX_TIER ? "實驗室最高等級 🏆 這個月可以選一位主講一對一交流。" : `下一站：${tierName(level + 1)}（${tierInfo(level + 1).perks[0]}）`,
       color: COLOR[level] || 0xcda45e,
       thumbnail: { url: `${SITE}/assets/brand/tier${level}.png` },
       fields,

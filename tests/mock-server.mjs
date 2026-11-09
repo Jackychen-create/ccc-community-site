@@ -6,7 +6,7 @@ import crypto from "node:crypto";
 // 規則跟正式網站讀同一份
 import { canUseApi } from "../public/assets/js/shared/roles.js";
 import { BOTS as BOT_LIST, GROUPS as BOT_GROUPS } from "../supabase/functions/bots/registry.js";
-import { EXCHANGES, AUTO_EXCHANGES, addDays, periodOf, nextPeriod, prevPeriod, COURSE_HOSTS as CH, courseUnlockDate, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR, BADGES, earnedBadges, themeUnlocked, courseTierOk, courseSkipSchedule, tierOf, tierStatus, FIRST_CYCLE_TIER, progressTo, tierName, tierRuleText, gapTo, TIERS, rankOneOnOne, oneOnOneScore, ONE_ON_ONE_HOSTS, ONE_ON_ONE_CAP, fmtAmount, streakOf, bestStreakOf, weekOf, QUESTS } from "../public/assets/js/shared/rules.js";
+import { EXCHANGES, AUTO_EXCHANGES, addDays, periodOf, nextPeriod, prevPeriod, COURSE_HOSTS as CH, courseUnlockDate, courseWeek, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR, BADGES, earnedBadges, themeUnlocked, courseTierOk, courseSkipSchedule, tierOf, tierStatus, FIRST_CYCLE_TIER, progressTo, tierName, tierRuleText, gapTo, TIERS, rankOneOnOne, oneOnOneScore, ONE_ON_ONE_HOSTS, ONE_ON_ONE_CAP, fmtAmount, streakOf, bestStreakOf, weekOf, QUESTS } from "../public/assets/js/shared/rules.js";
 
 const PORT = Number(process.env.PORT || 4321);
 const ROOT = path.join(path.dirname(new URL(import.meta.url).pathname), "..");
@@ -38,7 +38,7 @@ const videos = [
 videos.push(
   { id: 20, course_host: "CCC", course_part: 1, hosts: ["CCC"], title: "交易計畫怎麼寫", description: "課程第一份。", published_at: d(40), is_published: true, duration_sec: 90, size_bytes: 1, thumb: null, attachments: [] },
   { id: 21, course_host: "X", course_part: 1, hosts: ["X"], title: "看懂市場結構", description: null, published_at: d(40), is_published: true, duration_sec: 90, size_bytes: 1, thumb: null, attachments: [] },
-  { id: 22, course_host: "OC", course_part: 1, hosts: ["OC"], title: "開盤前的準備", description: null, published_at: d(40), is_published: true, duration_sec: 90, size_bytes: 1, thumb: null, attachments: [] },
+  { id: 22, course_host: "X", course_part: 2, hosts: ["X"], title: "開盤前的準備", description: null, published_at: d(40), is_published: true, duration_sec: 90, size_bytes: 1, thumb: null, attachments: [] },
   { id: 23, course_host: "CCC", course_part: 2, hosts: ["CCC"], title: "部位大小怎麼算", description: null, published_at: d(40), is_published: true, duration_sec: 90, size_bytes: 1, thumb: null, attachments: [] },
 );
 const progress = new Map([
@@ -345,7 +345,7 @@ const server = http.createServer(async (req, res) => {
     const mrow = members.find((m) => m.user_id === u.id);
     // 三級制度：網站內容要第二級；個人資料、提問、徽章每一級都可以
     const ts = mrow ? tierM(mrow) : null;
-    // 第一級：教學課程（每位講師第 1 份）、播放、進度、筆記也可以（詳細的在各自的地方檢查）
+    // 第一級：系統分享（每位主講第 1 份）、播放、進度、筆記也可以（詳細的在各自的地方檢查）
     const t1ok = ts && ts.tier >= 1 && (["/api/course", "/api/progress", "/api/notes"].includes(p) || (p === "/api/videos" && url.searchParams.has("id")));
     if (ts && ts.tier < 2 && !t1ok && !["/api/me", "/api/exchange-link", "/api/feedback", "/api/report", "/api/badges", "/api/oneonone", "/api/quests", "/api/share", "/api/discord-link"].includes(p)) return send(res, 403, { error: `這個內容要第二級（這一輪 ${tierRuleText(2)}）`, code: "tier", tier: ts.tier });
     // 連結 Discord（假的：__test/discord-token 開一次性連結）
@@ -390,7 +390,7 @@ const server = http.createServer(async (req, res) => {
       if (!mrow) return send(res, 200, { month: monthNow(), cap: ONE_ON_ONE_CAP, eligible: false, hosts: [], mine: null });
       if (req.method === "POST") {
         if (ts.tier < 3) return send(res, 403, { error: "這個內容要第三級", code: "tier" });
-        if (!ONE_ON_ONE_HOSTS.includes(body.host)) return send(res, 400, { error: "請選一位講師" });
+        if (!ONE_ON_ONE_HOSTS.includes(body.host)) return send(res, 400, { error: "請選一位主講" });
         const old = oneRows.find((x) => x.user_id === mrow.user_id && x.month === monthNow());
         if (old?.booked && old.host !== body.host) return send(res, 400, { error: `這個月已經跟 ${old.host} 約好了，要改請聯絡管理員` });
         if (old) { if (old.host !== body.host) { old.host = body.host; old.created_at = new Date().toISOString(); } }
@@ -511,7 +511,7 @@ const server = http.createServer(async (req, res) => {
         const un = unlockOn(start, h, part); const tierLocked = !!mrow && !courseTierOk(ts.tier, part); const unlocked = !mrow || ((un <= TODAY() || courseSkipSchedule(ts.tier)) && !tierLocked);
         const v = videos.find((x) => x.is_published && x.course_host === h && x.course_part === part);
         const pr = v && progress.get(`${u.id}:${v.id}`);
-        slots.push({ host: h, part, week: (part - 1) * 4 + CH.indexOf(h) + 1, unlock_on: un, unlocked, tier_locked: tierLocked,
+        slots.push({ host: h, part, week: courseWeek(h, part) + 1, unlock_on: un, unlocked, tier_locked: tierLocked,
           video: v ? (unlocked ? { id: v.id, title: v.title, description: v.description, duration_sec: v.duration_sec, thumb_url: thumbUrl(v), position_sec: pr?.position_sec || 0, watched_at: pr?.updated_at || null, attachment_count: v.attachments.length, chapters: v.chapters || [] } : { title: v.title }) : null });
       }
       slots.sort((a, b) => a.week - b.week);
@@ -609,9 +609,9 @@ const server = http.createServer(async (req, res) => {
           if (!rvCfg.perfChannelId) return send(res, 400, { error: "還沒設定交易績效頻道" });
           const fresh = rvWeeks.length ? 0 : 2;
           if (fresh) rvWeeks.unshift({ week: "2026-11-01", at: new Date().toISOString(), items: [
-            { id: "300000000000000001", channel: rvCfg.perfChannelId, author: "111111111111111111", authorName: "Amy", at: Date.parse("2026-10-29T03:00:00Z"), text: "NQ 開盤追空被掃，想請講師看進場點", attachments: 1, votes: 5, reviewed: false },
+            { id: "300000000000000001", channel: rvCfg.perfChannelId, author: "111111111111111111", authorName: "Amy", at: Date.parse("2026-10-29T03:00:00Z"), text: "NQ 開盤追空被掃，想請主講看進場點", attachments: 1, votes: 5, reviewed: false },
             { id: "300000000000000002", channel: rvCfg.perfChannelId, author: "222222222222222222", authorName: "Bob", at: Date.parse("2026-10-30T13:30:00Z"), text: "", attachments: 2, votes: 2, reviewed: false }] });
-          return send(res, 200, { ok: true, week: "2026-11-01", count: rvWeeks[0].items.length, fresh, dms: fresh, posts: ["講師清單", "公開通知"] });
+          return send(res, 200, { ok: true, week: "2026-11-01", count: rvWeeks[0].items.length, fresh, dms: fresh, posts: ["主講清單", "公開通知"] });
         }
         if (body.action === "reviewed") {
           const it = rvWeeks.find((w) => w.week === body.week)?.items.find((x) => x.id === body.id);
@@ -780,7 +780,7 @@ const server = http.createServer(async (req, res) => {
       if (body.action === "post") { if (!discordSettings.highlightChannelId) return send(res, 400, { error: "還沒設定直播精華要貼到哪個頻道（後台 Discord 審核 → 直播精華頻道）" }); h.posted_at = new Date().toISOString(); return send(res, 200, { ok: true }); }
       return send(res, 400, { error: "不知道要做什麼" });
     }
-    if (p === "/api/admin/notify" && videos.find((x) => x.id === body.videoId)?.course_host) return send(res, 400, { error: "教學課程依每個人的加入日期解鎖，不寄全體通知" });
+    if (p === "/api/admin/notify" && videos.find((x) => x.id === body.videoId)?.course_host) return send(res, 400, { error: "系統分享依每個人的加入日期解鎖，不寄全體通知" });
     if (p === "/api/admin/notify") return send(res, 200, { ok: true, sent: members.filter((m) => !m.banned && m.notify !== false).length });
     if (p === "/api/admin/feedback") {
       if (req.method === "PATCH") {
@@ -821,7 +821,7 @@ const server = http.createServer(async (req, res) => {
         const ts = tierM(m); const vv = vols.get(m.user_id + ":" + curP(m).start);
         if (ts.tier === 0) reasons.push({ key: "notier", label: "沒有等級（Discord 身分組可以拿掉）", level: 2 });
         else if (ts.cycleTier < ts.tier && ts.until && !m.free) reasons.push({ key: "drop", label: `${ts.until.slice(5).replace("-", "/")} 後降到${tierName(ts.cycleTier)}（${tierName(ts.tier)}${gapTo(vv?.amounts || {}, ts.tier)}）`, level: ts.until <= addDays(today, 7) ? 2 : 1 });
-        if (ts.tier >= 3) { const pk = oneBoard(monthNow()).hosts.flatMap((h) => h.list.map((e) => ({ host: h.host, ...e }))).find((e) => e.user_id === m.user_id); if (!pk) reasons.push({ key: "oneonone", label: "第三級：這個月還沒選一對一講師", level: 1 }); else if (!pk.booked) reasons.push({ key: "oneonone", label: `一對一：${pk.host} 第 ${pk.rank} 位（${pk.confirmed ? "確定，還沒約時間" : "候補"}）`, level: pk.confirmed ? 2 : 1 }); }
+        if (ts.tier >= 3) { const pk = oneBoard(monthNow()).hosts.flatMap((h) => h.list.map((e) => ({ host: h.host, ...e }))).find((e) => e.user_id === m.user_id); if (!pk) reasons.push({ key: "oneonone", label: "第三級：這個月還沒選一對一主講", level: 1 }); else if (!pk.booked) reasons.push({ key: "oneonone", label: `一對一：${pk.host} 第 ${pk.rank} 位（${pk.confirmed ? "確定，還沒約時間" : "候補"}）`, level: pk.confirmed ? 2 : 1 }); }
         const last = prog.map((x) => x.updated_at).sort().pop() || null;
         const away = last ? Math.floor((Date.now() - new Date(last).getTime()) / 864e5) : null;
         if (!last) reasons.push({ key: "inactive", label: "加入後還沒看過影片", level: 2 }); else if (away >= 14) reasons.push({ key: "inactive", label: `${away} 天沒來看`, level: 1 });

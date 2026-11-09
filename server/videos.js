@@ -4,7 +4,7 @@ import { supabaseAdmin, requireMember, signGet, toInt, route, todayTW, twDate, c
 import { SITE_TIER, courseTierOk, courseSkipSchedule, tierRuleText } from "../public/assets/js/shared/rules.js";
 import { pointTimesOf } from "./lib/search.js";
 
-// 三級制度：直播留檔要第二級；教學課程第一級看得到每位講師的第 1 份
+// 三級制度：直播留檔要第二級；系統分享第一級看得到每位主講的第 1 份
 const needTier2 = (res) => res.status(403).json({ error: `這個內容要第二級（這一輪 ${tierRuleText(SITE_TIER)}）`, code: "tier" });
 
 export default route({
@@ -28,7 +28,7 @@ async function list(res, user) {
       .from("videos")
       .select("id, title, description, published_at, duration_sec, thumb_key, hosts, chapters, created_at")
       .eq("is_published", true)
-      .is("course_host", null) // 教學課程另外列在 /api/course
+      .is("course_host", null) // 系統分享另外列在 /api/course
       .eq("is_public", false) // 公開影片（培訓計畫介紹）不放進直播留檔列表
       .order("published_at", { ascending: false })
       .order("id", { ascending: false }),
@@ -77,9 +77,9 @@ async function detail(res, ctx, id, tier) {
   if (!v || (!v.is_published && !isAdmin)) {
     return res.status(404).json({ error: "找不到這支影片" });
   }
-  // 等級不夠：直播留檔要第二級；教學課程第一級只看得到第 1 份
+  // 等級不夠：直播留檔要第二級；系統分享第一級只看得到第 1 份
   if (!isAdmin && (v.course_host ? !courseTierOk(tier, v.course_part) : tier < SITE_TIER)) return needTier2(res);
-  // 教學課程：從加入那天起每週解鎖，還沒到的不給播放連結
+  // 系統分享：從加入那天起每週解鎖，還沒到的不給播放連結
   if (v.course_host && !isAdmin && !courseSkipSchedule(tier)) { // 第三級不用等排程
     const unlock = courseUnlockDate(twDate(member.created_at), v.course_host, v.course_part);
     if (unlock > todayTW()) return res.status(403).json({ error: `這一份課程 ${unlock} 解鎖`, code: "locked", unlock_on: unlock });

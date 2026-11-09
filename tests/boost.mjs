@@ -57,29 +57,29 @@ await test("AI 回的重點可以帶時間 {t, text}，存的重點還是文字"
 });
 
 // ── 課程解鎖提醒 ──
-const CV = [{ id: 1, course_host: "CCC", course_part: 1, title: "EP1" }, { id: 2, course_host: "OC", course_part: 1, title: "訂單流" }, { id: 3, course_host: "X", course_part: 1, title: "X 一" }, { id: 4, course_host: "CCC", course_part: 2, title: "EP2" }];
+const CV = [{ id: 1, course_host: "CCC", course_part: 1, title: "EP1" }, { id: 3, course_host: "X", course_part: 1, title: "X 一" }, { id: 4, course_host: "CCC", course_part: 2, title: "EP2" }];
 const tiers = new Map([["a", { tier: 2 }], ["b", { tier: 2 }], ["c", { tier: 1 }], ["d", { tier: 3 }], ["e", { tier: 2 }], ["f", { tier: 2 }]]);
 await test("課程解鎖提醒：今天解鎖的人收到（加入當天那份不寄、第三級不寄、關通知不寄、第一級只到第 1 份）", () => {
   const today = "2026-11-02";
   const ms = [
-    { user_id: "a", email: "a@x", created_at: "2026-10-26T02:00:00Z" }, // 加入第 7 天 → OC 第 1 份
+    { user_id: "a", email: "a@x", created_at: "2026-10-26T02:00:00Z" }, // 加入第 7 天 → X 第 1 份
     { user_id: "b", email: "b@x", created_at: "2026-11-02T02:00:00Z" }, // 今天加入（CCC 第 1 份是加入當天，不寄）
-    { user_id: "c", email: "c@x", created_at: "2026-10-05T02:00:00Z" }, // 第一級，第 28 天 → CCC 第 2 份但看不到
+    { user_id: "c", email: "c@x", created_at: "2026-10-05T02:00:00Z" }, // 第一級，第 28 天 → X 第 2 份但看不到
     { user_id: "d", email: "d@x", created_at: "2026-10-26T02:00:00Z" }, // 第三級全部已解鎖
     { user_id: "e", email: "e@x", created_at: "2026-10-26T02:00:00Z", notify: false },
-    { user_id: "f", email: "f@x", created_at: "2026-10-19T02:00:00Z" }, // 第 14 天 → X 第 1 份
+    { user_id: "f", email: "f@x", created_at: "2026-10-12T02:00:00Z" }, // 第 21 天 → CCC 第 2 份（第 14 天那週休息）
   ];
   const r = unlocksToday(ms, tiers, CV, today);
-  assert.deepEqual(r.map((x) => [x.email, x.list.map((y) => `${y.host}${y.part}`).join()]), [["a@x", "OC1"], ["f@x", "X1"]]);
+  assert.deepEqual(r.map((x) => [x.email, x.list.map((y) => `${y.host}${y.part}`).join()]), [["a@x", "X1"], ["f@x", "CCC2"]]);
   const html = courseMailHtml(r[0].list);
-  assert.ok(html.includes("/#/v/2") && html.includes("OC 講師第 1 份"));
+  assert.ok(html.includes("/#/v/3") && html.includes("X 主講第 1 份"));
 });
 await test("課程解鎖私訊卡片：有連結、不想收怎麼關", () => {
-  const e = courseUnlockEmbed([{ host: "OC", part: 1, id: 2, title: "訂單流" }]);
-  assert.ok(e.title.includes("OC 講師第 1 份") && e.description.includes("/#/v/2") && e.footer.text.includes("關掉"));
+  const e = courseUnlockEmbed([{ host: "X", part: 1, id: 3, title: "X 一" }]);
+  assert.ok(e.title.includes("X 主講第 1 份") && e.description.includes("/#/v/3") && e.footer.text.includes("關掉"));
 });
 await test("影片還沒上傳的那份不寄", () => {
-  const r = unlocksToday([{ user_id: "a", email: "a@x", created_at: "2026-10-26T02:00:00Z" }], tiers, CV.filter((v) => v.course_host !== "OC"), "2026-11-02");
+  const r = unlocksToday([{ user_id: "a", email: "a@x", created_at: "2026-10-26T02:00:00Z" }], tiers, CV.filter((v) => v.course_host !== "X"), "2026-11-02");
   assert.equal(r.length, 0);
 });
 

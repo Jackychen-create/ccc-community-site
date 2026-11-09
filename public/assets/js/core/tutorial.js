@@ -1,4 +1,4 @@
-// 使用教學影片（放在 public/tutorial/）：手機看直式、電腦看橫式
+// 使用說明影片（放在 public/tutorial/）：手機看直式、電腦看橫式
 // 先整支下載（約 6 MB）再播放：Cloudflare Pages 的靜態檔不一定支援分段讀取，直接播會不能拉進度條
 import { el } from "./dom.js";
 import { modal } from "./ui.js";
@@ -15,10 +15,10 @@ export function tutorial(who = "member") {
   let video = null;
   const ctrl = new AbortController();
   const missing = () => wrap.replaceChildren(el("div", { class: "empty", style: { padding: "36px 12px" } },
-    el("h2", { text: "教學影片還沒放上網站" }),
+    el("h2", { text: "系統分享影片還沒放上網站" }),
     el("p", { class: "small", style: { marginTop: "6px" }, text: "請管理員把影片放到 public/tutorial/ 之後重新部署。" })));
   const m = modal({
-    title: who === "admin" ? "管理員使用教學" : "使用教學",
+    title: who === "admin" ? "管理員使用說明" : "使用說明",
     body: wrap,
     onClose: () => {
       ctrl.abort();

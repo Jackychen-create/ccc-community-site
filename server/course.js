@@ -1,6 +1,6 @@
-// GET /api/course   教學課程：18 份（CCC、X、OC 各 6 份），每位研究員從加入那天起每週解鎖一份
-// 每 4 週一輪：前 3 週依序 CCC、X、OC，第 4 週休息。管理員看到的是全部解鎖（方便檢查）
-// 三級制度：第一級只看得到每位講師的第 1 份，其他的標 tier_locked（第二級解鎖）；第三級全部直接解鎖，不用等排程
+// GET /api/course   系統分享：12 份（CCC、X 各 6 份），每位研究員從加入那天起每週解鎖一份
+// 每 3 週一輪：前 2 週依序 CCC、X，第 3 週休息。管理員看到的是全部解鎖（方便檢查）
+// 三級制度：第一級只看得到每位主講的第 1 份，其他的標 tier_locked（第二級解鎖）；第三級全部直接解鎖，不用等排程
 import {
   supabaseAdmin, requireMember, signGet, route, todayTW, twDate,
   COURSE_HOSTS, COURSE_PARTS, courseWeek, courseUnlockDate,

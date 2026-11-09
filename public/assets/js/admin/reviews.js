@@ -86,7 +86,7 @@ function render(card, r) {
 
   card.replaceChildren(...[
     el("h2", { text: "交易檢討投稿" }),
-    el("p", { class: "small sub", text: "大家在交易績效頻道對想聽講師點評的交易按投稿表情就是投票，自己的、別人的都可以，誰按都算一票。每週日 21:00 機器人整理：照票數排好的清單貼到審核頻道（只有管理員看得到），公開頻道只貼「本週有 N 筆」，不寫是哪幾筆；被投票的人會收到私訊。點評完在下面勾「已點評」，機器人會再私訊告訴他。" }),
+    el("p", { class: "small sub", text: "大家在交易績效頻道對想聽主講點評的交易按投稿表情就是投票，自己的、別人的都可以，誰按都算一票。每週日 21:00 機器人整理：照票數排好的清單貼到審核頻道（只有管理員看得到），公開頻道只貼「本週有 N 筆」，不寫是哪幾筆；被投票的人會收到私訊。點評完在下面勾「已點評」，機器人會再私訊告訴他。" }),
     el("div", { class: "chat-target" },
       el("span", { class: "small chat-k", text: "交易績效" }), perf, r.perfChannelName ? el("span", { class: "small dc-ok", text: `✓ #${r.perfChannelName}` }) : null),
     el("div", { class: "chat-target" },
@@ -94,7 +94,7 @@ function render(card, r) {
     el("div", { class: "chat-target" },
       el("span", { class: "small chat-k", text: "投稿表情" }), el("div", { class: "rv-emos" }, ...chips),
       el("span", { class: "small muted", text: "可以選好幾個，按其中一個就算。伺服器自己的表情（例如熊熊）也可以。" })),
-    !r.reviewChannelId ? el("p", { class: "small warn-text", text: "還沒有審核頻道（Discord 頁的「審核頻道」），講師清單只會在這頁看得到。" }) : null,
+    !r.reviewChannelId ? el("p", { class: "small warn-text", text: "還沒有審核頻道（Discord 頁的「審核頻道」），主講清單只會在這頁看得到。" }) : null,
     err,
     el("div", { class: "actions", style: { marginTop: "12px", flexWrap: "wrap" } }, save, run),
     ...list].filter(Boolean));

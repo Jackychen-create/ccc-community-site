@@ -1,8 +1,8 @@
-// 交易檢討投票：大家在「交易績效」頻道對想聽講師點評的交易按投稿表情（預設 🔍，可改成熊熊），誰按都算一票
+// 交易檢討投票：大家在「交易績效」頻道對想聽主講點評的交易按投稿表情（預設 🔍，可改成熊熊），誰按都算一票
 // 每週日 21:00（台灣時間）整理這一週的投稿：
-//   - 講師：完整清單（誰、哪一筆、連結）貼到審核頻道（只有管理員看得到），後台也看得到、可以勾「已點評」
+//   - 主講：完整清單（誰、哪一筆、連結）貼到審核頻道（只有管理員看得到），後台也看得到、可以勾「已點評」
 //   - 大家：公開頻道只貼「本週收到 N 筆投稿」，不寫是誰、投了什麼
-//   - 投稿的人：私訊「收到了」；講師勾已點評時再私訊一次
+//   - 投稿的人：私訊「收到了」；主講勾已點評時再私訊一次
 // 紀錄存在 bot_state 的 trade_reviews：{ weeks: { "2026-11-01": { at, items: [...] } } }，留 8 週
 import { supabaseAdmin } from "./env.js";
 import { discordApi, getDiscordSettings, sendMessage, dm, isSnowflake } from "./discord.js";
@@ -65,7 +65,7 @@ export function hostListEmbed(week, items, guildId) {
   return {
     author: { name: `${BRAND}｜交易檢討投稿`, icon_url: LOGO },
     title: `📮 本週投票清單｜${week.slice(5).replace("-", "/")}（${items.length} 筆，票數多的在前）`,
-    description: items.length ? "大家投票想聽點評的交易。講師挑幾筆在下次直播點評，點評完到後台「聊天統計 → 交易檢討投稿」勾「已點評」，機器人會私訊告訴投稿的人。" : "這一週沒有人投稿。",
+    description: items.length ? "大家投票想聽點評的交易。主講挑幾筆在下次直播點評，點評完到後台「聊天統計 → 交易檢討投稿」勾「已點評」，機器人會私訊告訴投稿的人。" : "這一週沒有人投稿。",
     color: 0xcda45e,
     fields: items.slice(0, 25).map((it, i) => ({
       name: `#${i + 1}　${it.votes || 1} 票・${it.authorName}・${twStamp(it.at).slice(5, 16)}`,
@@ -79,9 +79,9 @@ export function publicNotice(week, n, perfName = "交易績效", emojis = DEFAUL
   return {
     author: { name: `${BRAND}｜交易檢討投稿`, icon_url: LOGO },
     title: `📮 本週有 ${n} 筆交易被投票想聽點評`,
-    description: `講師會在下次直播挑票數多的點評 🎙️\n想投票：在 #${perfName} 對想聽講師點評的交易按 ${emojiText(emojis[0])}（自己的、別人的都可以），週日晚上會一起整理。`,
+    description: `主講會在下次直播挑票數多的點評 🎙️\n想投票：在 #${perfName} 對想聽主講點評的交易按 ${emojiText(emojis[0])}（自己的、別人的都可以），週日晚上會一起整理。`,
     color: 0xcda45e,
-    footer: { text: "哪幾筆、幾票只有講師看得到", icon_url: LOGO },
+    footer: { text: "哪幾筆、幾票只有主講看得到", icon_url: LOGO },
   };
 }
 
@@ -106,17 +106,17 @@ export async function runWeeklyReviews(now = Date.now(), { force = false } = {})
   st.weeks[week] = { at: new Date(now).toISOString(), auto: !!(cur.auto || !force), items };
   await saveReviews(st);
   const posts = [];
-  if (s.reviewChannelId && (fresh.length || sunday || !cur.at)) await sendMessage(s.reviewChannelId, { embeds: [hostListEmbed(week, items, s.guildId)], allowed_mentions: { parse: [] } }).then(() => posts.push("講師清單"), (e) => posts.push(`講師清單失敗：${e.message}`));
+  if (s.reviewChannelId && (fresh.length || sunday || !cur.at)) await sendMessage(s.reviewChannelId, { embeds: [hostListEmbed(week, items, s.guildId)], allowed_mentions: { parse: [] } }).then(() => posts.push("主講清單"), (e) => posts.push(`主講清單失敗：${e.message}`));
   if (isSnowflake(s.reviewPublicChannelId || "") && (fresh.length || (sunday && items.length))) {
     const perf = await discordApi("GET", `/channels/${s.perfChannelId}`).catch(() => null);
     await sendMessage(s.reviewPublicChannelId, { embeds: [publicNotice(week, items.length, perf?.name, emojis)], allowed_mentions: { parse: [] } }).then(() => posts.push("公開通知"), (e) => posts.push(`公開通知失敗：${e.message}`));
   }
   let dms = 0;
-  for (const it of fresh) if (await dm(it.author, `📮 你在交易績效 ${twStamp(it.at).slice(5, 16)} 那一筆交易，這週有 ${it.votes || 1} 票想聽講師點評！講師會在下次直播挑幾筆，被選到時會再通知你。`)) dms++;
+  for (const it of fresh) if (await dm(it.author, `📮 你在交易績效 ${twStamp(it.at).slice(5, 16)} 那一筆交易，這週有 ${it.votes || 1} 票想聽主講點評！主講會在下次直播挑幾筆，被選到時會再通知你。`)) dms++;
   return { ok: true, week, count: items.length, fresh: fresh.length, dms, posts };
 }
 
-// 講師勾「已點評」：私訊投稿的人
+// 主講勾「已點評」：私訊投稿的人
 export async function markReviewed(week, id, reviewed = true) {
   const st = await loadReviews();
   const it = st.weeks[week]?.items?.find((x) => x.id === id);
@@ -126,7 +126,7 @@ export async function markReviewed(week, id, reviewed = true) {
   it.reviewedAt = reviewed ? new Date().toISOString() : null;
   if (first) it.notifiedAt = it.reviewedAt;
   await saveReviews(st);
-  if (first) await dm(it.author, `🎙️ 你投稿的交易（${twStamp(it.at).slice(5, 16)} 那一筆）講師點評了！到網站看最新一場直播留檔就看得到。`);
+  if (first) await dm(it.author, `🎙️ 你投稿的交易（${twStamp(it.at).slice(5, 16)} 那一筆）主講點評了！到網站看最新一場直播留檔就看得到。`);
   return { ok: true };
 }
 

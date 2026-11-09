@@ -1,4 +1,4 @@
-// 一對一交流：每位講師各一欄，照順序列出這個月選他的第三級研究員（前 5 位確定、其他候補），可以標記「已約好」
+// 一對一交流：每位主講各一欄，照順序列出這個月選他的第三級研究員（前 5 位確定、其他候補），可以標記「已約好」
 // 規則在 shared/rules.js 的 rankOneOnOne、ONE_ON_ONE_CAP
 import * as A from "../core/index.js";
 const { el, $, api } = A;
@@ -25,7 +25,7 @@ function render() {
   const total = board.hosts.reduce((n, h) => n + h.list.length, 0);
   $("#cOne").textContent = board.month === thisMonth() ? board.hosts.reduce((n, h) => n + h.list.filter((e) => e.confirmed && !e.booked).length, 0) || "" : $("#cOne").textContent;
   if (!total) {
-    $("#oneBox").replaceChildren(el("div", { class: "empty" }, el("h2", { text: "這個月還沒有人選" }), el("p", { class: "small", style: { marginTop: "6px" }, text: "第三級的研究員會在網站右邊選一位講師。" })));
+    $("#oneBox").replaceChildren(el("div", { class: "empty" }, el("h2", { text: "這個月還沒有人選" }), el("p", { class: "small", style: { marginTop: "6px" }, text: "第三級的研究員會在網站右邊選一位主講。" })));
     return;
   }
   $("#oneBox").replaceChildren(el("div", { class: "one-cols" }, ...board.hosts.map((h) => {

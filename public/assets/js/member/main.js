@@ -2,7 +2,7 @@
 //
 //   #/            直播留檔列表   list.js
 //   #/v/:id?t=秒  播放頁         watch.js（章節 chapters.js、筆記 notes.js）
-//   #/course      教學課程       course.js
+//   #/course      系統分享       course.js
 //   #/notes       我的筆記       notes.js
 //   #/feedback    我的提問       feedback.js
 import { $, api, sb, store, whatsNew, confirmDialog, tutorial } from "../core/index.js";
@@ -36,7 +36,7 @@ function route() {
     return;
   }
   const m = location.hash.match(/^#\/v\/(\d+)(?:\?t=(\d+))?/);
-  // 還沒到第二級：首頁換成升級說明；第一級還是看得到教學課程（每位講師第 1 份）、筆記；提問每一級都可以
+  // 還沒到第二級：首頁換成升級說明；第一級還是看得到系統分享（每位主講第 1 份）、筆記；提問每一級都可以
   if (locked()) {
     const t1 = (state.me.tier ?? 0) >= 1;
     if (t1 && m) return openWatch(Number(m[1]), { t: m[2] !== undefined ? Number(m[2]) : null });
@@ -76,7 +76,7 @@ async function enterApp() {
   renderAccessBanner();
   renderVolPanel();
   renderLivePanel();
-  // 這個瀏覽器第一次進來：問要不要看使用教學（只問一次；老研究員看到的是「網站更新了」）
+  // 這個瀏覽器第一次進來：問要不要看使用說明（只問一次；老研究員看到的是「網站更新了」）
   const firstVisit = !store.get("seenVersion", null);
   whatsNew();
   if (firstVisit && !me.isAdmin && !store.get("tutorialOffered", false)) offerTutorial();
@@ -97,8 +97,8 @@ async function offerTutorial() {
   store.set("tutorialOffered", true);
   const yes = await confirmDialog({
     title: "歡迎加入實驗室培訓計畫",
-    message: "第一次來？花 2 分鐘看使用教學：怎麼找影片、接著看、章節、筆記和每月交易量。之後也可以在右上角選單打開。",
-    confirmText: "看使用教學",
+    message: "第一次來？花 2 分鐘看使用說明：怎麼找影片、接著看、章節、筆記和每月交易量。之後也可以在右上角選單打開。",
+    confirmText: "看使用說明",
     cancelText: "之後再看",
   });
   if (yes) tutorial();

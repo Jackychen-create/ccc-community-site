@@ -1,4 +1,4 @@
-// 編輯影片：標題、類型（直播留檔／教學課程／公開影片）、日期、主講、封面、簡介、章節、發布、教材、寄信通知
+// 編輯影片：標題、類型（直播留檔／系統分享／公開影片）、日期、主講、封面、簡介、章節、發布、教材、寄信通知
 import * as A from "../core/index.js";
 const { el, api, icon } = A;
 import { COURSE_HOSTS, COURSE_PARTS, courseWeek } from "../shared/rules.js";
@@ -34,9 +34,9 @@ export function openEditor(id, { justUploaded = false } = {}) {
     }));
   const pickedHosts = () => hostOpts.filter((h) => hostSet.has(h));
 
-  // 類型：直播留檔／教學課程（CCC、OC、X 各 6 份，研究員加入後每週解鎖一份）／公開影片（不用登入，例如培訓計畫介紹）
+  // 類型：直播留檔／系統分享（CCC、X 各 6 份，研究員加入後每週解鎖一份）／公開影片（不用登入，例如培訓計畫介紹）
   let kind = v.is_public ? "public" : v.course_host ? "course" : "live";
-  const kindBtns = [["live", "直播留檔"], ["course", "教學課程"], ["public", "公開影片（不用登入）"]].map(([k, label]) => {
+  const kindBtns = [["live", "直播留檔"], ["course", "系統分享"], ["public", "公開影片（不用登入）"]].map(([k, label]) => {
     const b = el("button", { class: "chip", type: "button", "aria-pressed": String(kind === k), text: label });
     b.addEventListener("click", () => { kind = k; paintKind(); });
     b.dataset.k = k;
@@ -116,7 +116,7 @@ export function openEditor(id, { justUploaded = false } = {}) {
   const paintNotify = () => {
     const isCourse = typeof kind !== "undefined" ? kind === "course" : !!v.course_host;
     const isPublic = typeof kind !== "undefined" ? kind === "public" : !!v.is_public;
-    notifyNote.textContent = isPublic ? "公開影片是給還沒加入的人看的，不寄全體通知" : isCourse ? "教學課程依每個人的加入日期解鎖，不寄全體通知" : v.notified_at ? `上次寄出：${A.fmtRel(v.notified_at)}` : v.is_published ? "還沒寄過" : "發布後才能寄";
+    notifyNote.textContent = isPublic ? "公開影片是給還沒加入的人看的，不寄全體通知" : isCourse ? "系統分享依每個人的加入日期解鎖，不寄全體通知" : v.notified_at ? `上次寄出：${A.fmtRel(v.notified_at)}` : v.is_published ? "還沒寄過" : "發布後才能寄";
     notifyBtn.disabled = !v.is_published || isCourse || isPublic;
   };
   notifyBtn.addEventListener("click", async () => {

@@ -37,7 +37,7 @@ export function hitsIn(chunks, q, max = 5) {
   return out;
 }
 
-// 標題、簡介、章節、AI 摘要和重點也一起找（教學課程沒有逐字稿也找得到）
+// 標題、簡介、章節、AI 摘要和重點也一起找（系統分享沒有逐字稿也找得到）
 export function metaHits(v, h, q) {
   const ql = q.toLowerCase();
   const has = (s) => String(s || "").toLowerCase().includes(ql);

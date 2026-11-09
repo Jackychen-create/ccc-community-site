@@ -70,16 +70,16 @@ export const unitOf = (ex) => (isLots(ex) ? "手" : "USDT");
 // 新研究員的第一輪先給第二級（FIRST_CYCLE_TIER，2026-10-19 從第一級改）；管理員可以手動給「至少第幾級到哪天」（members.min_tier、min_tier_until）
 // 贈送名額不分級：網站內容照第二級開，但不顯示等級、不升降級、不收升級通知
 export const TIERS = [
-  { tier: 1, usdt: 10000, lots: 0.01, perks: ["Discord 研究員身分組", "會員直播（不提供留檔）", "每一組教學課程的第 1 份"] },
+  { tier: 1, usdt: 10000, lots: 0.01, perks: ["Discord 研究員身分組", "會員直播（不提供留檔）", "每一組系統分享的第 1 份"] },
   { tier: 2, usdt: 200000, lots: 2, perks: ["全部交易系統分享影音（之後的更新）", "直播留檔", "研究員專屬網站"] },
-  { tier: 3, usdt: 1500000, lots: 15, perks: ["教學課程全部直接解鎖，不用等排程", "每個月一次一對一交流（CCC、X 二選一）"] },
+  { tier: 3, usdt: 1500000, lots: 15, perks: ["系統分享全部直接解鎖，不用等排程", "每個月一次一對一交流（CCC、X 二選一）"] },
 ];
 export const MAX_TIER = TIERS.length;
-export const SITE_TIER = 2; // 網站內容（直播留檔、教學課程、教材、筆記）要第二級
-// 第一級也看得到教學課程每位講師的第 1 份（CCC、OC、X 各一部，照原本的解鎖時間），第 2 份以後的更新要第二級（2026-10-18）
+export const SITE_TIER = 2; // 網站內容（直播留檔、系統分享、教材、筆記）要第二級
+// 第一級也看得到系統分享每位主講的第 1 份（每位主講各一部，照原本的解鎖時間），第 2 份以後的更新要第二級（2026-10-18）
 export const TIER1_COURSE_PARTS = 1;
 export const courseTierOk = (tier, part) => tier >= SITE_TIER || (tier >= 1 && part <= TIER1_COURSE_PARTS);
-// 第三級：教學課程全部直接解鎖，不用等每週的排程（2026-10-18）
+// 第三級：系統分享全部直接解鎖，不用等每週的排程（2026-10-18）
 export const courseSkipSchedule = (tier) => tier >= MAX_TIER;
 export const tierName = (t) => (t ? `第${"零一二三"[t]}級` : "沒有等級");
 export const tierInfo = (t) => TIERS.find((x) => x.tier === t) || null;
@@ -143,14 +143,14 @@ export function tierStatus({ anchor, today, amountsOf, override = null }) {
 }
 
 // ── 一對一交流（第三級，2026-10-18）──
-// 第三級的研究員每個月（台灣時間的月份）從講師裡選一位（OC 2026-11-09 停止合作後是 CCC、X 二選一）；每位講師一個月最多 5 位
+// 第三級的研究員每個月（台灣時間的月份）從主講裡選一位（OC 2026-11-09 停止合作後是 CCC、X 二選一）；每位主講一個月最多 5 位
 // 選同一位的超過 5 位 → 照這一輪的交易量排（換算成「到第三級門檻的幾倍」，UM 和 USDT 才比得了），前 5 位確定、其他候補（可以改選別位）
 // 管理員按「已約好」的人一定算確定，不會被擠掉
-// OC 2026-11-09 停止合作：一對一只剩 CCC、X（他的教學影片照舊留在課程裡）
+// OC 2026-11-09 停止合作：一對一只剩 CCC、X（他的系統分享影片照舊留在課程裡）
 export const ONE_ON_ONE_HOSTS = ["CCC", "X"];
 export const ONE_ON_ONE_CAP = 5;
 export const oneOnOneScore = (amounts) => progressTo(amounts || {}, MAX_TIER).ratio;
-// entries: [{ user_id, host, score, booked, created_at }] → 同一位講師的排好順序，加上 rank（第幾位）、confirmed（確定）
+// entries: [{ user_id, host, score, booked, created_at }] → 同一位主講的排好順序，加上 rank（第幾位）、confirmed（確定）
 export function rankOneOnOne(entries, host) {
   const list = entries.filter((e) => e.host === host)
     .sort((a, b) => (b.booked === true) - (a.booked === true) || b.score - a.score || String(a.created_at).localeCompare(String(b.created_at)));
@@ -189,12 +189,13 @@ export const QUESTS = [
   { id: "days", icon: "☀️", name: "這週打開網站 3 天", target: 3 },
 ];
 
-// ── 教學課程 ──
-// CCC、OC、X 的教學影片各 6 份，共 18 份。每位研究員從加入那天起：
-// 每 4 週為一輪，前 3 週依序解鎖 CCC、OC、X 各一份，第 4 週休息。
-export const COURSE_HOSTS = ["CCC", "OC", "X"]; // 解鎖順序
+// ── 系統分享 ──
+// CCC、X 的系統分享影片各 6 份，共 12 份。每位研究員從加入那天起：
+// 每 3 週為一輪，前 2 週依序解鎖 CCC、X 各一份，第 3 週休息（2026-11-10 起，原本三位主講、每 4 週一輪；改了之後每一份只會比原本早解鎖）。
+export const COURSE_HOSTS = ["CCC", "X"]; // 解鎖順序
 export const COURSE_PARTS = 6;
-export const COURSE_CYCLE_WEEKS = 4;
+export const COURSE_CYCLE_WEEKS = COURSE_HOSTS.length + 1;
+export const COURSE_TOTAL = COURSE_HOSTS.length * COURSE_PARTS;
 export function courseWeek(host, part) {
   return (part - 1) * COURSE_CYCLE_WEEKS + COURSE_HOSTS.indexOf(host); // 從 0 起算：第 0 週＝加入當天
 }
@@ -219,7 +220,7 @@ export const BADGES = [
   { id: "streak3", icon: "🔥", name: "連續三輪", desc: "連續 3 輪第二級以上", test: (f) => f.streak >= 3 },
   { id: "live10", icon: "📺", name: "全勤觀眾", desc: "看完 10 場直播留檔", test: (f) => f.liveDone >= 10 },
   { id: "host6", icon: "🎓", name: "學完一位", desc: "看完任一位主講的 6 份課程", test: (f) => f.hostsDone.length >= 1 },
-  { id: "course18", icon: "🧠", name: "全部修完", desc: "看完 18 份教學課程", test: (f) => f.courseDone >= 18 },
+  { id: "course18", icon: "🧠", name: "全部修完", desc: "看完全部系統分享", test: (f) => f.courseDone >= COURSE_TOTAL }, // id 沿用（已經拿到的人記錄在資料庫）
   { id: "notes10", icon: "✍️", name: "筆記達人", desc: "寫了 10 則筆記", test: (f) => f.notes >= 10 },
   { id: "question", icon: "🙋", name: "勇於發問", desc: "第一次提問", test: (f) => f.questions >= 1 },
   { id: "quests4", icon: "🗓️", name: "小目標達人", desc: "累積 4 週完成本週小目標", test: (f) => (f.questWeeks || 0) >= 4 },

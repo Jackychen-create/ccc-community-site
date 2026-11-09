@@ -18,11 +18,11 @@ const EDITOR_API = {
   "admin/attachments": "*",
   "admin/notify": "*",
   "admin/highlights": "*", // 直播精華（看、重做、套用章節）
-  "admin/reviews": "*", // 交易檢討投稿（講師勾已點評）
+  "admin/reviews": "*", // 交易檢討投稿（主講勾已點評）
   "admin/feedback": "*",
   "admin/stats": "*",
   "admin/members": ["GET"], // 只能看
-  "admin/oneonone": "*", // 講師自己也要看名單、標記約好
+  "admin/oneonone": "*", // 主講自己也要看名單、標記約好
 };
 
 export function canUseApi(role, route, method) {

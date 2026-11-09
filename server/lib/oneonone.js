@@ -1,4 +1,4 @@
-// 一對一交流（第三級）：每個月選一位講師，每位講師最多 5 位，超過照交易量排（規則在 shared/rules.js 的 rankOneOnOne）
+// 一對一交流（第三級）：每個月選一位主講，每位主講最多 5 位，超過照交易量排（規則在 shared/rules.js 的 rankOneOnOne）
 import { supabaseAdmin } from "./env.js";
 import { thisMonthTW, todayTW } from "./dates.js";
 import { tiersFor } from "./tier.js";
@@ -7,7 +7,7 @@ import { twDate } from "./dates.js";
 import { discordConfigured, getDiscordSettings, sendMessage } from "./discord.js";
 
 
-// 某個月的名單：每位講師排好順序。只算今天還是第三級的人（管理員已經約好的照樣留著）
+// 某個月的名單：每位主講排好順序。只算今天還是第三級的人（管理員已經約好的照樣留著）
 export async function oneOnOneBoard(month = thisMonthTW(), today = todayTW()) {
   const { data: picks, error } = await supabaseAdmin.from("one_on_ones").select("user_id, host, booked, created_at").eq("month", month);
   if (error) throw error;
@@ -32,8 +32,8 @@ export async function oneOnOneBoard(month = thisMonthTW(), today = todayTW()) {
 }
 
 
-// Discord 通知講師：有人選、改選、取消一對一時，發在審核頻道（只有管理員、客服看得到）
-// 後台「Discord 審核」→ 進階設定填了講師的 Discord 使用者 ID，就會 @ 他
+// Discord 通知主講：有人選、改選、取消一對一時，發在審核頻道（只有管理員、客服看得到）
+// 後台「Discord 審核」→ 進階設定填了主講的 Discord 使用者 ID，就會 @ 他
 export function oneOnOneNotice({ kind, email, host, prevHost, rank, confirmed, month, hostIds = {} }) {
   const at = (h) => (hostIds[h] ? `<@${hostIds[h]}>` : h);
   const m = Number(String(month).slice(5));

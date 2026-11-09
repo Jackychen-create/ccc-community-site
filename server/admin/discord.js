@@ -1,6 +1,6 @@
 // 後台：Discord 審核機器人
 // GET   /api/admin/discord                        設定好了沒、設定值、最近的申請
-// PATCH /api/admin/discord { roleId, panelChannelId, reviewChannelId, staffRoleIds, invites, hostIds }   改設定（hostIds：一對一講師的 Discord 使用者 ID）
+// PATCH /api/admin/discord { roleId, panelChannelId, reviewChannelId, staffRoleIds, invites, hostIds }   改設定（hostIds：一對一主講的 Discord 使用者 ID）
 // POST  /api/admin/discord { action: "panel" }    在報名頻道張貼「報名培訓計畫」按鈕
 // POST  /api/admin/discord { action: "setup" }  一鍵建立分類、頻道、權限、報名按鈕
 // POST  /api/admin/discord { action: "support" }  一鍵建立客服中心（取代 Ticket Tool）：客服單分類、客服中心頻道、客服紀錄頻道、開單選單

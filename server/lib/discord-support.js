@@ -12,7 +12,7 @@ export const GOLD = 0xcda45e, GREEN = 0x5fa285, GREY = 0x7f8a8c;
 export const LOGO = "https://ccc-community-site.pages.dev/assets/brand/ccc-bot.png";
 
 export const SUPPORT_TOPICS = [
-  { value: "member", label: "培訓計畫、研究員身分", emoji: "🧪", hint: "報名、身分組、等級、教學課程" },
+  { value: "member", label: "培訓計畫、研究員身分", emoji: "🧪", hint: "報名、身分組、等級、系統分享" },
   { value: "exchange", label: "交易所、UID、交易量", emoji: "💱", hint: "綁定 UID、交易量沒更新、返佣" },
   { value: "site", label: "網站、帳號登入", emoji: "💻", hint: "實驗室密碼、登入、影片看不了" },
   { value: "biz", label: "合作洽談", emoji: "🤝", hint: "商業合作、邀約、贊助" },

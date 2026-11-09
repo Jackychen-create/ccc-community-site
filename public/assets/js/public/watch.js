@@ -32,7 +32,7 @@ async function get(path) {
 const box = $("#pubBox");
 const join = () => el("section", { class: "pub-join card" },
   el("h2", { text: "想加入 CCC 交易實驗室？" }),
-  el("p", { class: "sub", text: "研究員可以看每週直播的完整留檔、教學課程，還能記筆記、跳章節。拿到實驗室密碼後就能註冊。" }),
+  el("p", { class: "sub", text: "研究員可以看每週直播的完整留檔、系統分享，還能記筆記、跳章節。拿到實驗室密碼後就能註冊。" }),
   el("a", { class: "btn primary", href: "/", text: "我有實驗室密碼，前往註冊" }));
 
 function showError(msg) {
