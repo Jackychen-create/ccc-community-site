@@ -1,4 +1,4 @@
-// 一對一交流：三位講師各一欄，照順序列出這個月選他的第三級研究員（前 5 位確定、其他候補），可以標記「已約好」
+// 一對一交流：每位講師各一欄，照順序列出這個月選他的第三級研究員（前 5 位確定、其他候補），可以標記「已約好」
 // 規則在 shared/rules.js 的 rankOneOnOne、ONE_ON_ONE_CAP
 import * as A from "../core/index.js";
 const { el, $, api } = A;

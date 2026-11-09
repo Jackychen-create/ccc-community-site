@@ -236,3 +236,5 @@ details p { padding: 0 0 20px; color: var(--ink-2); font-size: 15.5px; }
 @media (max-width: 720px) { .calc { padding: 18px 16px; } .calc-row { grid-template-columns: 1fr; } }
 .in input::-webkit-outer-spin-button, .in input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .in input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+.hosts.two { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 860px) { .hosts.two { grid-template-columns: 1fr; } }

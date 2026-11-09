@@ -5,11 +5,12 @@ import { SITE_TIER, tierName, tierRuleText } from "../../public/assets/js/shared
 import { canUseApi } from "../../public/assets/js/shared/roles.js";
 export { ROLE_LABEL, VIEWS_FOR, canUseApi } from "../../public/assets/js/shared/roles.js";
 
-// 這位管理員是 owner 還是 editor（settings 的 admin_roles；沒列到就是 owner）
+// 這位管理員是 owner、editor 還是 removed（settings 的 admin_roles；沒列到就是 owner）
+// removed：已經停止合作的管理員（例如 OC，2026-11-09），就算還在 Cloudflare 的 ADMIN_EMAILS 裡也不能用後台
 export async function adminRole(email) {
   const { data } = await supabaseAdmin.from("settings").select("value").eq("key", "admin_roles").maybeSingle();
   const r = data?.value?.[String(email || "").trim().toLowerCase()];
-  return r === "editor" ? "editor" : "owner";
+  return r === "editor" || r === "removed" ? r : "owner";
 }
 
 export function adminEmails() {
@@ -58,7 +59,13 @@ export async function requireMember(req, res, { minTier = SITE_TIER } = {}) {
     return null;
   }
   const member = await memberRow(user.id);
-  if (!member && adminEligible(user)) return { user, isAdmin: true };
+  if (!member && adminEligible(user)) {
+    if ((await adminRole(user.email)) === "removed") {
+      res.status(403).json({ error: "這個帳號目前沒有觀看權限，請聯絡管理員" });
+      return null;
+    }
+    return { user, isAdmin: true };
+  }
   if (!member || member.banned) {
     res.status(403).json({ error: "這個帳號目前沒有觀看權限，請聯絡管理員" });
     return null;
@@ -84,6 +91,10 @@ export async function requireAdmin(req, res) {
   }
   // 協作管理員只能用部分功能（規則在 shared/roles.js）
   const role = await adminRole(user.email);
+  if (role === "removed") {
+    res.status(403).json({ error: "只有管理員可以使用後台" });
+    return null;
+  }
   if (!canUseApi(role, req.route || "", req.method)) {
     res.status(403).json({ error: "這個功能只有主要管理員可以使用", code: "owner_only" });
     return null;

@@ -64,7 +64,7 @@ export function unwatchedEmbed(ep1) {
   return {
     author: { name: `${BRAND}｜實驗室助教`, icon_url: LOGO },
     title: "從這一支開始看吧",
-    description: `研究員專區開通好幾天了，還沒看過影片的話，推薦從這支開始：\n\n**[${ep1?.title || "教學課程第 1 份"}](${link})**\n\nCCC 講自己的進出場規則和邏輯，大部分研究員都從這支開始，看完再接著看 OC、X 兩位講師的課程和直播留檔。`,
+    description: `研究員專區開通好幾天了，還沒看過影片的話，推薦從這支開始：\n\n**[${ep1?.title || "教學課程第 1 份"}](${link})**\n\nCCC 講自己的進出場規則和邏輯，大部分研究員都從這支開始，看完再接著看其他教學課程和直播留檔。`,
     color: 0xcda45e,
     footer: { text: "登入有問題：直接回這則訊息或開客服單", icon_url: LOGO },
   };
@@ -73,7 +73,7 @@ export function unwatchedHtml(ep1) {
   const link = ep1 ? `${SITE_URL}/#/v/${ep1.id}` : `${SITE_URL}/#/course`;
   return `<p>研究員專區開通了好幾天，還沒看過任何影片的話，推薦從這一支開始：</p>
 <p style="font-size:18px;font-weight:700;margin:8px 0">${escHtml(ep1?.title || "教學課程第 1 份")}</p>
-<p>CCC 講自己的進出場規則和邏輯，大部分研究員都從這支開始，看完再接著看 OC、X 兩位講師的課程和直播留檔。</p>
+<p>CCC 講自己的進出場規則和邏輯，大部分研究員都從這支開始，看完再接著看其他教學課程和直播留檔。</p>
 <p><a href="${link}" style="display:inline-block;background:#cda45e;color:#1b1f1d;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700">開始看</a></p>
 <p style="color:#7a817d;font-size:13px">登入遇到問題，回這封信或在 Discord 開客服單。</p>`;
 }

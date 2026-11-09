@@ -20,11 +20,11 @@ const closeAll = async (p) => { for (let i = 0; i < 6; i++) { await p.waitForTim
   };
   await mk("t3@example.com", "66660001", 1600000);
   await mk("t2@example.com", "66660002", 300000);
-  // 先讓 5 位交易量更高的人選 OC，名額滿
+  // 先讓 5 位交易量更高的人選 X，名額滿（OC 2026-11-09 停止合作，一對一只剩 CCC、X）
   for (let i = 0; i < 5; i++) {
     await mk(`big${i}@example.com`, `6666100${i}`, 3000000 + i);
     const t = (await j("/sb/auth/v1/token", { method: "POST", body: { email: `big${i}@example.com`, password: "password1" } })).body.access_token;
-    await j("/api/oneonone", { method: "POST", token: t, body: { host: "OC" } });
+    await j("/api/oneonone", { method: "POST", token: t, body: { host: "X" } });
   }
 
   const b = await chromium.launch();
@@ -46,10 +46,10 @@ const closeAll = async (p) => { for (let i = 0; i < 6; i++) { await p.waitForTim
   // 第三級：選講師
   [c, p] = await ctx({ width: 1280, height: 900 });
   await login(p, "t3@example.com"); await p.waitForSelector("#onePanel:not([hidden])"); await closeAll(p);
-  check("第三級看得到一對一，三位講師", (await p.locator("#onePanel .one-host").count()) === 3 && (await p.textContent("#onePanel")).includes("選一位講師"));
-  check("OC 名額已滿寫 5／5", (await p.textContent("#onePanel .one-host:has-text('OC')")).includes("5／5"));
-  await p.click("#onePanel .one-host:has-text('OC')"); await p.waitForSelector("#onePanel .pill:has-text('候補')");
-  check("選滿的 OC：候補第 1 位、說可以改選", (await p.textContent("#onePanel")).includes("候補第 1 位") && (await p.textContent("#onePanel")).includes("改選"), await p.textContent("#onePanel"));
+  check("第三級看得到一對一，兩位講師", (await p.locator("#onePanel .one-host").count()) === 2 && (await p.textContent("#onePanel")).includes("選一位講師"));
+  check("X 名額已滿寫 5／5", (await p.textContent("#onePanel .one-host:has-text('X')")).includes("5／5"));
+  await p.click("#onePanel .one-host:has-text('X')"); await p.waitForSelector("#onePanel .pill:has-text('候補')");
+  check("選滿的 X：候補第 1 位、說可以改選", (await p.textContent("#onePanel")).includes("候補第 1 位") && (await p.textContent("#onePanel")).includes("改選"), await p.textContent("#onePanel"));
   await p.click("#onePanel .one-host:has-text('CCC')"); await p.waitForSelector("#onePanel .pill:has-text('確定')");
   check("改選 CCC：排第 1 位確定", (await p.textContent("#onePanel")).includes("CCC，排第 1 位（確定）"));
   check("CCC 那格亮起來", (await p.getAttribute("#onePanel .one-host:has-text('CCC')", "aria-pressed")) === "true");
@@ -60,9 +60,9 @@ const closeAll = async (p) => { for (let i = 0; i < 6; i++) { await p.waitForTim
   [c, p] = await ctx({ width: 1440, height: 900 });
   await login(p, "boss@gmail.com");
   await p.goto(BASE + "/admin#oneonone"); await p.waitForSelector(".one-cols");
-  check("後台三位講師各一欄", (await p.locator(".one-col").count()) === 3);
-  const oc = p.locator(".one-col", { hasText: "OC" }).first();
-  check("OC 5／5、交易量高的排前面", (await oc.textContent()).includes("5／5") && (await oc.locator("li").first().textContent()).includes("big4@example.com"));
+  check("後台兩位講師各一欄", (await p.locator(".one-col").count()) === 2);
+  const oc = p.locator(".one-col").nth(1);
+  check("X 5／5、交易量高的排前面", (await oc.textContent()).includes("5／5") && (await oc.locator("li").first().textContent()).includes("big4@example.com"));
   const ccc = p.locator(".one-col", { hasText: "CCC" }).first();
   check("CCC 有 t3、寫這一輪交易量", (await ccc.textContent()).includes("t3@example.com") && (await ccc.textContent()).includes("OKX 160 萬"));
   await ccc.locator("button:has-text('已約好')").click(); await p.waitForSelector(".toast:has-text('已約好')");

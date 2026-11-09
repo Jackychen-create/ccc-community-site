@@ -1,5 +1,5 @@
 // 研究員的一對一交流（第三級）
-// GET    /api/oneonone              這個月三位講師各選了幾位、我選了誰、排第幾、確定還是候補
+// GET    /api/oneonone              這個月每位講師各選了幾位、我選了誰、排第幾、確定還是候補
 // POST   /api/oneonone { host }     選（或改選）這個月的講師；要第三級
 // DELETE /api/oneonone              取消這個月的選擇（管理員已經約好的不能自己取消）
 import { supabaseAdmin, requireMember, readBody, route, thisMonthTW, oneOnOneBoard, notifyOneOnOne } from "./lib/index.js";
