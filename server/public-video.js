@@ -10,6 +10,8 @@ const thumbOf = (v) => (v.thumb_key ? signGet(v.thumb_key, { expiresIn: 12 * 60 
 export default route({
   async GET(req, res) {
     res.setHeader("Cache-Control", "no-store");
+    // 對外網站（另一個網址）也要拿公開影片清單；這些本來就不用登入
+    res.setHeader("Access-Control-Allow-Origin", "*");
     const base = () => supabaseAdmin.from("videos").select(FIELDS).eq("is_published", true).eq("is_public", true);
     if (req.query?.id === undefined) {
       const { data, error } = await base().order("published_at", { ascending: false }).order("id", { ascending: false }).limit(10);

@@ -34,7 +34,3 @@
 /changelog.json
   Cache-Control: no-store
 
-# 對外的加入教學頁（public/start/）：要讓搜尋引擎找得到
-/start/*
-  ! X-Robots-Tag
-  Cache-Control: no-cache
