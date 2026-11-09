@@ -639,6 +639,7 @@ const server = http.createServer(async (req, res) => {
             const t = String(body.postTo[id] || "").trim();
             if (t && t !== id) Object.assign(c, { postTo: t, postToName: "公開回顧" }); else { delete c.postTo; delete c.postToName; }
           }
+          if (body.hideStats && body.hideStats[id] !== undefined) { if (body.hideStats[id] === true) c.hideStats = true; else delete c.hideStats; }
           if (body.alsoTo && body.alsoTo[id] !== undefined) {
             const a = String(body.alsoTo[id] || "").trim();
             if (a && !/^\d{17,20}$/.test(a)) return { bad: true };

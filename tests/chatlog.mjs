@@ -267,6 +267,19 @@ await test("卡片：沒有聊天也寫清楚", () => {
   const e = recapEmbed(DAY, { name: "大廳", messages: 0, authors: 0, topics: [], first: null, last: null }, { file: "x.txt" });
   assert.ok(e.fields.find((x) => x.name === "🔥 討論主題").value.includes("沒有聊天"));
 });
+await test("公開的回顧（hideStats）：沒有訊息數、發言人數，最活躍只寫名字；研究員大廳照常", async () => {
+  db.settings[0].value.chatChannels[0].hideStats = true;
+  const n = posted.length;
+  fresh(); await runChatlog(DAY, { force: true });
+  const mine = posted.slice(n);
+  const lobby = mine.find((p) => p.channel === LOBBY).raw, lab = mine.find((p) => p.channel === LAB).raw;
+  assert.ok(!lobby.includes("討論概況") && !/參與者 \d+ 人/.test(lobby) && !/訊息 \d+ 則/.test(lobby), lobby.slice(0, 400));
+  assert.ok(!/最活躍[^}]*\d+ 則/.test(lobby));
+  assert.ok(lab.includes("討論概況"));
+  delete db.settings[0].value.chatChannels[0].hideStats;
+  const e = recapEmbed(DAY, { name: "大廳", messages: 9, authors: 3, top: [{ name: "Amy", n: 5 }], topics: [], first: null, last: null }, { hideStats: true });
+  assert.ok(!JSON.stringify(e).includes("9 則") && !JSON.stringify(e).includes("3 人") && e.fields.find((x) => x.name === "🗣️ 最活躍").value === "Amy");
+});
 await test("排程：沒有密碼不能跑；有密碼跑昨天", async () => {
   const mk = (h) => { const res = { statusCode: 0, headers: {}, body: null, status(c) { this.statusCode = c; return this; }, json(b) { this.body = b; return this; }, setHeader() {} }; return [{ method: "POST", headers: h, query: {}, body: {} }, res]; };
   let [rq, rs] = mk({});

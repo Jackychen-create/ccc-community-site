@@ -141,8 +141,9 @@ const ymdSlash = (day) => day.replaceAll("-", "/");
 const hm = (ms) => (ms == null ? "--:--" : twStamp(ms).slice(11, 16));
 
 // 一個頻道的每日回顧卡片；others：其他頻道的數字（讓大家知道兩邊加起來多熱鬧）
-export function recapEmbed(day, row, { others = [], uniqueAuthors = null, file = "" } = {}) {
-  const fields = [
+// hideStats：公開的回顧不放訊息數、發言人數（2026-11-10，頻道設定的 hideStats）
+export function recapEmbed(day, row, { others = [], uniqueAuthors = null, file = "", hideStats = false } = {}) {
+  const fields = hideStats ? [] : [
     { name: "📊 討論概況", value: `訊息 ${row.messages} 則｜參與者 ${row.authors} 人｜區間 ${hm(row.first)}–${hm(row.last)}${row.truncated ? "\n（訊息太多，只算了前 3000 則）" : ""}` },
   ];
   // 其他頻道的數字只在明確要求時放（預設不放：大廳的回顧不能出現研究員大廳的任何東西）
@@ -152,7 +153,7 @@ export function recapEmbed(day, row, { others = [], uniqueAuthors = null, file =
   }
   if (!row.noContent) fields.push({ name: "🔥 討論主題", value: row.topics?.length ? row.topics.join("、") : row.messages ? "（聊得比較零散，沒有特別集中的主題）" : "（這一天沒有聊天）" });
   if (row.hottest) fields.push({ name: "💬 最多人回應", value: `${row.hottest.name}：「${row.hottest.text}」` });
-  if (row.top?.length) fields.push({ name: "🗣️ 最活躍", value: row.top.slice(0, 3).map((t) => `${t.name} ${t.n} 則`).join("、") });
+  if (row.top?.length) fields.push({ name: "🗣️ 最活躍", value: row.top.slice(0, 3).map((t) => (hideStats ? t.name : `${t.name} ${t.n} 則`)).join("、") });
   if (file) fields.push({ name: "📎 完整紀錄", value: `已附上 \`${file}\`，包含當日所有訊息、作者、時間、回覆標記與附件連結。請以附件內容為完整來源。` });
   return {
     title: `🗂️ ${BRAND}｜#${row.name} 每日回顧｜${ymdSlash(day)}`,
@@ -241,7 +242,8 @@ export async function runChatlog(day, { post = true, force = false } = {}) {
   const posts = [], skipped = [];
   if (post && ok.length) {
     // 每一張卡片只放自己頻道的內容，不放其他頻道的數字（大廳的回顧不能看到研究員大廳）
-    const card = (r) => ({ embed: recapEmbed(day, r, { file: fileName(day, r.name, many) }), file: { name: fileName(day, r.name, many), text: r.text } });
+    const hideOf = (r) => !!(channels.find((x) => x.id === r.id) || {}).hideStats;
+    const card = (r) => ({ embed: recapEmbed(day, r, { file: fileName(day, r.name, many), hideStats: hideOf(r) }), file: { name: fileName(day, r.name, many), text: r.text } });
     const jobs = mode === "single"
       ? [{ key: "single", channel: s.chatReportChannelId, items: ok.map(card) }]
       : ok.map((r) => { const c = channels.find((x) => x.id === r.id) || {}; return { key: r.id, name: r.name, channel: c.webhookChannelId || c.postTo || r.id, webhook: isWebhookUrl(c.webhook) ? c.webhook : "", items: [card(r)] }; });
@@ -252,7 +254,7 @@ export async function runChatlog(day, { post = true, force = false } = {}) {
         if (!isSnowflake(c.alsoTo || "")) continue;
         // 「也貼到」跟主要貼的頻道一樣：不要同一個頻道貼兩次
         if (c.alsoTo === (c.webhookChannelId || c.postTo || r.id)) continue;
-        const it = c.alsoLog === false ? { embed: recapEmbed(day, r, { file: "" }), file: null } : card(r);
+        const it = c.alsoLog === false ? { embed: recapEmbed(day, r, { file: "", hideStats: hideOf(r) }), file: null } : card(r);
         jobs.push({ key: `also:${r.id}`, name: r.name, channel: c.alsoTo, webhook: "", items: [it] });
       }
     }
