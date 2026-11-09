@@ -7,6 +7,7 @@ import { flushAnnouncements } from "../lib/announce.js";
 import { runOnboarding } from "../lib/onboarding.js";
 import { runCourseMail } from "../lib/course-mail.js";
 import { runExchangeRoles } from "../lib/exchange-roles.js";
+import { okxProbe } from "../lib/okx.js";
 
 export default route({
   async POST(req, res) {
@@ -37,6 +38,16 @@ export default route({
     const courseMail = await runCourseMail(now).catch((e) => ({ ok: false, error: String(e?.message || e) }));
     // 順便：每小時補發交易所活動身分組（server/lib/exchange-roles.js）
     const exchangeRoles = await runExchangeRoles(now).catch((e) => ({ ok: false, error: String(e?.message || e) }));
-    return res.status(200).json({ ok: true, due: (data || []).length, reminded, reviews, announced, onboarding, courseMail, exchangeRoles });
+    // OKX 連線測試：bot_state 的 okx_probe 有 { uid, pending: true } 就跑一次，結果寫回去（設定 OKX 時用）
+    const okx = await runOkxProbe().catch((e) => ({ ok: false, error: String(e?.message || e) }));
+    return res.status(200).json({ ok: true, due: (data || []).length, reminded, reviews, announced, onboarding, courseMail, exchangeRoles, okx });
   },
 });
+
+async function runOkxProbe() {
+  const { data } = await supabaseAdmin.from("bot_state").select("value").eq("key", "okx_probe").maybeSingle();
+  if (!data?.value?.pending || !data.value.uid) return null;
+  const r = await okxProbe(data.value.uid);
+  await supabaseAdmin.from("bot_state").upsert({ key: "okx_probe", value: { uid: data.value.uid, pending: false, result: r }, updated_at: new Date().toISOString() });
+  return { probed: true, ok: r.ok };
+}
