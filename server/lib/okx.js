@@ -76,6 +76,9 @@ export async function okxInvitee(uid) {
 // 測試用（排程跑一次，結果記在 bot_state 的 okx_probe）：確認連得到、看 OKX 實際回哪些欄位
 export async function okxProbe(uid) {
   const out = { at: new Date().toISOString(), configured: okxConfigured() };
+  // 名字像 OKX 的環境變數（只有名字和有沒有值，不記內容）
+  out.names = (env.__names || []).filter((k) => /okx|pass/i.test(k)).map((k) => ({ name: JSON.stringify(k), filled: !!env[k] || undefined }));
+  out.has = { key: !!env.OKX_API_KEY, secret: !!env.OKX_SECRET_KEY, pass: !!env.OKX_PASSPHRASE };
   if (!out.configured) return out;
   try {
     const d = await okxInvitee(uid);
