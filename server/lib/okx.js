@@ -108,7 +108,7 @@ export async function checkOkxClient(uid, { code = "" } = {}) {
     const d = await okxInvitee(uid);
     if (!d) return { invited: false };
     if (code && d.affiliateCode && String(d.affiliateCode) !== String(code)) return { invited: false, otherCode: true };
-    return { invited: true, direct: true, totalVol: Number(d.totalVol) || 0, joinTime: Number(d.joinTime) || null };
+    return { invited: true, direct: true, totalVol: Number(d.totalVol) || 0, joinTime: Number(d.joinTime) || null, firstTrade: Number(d.firstTradeTime) || null };
   } catch (e) {
     if (e instanceof OkxError && !SETUP_ERROR(e.code)) return { invited: false, code: e.code };
     throw e;

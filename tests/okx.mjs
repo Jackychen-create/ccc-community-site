@@ -56,6 +56,11 @@ await test("這一輪開始之後才註冊 OKX：起點是 0；對不到起點�
   assert.equal(okxPeriodVolume({ list: [], totalVol: 800, joinDay: "2026-11-06", from: "2026-11-05", end: "2026-12-04", today: "2026-11-10" }), 800);
   assert.equal(okxPeriodVolume({ list: [{ day: "2026-11-10", total_vol: 800 }], totalVol: 800, joinDay: "2026-01-01", from: "2026-11-05", end: "2026-12-04", today: "2026-11-10" }), null);
 });
+await test("第一筆交易在這一輪開始之後、或累計是 0：不用等快照，起點是 0", () => {
+  assert.equal(okxPeriodVolume({ list: [], totalVol: 207688.48, joinDay: "2026-10-16", firstTradeDay: "2026-10-20", from: "2026-10-17", end: "2026-11-16", today: "2026-11-10" }), 207688.48);
+  assert.equal(okxPeriodVolume({ list: [], totalVol: 0, joinDay: "2026-09-12", from: "2026-10-17", end: "2026-11-16", today: "2026-11-10" }), 0);
+  assert.equal(okxPeriodVolume({ list: [], totalVol: 10, joinDay: "2026-09-12", firstTradeDay: "2026-10-01", from: "2026-10-17", end: "2026-11-16", today: "2026-11-10" }), null);
+});
 await test("上一輪（已經結束）：終點用結束那天之後最近一天的累計", () => {
   const list = [{ day: "2026-10-05", total_vol: 100 }, { day: "2026-11-04", total_vol: 900 }, { day: "2026-11-10", total_vol: 2000 }];
   assert.equal(okxPeriodVolume({ list, totalVol: 2000, from: "2026-10-05", end: "2026-11-04", today: "2026-11-10" }), 800);
