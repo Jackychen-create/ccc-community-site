@@ -69,3 +69,8 @@ input { caret-color: var(--amber); }
 .small { font-size: 13px; }
 .num { font-family: var(--f-num); font-variant-numeric: tabular-nums; letter-spacing: 0; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* 不構成投資建議（每一頁最下面） */
+.site-note { max-width: 1240px; margin: 8px auto 0; padding: 18px 24px 28px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: 12.5px; line-height: 1.7; text-align: center; }
+.site-note-auth { display: block; margin-top: 8px; font-size: 12px; opacity: .85; }
+@media (max-width: 720px) { .site-note { padding: 16px 16px calc(24px + env(safe-area-inset-bottom)); text-align: left; } }
