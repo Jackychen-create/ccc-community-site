@@ -42,9 +42,14 @@ function render(r) {
     const log = el("input", { type: "checkbox" });
     log.checked = c.alsoLog !== false;
     log.dataset.alsolog = c.id;
+    // 公開的回顧：不放訊息數、發言人數
+    const hide = el("input", { type: "checkbox" });
+    hide.checked = !!c.hideStats;
+    hide.dataset.hidestats = c.id;
     return el("div", { class: "chat-target" }, el("div", { class: "chat-target-head" }, el("span", { class: "pill", text: label }), el("span", { class: "small muted", text: "的每日回顧" })),
       el("div", { class: "chat-target-row" }, el("span", { class: "small chat-k", text: "貼到" }), postTo, el("span", { class: "small muted", text: "或用 Webhook" }), input),
       el("div", { class: "chat-target-st" }, status, rm),
+      el("label", { class: "small chat-also-log" }, hide, " 公開的回顧：不顯示訊息數和發言人數"),
       el("div", { class: "chat-also" }, also, el("label", { class: "small chat-also-log" }, log, " 附完整紀錄檔"),
         el("span", { class: "small muted", text: c.alsoTo ? `✓ 也由機器人貼到 #${c.alsoToName || c.alsoTo}${c.alsoLog === false ? "（不附完整紀錄）" : ""}` : "選填：同一則回顧再貼一份到別的頻道，例如給大家看的大廳。研究員的聊天要貼到公開頻道時，建議不附完整紀錄。" })));
   });
@@ -58,7 +63,8 @@ function render(r) {
       const alsoTo = Object.fromEntries([...box.querySelectorAll("input[data-also]")].map((x) => [x.dataset.also, x.value.trim()]));
       const alsoLog = Object.fromEntries([...box.querySelectorAll("input[data-alsolog]")].map((x) => [x.dataset.alsolog, x.checked]));
       const postTo = Object.fromEntries([...box.querySelectorAll("input[data-postto]")].map((x) => [x.dataset.postto, x.value.trim()]));
-      const x = await api("/api/admin/chatlog", { method: "PATCH", body: { channelIds: ids.value, postTo, webhooks, alsoTo, alsoLog, postMode: "own" } });
+      const hideStats = Object.fromEntries([...box.querySelectorAll("input[data-hidestats]")].map((x) => [x.dataset.hidestats, x.checked]));
+      const x = await api("/api/admin/chatlog", { method: "PATCH", body: { channelIds: ids.value, postTo, webhooks, alsoTo, alsoLog, hideStats, postMode: "own" } });
       A.toast(`已儲存：統計 ${x.channels.map((c) => `#${c.name || c.id}`).join("、") || "（沒有頻道）"}`);
       loadChat();
     } catch (e) {
