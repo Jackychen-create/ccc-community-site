@@ -22,6 +22,18 @@
   if (want) { pick(document.getElementById(want)); document.getElementById("exchanges").scrollIntoView(); }
   else if (tabs[0]) pick(tabs[0]);
 
+  // 卡片的光：游標在卡片上哪裡，那裡亮一點（只有滑鼠）
+  var glare = [].slice.call(document.querySelectorAll(".steps li, .host, .card, .ex, .calc, .tier-table"));
+  glare.forEach(function (el) {
+    el.classList.add("glare");
+    el.addEventListener("pointermove", function (e) {
+      if (e.pointerType !== "mouse") return;
+      var r = el.getBoundingClientRect();
+      el.style.setProperty("--mx", (e.clientX - r.left) + "px");
+      el.style.setProperty("--my", (e.clientY - r.top) + "px");
+    });
+  });
+
   // 頁首：捲到哪一段就在那個連結下面畫底線
   var links = [].slice.call(document.querySelectorAll(".nav a"));
   if ("IntersectionObserver" in window) {
