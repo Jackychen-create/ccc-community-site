@@ -208,7 +208,7 @@ function channelsCard(s) {
   return el("div", { class: "dc-channels", id: "dcChannels" },
     el("h3", { text: "機器人貼文的頻道" }),
     el("label", { class: "field" }, el("span", { class: "label", text: "✨ 直播精華頻道 ID" }), hl,
-      el("span", { class: "hint", text: "直播上架後，AI 整理的摘要、重點、章節貼在這裡。建議用只有研究員看得到的頻道。空白＝不貼。" })),
+      el("span", { class: "hint", text: "直播上架後，自動整理的摘要、重點、章節貼在這裡。建議用只有研究員看得到的頻道。空白＝不貼。" })),
     el("label", { class: "field" }, el("span", { class: "label", text: "🎉 升級慶祝頻道 ID" }), cel,
       el("span", { class: "hint", text: "研究員升級後按「分享到 Discord」貼在這裡（例如研究員大廳）。空白＝升級畫面不出現分享按鈕。" })),
     save);

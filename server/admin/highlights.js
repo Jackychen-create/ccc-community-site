@@ -39,7 +39,7 @@ export default route({
     if (!h || h.status !== "done") return res.status(400).json({ error: "精華還沒做好" });
     if (b.action === "apply") {
       const chapters = cleanChapters(h.chapters || []);
-      if (!chapters.length) return res.status(400).json({ error: "AI 沒有建議章節" });
+      if (!chapters.length) return res.status(400).json({ error: "這一場沒有建議章節" });
       const { error } = await supabaseAdmin.from("videos").update({ chapters }).eq("id", id);
       if (error) throw error;
       return res.status(200).json({ ok: true, chapters });

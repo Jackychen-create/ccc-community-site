@@ -78,7 +78,7 @@ await test("Discord 精華卡片：標題連到影片、重點、標的、章節
   assert.equal(e.url, "https://ccc-community-site.pages.dev/#/v/7");
   assert.deepEqual(e.fields.map((f) => f.name), ["📌 重點", "🎯 提到的標的", "🧭 章節"]);
   assert.match(e.fields[2].value, /`5:30` BTC/);
-  assert.match(e.footer.text, /AI 自動整理/);
+  assert.match(e.footer.text, /整理內容可能有誤/);
 });
 await test("等級卡：@ 研究員（只允許 @ 他）、等級顏色和徽章圖、不放交易量", () => {
   const c = levelCard({ level: 2, discordId: "500000000000000001", streak: 5, badges: 3 });

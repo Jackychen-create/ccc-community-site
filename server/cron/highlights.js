@@ -43,7 +43,7 @@ export default route({
       segs = await transcribeChunk(new Uint8Array(bytes), chunk * CHUNK_SEC);
     } catch (e) {
       // 額度用完：回 429，GitHub 那邊就停下來，這支排回去下一輪再做（不算失敗次數）
-      if (isQuota(e)) return res.status(429).json({ error: `Workers AI 額度用完或被限流：${String(e?.message || e).slice(0, 160)}`, code: "quota" });
+      if (isQuota(e)) return res.status(429).json({ error: `整理額度用完或被限流：${String(e?.message || e).slice(0, 160)}`, code: "quota" });
       return res.status(502).json({ error: `轉文字失敗：${String(e?.message || e).slice(0, 200)}` });
     }
     // 重新讀一次再寫（一段一段依序送，不會同時寫）
@@ -76,8 +76,8 @@ export default route({
     try {
       h = await summarize(v, transcript);
     } catch (e) {
-      await fail(id, `AI 整理失敗：${e?.message || e}`);
-      return res.status(502).json({ error: "AI 整理失敗" });
+      await fail(id, `整理失敗：${e?.message || e}`);
+      return res.status(502).json({ error: "整理失敗" });
     }
     const now = new Date().toISOString();
     const { error } = await supabaseAdmin.from("video_highlights").update({ status: "done", summary: h.summary, points: h.points, point_times: pointTimesOf(h.points, row.chunks, h.pointTimesAi || [], v.duration_sec || 0), tickers: h.tickers, chapters: h.chapters, model: h.model, error: null, updated_at: now }).eq("video_id", id);

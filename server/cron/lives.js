@@ -8,6 +8,7 @@ import { runOnboarding } from "../lib/onboarding.js";
 import { runCourseMail } from "../lib/course-mail.js";
 import { runExchangeRoles } from "../lib/exchange-roles.js";
 import { okxProbe } from "../lib/okx.js";
+import { fixHighlightFooters } from "../lib/highlights.js";
 
 export default route({
   async POST(req, res) {
@@ -40,7 +41,9 @@ export default route({
     const exchangeRoles = await runExchangeRoles(now).catch((e) => ({ ok: false, error: String(e?.message || e) }));
     // OKX 連線測試：bot_state 的 okx_probe 有 { uid, pending: true } 就跑一次，結果寫回去（設定 OKX 時用）
     const okx = await runOkxProbe().catch((e) => ({ ok: false, error: String(e?.message || e) }));
-    return res.status(200).json({ ok: true, due: (data || []).length, reminded, reviews, announced, onboarding, courseMail, exchangeRoles, okx });
+    // 一次性：舊的直播精華卡片拿掉「AI」字眼（v1.26.32）
+    const footers = await fixHighlightFooters().catch((e) => ({ ok: false, error: String(e?.message || e) }));
+    return res.status(200).json({ ok: true, due: (data || []).length, reminded, reviews, announced, onboarding, courseMail, exchangeRoles, okx, footers });
   },
 });
 
