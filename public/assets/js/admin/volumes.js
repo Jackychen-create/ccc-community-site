@@ -186,7 +186,7 @@ function membershipBar() {
   };
   const setBtn = el("button", { class: "btn sm", type: "button", text: "儲存日期", onclick: () => save(input.value, setBtn) });
   const clearBtn = membership.unitFrom ? el("button", { class: "btn sm ghost", type: "button", text: "取消", onclick: () => save("", clearBtn) }) : null;
-  return el("div", { class: "bx-line", style: { flexWrap: "wrap", gap: "8px 12px", marginBottom: "12px" } },
+  return el("div", { class: "vol-mship", style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: "8px 12px", marginBottom: "12px", padding: "10px 14px", border: "1px solid var(--line)", borderRadius: "10px" } },
     el("b", { text: "會員制度" }), el("span", { class: "muted small", text: status, style: { flex: "1 1 320px" } }),
     input, setBtn, clearBtn);
 }
