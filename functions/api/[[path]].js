@@ -13,6 +13,7 @@ import stats from "../../server/stats.js";
 import videos from "../../server/videos.js";
 import publicVideo from "../../server/public-video.js";
 import publicMembership from "../../server/public-membership.js";
+import publicMarket from "../../server/public-market.js";
 import notes from "../../server/notes.js";
 import course from "../../server/course.js";
 import feedback from "../../server/feedback.js";
@@ -60,6 +61,7 @@ const ROUTES = {
   "videos": videos,
   "public-video": publicVideo,
   "public-membership": publicMembership,
+  "public-market": publicMarket,
   "notes": notes,
   "course": course,
   "feedback": feedback,

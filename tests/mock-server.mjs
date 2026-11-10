@@ -329,6 +329,10 @@ const server = http.createServer(async (req, res) => {
     if (p === "/api/__test/discord-token") { const token = crypto.randomBytes(24).toString("hex"); dcTokens.set(token, { id: body.id || "111111111111111199", name: body.name || "amy_dc", exp: Date.now() + (body.expired ? -1 : 15 * 60e3) }); return send(res, 200, { token }); }
     if (p === "/api/__test/checkin") { const m = members.find((x) => x.email === body.email); if (!m) return send(res, 404, {}); const set = checkinsM.get(m.user_id) || new Set(); for (const dd of body.days || []) set.add(dd); checkinsM.set(m.user_id, set); return send(res, 200, { ok: true }); }
     // 公開影片（不用登入）
+    if (p === "/api/public-market") { // 對外網站行情（假資料）
+      const spark = Array.from({ length: 25 }, (_, i) => 70000 + Math.sin(i / 3) * 800 + i * 40);
+      return send(res, 200, { at: new Date().toISOString(), items: [{ name: "BTC", note: null, price: 71000, chg24: 1.2, high24: 72000, low24: 69500, spark }, { name: "ETH", note: null, price: 2020, chg24: -3.4, high24: 2140, low24: 2000, spark: spark.map((x) => x / 35) }], fng: { value: 32, label: "Fear" } });
+    }
     if (p === "/api/public-membership") return send(res, 200, { unitFrom: mockMembership.unitFrom, on: false });
     if (p === "/api/public-video") {
       const pubs = videos.filter((v) => v.is_published && v.is_public);
