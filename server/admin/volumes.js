@@ -41,6 +41,7 @@ async function snapshot(which) {
       return {
         user_id: m.user_id, email: m.email, banned: m.banned, note: m.note, free: !!m.free,
         tier: tiers.get(m.user_id)?.tier ?? 0, tier_until: tiers.get(m.user_id)?.until ?? null, // 今天的等級
+        unit: tiers.get(m.user_id)?.unit || null, // 單位制：累計、解鎖到第幾份
         period_start: p.start, period_end: p.end, next_end: nextPeriod(anchorOf(m), p).end,
         amounts: v?.amounts || {}, updated_at: v?.updated_at || null, updated_by: v?.updated_by || null,
         cycle_tier: tierOf(v?.amounts || {}), // 那一輪達到第幾級（＝下一輪的等級）

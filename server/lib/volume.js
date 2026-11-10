@@ -4,6 +4,7 @@ import { supabaseAdmin } from "./env.js";
 import { twDate, todayTW } from "./dates.js";
 import { EXCHANGES, LOCKED_AUTO, SITE_TIER, FIRST_CYCLE_TIER, tierOf, periodOf, nextPeriod, prevPeriod, addDays } from "../../public/assets/js/shared/rules.js";
 import { notifyMilestones } from "./milestone.js";
+import { unitOn } from "./membership.js";
 export { EXCHANGES, AUTO_EXCHANGES, LOCKED_AUTO, TIERS, SITE_TIER, tierOf, tierName, goalFor, unitOf, gapTo, tierRuleText, periodOf, nextPeriod, prevPeriod, addMonths, idLabel, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR } from "../../public/assets/js/shared/rules.js";
 
 // 只收合作交易所、0 以上的數字，四捨五入到小數 2 位
@@ -94,6 +95,7 @@ export async function saveVolumes({ entries, updatedBy, merge = false, keepAuto 
   if (upErr) throw upErr;
   // 通知失敗不影響存檔
   let milestones = { recorded: 0, sent: 0 };
+  if (hits.length && (await unitOn())) hits.length = 0; // 單位制沒有一輪一輪的升級（解鎖通知在 course-mail.js）
   try { milestones = await notifyMilestones(hits); } catch (err) { console.error("milestone notify failed", err?.message); }
   return { saved: upserts.length, newlyQualified, tierUps: hits.length, milestones };
 }

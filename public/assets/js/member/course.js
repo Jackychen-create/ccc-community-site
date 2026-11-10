@@ -1,6 +1,6 @@
 // 系統分享：右欄小卡、#/course 分頁。解鎖規則在 shared/rules.js，伺服器算好才給
 import { $, el, api, icons, fmtDur } from "../core/index.js";
-import { COURSE_HOSTS } from "../shared/rules.js";
+import { COURSE_HOSTS, fmtAmount } from "../shared/rules.js";
 import { state, SITE } from "./state.js";
 import { showPage } from "./views.js";
 import { md, weekday } from "./format.js";
@@ -26,7 +26,8 @@ function renderCoursePanel() {
   if (!course?.slots?.length) return (box.hidden = true);
   const open = course.slots.filter((s) => s.unlocked);
   const latest = open[open.length - 1];
-  const next = course.slots.find((s) => !s.unlocked && !s.tier_locked);
+  const unit = course.unit; // 單位制：累計交易量解鎖
+  const next = unit ? course.slots.find((s) => !s.unlocked) : course.slots.find((s) => !s.unlocked && !s.tier_locked);
   const done = open.filter((s) => s.video && isDone(s.video)).length;
   box.hidden = false;
   box.replaceChildren(
@@ -38,12 +39,14 @@ function renderCoursePanel() {
         ? el("a", { class: "course-latest", href: latest.video?.id ? `#/v/${latest.video.id}` : "#/course" },
             el("span", { class: "host", text: latest.host }),
             el("span", { class: "grow" },
-              el("div", { class: "small muted", text: `第 ${latest.week} 週・${slotName(latest)}` }),
+              el("div", { class: "small muted", text: unit ? slotName(latest) : `第 ${latest.week} 週・${slotName(latest)}` }),
               el("div", { class: "vtitle", text: latest.video?.title || "準備中，上架後就能看" })),
             latest.video?.id ? el("span", { class: "dl", html: icons.play }) : null)
         : null,
       el("span", { class: "usage" }, el("span", { class: "track" }, el("i", { style: { width: (done / course.slots.length) * 100 + "%" } }))),
-      el("p", { class: "small muted", text: next ? `下一份：${slotName(next)}，${md(next.unlock_on)} 解鎖` : "全部都解鎖了" }),
+      el("p", { class: "small muted", text: !next ? "全部都解鎖了"
+        : unit ? `下一份：第 ${next.part} 份，累計 ${fmtAmount("", next.need_usdt)} 解鎖（還差 ${fmtAmount("", Math.max(0, next.need_usdt - unit.cum))}）`
+        : `下一份：${slotName(next)}，${md(next.unlock_on)} 解鎖` }),
       el("a", { class: "btn block", href: "#/course" }, "看全部課程"))
   );
 }
@@ -60,6 +63,14 @@ function renderCourse() {
   const slots = state.course.slots;
   const open = slots.filter((s) => s.unlocked).length;
   $("#courseCount").textContent = `已解鎖 ${open}／${slots.length}`;
+  const sub = $("#courseSub");
+  if (sub) {
+    sub.dataset.orig ??= sub.textContent;
+    const u = state.course.unit;
+    sub.textContent = u
+      ? `CCC、X 的系統分享影片各 6 份。累計交易量每 20 萬解鎖一份（CCC、X 的同一份一起開），解鎖了就不會再鎖。你現在累計 ${fmtAmount("", u.cum)}。`
+      : sub.dataset.orig;
+  }
   // 進度條：每一格是一份，休息週留空隙
   $("#courseTrack").replaceChildren(...slots.map((s, i) => {
     const gap = i > 0 && i % COURSE_HOSTS.length === 0;
@@ -67,7 +78,9 @@ function renderCourse() {
   }));
   $("#courseList").replaceChildren(...slots.map((s) => {
     const v = s.video;
-    const status = s.tier_locked
+    const status = s.need_usdt && !s.unlocked
+      ? el("span", { class: "st todo" }, el("span", { html: icons.lock }), `累計 ${fmtAmount("", s.need_usdt)} 解鎖`)
+      : s.tier_locked
       ? el("span", { class: "st todo" }, el("span", { html: icons.lock }), "第二級解鎖")
       : !s.unlocked
       ? el("span", { class: "st todo" }, el("span", { html: icons.lock }), `${md(s.unlock_on)} 解鎖`)
@@ -80,7 +93,9 @@ function renderCourse() {
     const cls = "vrow course-row" + (s.unlocked ? "" : " locked") + (s.unlocked && v?.id ? "" : " static");
     const kids = [
       // 照每個人加入的日期：這一份哪天解鎖（第三級提前解鎖的寫「已解鎖」）
-      el("span", { class: "vdate", title: `第 ${s.week} 週` }, md(s.unlock_on), el("small", { text: s.unlocked && s.unlock_on > (state.course.today || "") ? `第 ${s.week} 週・已解鎖` : `第 ${s.week} 週・${weekday(s.unlock_on)}` })),
+      s.need_usdt
+        ? el("span", { class: "vdate" }, fmtAmount("", s.need_usdt), el("small", { text: s.unlocked ? "已解鎖" : "累計解鎖" }))
+        : el("span", { class: "vdate", title: `第 ${s.week} 週` }, md(s.unlock_on), el("small", { text: s.unlocked && s.unlock_on > (state.course.today || "") ? `第 ${s.week} 週・已解鎖` : `第 ${s.week} 週・${weekday(s.unlock_on)}` })),
       body,
       el("span", { class: "vfig r" + (v?.duration_sec && s.unlocked ? "" : " dim"), text: v?.duration_sec && s.unlocked ? fmtDur(v.duration_sec) : "—" }),
       el("span", { class: "vfig r" + (v?.attachment_count ? "" : " dim"), text: v?.attachment_count ? String(v.attachment_count) : "—" }),

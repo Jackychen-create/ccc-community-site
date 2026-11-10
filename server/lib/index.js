@@ -21,6 +21,7 @@ export * from "./live.js";
 export * from "./milestone.js";
 export * from "./badges.js";
 export * from "./tier.js";
+export * from "./membership.js";
 export * from "./oneonone.js";
 export * from "./quests.js";
 export * from "./chatlog.js";

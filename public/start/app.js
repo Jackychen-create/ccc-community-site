@@ -59,6 +59,7 @@
     };
     var calc = function () {
       var um = form.kind.value === "um";
+      var unitMode = document.documentElement.dataset.mode === "unit";
       $("fSize").querySelector("span").textContent = um ? "每筆幾手" : "每筆倉位（含槓桿）";
       $("fSize").querySelector("em").textContent = um ? "手" : "USDT";
       $("calcNote").textContent = um
@@ -66,6 +67,18 @@
         : "交易量算開倉加平倉的成交金額，所以一筆來回算兩次。實際以交易所的紀錄為準。";
       var size = Math.max(0, +$("cSize").value || 0), n = Math.max(0, +$("cTrades").value || 0), d = Math.min(31, Math.max(0, +$("cDays").value || 0));
       var vol = size * n * d * (um ? 1 : 2);
+      if (unitMode) { // 單位制：累計每 20 萬一份（UM 1 手＝10 萬），六份 120 萬，一對一 100 萬
+        var usd = um ? vol * 100000 : vol;
+        var o = $("calcOut"); o.replaceChildren();
+        var b = document.createElement("span"); b.className = "calc-vol num"; b.textContent = fmt(vol, um);
+        var l = document.createElement("span"); l.className = "calc-lv" + (usd >= 200000 ? " on" : "");
+        var per = usd / 200000;
+        l.textContent = usd > 0 ? (per >= 1 ? "一個月大約解鎖 " + (Math.floor(per * 10) / 10) + " 份" : "大約 " + Math.ceil(1 / per) + " 個月解鎖第 1 份") : "還沒有交易量";
+        var h = document.createElement("span"); h.className = "calc-hint";
+        h.textContent = usd > 0 ? "六份全開大約 " + Math.ceil(1200000 / usd) + " 個月，一對一大約 " + Math.ceil(1000000 / usd) + " 個月" : "";
+        o.append(b, l, h);
+        return;
+      }
       var t = TIERS[um ? "um" : "usdt"], lv = -1;
       t.forEach(function (x, i) { if (vol >= x) lv = i; });
       var next = t[lv + 1];
@@ -80,6 +93,19 @@
     };
     form.addEventListener("input", calc);
     calc();
+    window.__recalc = calc;
+  }
+
+  // ── 會員制度：研究員專區後台設定的日期一到，換成單位制的說明（拿不到就照舊）──
+  var SITE0 = "https://ccc-community-site.pages.dev";
+  if (window.fetch) {
+    fetch(SITE0 + "/api/public-membership").then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+      if (!d || !d.on) return;
+      document.documentElement.dataset.mode = "unit";
+      [].forEach.call(document.querySelectorAll("[data-unit]"), function (e) { e.hidden = false; });
+      [].forEach.call(document.querySelectorAll("[data-tier]"), function (e) { e.hidden = true; });
+      if (window.__recalc) window.__recalc();
+    }).catch(function () {});
   }
 
   // ── 公開影片（研究員專區的 /api/public-video，不用登入）；拿不到就整段不顯示 ──

@@ -74,8 +74,9 @@ export async function openWatch(id, { t = null } = {}) {
     if (e.code === "tier") {
       $("#videoLoading").hidden = true;
       setWatchBack(true);
-      $("#wTitle").textContent = "這一部要第二級才看得到";
-      $("#wDesc").textContent = `${e.message}。第一級可以先看系統分享每位主講的第 1 份。`;
+      const unit = state.me?.volume?.unit; // 單位制：累計交易量解鎖
+      $("#wTitle").textContent = unit ? "這一份還沒解鎖" : "這一部要第二級才看得到";
+      $("#wDesc").textContent = unit ? `${e.message}，你現在累計 ${Math.round(unit.cum / 1e3) / 10} 萬。` : `${e.message}。第一級可以先看系統分享每位主講的第 1 份。`;
       return;
     }
     if (e.code === "locked") {

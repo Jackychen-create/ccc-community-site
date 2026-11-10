@@ -1,12 +1,13 @@
 // 交易量：逐筆填、貼上一整批；三級制度，那一輪達到第幾級＝下一輪的等級（規則在 shared/rules.js 的 TIERS）
 import * as A from "../core/index.js";
 const { el, $, api, icon } = A;
-import { unitOf, idLabel, TIERS, MAX_TIER, SITE_TIER, tierOf, tierName, tierRuleText, progressTo, gapTo } from "../shared/rules.js";
+import { UNIT_USDT, ONE_ON_ONE_USDT, COURSE_PARTS, fmtAmount, unitOf, idLabel, TIERS, MAX_TIER, SITE_TIER, tierOf, tierName, tierRuleText, progressTo, gapTo } from "../shared/rules.js";
 import { fail, loadingBox, segTabs } from "./common.js";
 import { markMembersStale } from "./members.js";
 
 // Bybit、BingX 是自動同步的，這裡只顯示不能改
 let vol = null; // 伺服器回來的這個月資料
+let membership = null; // 會員制度 { unitFrom, on, today }（主要管理員才拿得到）
 let sync = null; // 自動同步狀態 /api/admin/sync：{ Bybit: { configured, linked, last }, BingX: {...} }
 const isAuto = (ex) => (vol?.autoExchanges || []).includes(ex);
 const manualExchanges = () => vol.exchanges.filter((ex) => !isAuto(ex));
@@ -42,6 +43,7 @@ export async function loadVolumes() {
       api(`/api/admin/volumes?which=${which}`),
       api("/api/admin/sync").then((r) => r.exchanges).catch(() => null),
     ]);
+    membership = await api("/api/admin/membership").catch(() => null);
     renderVolumes();
   } catch (e) {
     fail(e);
@@ -77,7 +79,7 @@ function renderVolumes() {
       el("span", { class: "usage" }, el("span", { class: "track" }, el("i", { style: { width: (t >= MAX_TIER ? 100 : Math.min(100, best.ratio * 100)) + "%" } })))
     );
   };
-  const accessText = (r) => (r.free ? "贈送（不分級）" : `${tierName(r.tier)}${r.tier ? (r.tier_until ? `，到 ${mdv(r.tier_until)}` : "，不限") : ""}`);
+  const accessText = (r) => (r.unit ? `累計 ${fmtAmount("", r.unit.cum)}・系統分享 ${r.unit.units}／${COURSE_PARTS}${r.unit.oneOnOne ? "・可一對一" : ""}` : r.free ? "贈送（不分級）" : `${tierName(r.tier)}${r.tier ? (r.tier_until ? `，到 ${mdv(r.tier_until)}` : "，不限") : ""}`);
   const trs = rows.map((r) => {
     const map = {};
     const result = el("td", { class: "vol-result" });
@@ -124,7 +126,7 @@ function renderVolumes() {
     showTab();
   }, "研究員分組") : null;
   box.replaceChildren(
-    ...[syncBar(), tabs].filter(Boolean),
+    ...[membershipBar(), syncBar(), tabs].filter(Boolean),
     el("div", { class: "table-wrap" },
       el("table", { class: "table stack vol-table" },
         el("thead", null, el("tr", null, el("th", { text: "研究員" }), ...exchanges.map((ex) => el("th", { text: isAuto(ex) ? `${ex}（自動）` : `${ex}（${unitOf(ex)}）` })), el("th", { text: "這一輪達到" }), el("th", { class: "hide-sm", text: "今天的等級" }))),
@@ -162,6 +164,31 @@ function renderVolumes() {
       fail(e);
     }
   });
+}
+
+// 會員制度：設定哪一天起改成單位制（累計每 20 萬解鎖一份系統分享）
+function membershipBar() {
+  if (!membership) return null;
+  const input = el("input", { type: "date", class: "input", value: membership.unitFrom || "", "aria-label": "單位制開始日期", style: { width: "170px" } });
+  const status = membership.on
+    ? `現在是單位制（${membership.unitFrom} 起）：累計交易量每 ${UNIT_USDT / 1e4} 萬解鎖一份系統分享、${ONE_ON_ONE_USDT / 1e4} 萬可以一對一，直播留檔加入就能看。`
+    : membership.unitFrom
+    ? `${membership.unitFrom} 起改成單位制，在那之前照三級制度。`
+    : "現在是三級制度。設定日期後，那天起改成單位制（累計每 20 萬解鎖一份系統分享）。";
+  const save = async (v, btn) => {
+    A.setBusy(btn, true);
+    try {
+      membership = await api("/api/admin/membership", { method: "PUT", body: { unitFrom: v } });
+      A.toast(v ? `已設定：${v} 起改成單位制` : "已取消，維持三級制度");
+      markMembersStale();
+      loadVolumes();
+    } catch (e) { fail(e); } finally { A.setBusy(btn, false); }
+  };
+  const setBtn = el("button", { class: "btn sm", type: "button", text: "儲存日期", onclick: () => save(input.value, setBtn) });
+  const clearBtn = membership.unitFrom ? el("button", { class: "btn sm ghost", type: "button", text: "取消", onclick: () => save("", clearBtn) }) : null;
+  return el("div", { class: "vol-mship", style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: "8px 12px", marginBottom: "12px", padding: "10px 14px", border: "1px solid var(--line)", borderRadius: "10px" } },
+    el("b", { text: "會員制度" }), el("span", { class: "muted small", text: status, style: { flex: "1 1 320px" } }),
+    input, setBtn, clearBtn);
 }
 
 // 自動同步狀態：每間交易所一列（設定好了沒、綁定幾位、上次同步）、一顆「立即同步」

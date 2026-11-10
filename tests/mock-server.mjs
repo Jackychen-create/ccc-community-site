@@ -80,6 +80,7 @@ const autoLinks = Object.fromEntries(EXCHANGES.map((ex) => [ex, new Map()])); //
 const accNames = new Map(); // `${ex}:${user_id}` → UM 註冊用的 Email
 // 模擬伺服器裡 OKX 當作「還沒設定 API Key」：跟以前一樣管理員手填（正式網站 2026-11-10 起 OKX 也自動）
 const AUTO_EXCHANGES = REAL_AUTO.filter((ex) => ex !== "OKX");
+const mockMembership = { unitFrom: null };
 const INVITED = { BingX: { "88880001": 3500000 }, Bybit: { "77770001": 1500000 } };
 const syncLast = {};
 // 直播預告（假的 Discord：只記下發了什麼）
@@ -328,6 +329,7 @@ const server = http.createServer(async (req, res) => {
     if (p === "/api/__test/discord-token") { const token = crypto.randomBytes(24).toString("hex"); dcTokens.set(token, { id: body.id || "111111111111111199", name: body.name || "amy_dc", exp: Date.now() + (body.expired ? -1 : 15 * 60e3) }); return send(res, 200, { token }); }
     if (p === "/api/__test/checkin") { const m = members.find((x) => x.email === body.email); if (!m) return send(res, 404, {}); const set = checkinsM.get(m.user_id) || new Set(); for (const dd of body.days || []) set.add(dd); checkinsM.set(m.user_id, set); return send(res, 200, { ok: true }); }
     // 公開影片（不用登入）
+    if (p === "/api/public-membership") return send(res, 200, { unitFrom: mockMembership.unitFrom, on: false });
     if (p === "/api/public-video") {
       const pubs = videos.filter((v) => v.is_published && v.is_public);
       if (!url.searchParams.has("id")) return send(res, 200, { videos: pubs.map((v) => ({ id: v.id, title: v.title, duration_sec: v.duration_sec, thumb_url: thumbUrl(v) })) });
@@ -741,6 +743,10 @@ const server = http.createServer(async (req, res) => {
       if (!discordSettings.panelChannelId) return send(res, 400, { error: "先填報名頻道的 ID" });
       discordPanels++;
       return send(res, 200, { ok: true, messageId: "900000000000000001" });
+    }
+    if (p === "/api/admin/membership") { // 會員制度（v1.26.34）：假伺服器只記日期，照舊用三級制度
+      if (req.method === "PUT") mockMembership.unitFrom = body.unitFrom || null;
+      return send(res, 200, { unitFrom: mockMembership.unitFrom, on: false, today: new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10) });
     }
     if (p === "/api/admin/sync") {
       const overview = () => Object.fromEntries(AUTO_EXCHANGES.map((ex) => [ex, { configured: true, linked: autoLinks[ex].size, last: syncLast[ex] || null }]));

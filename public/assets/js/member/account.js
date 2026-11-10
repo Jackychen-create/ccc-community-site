@@ -3,7 +3,7 @@ import { $, el, icons, fmtRel, api, sb, modal, confirmDialog, setBusy, toast, cf
 import { state } from "./state.js";
 import { emblem, levelUp } from "./levelup.js";
 import { DAY, md } from "./format.js";
-import { AUTO_EXCHANGES, TIERS, MAX_TIER, SITE_TIER, tierName, tierInfo, tierRuleText, goalFor, fmtAmount, gapTo, progressTo, isLots, addDays, TRADFI_NOTE, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR } from "../shared/rules.js";
+import { UNIT_USDT, ONE_ON_ONE_USDT, COURSE_PARTS, AUTO_EXCHANGES, TIERS, MAX_TIER, SITE_TIER, tierName, tierInfo, tierRuleText, goalFor, fmtAmount, gapTo, progressTo, isLots, addDays, TRADFI_NOTE, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR } from "../shared/rules.js";
 
 const twToday = () => new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
 const withUnit = (ex, n) => `${fmtAmount(ex, n)}${isLots(ex) ? "" : " USDT"}`;
@@ -14,7 +14,7 @@ export const targetTier = (v) => (v.cycleTier < v.tier ? v.tier : Math.min(MAX_T
 export function renderAccessBanner() {
   const v = state.me?.volume;
   const box = $("#accessBanner");
-  if (!v || state.me.free) return (box.hidden = true);
+  if (!v || state.me.free || v.unit) return (box.hidden = true); // 單位制只會往上，不用提醒
   if (v.tier === 0) {
     box.hidden = false;
     return box.replaceChildren(el("span", { html: icons.clock }),
@@ -45,6 +45,7 @@ export function renderVolPanel() {
       state.me.links?.some((l) => l.uid) ? linkRows() : null,
     ].filter(Boolean));
   }
+  if (v.unit) return box.replaceChildren(...unitPanel(v));
   const target = targetTier(v);
   const keep = v.cycleTier < v.tier; // 這一輪還沒保住現在的等級
   const status = v.tier === 0
@@ -71,6 +72,36 @@ export function renderVolPanel() {
     linkRows(),
     el("p", { class: "small muted vol-note", text: "從加入那天起算，每一輪一個月；這一輪達到第幾級，下一輪就是第幾級（任一間交易所達到就算）。" + (v.updatedAt ? `上次更新：${fmtRel(v.updatedAt)}。` : `${v.exchanges.filter((ex) => !AUTO_EXCHANGES.includes(ex)).join("、")} 由管理員更新。`) + (v.exchanges.includes("Bybit") ? TRADFI_NOTE : "") }),
   ].filter(Boolean));
+}
+
+// ── 單位制：累計交易量，每 20 萬解鎖一份系統分享、100 萬可以一對一 ──
+function unitPanel(v) {
+  const u = v.unit;
+  const pct = (n, goal) => Math.min(100, (n / goal) * 100) + "%";
+  const status = u.units >= COURSE_PARTS
+    ? "系統分享全部解鎖了。"
+    : `已解鎖 ${u.units}／${COURSE_PARTS} 份，再累計 ${fmtAmount("", u.nextAt - u.cum)} 解鎖第 ${u.units + 1} 份。`;
+  return [
+    el("div", { class: "panel-head", style: { padding: "14px 18px" } },
+      el("div", null, el("h2", { text: "我的累計交易量" }), el("div", { class: "small muted num vol-range", text: "從加入那天起" })),
+      el("span", { class: "pill good num", text: `${fmtAmount("", u.cum)} USDT` })),
+    el("ol", { class: "unit-cells", "aria-label": `系統分享解鎖 ${u.units}／${COURSE_PARTS}` },
+      ...Array.from({ length: COURSE_PARTS }, (_, i) => el("li", { class: u.units > i ? "on" : "", title: `第 ${i + 1} 份：累計 ${fmtAmount("", (i + 1) * UNIT_USDT)}` },
+        el("b", { class: "num", text: String(i + 1) }),
+        el("span", { class: "num", text: fmtAmount("", (i + 1) * UNIT_USDT) })))),
+    el("p", { class: "small tier-status", text: status }),
+    el("div", { class: "vol-rows" },
+      el("div", { class: "vol-row" + (u.units >= COURSE_PARTS ? " ok" : "") },
+        el("span", { class: "vol-ex", text: "下一份" }),
+        el("span", { class: "num vol-n", text: u.nextAt ? `${fmtAmount("", u.cum)}／${fmtAmount("", u.nextAt)}` : "全部解鎖" }),
+        el("span", { class: "track" }, el("i", { style: { width: u.nextAt ? pct(u.cum - (u.nextAt - UNIT_USDT), UNIT_USDT) : "100%" } }))),
+      el("div", { class: "vol-row" + (u.oneOnOne ? " ok" : "") },
+        el("span", { class: "vol-ex", text: "一對一" }),
+        el("span", { class: "num vol-n", text: u.oneOnOne ? "可以預約" : `${fmtAmount("", u.cum)}／${fmtAmount("", ONE_ON_ONE_USDT)}` }),
+        el("span", { class: "track" }, el("i", { style: { width: pct(u.cum, ONE_ON_ONE_USDT) } })))),
+    linkRows(),
+    el("p", { class: "small muted vol-note", text: `每累計 ${fmtAmount("", UNIT_USDT)} USDT 解鎖一份系統分享，解鎖了就不會再鎖；各交易所加起來算，UM 1 手當 10 萬。直播留檔加入就能看。` + (v.updatedAt ? `上次更新：${fmtRel(v.updatedAt)}。` : "") + (v.exchanges.includes("Bybit") ? TRADFI_NOTE : "") }),
+  ].filter(Boolean);
 }
 
 // ── 三級的階梯：這一輪達到哪一級就亮到哪一級，下面寫門檻 ──

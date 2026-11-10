@@ -379,6 +379,26 @@ test("伺服器 500 回大概原因（不回錯誤內容）", () => {
   assert.equal(errorKind(new TypeError("fetch failed")), "upstream");
   assert.equal(errorKind(new Error("x is not defined")), "app");
 });
+await test("單位制：累計換算、每 20 萬一份、100 萬一對一、開始日期", async () => {
+  const R = await import("../public/assets/js/shared/rules.js");
+  assert.equal(R.usdtEquiv({ OKX: 100000, Bybit: 50000, UM: 1.5 }), 300000);
+  assert.deepEqual(R.unitStatus(399999), { cum: 399999, units: 1, oneOnOne: false, nextAt: 400000 });
+  assert.deepEqual(R.unitStatus(5e6), { cum: 5e6, units: 6, oneOnOne: true, nextAt: null });
+  assert.equal(R.unitStatus(0, { allCourse: true }).units, 6);
+  assert.equal(R.unitTier(R.unitStatus(1e6)), 3); assert.equal(R.unitTier(R.unitStatus(0)), 2);
+  assert.equal(R.isUnitOn("2026-12-01", "2026-11-30"), false); assert.equal(R.isUnitOn("2026-12-01", "2026-12-01"), true);
+  assert.equal(R.isUnitOn(null, "2026-12-01"), false); assert.equal(R.isUnitOn("x", "2026-12-01"), false);
+});
+await test("單位制解鎖通知：多開的份才通知，第一次看到的人只記下來", async () => {
+  const { unitUnlocks } = await import("../server/lib/course-mail.js");
+  const R = await import("../public/assets/js/shared/rules.js");
+  const members = [{ user_id: "a", email: "a@x" }, { user_id: "b", email: "b@x" }, { user_id: "c", email: "c@x", notify: false }];
+  const tiers = new Map([["a", { unit: R.unitStatus(450000) }], ["b", { unit: R.unitStatus(450000) }], ["c", { unit: R.unitStatus(900000) }]]);
+  const vids = [1, 2, 3].flatMap((part) => ["CCC", "X"].map((h, i) => ({ id: part * 10 + i, title: `${h}${part}`, course_host: h, course_part: part })));
+  const r = unitUnlocks(members, tiers, vids, { a: 1, c: 1 });
+  assert.deepEqual(r.due.map((d) => [d.user_id, d.list.map((x) => x.title)]), [["a", ["CCC2", "X2"]]]);
+  assert.deepEqual(r.next, { a: 2, b: 2, c: 4 });
+});
 pfake.close();
 bfake.close();
 
