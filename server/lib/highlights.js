@@ -7,7 +7,7 @@
 // AI 用 Cloudflare 帳號的 Workers AI（wrangler.toml 的 [ai] binding），不用另外的金鑰
 import { linesOf } from "./search.js";
 import { supabaseAdmin, env } from "./env.js";
-import { getDiscordSettings, sendMessage } from "./discord.js";
+import { getDiscordSettings, sendMessage, discordApi, editMessage } from "./discord.js";
 
 export const SITE = "https://ccc-community-site.pages.dev";
 export const LOGO = `${SITE}/assets/brand/ccc-bot.png`;
@@ -153,7 +153,7 @@ export async function summarize(v, transcript) {
     } catch (e) { last = e; }
   }
   if (best) return { ...best, chapters: [] };
-  throw last || new Error("AI 整理失敗");
+  throw last || new Error("整理失敗");
 }
 
 // ── 4. 貼到 Discord ──
@@ -170,9 +170,28 @@ export function highlightEmbed(v, h) {
     description: `${clip(h.summary, 1500)}\n\n▶️ [到網站看完整直播](${url})`,
     color: 0xcda45e,
     fields,
-    footer: { text: `AI 自動整理，可能有誤，以影片內容為準${v.hosts?.length ? `｜講者 ${v.hosts.join("、")}` : ""}`, icon_url: LOGO },
+    footer: { text: `整理內容可能有誤，以影片內容為準${v.hosts?.length ? `｜講者 ${v.hosts.join("、")}` : ""}`, icon_url: LOGO },
     timestamp: new Date().toISOString(),
   };
+}
+// v1.26.32：已經貼出去的精華卡片，頁尾的「AI 自動整理」改成新的寫法（只跑一次，做完記在 bot_state）
+export async function fixHighlightFooters() {
+  const KEY = "highlight_footer_fix";
+  const { data } = await supabaseAdmin.from("bot_state").select("value").eq("key", KEY).maybeSingle();
+  if (data?.value?.done) return null;
+  const s = await getDiscordSettings();
+  const ch = s.highlightChannelId || "";
+  if (!ch || !env.DISCORD_BOT_TOKEN) return null;
+  const msgs = (await discordApi("GET", `/channels/${ch}/messages?limit=100`)) || [];
+  let edited = 0;
+  for (const m of msgs) {
+    if (!m.author?.bot || !(m.embeds || []).some((e) => /AI/.test(e.footer?.text || ""))) continue;
+    const embeds = m.embeds.map((e) => (e.footer?.text ? { ...e, footer: { ...e.footer, text: e.footer.text.replace(/^AI 自動整理，/, "整理內容").replace(/AI\s*/g, "") } } : e));
+    await editMessage(ch, m.id, { embeds });
+    edited++;
+  }
+  await supabaseAdmin.from("bot_state").upsert({ key: KEY, value: { done: true, edited }, updated_at: new Date().toISOString() });
+  return { edited };
 }
 export async function postHighlight(v, h) {
   const s = await getDiscordSettings();

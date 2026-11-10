@@ -5,7 +5,7 @@ import * as A from "../core/index.js";
 const { el, api, icon } = A;
 const STATUS = {
   pending: "排隊中，大約 2 小時內會產生",
-  processing: "AI 正在整理中…",
+  processing: "正在整理中…",
   failed: "上次失敗了",
   skipped: "略過（聽不到講話的內容）",
 };
@@ -14,7 +14,7 @@ const STATUS = {
 export function highlightField(v, { onApply }) {
   const body = el("div", { class: "hl-admin" }, el("p", { class: "small muted", text: "讀取中…" }));
   const box = el("div", { class: "field" },
-    el("div", { class: "section-label" }, el("span", { class: "label", text: "✨ 直播精華（AI 自動整理）" })),
+    el("div", { class: "section-label" }, el("span", { class: "label", text: "✨ 直播精華（自動整理）" })),
     body);
 
   const btn = (label, ic, fn) => {
@@ -48,7 +48,7 @@ export function highlightField(v, { onApply }) {
       h.tickers?.length ? el("p", { class: "small muted", text: `提到的標的：${h.tickers.map((x) => x.name).join("、")}` }) : null,
       el("p", { class: "small muted", text: `${h.posted_at ? `已貼到 Discord（${A.fmtRel(h.posted_at)}）` : "還沒貼到 Discord（後台 Discord 審核 → 直播精華頻道 ID 要先設定）"}・${h.model || ""}` }),
       el("div", { class: "hl-actions" },
-        chaps.length ? btn(`把 AI 的 ${chaps.length} 段章節填進章節欄`, "edit", async () => { onApply(chaps); A.toast("已填進章節欄，看過沒問題再按儲存"); }) : null,
+        chaps.length ? btn(`把建議的 ${chaps.length} 段章節填進章節欄`, "edit", async () => { onApply(chaps); A.toast("已填進章節欄，看過沒問題再按儲存"); }) : null,
         btn(h.posted_at ? "再貼一次到 Discord" : "貼到 Discord", "chat", async () => {
           await api("/api/admin/highlights", { method: "POST", body: { video: v.id, action: "post" } });
           A.toast("已貼到 Discord");

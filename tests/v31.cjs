@@ -36,7 +36,7 @@ const HL = { status: "done", summary: "這場講開盤區間怎麼畫，以及�
     await login(p, "amy@example.com"); await closeAll(p);
     await p.evaluate(() => (location.hash = "#/v/5")); await p.waitForSelector("#wHl:not([hidden])");
     const box = await p.textContent("#wHl");
-    check(`${name}：播放頁有直播精華（摘要、重點、標的、AI 提醒）`, box.includes("開盤區間怎麼畫") && (await p.locator("#wHl .ai-hl-points li").count()) === 2 && box.includes("NQ") && box.includes("AI 自動整理"), box.slice(0, 80));
+    check(`${name}：播放頁有直播精華（摘要、重點、標的、提醒）`, box.includes("開盤區間怎麼畫") && (await p.locator("#wHl .ai-hl-points li").count()) === 2 && box.includes("NQ") && box.includes("整理內容可能有誤"), box.slice(0, 80));
     check(`${name}：沒有手動章節時用 AI 的章節`, !(await p.isHidden("#wChapters")) && (await p.textContent("#chapList")).includes("常見陷阱"));
     await p.evaluate(() => (location.hash = "#/v/6")); await p.waitForTimeout(900);
     check(`${name}：沒有精華的場次不顯示`, await p.isHidden("#wHl"));
