@@ -399,6 +399,23 @@ await test("單位制解鎖通知：多開的份才通知，第一次看到的�
   assert.deepEqual(r.due.map((d) => [d.user_id, d.list.map((x) => x.title)]), [["a", ["CCC2", "X2"]]]);
   assert.deepEqual(r.next, { a: 2, b: 2, c: 4 });
 });
+await test("對外網站行情 /api/public-market：整理 Edge Function 的資料、開 CORS；拿不到回 502", async () => {
+  const { default: market } = await import("../server/public-market.js");
+  const { env } = await import("../server/lib/env.js");
+  const srv = http.createServer((req, res) => { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ at: "2026-11-11T00:00:00Z", items: [{ name: "BTC", price: "70000.5", chg24: -2.7000001, high24: 1, low24: 0, spark: [1, 2, 3] }], fng: { value: "24", label: "Extreme Fear" } })); });
+  await new Promise((r) => srv.listen(0, "127.0.0.1", r));
+  env.MARKET_URL = `http://127.0.0.1:${srv.address().port}/`;
+  const out = { headers: {} };
+  const res = { setHeader: (k, v) => (out.headers[k] = v), status: (c) => ((out.code = c), res), json: (b) => ((out.body = b), res), end: () => res };
+  await market({ method: "GET", query: {}, headers: {} }, res);
+  assert.equal(out.code, 200); assert.equal(out.headers["Access-Control-Allow-Origin"], "*");
+  assert.deepEqual([out.body.items[0].price, out.body.items[0].chg24, out.body.fng.value], [70000.5, -2.7, 24]);
+  srv.close();
+  env.MARKET_URL = "http://127.0.0.1:1/";
+  await market({ method: "GET", query: {}, headers: {} }, res);
+  assert.equal(out.code, 502);
+  delete env.MARKET_URL;
+});
 pfake.close();
 bfake.close();
 
