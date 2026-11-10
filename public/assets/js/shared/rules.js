@@ -145,6 +145,32 @@ export function tierStatus({ anchor, today, amountsOf, override = null }) {
   return { tier, until, cycleTier, period };
 }
 
+// ── 單位制（2026-11-11 規劃；後台「交易量」設定開始日期，那天起取代三級制度）──
+// 不分一輪一輪：從加入那天起的交易量全部累計（各交易所加起來，UM 1 手當 10 萬 USDT），只會往上
+//   每 20 萬解鎖一份系統分享（第 N 份＝CCC、X 的第 N 份一起開，6 份全開要 120 萬），解鎖了就永久，不用等每週排程
+//   直播留檔、研究員專區：加入就能看（等級一律當第二級）
+//   一對一交流：累計 100 萬（等級當第三級）
+// 管理員手動給第三級＝系統分享全開、可以一對一；贈送名額＝系統分享全開（不能一對一）
+export const UNIT_USDT = 200000;
+export const UM_LOT_USDT = 100000;
+export const ONE_ON_ONE_USDT = 1000000;
+export const isUnitOn = (unitFrom, today) => /^\d{4}-\d\d-\d\d$/.test(String(unitFrom || "")) && today >= unitFrom;
+// 一筆交易量換算成 USDT（UM 手數 × 10 萬）
+export function usdtEquiv(amounts) {
+  let s = 0;
+  for (const ex of EXCHANGES) s += (Number(amounts?.[ex]) || 0) * (isLots(ex) ? UM_LOT_USDT : 1);
+  return Math.round(s * 100) / 100;
+}
+// 累計交易量 → 解鎖到第幾份、能不能一對一、下一份要累計到多少
+export function unitStatus(cum, { allCourse = false, oneOnOne = false } = {}) {
+  cum = Number(cum) || 0;
+  const units = allCourse ? COURSE_PARTS : Math.min(COURSE_PARTS, Math.floor(cum / UNIT_USDT));
+  return { cum, units, oneOnOne: oneOnOne || cum >= ONE_ON_ONE_USDT, nextAt: units < COURSE_PARTS ? (units + 1) * UNIT_USDT : null };
+}
+export const unitTier = (u) => (u.oneOnOne ? MAX_TIER : SITE_TIER);
+// 系統分享第 part 份開了沒（單位制）
+export const unitPartOpen = (u, part) => !!u && u.units >= part;
+
 // ── 一對一交流（第三級，2026-10-18）──
 // 第三級的研究員每個月（台灣時間的月份）從主講裡選一位（OC 2026-11-09 停止合作後是 CCC、X 二選一）；每位主講一個月最多 5 位
 // 選同一位的超過 5 位 → 照這一輪的交易量排（換算成「到第三級門檻的幾倍」，UM 和 USDT 才比得了），前 5 位確定、其他候補（可以改選別位）

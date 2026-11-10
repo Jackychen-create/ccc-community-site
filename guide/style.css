@@ -323,3 +323,5 @@ body::after { /* 底片顆粒 */
   body::after, .flare .core, .flare .streak, .board::after { animation: none; }
   .btn.primary::after { display: none; }
 }
+.board dd small { font-size: .45em; margin-left: 2px; color: var(--ink-2); text-shadow: none; }
+[data-unit][hidden], [data-tier][hidden] { display: none !important; }

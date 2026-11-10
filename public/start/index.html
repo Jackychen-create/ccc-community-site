@@ -30,7 +30,7 @@
       <a href="#hosts">主講</a>
       <a href="#join">怎麼加入</a>
       <a href="#exchanges">交易所註冊</a>
-      <a href="#tiers">研究員等級</a>
+      <a href="#tiers"><span data-tier>研究員等級</span><span data-unit hidden>解鎖方式</span></a>
       <a href="#site">研究員專區</a>
       <a href="#discord">Discord</a>
       <a href="#faq">常見問題</a>
@@ -56,7 +56,8 @@
       <div><dt>會費</dt><dd class="num">0</dd><span>看交易量，不收錢</span></div>
       <div><dt>主講</dt><dd class="num">2</dd><span>CCC、X</span></div>
       <div><dt>交易所</dt><dd class="num">4</dd><span>OKX、Bybit、BingX、UM</span></div>
-      <div><dt>系統分享</dt><dd class="num">1</dd><span>每週解鎖一份</span></div>
+      <div data-tier><dt>系統分享</dt><dd class="num">1</dd><span>每週解鎖一份</span></div>
+      <div data-unit hidden><dt>系統分享</dt><dd class="num">20<small>萬</small></dd><span>累計交易量解鎖一份</span></div>
     </dl>
   </div>
 </section>
@@ -133,7 +134,7 @@
 <section class="sec" id="exchanges">
   <div class="wrap">
     <h2>交易所註冊步驟</h2>
-    <p class="intro">選你習慣的那一間就好，交易量在任何一間達標都算。</p>
+    <p class="intro">選你習慣的那一間就好，<span data-tier>交易量在任何一間達標都算。</span><span data-unit hidden>幾間的交易量會加起來算。</span></p>
 
     <div class="warn-box" role="note">
       <b>註冊前先看這個</b>
@@ -216,6 +217,39 @@
 
 <section class="sec" id="tiers">
   <div class="wrap">
+    <div data-unit hidden>
+    <h2>解鎖方式</h2>
+    <p class="intro">不收會費，也不用每個月重新達標。<br class="pc">交易量從加入那天起一直累計，累計到哪就開到哪，開了不會再鎖。</p>
+    <div class="tier-table" role="table" aria-label="累計交易量和解鎖內容">
+      <div class="tr th" role="row">
+        <span role="columnheader">累計交易量</span>
+        <span role="columnheader">換算</span>
+        <span role="columnheader">可以看什麼</span>
+      </div>
+      <div class="tr" role="row">
+        <span role="cell" class="lv"><i class="shield s1" aria-hidden="true"></i>加入就有</span>
+        <span role="cell"><span class="dim">不用交易量</span></span>
+        <span role="cell">Discord 研究員身分組、會員直播、全部直播留檔、研究員專區</span>
+      </div>
+      <div class="tr" role="row">
+        <span role="cell" class="lv"><i class="shield s2" aria-hidden="true"></i>每 20 萬</span>
+        <span role="cell"><b class="num">200,000</b> USDT<br><span class="dim">或 UM <b class="num">2</b> 手</span></span>
+        <span role="cell">解鎖一份系統分享（CCC、X 各一部），六份都開要累計 120 萬</span>
+      </div>
+      <div class="tr" role="row">
+        <span role="cell" class="lv"><i class="shield s3" aria-hidden="true"></i>累計 100 萬</span>
+        <span role="cell"><b class="num">1,000,000</b> USDT<br><span class="dim">或 UM <b class="num">10</b> 手</span></span>
+        <span role="cell">每個月一次一對一交流（CCC、X 二選一）</span>
+      </div>
+    </div>
+    <ul class="fine">
+      <li>OKX、Bybit、BingX、UM 的交易量加起來算，UM 1 手當 10 萬 USDT。</li>
+      <li>解鎖了就一直看得到，不用等每週排程，也不會因為哪個月少做而鎖回去。</li>
+      <li>Bybit、BingX、OKX 的交易量網站每天自動更新；UM 由管理員更新。</li>
+    </ul>
+    </div>
+
+    <div data-tier>
     <h2>研究員等級</h2>
     <p class="intro">不收會費，等級看交易量。每個人從加入那天起算，一輪一個月，這一輪達到哪一級，下一輪就是哪一級。新研究員的第一輪直接給第二級。</p>
     <div class="tier-table" role="table" aria-label="三個等級的門檻和內容">
@@ -245,9 +279,10 @@
       <li>沒達標的話，下一輪降一級或沒有等級，之後達標再升回來。</li>
       <li>Bybit、BingX、OKX 的交易量網站每天自動更新；UM 由管理員更新。</li>
     </ul>
+    </div>
 
     <form class="calc" id="calc" aria-labelledby="calcTitle" onsubmit="return false">
-      <h3 id="calcTitle">算算看你會到哪一級</h3>
+      <h3 id="calcTitle"><span data-tier>算算看你會到哪一級</span><span data-unit hidden>算算看多久能全部解鎖</span></h3>
       <div class="calc-kind" role="radiogroup" aria-label="交易所">
         <label><input type="radio" name="kind" value="usdt" checked> OKX、Bybit、BingX</label>
         <label><input type="radio" name="kind" value="um"> UM</label>
@@ -275,15 +310,17 @@
       </article>
       <article class="card">
         <h3>系統分享</h3>
-        <p>從你加入那天起每週解鎖一份，每 4 週休息一週。課程頁會寫每一份的解鎖日期，解鎖那天助教也會通知你。</p>
+        <p data-tier>從你加入那天起，照排程一份一份解鎖。課程頁會寫每一份的解鎖日期，解鎖那天助教也會通知你。</p>
+        <p data-unit hidden>累計交易量每 20 萬解鎖一份，CCC、X 的同一份一起開。課程頁看得到下一份還差多少，解鎖時助教會通知你。</p>
       </article>
       <article class="card">
         <h3>直播留檔</h3>
         <p>每場會員直播都有留檔，並附整理好的重點和章節，點重點就跳到講到那裡。上面的搜尋框可以搜直播裡講過的話，例如「假突破」。</p>
       </article>
       <article class="card">
-        <h3>我的等級和交易量</h3>
-        <p>首頁的「本月交易量」看得到這一輪的進度、離下一級還差多少，和這一輪到哪一天（手機在最上面）。</p>
+        <h3><span data-tier>我的等級和交易量</span><span data-unit hidden>我的累計交易量</span></h3>
+        <p data-tier>首頁看得到這一輪的交易量、離下一級還差多少，和這一輪到哪一天（手機在最上面）。</p>
+        <p data-unit hidden>首頁看得到你從加入到現在的累計交易量、解鎖到第幾份、離一對一還差多少。</p>
       </article>
       <article class="card">
         <h3>我的提問</h3>
@@ -317,7 +354,7 @@
     <h2>常見問題</h2>
     <details>
       <summary>真的不用錢嗎？</summary>
-      <p>不收會費。你用 CCC 的連結註冊交易所，正常交易，交易所會回饋一部分手續費給社群，社群靠這個運作。所以等級看的是交易量。</p>
+      <p>不收會費。你用 CCC 的連結註冊交易所，正常交易，交易所會回饋一部分手續費給社群，社群靠這個運作。所以看的是交易量。</p>
     </details>
     <details>
       <summary>我已經有交易所帳號了，怎麼辦？</summary>
@@ -333,7 +370,8 @@
     </details>
     <details>
       <summary>交易量怎麼算？</summary>
-      <p>從你加入那天起，每一輪一個月（例如 10/16 加入，第一輪是 10/16～11/15）。這一輪任何一間交易所達到門檻，下一輪就是那一級。USDT 交易所算成交金額，UM 算手數。</p>
+      <p data-tier>從你加入那天起，每一輪一個月（例如 10/16 加入，第一輪是 10/16～11/15）。這一輪任何一間交易所達到門檻，下一輪就是那一級。USDT 交易所算成交金額，UM 算手數。</p>
+      <p data-unit hidden>從你加入那天起一直累計，不分月份。USDT 交易所算成交金額（開倉、平倉各算一次），UM 1 手當 10 萬 USDT，幾間加起來算。</p>
     </details>
     <details>
       <summary>可以用其他交易所嗎？</summary>

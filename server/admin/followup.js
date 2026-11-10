@@ -3,13 +3,14 @@
 // 每位研究員列出需要注意的地方：沒有等級、下一輪會降級、第三級一對一、很久沒來、課程落後、有提問還沒回
 import {
   supabaseAdmin, requireAdmin, route, todayTW, twDate, addDays,
-  gapTo, tierName, tierFromRows, periodFor, oneOnOneBoard, COURSE_HOSTS, COURSE_PARTS, courseUnlockDate,
+  gapTo, tierName, tierFromRows, periodFor, oneOnOneBoard, COURSE_HOSTS, COURSE_PARTS, courseUnlockDate, unitOn,
 } from "../lib/index.js";
 
 export default route({
   async GET(req, res) {
     if (!(await requireAdmin(req, res))) return;
     const today = todayTW();
+    const unit = await unitOn(today); // 單位制：要全部的輪算累計
     const board = await oneOnOneBoard().catch(() => null); // 這個月的一對一（表還沒建立時當作沒有）
     const pickOf = new Map();
     for (const h of board?.hosts || []) for (const e of h.list) pickOf.set(e.user_id, { host: h.host, ...e });
@@ -18,7 +19,7 @@ export default route({
       supabaseAdmin.from("videos").select("id, course_host, course_part").eq("is_published", true).not("course_host", "is", null),
       // 每位研究員看過幾場、看完哪幾場：資料庫算好（supabase/schema.sql 的 admin_member_progress）
       supabaseAdmin.rpc("admin_member_progress"),
-      supabaseAdmin.from("volumes").select("user_id, period_start, amounts, qualified_at").gte("period_start", addDays(today, -70)),
+      supabaseAdmin.from("volumes").select("user_id, period_start, amounts, qualified_at").gte("period_start", unit ? "2000-01-01" : addDays(today, -70)),
       supabaseAdmin.from("feedback").select("user_id").eq("status", "open"),
     ]);
     for (const r of [m, v, p, vol, fb]) if (r.error) throw r.error;
@@ -38,7 +39,7 @@ export default route({
       const doneIds = new Set((prog.done_ids || []).map(Number));
 
       // 等級（三級制度）
-      const ts = tierFromRows(mem, vol.data || [], today);
+      const ts = tierFromRows(mem, vol.data || [], today, unit);
       const period = periodFor(mem, "current", today);
       const vr = volBy.get(`${mem.user_id}:${period.start}`);
       const md = (d) => d.slice(5).replace("-", "/");
@@ -51,7 +52,7 @@ export default route({
       }
       if (!mem.free && ts.tier >= 3) {
         const pk = pickOf.get(mem.user_id);
-        if (!pk) reasons.push({ key: "oneonone", label: "第三級：這個月還沒選一對一主講", level: 1 });
+        if (!pk) reasons.push({ key: "oneonone", label: `${unit ? "可以一對一" : "第三級"}：這個月還沒選一對一主講`, level: 1 });
         else if (!pk.booked) reasons.push({ key: "oneonone", label: `一對一：${pk.host} 第 ${pk.rank} 位（${pk.confirmed ? "確定，還沒約時間" : "候補"}）`, level: pk.confirmed ? 2 : 1 });
       }
 
@@ -67,7 +68,7 @@ export default route({
       let unlocked = 0, behind = 0;
       for (let part = 1; part <= COURSE_PARTS; part++) {
         for (const h of COURSE_HOSTS) {
-          if (courseUnlockDate(joined, h, part) > today) continue;
+          if (unit ? !(ts.unit && ts.unit.units >= part) : courseUnlockDate(joined, h, part) > today) continue;
           const cv = courseVideo.get(`${h}:${part}`);
           if (!cv) continue;
           unlocked++;

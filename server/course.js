@@ -5,7 +5,7 @@ import {
   supabaseAdmin, requireMember, signGet, route, todayTW, twDate,
   COURSE_HOSTS, COURSE_PARTS, courseWeek, courseUnlockDate,
 } from "./lib/index.js";
-import { courseTierOk, courseSkipSchedule } from "../public/assets/js/shared/rules.js";
+import { courseTierOk, courseSkipSchedule, unitPartOpen, UNIT_USDT } from "../public/assets/js/shared/rules.js";
 
 export default route({
   async GET(req, res) {
@@ -32,14 +32,16 @@ export default route({
     const slots = [];
     for (let part = 1; part <= COURSE_PARTS; part++) {
       for (const host of COURSE_HOSTS) {
-        const unlock_on = courseUnlockDate(start, host, part);
-        const tierLocked = !!ctx.member && !courseTierOk(ctx.tier.tier, part);
-        const unlocked = !ctx.member || ((unlock_on <= today || courseSkipSchedule(ctx.tier.tier)) && !tierLocked);
+        const u = ctx.member ? ctx.tier.unit : null; // 單位制：累計交易量解鎖，沒有日期
+        const unlock_on = u ? null : courseUnlockDate(start, host, part);
+        const tierLocked = !!ctx.member && (u ? !unitPartOpen(u, part) : !courseTierOk(ctx.tier.tier, part));
+        const unlocked = !ctx.member || (u ? !tierLocked : (unlock_on <= today || courseSkipSchedule(ctx.tier.tier)) && !tierLocked);
         const v = bySlot.get(`${host}:${part}`);
         const p = v && prog.get(v.id);
         slots.push({
           host, part,
           week: courseWeek(host, part) + 1,
+          need_usdt: u ? part * UNIT_USDT : null, // 單位制：累計到多少解鎖
           unlock_on, unlocked, tier_locked: tierLocked,
           // 還沒解鎖的只給標題，不給封面和播放資訊
           video: v
@@ -57,6 +59,6 @@ export default route({
       }
     }
     slots.sort((a, b) => a.week - b.week);
-    return res.status(200).json({ start, today, slots });
+    return res.status(200).json({ start, today, slots, unit: ctx.member ? ctx.tier.unit || null : null });
   },
 });

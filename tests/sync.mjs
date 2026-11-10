@@ -17,6 +17,7 @@ import oneonone from "../server/oneonone.js";
 import adminOneonone from "../server/admin/oneonone.js";
 import questsApi from "../server/quests.js";
 import adminBots from "../server/admin/bots.js";
+import adminMembership from "../server/admin/membership.js";
 import { thisMonthTW } from "../server/lib/dates.js";
 
 let pass = 0, fail = 0;
@@ -492,6 +493,52 @@ await test("後台「機器人」：新增 Webhook 會先跟 Discord 確認、�
   assert.equal(oc.statusCode, 403);
   hooks.close();
   delete env.DISCORD_API_BASE;
+});
+
+await test("單位制（v1.26.34）：設定開始日期後，累計每 20 萬解鎖一份、直播留檔加入就能看、100 萬可以一對一", async () => {
+  const oc = await call(adminMembership, { route: "admin/membership", method: "PUT", token: "tok-oc", body: { unitFrom: today } });
+  assert.equal(oc.statusCode, 403, "協作管理員不能改");
+  let r = await call(adminMembership, { route: "admin/membership", method: "PUT", body: { unitFrom: addDays(today, 1) } });
+  assert.equal(r.statusCode, 200, JSON.stringify(r.body)); assert.equal(r.body.on, false, "明天才開始");
+  r = await call(adminMembership, { route: "admin/membership", method: "PUT", body: { unitFrom: today } });
+  assert.equal(r.body.on, true);
+  // t1：上一輪 OKX 2 萬 → 累計 2 萬，系統分享一份都還沒開，但直播留檔看得到
+  let c = await call(course, { token: "tok-t1" });
+  assert.equal(c.statusCode, 200, JSON.stringify(c.body));
+  assert.equal(c.body.unit.units, 0);
+  const s1 = c.body.slots.find((x) => x.host === "CCC" && x.part === 1);
+  assert.deepEqual([s1.unlocked, s1.need_usdt, s1.unlock_on], [false, 200000, null]);
+  const live = await call(videosApi, { token: "tok-t1", query: { id: "503" } });
+  assert.notEqual(live.statusCode, 403, JSON.stringify(live.body));
+  const l1 = await call(videosApi, { token: "tok-t1", query: { id: "501" } });
+  assert.equal(l1.statusCode, 403); assert.ok(l1.body.error.includes("20 萬"), l1.body.error);
+  // 這一輪再加 Bybit 33 萬、UM 0.1 手（＝1 萬）→ 累計 36 萬 → 第 1 份
+  const id = "00000000-0000-4000-8000-0000000000a1";
+  const join = db.members.find((m) => m.user_id === id).created_at.slice(0, 10);
+  const cur = periodOf(join, today);
+  db.volumes.push({ user_id: id, period_start: cur.start, period_end: cur.end, amounts: { Bybit: 330000, UM: 0.1 }, qualified_at: null });
+  c = await call(course, { token: "tok-t1" });
+  assert.equal(c.body.unit.units, 1); assert.equal(c.body.unit.cum, 360000); // 2 萬＋33 萬＋UM 0.1 手（1 萬）
+  assert.deepEqual(c.body.slots.filter((x) => x.unlocked).map((x) => `${x.host}${x.part}`), ["CCC1", "X1"], "36 萬 → 第 1 份");
+  db.volumes.at(-1).amounts.UM = 1; // 1 手＝10 萬 → 累計 45 萬（2＋33＋10）
+  c = await call(course, { token: "tok-t1" });
+  assert.deepEqual(c.body.slots.filter((x) => x.unlocked).map((x) => `${x.host}${x.part}`), ["CCC1", "X1", "CCC2", "X2"]);
+  const l2 = await call(videosApi, { token: "tok-t1", query: { id: "502" } });
+  assert.notEqual(l2.statusCode, 403, "第 2 份不用等排程");
+  const m1 = await call(me, { token: "tok-t1" });
+  assert.equal(m1.body.tier, 2); assert.equal(m1.body.volume.unit.units, 2); assert.equal(m1.body.volume.milestone, null);
+  let o = await call(oneonone, { token: "tok-t1" });
+  assert.equal(o.body.eligible, false);
+  db.volumes.at(-1).amounts.Bybit = 900000; // 累計 112 萬 → 一對一
+  o = await call(oneonone, { token: "tok-t1" });
+  assert.equal(o.body.eligible, true);
+  // 後台交易量列表有累計
+  const v = await call(adminVolumes, { query: { which: "current" } });
+  assert.equal(v.body.rows.find((x) => x.user_id === id).unit.units, 5);
+  r = await call(adminMembership, { route: "admin/membership", method: "PUT", body: { unitFrom: "" } });
+  assert.equal(r.body.on, false);
+  c = await call(course, { token: "tok-t1" });
+  assert.equal(c.body.unit, null, "取消後回到三級制度");
 });
 
 supa.close(); bingx.close(); bybit.close();

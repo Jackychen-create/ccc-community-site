@@ -12,12 +12,14 @@ import adminOneonone from "../../server/admin/oneonone.js";
 import stats from "../../server/stats.js";
 import videos from "../../server/videos.js";
 import publicVideo from "../../server/public-video.js";
+import publicMembership from "../../server/public-membership.js";
 import notes from "../../server/notes.js";
 import course from "../../server/course.js";
 import feedback from "../../server/feedback.js";
 import report from "../../server/report.js";
 import exchangeLink from "../../server/exchange-link.js";
 import adminSync from "../../server/admin/sync.js";
+import adminMembership from "../../server/admin/membership.js";
 import adminDiscord from "../../server/admin/discord.js";
 import discordInteractions from "../../server/discord/interactions.js";
 import cronSync from "../../server/cron/sync.js";
@@ -57,12 +59,14 @@ const ROUTES = {
   "stats": stats,
   "videos": videos,
   "public-video": publicVideo,
+  "public-membership": publicMembership,
   "notes": notes,
   "course": course,
   "feedback": feedback,
   "report": report,
   "exchange-link": exchangeLink,
   "admin/sync": adminSync,
+  "admin/membership": adminMembership,
   "cron/sync": cronSync,
   "cron/lives": cronLives,
   "cron/chatlog": cronChatlog,
