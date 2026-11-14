@@ -208,7 +208,19 @@ function syncBar() {
   btn?.addEventListener("click", async () => {
     A.setBusy(btn, true, "同步中…");
     try {
-      await api("/api/admin/sync", { method: "POST", body: {} });
+      // 一間一間同步：Cloudflare 一次請求的對外連線有上限，三間一起跑研究員一多就會失敗
+      const failed = [];
+      for (const ex of ready) {
+        try { await api("/api/admin/sync", { method: "POST", body: { exchange: ex } }); } catch (e) { failed.push(e); }
+      }
+      if (failed.length === ready.length) throw failed[0];
+      if (failed.length) {
+        A.setBusy(btn, false);
+        fail(failed[0]);
+        markMembersStale();
+        loadVolumes();
+        return;
+      }
       A.toast(`已同步 ${ready.join("、")} 交易量`);
       markMembersStale();
       loadVolumes();
