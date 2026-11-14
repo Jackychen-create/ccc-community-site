@@ -18,6 +18,7 @@ import adminOneonone from "../server/admin/oneonone.js";
 import questsApi from "../server/quests.js";
 import adminBots from "../server/admin/bots.js";
 import adminMembership from "../server/admin/membership.js";
+import cronSync from "../server/cron/sync.js";
 import { thisMonthTW } from "../server/lib/dates.js";
 
 let pass = 0, fail = 0;
@@ -87,7 +88,9 @@ const supa = http.createServer(async (req, res) => {
 
 // ── 假的 BingX：每天的明細 ──
 let bingxRows = [];
+let bingxHits = 0;
 const bingx = http.createServer((req, res) => {
+  bingxHits++;
   const sp = new URL(req.url, "http://x").searchParams;
   const ymd = (ms) => new Date(Number(ms) + 8 * 3600e3).toISOString().slice(0, 10).replaceAll("-", "");
   // 真的 BingX 要毫秒時間戳；傳 YYYYMMDD 會回 beginTime-over-366
@@ -113,7 +116,7 @@ const [SUPA, BX, BY] = await Promise.all([listen(supa), listen(bingx), listen(by
 setEnv({
   SUPABASE_URL: SUPA, SUPABASE_SERVICE_ROLE_KEY: "service-test",
   BINGX_API_KEY: "k", BINGX_SECRET_KEY: "s", BINGX_BASE_URL: BX,
-  BYBIT_API_KEY: "k", BYBIT_SECRET_KEY: "s", BYBIT_BASE_URL: BY, ADMIN_EMAILS: "boss@gmail.com",
+  BYBIT_API_KEY: "k", BYBIT_SECRET_KEY: "s", BYBIT_BASE_URL: BY, ADMIN_EMAILS: "boss@gmail.com", CRON_SECRET: "cron-test",
 });
 if (!globalThis.WebSocket) globalThis.WebSocket = class {};
 
@@ -539,6 +542,30 @@ await test("單位制（v1.26.34）：設定開始日期後，累計每 20 萬�
   assert.equal(r.body.on, false);
   c = await call(course, { token: "tok-t1" });
   assert.equal(c.body.unit, null, "取消後回到三級制度");
+});
+
+// 排程一間一間同步（Cloudflare 一次請求的對外連線有上限，三間一起跑研究員一多會超過）
+await test("排程同步可以只跑一間交易所", async () => {
+  const run = async (headers, body) => {
+    const res = { statusCode: 200, body: null, headersSent: false, headers: {} };
+    res.status = (c) => ((res.statusCode = c), res);
+    res.setHeader = (k, v) => ((res.headers[k] = v), res);
+    res.json = (d) => ((res.body = d), (res.headersSent = true), res);
+    res.end = () => ((res.headersSent = true), res);
+    await cronSync({ method: "POST", route: "cron/sync", headers, query: {}, body }, res);
+    return res;
+  };
+  assert.equal((await run({}, { exchange: "Bybit" })).statusCode, 401);
+  const key = { "x-cron-secret": "cron-test" };
+  assert.equal((await run(key, { exchange: "Nope" })).statusCode, 400);
+  const bx = bingxHits, by = bybitQueries.length;
+  const r = await run(key, { exchange: "Bybit" });
+  assert.equal(r.statusCode, 200, JSON.stringify(r.body));
+  assert.deepEqual(Object.keys(r.body.results), ["Bybit"]);
+  assert.equal(bingxHits, bx, "只跑 Bybit，不該叫 BingX");
+  assert.ok(bybitQueries.length > by, "有查 Bybit");
+  const all = await run(key, {});
+  assert.ok(all.body.results.BingX && all.body.results.Bybit, "不給交易所還是全部跑：" + JSON.stringify(all.body));
 });
 
 supa.close(); bingx.close(); bybit.close();

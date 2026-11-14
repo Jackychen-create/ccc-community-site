@@ -645,3 +645,17 @@ create table if not exists public.okx_snapshots (
   primary key (uid, day)
 );
 alter table public.okx_snapshots enable row level security;
+
+-- ── v1.26.36（2026-11-14）：每天同步交易量改成一間一間各打一次 ──
+-- Cloudflare 一次請求最多 50 個對外連線；Bybit、BingX、OKX 一起跑，研究員一多就超過（OKX 同步一直失敗）
+-- 時間不變（台灣 10:17、18:17），同一個排程對每間交易所各發一次 /api/cron/sync { exchange }
+select cron.unschedule(jobid) from cron.job where jobname = 'daily-volume-sync';
+select cron.schedule('daily-volume-sync', '17 2,10 * * *', $cron$
+  select net.http_post(
+    url := 'https://ccc-community-site.pages.dev/api/cron/sync',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'X-Cron-Secret', s.decrypted_secret),
+    body := jsonb_build_object('exchange', ex),
+    timeout_milliseconds := 60000
+  )
+  from vault.decrypted_secrets s, unnest(array['BingX', 'Bybit', 'OKX']) ex where s.name = 'cron_secret';
+$cron$);
