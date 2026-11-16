@@ -5,7 +5,7 @@ import http from "node:http";
 import { setEnv } from "../server/lib/env.js";
 import handler, { CLOSE_DELAY_MS } from "../server/discord/interactions.js";
 import { closeSupport, resyncSupportTickets, SUPPORT_COOLDOWN_MS } from "../server/lib/discord-support.js";
-import { setupGuild, BOT_PERMISSIONS, inviteUrl } from "../server/lib/discord-setup.js";
+import { setupGuild, BOT_PERMISSIONS, inviteUrl, syncPanelMessage } from "../server/lib/discord-setup.js";
 
 let pass = 0, fail = 0;
 async function test(name, fn) {
@@ -478,6 +478,20 @@ await test("客服身分組改了：開著的客服單頻道權限跟著換", as
   const p = calls.slice(before).find((x) => x.method === "PATCH" && x.path === `/channels/${t.channel_id}`);
   const ids = p.body.permission_overwrites.map((o) => o.id);
   assert.ok(ids.includes("888888888888888888") && !ids.includes(STAFF_ROLE) && ids.includes(EVE));
+});
+
+await test("排程：報名訊息跟程式不一樣才更新（拿掉 UM 開戶按鈕）", async () => {
+  const st = db.settings.find((r) => r.key === "discord").value;
+  st.invites = { OKX: "https://okx.com/join/CCC", UM: "https://ultgo.com/x" };
+  delete st.panelHash;
+  let before = calls.length;
+  assert.deepEqual(await syncPanelMessage(), { updated: true });
+  const edit = calls.slice(before).find((x) => x.method === "PATCH" && x.path === `/channels/${st.panelChannelId}/messages/${st.panelMessageId}`);
+  assert.ok(edit, "要改報名訊息");
+  assert.deepEqual(edit.body.components[1].components.map((b) => b.label), ["OKX 註冊"]);
+  before = calls.length;
+  assert.deepEqual(await syncPanelMessage(), { updated: false });
+  assert.ok(!calls.slice(before).some((x) => x.method === "PATCH"), "內容一樣就不再改");
 });
 
 supa.close(); disc.close(); bingx.close();

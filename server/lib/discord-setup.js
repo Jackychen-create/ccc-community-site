@@ -3,7 +3,7 @@
 // 可以重複按：已經建好的頻道、已經貼過的訊息不會重複建立，只會把權限調回正確
 import {
   getGuilds, getGuild, getRoles, getMember, getChannel, createChannel, editChannel, sendMessage, editMessage,
-  getDiscordSettings, saveDiscordSettings,
+  getDiscordSettings, saveDiscordSettings, discordConfigured,
 } from "./discord.js";
 import { env } from "./env.js";
 import { panelMessage } from "./discord-flow.js";
@@ -112,4 +112,24 @@ export async function setupGuild() {
   if (repost) next.panelMessageId = (await sendMessage(ids.panelChannelId, panelMessage(s.invites))).id;
   await saveDiscordSettings(next);
   return { ok: true, guildName: guild.name, hierarchyOk, roleName: role.name, created, settings: next };
+}
+
+// 報名頻道那則固定訊息：程式裡的文字或按鈕改了（例如 2026-11-16 拿掉 UM），排程自動把訊息改成最新的
+// 每 5 分鐘由 /api/cron/lives 呼叫；內容一樣就不動（settings.discord.panelHash 記上次貼的內容）
+export async function syncPanelMessage() {
+  if (!discordConfigured()) return null;
+  const s = await getDiscordSettings();
+  if (!s.panelChannelId || !s.panelMessageId) return null;
+  const payload = panelMessage(s.invites);
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(payload)));
+  const hash = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 16);
+  if (s.panelHash === hash) return { updated: false };
+  try {
+    await editMessage(s.panelChannelId, s.panelMessageId, payload);
+  } catch (e) {
+    if (e.status === 404) return { updated: false, missing: true }; // 訊息被刪了：到後台按「一鍵設定」重貼
+    throw e;
+  }
+  await saveDiscordSettings({ ...(await getDiscordSettings()), panelHash: hash });
+  return { updated: true };
 }
