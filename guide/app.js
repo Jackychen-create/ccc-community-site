@@ -1,6 +1,6 @@
 // 交易所分頁、目前在哪一段（頁首底線）、品牌翻牌
 (function () {
-  // 交易所分頁：網址帶 #okx / #bybit / #bingx / #um 會直接打開那一間
+  // 交易所分頁：網址帶 #okx / #bybit / #bingx 會直接打開那一間
   var tabs = [].slice.call(document.querySelectorAll('[role="tab"]'));
   function pick(tab, focus) {
     tabs.forEach(function (t) {
@@ -18,7 +18,7 @@
       if (d) { e.preventDefault(); pick(tabs[(i + d + tabs.length) % tabs.length], true); }
     });
   });
-  var want = { "#okx": "t-okx", "#bybit": "t-bybit", "#bingx": "t-bingx", "#um": "t-um" }[location.hash.toLowerCase()];
+  var want = { "#okx": "t-okx", "#bybit": "t-bybit", "#bingx": "t-bingx" }[location.hash.toLowerCase()];
   if (want) { pick(document.getElementById(want)); document.getElementById("exchanges").scrollIntoView(); }
   else if (tabs[0]) pick(tabs[0]);
 
@@ -47,48 +47,40 @@
   }
 
   // ── 交易量試算：門檻跟研究員專區 public/assets/js/shared/rules.js 的 TIERS 一樣 ──
-  var TIERS = { usdt: [10000, 200000, 1500000], um: [0.01, 2, 15] };
+  var TIERS = [10000, 200000, 1500000];
   var NAMES = ["第一級", "第二級", "第三級"];
   var form = document.getElementById("calc");
   if (form) {
     var $ = function (id) { return document.getElementById(id); };
-    var fmt = function (n, um) {
-      if (um) return (Math.round(n * 100) / 100).toLocaleString("zh-TW") + " 手";
+    var fmt = function (n) {
       if (n >= 10000) return (Math.round(n / 1000) / 10).toLocaleString("zh-TW") + " 萬 USDT";
       return Math.round(n).toLocaleString("zh-TW") + " USDT";
     };
     var calc = function () {
-      var um = form.kind.value === "um";
       var unitMode = document.documentElement.dataset.mode === "unit";
-      $("fSize").querySelector("span").textContent = um ? "每筆幾手" : "每筆倉位（含槓桿）";
-      $("fSize").querySelector("em").textContent = um ? "手" : "USDT";
-      $("calcNote").textContent = um
-        ? "UM 用手數算，一筆算一次。實際以交易所的紀錄為準。"
-        : "交易量算開倉加平倉的成交金額，所以一筆來回算兩次。實際以交易所的紀錄為準。";
       var size = Math.max(0, +$("cSize").value || 0), n = Math.max(0, +$("cTrades").value || 0), d = Math.min(31, Math.max(0, +$("cDays").value || 0));
-      var vol = size * n * d * (um ? 1 : 2);
-      if (unitMode) { // 單位制：累計每 20 萬一份（UM 1 手＝10 萬），六份 120 萬，一對一 100 萬
-        var usd = um ? vol * 100000 : vol;
+      var vol = size * n * d * 2;
+      if (unitMode) { // 單位制：累計每 20 萬一份，六份 120 萬，一對一 100 萬
         var o = $("calcOut"); o.replaceChildren();
-        var b = document.createElement("span"); b.className = "calc-vol num"; b.textContent = fmt(vol, um);
-        var l = document.createElement("span"); l.className = "calc-lv" + (usd >= 200000 ? " on" : "");
-        var per = usd / 200000;
-        l.textContent = usd > 0 ? (per >= 1 ? "一個月大約解鎖 " + (Math.floor(per * 10) / 10) + " 份" : "大約 " + Math.ceil(1 / per) + " 個月解鎖第 1 份") : "還沒有交易量";
+        var b = document.createElement("span"); b.className = "calc-vol num"; b.textContent = fmt(vol);
+        var l = document.createElement("span"); l.className = "calc-lv" + (vol >= 200000 ? " on" : "");
+        var per = vol / 200000;
+        l.textContent = vol > 0 ? (per >= 1 ? "一個月大約解鎖 " + (Math.floor(per * 10) / 10) + " 份" : "大約 " + Math.ceil(1 / per) + " 個月解鎖第 1 份") : "還沒有交易量";
         var h = document.createElement("span"); h.className = "calc-hint";
-        h.textContent = usd > 0 ? "六份全開大約 " + Math.ceil(1200000 / usd) + " 個月，一對一大約 " + Math.ceil(1000000 / usd) + " 個月" : "";
+        h.textContent = vol > 0 ? "六份全開大約 " + Math.ceil(1200000 / vol) + " 個月，一對一大約 " + Math.ceil(1000000 / vol) + " 個月" : "";
         o.append(b, l, h);
         return;
       }
-      var t = TIERS[um ? "um" : "usdt"], lv = -1;
-      t.forEach(function (x, i) { if (vol >= x) lv = i; });
-      var next = t[lv + 1];
+      var lv = -1;
+      TIERS.forEach(function (x, i) { if (vol >= x) lv = i; });
+      var next = TIERS[lv + 1];
       var out = $("calcOut");
       out.replaceChildren();
-      var big = document.createElement("span"); big.className = "calc-vol num"; big.textContent = fmt(vol, um);
+      var big = document.createElement("span"); big.className = "calc-vol num"; big.textContent = fmt(vol);
       var lvl = document.createElement("span"); lvl.className = "calc-lv" + (lv >= 0 ? " on" : "");
       lvl.textContent = lv >= 0 ? "一個月大約到「" + NAMES[lv] + "」" : "還不到第一級";
       var hint = document.createElement("span"); hint.className = "calc-hint";
-      hint.textContent = next ? "離" + NAMES[lv + 1] + "還差 " + fmt(next - vol, um) : "已經是最高級";
+      hint.textContent = next ? "離" + NAMES[lv + 1] + "還差 " + fmt(next - vol) : "已經是最高級";
       out.append(big, lvl, hint);
     };
     form.addEventListener("input", calc);

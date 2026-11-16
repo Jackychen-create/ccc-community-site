@@ -49,28 +49,24 @@ test("資格一輪：12/1 跨年 → 12/31", () => assert.equal(cycleEnd("2026-1
 test("資格一輪：12/20 跨年 → 1/19", () => assert.equal(cycleEnd("2026-12-20"), "2027-01-19"));
 test("日期加減跨月", () => assert.equal(addDays("2026-10-30", 3), "2026-11-02"));
 
-test("交易所：UM 手填，Bybit、BingX、OKX 自動同步", () => { assert.deepEqual(EXCHANGES, ["OKX", "UM", "Bybit", "BingX"]); assert.deepEqual(AUTO_EXCHANGES, ["Bybit", "BingX", "OKX"]); });
+test("交易所：OKX、Bybit、BingX 自動同步（UM 2026-11-16 撤掉）", () => { assert.deepEqual(EXCHANGES, ["OKX", "Bybit", "BingX"]); assert.deepEqual(AUTO_EXCHANGES, ["Bybit", "BingX", "OKX"]); });
 test("三級門檻：1 萬／0.01 手、20 萬／2 手、150 萬／15 手", () => {
   assert.deepEqual(TIERS.map((t) => [t.tier, t.usdt, t.lots]), [[1, 10000, 0.01], [2, 200000, 2], [3, 1500000, 15]]);
   assert.equal(tierOf({}), 0);
   assert.equal(tierOf(null), 0);
   assert.equal(tierOf({ OKX: 9999 }), 0);
   assert.equal(tierOf({ OKX: 10000 }), 1);
-  assert.equal(tierOf({ UM: 0.01 }), 1);
-  assert.equal(tierOf({ UM: 0.009 }), 0);
-  assert.equal(tierOf({ OKX: 199999, UM: 1.9 }), 1);
+  assert.equal(tierOf({ UM: 15 }), 0, "UM 撤掉了，舊資料不算");
+  assert.equal(tierOf({ OKX: 199999, UM: 15 }), 1);
   assert.equal(tierOf({ BingX: 200000 }), 2);
-  assert.equal(tierOf({ OKX: 100, UM: 2 }), 2);
   assert.equal(tierOf({ Bybit: 1500000 }), 3);
-  assert.equal(tierOf({ UM: 15 }), 3);
   assert.deepEqual([tierName(0), tierName(1), tierName(3)], ["沒有等級", "第一級", "第三級"]);
 });
 test("還差多少：挑最接近的那間", () => {
-  assert.equal(gapTo({ UM: 1.5, OKX: 100000 }, 2), "UM 還差 0.5 手");
-  assert.equal(gapTo({ UM: 0.5, OKX: 150000 }, 2), "還差 5 萬");
+  assert.equal(gapTo({ Bybit: 30000, OKX: 150000 }, 2), "還差 5 萬");
   assert.equal(gapTo({}, 3), "還差 150 萬");
 });
-test("規則文字", () => assert.equal(tierRuleText(2), "OKX、Bybit、BingX 任一間 20 萬 USDT，或 UM 2 手"));
+test("規則文字", () => assert.equal(tierRuleText(2), "OKX、Bybit、BingX 任一間 20 萬 USDT"));
 test("等級：這一輪達到的撐到下一輪結束、上一輪的撐到這一輪結束、第一輪先給第二級", () => {
   const am = (map) => (st) => map[st] || {};
   // 第一輪、沒交易量 → 第二級，到這一輪結束
@@ -89,11 +85,11 @@ test("等級：這一輪達到的撐到下一輪結束、上一輪的撐到這�
   // 手動給的過期了 → 照交易量
   assert.equal(tierStatus({ anchor: "2026-09-10", today: "2026-10-18", amountsOf: am({}), override: { tier: 3, until: "2026-10-17" } }).tier, 0);
   // 交易量比手動給的高 → 照交易量
-  assert.equal(tierStatus({ anchor: "2026-09-10", today: "2026-10-18", amountsOf: am({ "2026-10-10": { UM: 15 } }), override: { tier: 2, until: null } }).tier, 3);
+  assert.equal(tierStatus({ anchor: "2026-09-10", today: "2026-10-18", amountsOf: am({ "2026-10-10": { Bybit: 1500000 } }), override: { tier: 2, until: null } }).tier, 3);
 });
 test("一對一：每位主講最多 5 位，超過照交易量排，已約好的一定確定", () => {
   assert.equal(ONE_ON_ONE_CAP, 5);
-  assert.ok(oneOnOneScore({ UM: 15 }) === oneOnOneScore({ OKX: 1500000 }), "UM 和 USDT 換算成第三級門檻的幾倍才比得了");
+  assert.ok(oneOnOneScore({ OKX: 3000000 }) === 2 * oneOnOneScore({ Bybit: 1500000 }), "換算成第三級門檻的幾倍");
   const e = [1, 2, 3, 4, 5, 6, 7].map((i) => ({ user_id: "u" + i, host: "CCC", score: i, created_at: `2026-10-0${i}`, booked: false }));
   e.push({ user_id: "x", host: "OC", score: 99, created_at: "2026-10-01", booked: false });
   const r = rankOneOnOne(e, "CCC");
@@ -381,7 +377,7 @@ test("伺服器 500 回大概原因（不回錯誤內容）", () => {
 });
 await test("單位制：累計換算、每 20 萬一份、100 萬一對一、開始日期", async () => {
   const R = await import("../public/assets/js/shared/rules.js");
-  assert.equal(R.usdtEquiv({ OKX: 100000, Bybit: 50000, UM: 1.5 }), 300000);
+  assert.equal(R.usdtEquiv({ OKX: 100000, Bybit: 50000, UM: 1.5 }), 150000, "UM 撤掉了，舊資料不算");
   assert.deepEqual(R.unitStatus(399999), { cum: 399999, units: 1, oneOnOne: false, nextAt: 400000 });
   assert.deepEqual(R.unitStatus(5e6), { cum: 5e6, units: 6, oneOnOne: true, nextAt: null });
   assert.equal(R.unitStatus(0, { allCourse: true }).units, 6);

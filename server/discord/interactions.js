@@ -3,7 +3,7 @@
 // 每個請求都先驗 Ed25519 簽名；3 秒內要回應，要開頻道或問交易所的先回「處理中」，背景做完再改訊息
 // 流程（像 Ticket Tool）：
 //   報名頻道按「報名培訓計畫」→ 開一個只有他和管理員看得到的報名頻道
-//   → 在報名頻道選交易所、填 UID → OKX、Bybit、BingX 自動確認；UM 由管理員在同一個頻道按通過
+//   → 在報名頻道選交易所、填 UID → OKX、Bybit、BingX 自動確認；查不到時由管理員在同一個頻道按通過
 //   → 通過：給身分組，在頻道裡給他專用的實驗室密碼（也私訊一份）→ 按「關閉這個頻道」
 import { grantExchangeRole } from "../lib/exchange-roles.js";
 import { LINK_BUTTON_ID, createLinkToken, linkedUserOfDiscord } from "../lib/discord-link.js";

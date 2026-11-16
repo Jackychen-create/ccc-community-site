@@ -28,8 +28,8 @@ async function renameIfOld(id, kind, def) {
 
 export const CHANNELS = {
   category: { name: "🧪 CCC 交易實驗室", type: 4 },
-  panel: { name: "📝報名培訓計畫", type: 0, topic: "按下面的按鈕，機器人會幫你開一個私人報名頻道。Bybit、BingX 自動確認；OKX、UM 由管理員審核。" },
-  review: { name: "🔒報名審核", type: 0, topic: "有人在等管理員審核（OKX、UM）時會通知在這裡，點頻道連結過去按「通過」或「不通過」。只有管理員看得到。" },
+  panel: { name: "📝報名培訓計畫", type: 0, topic: "按下面的按鈕，機器人會幫你開一個私人報名頻道。OKX、Bybit、BingX 自動確認；查不到時由管理員審核。" },
+  review: { name: "🔒報名審核", type: 0, topic: "有人在等管理員審核（交易所自動確認不了）時會通知在這裡，點頻道連結過去按「通過」或「不通過」。只有管理員看得到。" },
   lab: { name: "📢研究員專屬公告", type: 0, topic: "實驗室研究員專屬：直播預告、公告" },
 };
 

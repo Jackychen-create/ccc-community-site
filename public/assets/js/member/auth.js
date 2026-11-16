@@ -3,7 +3,7 @@ import { $, el, api, sb, icons, store, setBusy, countUp, tutorial, reloadOnceFor
 import { SITE } from "./state.js";
 import { show } from "./views.js";
 import { shortDate } from "./format.js";
-import { cleanExId, exIdOk, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR } from "../shared/rules.js";
+import { cleanExId, exIdOk } from "../shared/rules.js";
 
 let mode = "login";
 let onLogin = async () => {};
@@ -95,7 +95,6 @@ function loginErrorText(err) {
 
 const UID_HINT = {
   OKX: "OKX 的 UID 在個人中心。",
-  UM: "UM 請填 MT5 帳號（UM App 最上面「Live」旁邊那串數字），下面再填你在 UM 開戶的英文姓名。",
   Bybit: "Bybit 請填主帳號的 UID。網站會跟 Bybit 確認是不是用 CCC 邀請連結註冊的。",
   BingX: "BingX 的 UID 在個人頁面。網站會跟 BingX 確認是不是用 CCC 邀請連結註冊的。",
 };
@@ -133,9 +132,6 @@ export function initAuth(afterLogin) {
     setAuthError("");
     const ex = $("#regEx").value;
     $("#regUidHint").textContent = UID_HINT[ex] || "管理員要靠 UID 對到你的交易量。用好幾間的話，登入後可以再加。";
-    // UM 另外填開戶的英文姓名
-    $("#regAccName").hidden = !needsName(ex);
-    $("#regUid").placeholder = ex === "UM" ? "MT5 帳號" : "UID";
   });
   $("#authTutorial").addEventListener("click", (e) => {
     e.preventDefault();
@@ -169,16 +165,14 @@ export function initAuth(afterLogin) {
     const uid = cleanExId(exchange, $("#regUid").value);
     const needEx = mode === "register" && !freeInvite;
     if (needEx && !exchange) return setAuthError("請選擇你用 CCC 邀請連結註冊的交易所");
-    if (needEx && !exIdOk(exchange, uid)) return setAuthError(exchange === "UM" ? "請填 UM 的 MT5 帳號（一串數字）" : "請填交易所 UID（一串數字）");
-    const accountName = needsName(exchange) ? cleanAccountName($("#regAccName").value) : undefined;
-    if (needEx && needsName(exchange) && !accountNameOk(accountName)) return setAuthError(ACCOUNT_NAME_ERROR);
+    if (needEx && !exIdOk(exchange, uid)) return setAuthError("請填交易所 UID（一串數字）");
 
     const btn = $("#authSubmit");
     setBusy(btn, true, mode === "register" ? "建立帳號中…" : "登入中…");
     setAuthError("");
     try {
       if (mode === "register") {
-        await api("/api/register", { method: "POST", body: freeInvite ? { email, password, inviteCode: invite } : { email, password, inviteCode: invite, exchange, uid, accountName } });
+        await api("/api/register", { method: "POST", body: freeInvite ? { email, password, inviteCode: invite } : { email, password, inviteCode: invite, exchange, uid } });
       }
       const { error } = await sb.auth.signInWithPassword({ email, password });
       if (error) throw new Error(loginErrorText(error));

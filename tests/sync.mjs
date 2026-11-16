@@ -283,8 +283,8 @@ await test("升級通知：Discord 私訊內容", async () => {
   const period = { start: "2026-10-18", end: "2026-11-17" };
   const t1 = milestoneText({ level: 1, amounts: { OKX: 15000 }, period, nextEnd: "2026-12-17" });
   assert.ok(t1.includes("升上第一級") && t1.includes("會員直播") && t1.includes("12/17") && t1.includes("第二級還差 18.5 萬"), t1);
-  const um = milestoneText({ level: 2, amounts: { UM: 3 }, period, nextEnd: "2026-12-17" });
-  assert.ok(um.includes("升上第二級") && um.includes("UM 3 手") && um.includes("直播留檔") && um.includes("第三級UM 還差 12 手"), um);
+  const t2 = milestoneText({ level: 2, amounts: { OKX: 300000 }, period, nextEnd: "2026-12-17" });
+  assert.ok(t2.includes("升上第二級") && t2.includes("直播留檔") && t2.includes("第三級還差 120 萬"), t2);
   const t3 = milestoneText({ level: 3, amounts: { Bybit: 1600000 }, period, nextEnd: "2026-12-17" });
   assert.ok(t3.includes("升上第三級") && t3.includes("一對一"), t3);
 });
@@ -515,15 +515,15 @@ await test("單位制（v1.26.34）：設定開始日期後，累計每 20 萬�
   assert.notEqual(live.statusCode, 403, JSON.stringify(live.body));
   const l1 = await call(videosApi, { token: "tok-t1", query: { id: "501" } });
   assert.equal(l1.statusCode, 403); assert.ok(l1.body.error.includes("20 萬"), l1.body.error);
-  // 這一輪再加 Bybit 33 萬、UM 0.1 手（＝1 萬）→ 累計 36 萬 → 第 1 份
+  // 這一輪再加 Bybit 33 萬、BingX 1 萬 → 累計 36 萬 → 第 1 份（UM 撤掉了，舊的 UM 數字不算）
   const id = "00000000-0000-4000-8000-0000000000a1";
   const join = db.members.find((m) => m.user_id === id).created_at.slice(0, 10);
   const cur = periodOf(join, today);
-  db.volumes.push({ user_id: id, period_start: cur.start, period_end: cur.end, amounts: { Bybit: 330000, UM: 0.1 }, qualified_at: null });
+  db.volumes.push({ user_id: id, period_start: cur.start, period_end: cur.end, amounts: { Bybit: 330000, BingX: 10000, UM: 5 }, qualified_at: null });
   c = await call(course, { token: "tok-t1" });
-  assert.equal(c.body.unit.units, 1); assert.equal(c.body.unit.cum, 360000); // 2 萬＋33 萬＋UM 0.1 手（1 萬）
+  assert.equal(c.body.unit.units, 1); assert.equal(c.body.unit.cum, 360000); // 2 萬＋33 萬＋1 萬
   assert.deepEqual(c.body.slots.filter((x) => x.unlocked).map((x) => `${x.host}${x.part}`), ["CCC1", "X1"], "36 萬 → 第 1 份");
-  db.volumes.at(-1).amounts.UM = 1; // 1 手＝10 萬 → 累計 45 萬（2＋33＋10）
+  db.volumes.at(-1).amounts.BingX = 100000; // 累計 45 萬（2＋33＋10）
   c = await call(course, { token: "tok-t1" });
   assert.deepEqual(c.body.slots.filter((x) => x.unlocked).map((x) => `${x.host}${x.part}`), ["CCC1", "X1", "CCC2", "X2"]);
   const l2 = await call(videosApi, { token: "tok-t1", query: { id: "502" } });

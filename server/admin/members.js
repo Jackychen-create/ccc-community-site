@@ -42,7 +42,7 @@ export default route({
       supabaseAdmin.from("discord_applications").select("exchange, exchange_uid, discord_name, discord_user_id").eq("status", "approved"),
     ]);
     const uids = new Map();
-    const accountNames = new Map(); // UM 開戶的英文姓名
+    const accountNames = new Map(); // 開戶的英文姓名（以前 UM 填的）
     for (const l of links || []) {
       uids.set(l.user_id, { ...(uids.get(l.user_id) || {}), [l.exchange]: l.exchange_uid });
       if (l.account_name) accountNames.set(l.user_id, { ...(accountNames.get(l.user_id) || {}), [l.exchange]: l.account_name });

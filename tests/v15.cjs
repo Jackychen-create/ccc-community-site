@@ -26,8 +26,8 @@ const end = (() => { const [y, m, dd] = today.split("-").map(Number); const last
   let [c, p] = await ctx({ width: 1440, height: 900 });
   await login(p, "amy@example.com"); await p.waitForSelector(".vrow"); await p.waitForTimeout(800);
   check("研究員看得到我的等級", await p.isVisible("#volPanel"));
-  check("三級階梯寫出門檻", (await p.locator("#volPanel .ms-step").count()) === 3 && (await p.textContent("#volPanel .ms-strip")).includes("20 萬／2 手"));
-  { const vt = await p.textContent("#volPanel"); check("寫出現在第幾級、還沒保住、四間交易所都列出", vt.includes("你現在是第二級") && vt.includes("這一輪還沒保住") && ["OKX", "UM", "Bybit", "BingX"].every((ex) => vt.includes(ex)), vt); }
+  check("三級階梯寫出門檻", (await p.locator("#volPanel .ms-step").count()) === 3 && (await p.textContent("#volPanel .ms-strip")).includes("20 萬 USDT") && !(await p.textContent("#volPanel .ms-strip")).includes("手"));
+  { const vt = await p.textContent("#volPanel"); check("寫出現在第幾級、還沒保住、三間交易所都列出、沒有 UM", vt.includes("你現在是第二級") && vt.includes("這一輪還沒保住") && ["OKX", "Bybit", "BingX"].every((ex) => vt.includes(ex)) && !vt.includes("UM"), vt); }
   check("還沒填不放空的進度條", (await p.locator("#volPanel .vol-row").count()) === 0);
   const banner = await p.textContent("#accessBanner");
   check("等級快到期會提醒還差多少、之後是第幾級", banner.includes("你的第二級到") && banner.includes("還有 5 天") && banner.includes("還差 20 萬") && banner.includes("起是沒有等級"), banner);
@@ -50,12 +50,7 @@ const end = (() => { const [y, m, dd] = today.split("-").map(Number); const last
   await p.fill(`${ban} input[aria-label$='OKX 交易量']`, "0.6m");
   check("0.6m 顯示第二級、第三級還差 90 萬", (await p.textContent(`${ban} .vol-result`)).includes("第三級還差 90 萬"), await p.textContent(`${ban} .vol-result`));
   await p.fill(`${ban} input[aria-label$='OKX 交易量']`, "");
-  await p.fill(`${ban} input[aria-label$='UM 交易量']`, "1.5");
-  check("UM 1.5 手是第一級、第二級 UM 還差 0.5 手", (await p.textContent(`${ban} .vol-result`)).includes("第一級") && (await p.textContent(`${ban} .vol-result`)).includes("第二級UM 還差 0.5 手"), await p.textContent(`${ban} .vol-result`));
-  await p.fill(`${ban} input[aria-label$='UM 交易量']`, "15");
-  check("UM 15 手是第三級", (await p.textContent(`${ban} .vol-result`)).includes("第三級"));
-  check("表頭寫 UM（手）", (await p.textContent(".vol-table thead")).includes("UM（手）"));
-  await p.fill(`${ban} input[aria-label$='UM 交易量']`, "");
+  check("交易量表格沒有 UM 欄", !(await p.textContent(".vol-table thead")).includes("UM") && !(await p.locator(`${ban} input[aria-label$='UM 交易量']`).count()));
   await p.fill(`${ban} input[aria-label$='OKX 交易量']`, "abc");
   check("看不懂的數字標紅框", (await p.getAttribute(`${ban} input[aria-label$='OKX 交易量']`, "class")).includes("bad"));
   await p.click(".vol-foot .btn.primary"); await p.waitForTimeout(300);
@@ -79,7 +74,7 @@ const end = (() => { const [y, m, dd] = today.split("-").map(Number); const last
   await p.keyboard.press("Escape");
   // 貼上一整批
   await p.click("#volPaste"); await p.waitForTimeout(200);
-  await p.fill(".modal textarea", "amy@example.com 5,200,000 0\nnobody@x.com OKX 1\nbanned@example.com\tOKX\t600萬");
+  await p.fill(".modal textarea", "amy@example.com 5,200,000\nnobody@x.com OKX 1\nbanned@example.com\tOKX\t600萬");
   await p.screenshot({ path: "output/shots/v15-paste.png" });
   await p.click(".modal-foot .btn.primary"); await p.waitForTimeout(200);
   const hint = await p.textContent(".modal .hint");

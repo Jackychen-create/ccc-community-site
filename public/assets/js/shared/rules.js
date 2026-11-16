@@ -41,27 +41,28 @@ export const nextPeriod = (anchor, period) => periodOf(anchor, addDays(period.en
 export const prevPeriod = (anchor, period) => (period.index > 0 ? periodOf(anchor, addDays(period.start, -1)) : null);
 
 // ── 交易量 ──
-// 交易所：UM 由管理員填；Bybit、BingX、OKX 由網站每天自動抓（研究員綁定 UID 後；OKX 2026-11-10 起）
-// UM（Ultima Markets，MT5）用「手」算，其他用 USDT 成交金額
-export const EXCHANGES = ["OKX", "UM", "Bybit", "BingX"];
+// 交易所：OKX、Bybit、BingX，網站每天自動抓（研究員綁定 UID 後；OKX 2026-11-10 起）
+// UM（Ultima Markets）2026-11-16 起撤掉：不再列入交易所、不能報名、不算交易量（資料庫裡的舊紀錄保留）
+export const EXCHANGES = ["OKX", "Bybit", "BingX"];
 export const AUTO_EXCHANGES = ["Bybit", "BingX", "OKX"];
 // 自動同步，但管理員還是可以手動填：OKX 只給累計交易量，這一輪開始前沒記到累計的人，這一輪的數字由管理員填
 export const EDITABLE_AUTO = ["OKX"];
 export const LOCKED_AUTO = AUTO_EXCHANGES.filter((ex) => !EDITABLE_AUTO.includes(ex));
-export const LOT_EXCHANGES = ["UM"];
+// 用「手」算的交易所（目前沒有）
+export const LOT_EXCHANGES = [];
 export const isLots = (ex) => LOT_EXCHANGES.includes(ex);
-// 交易所帳號：OKX、Bybit、BingX 填 UID；UM 填 MT5 帳號（一樣是一串數字），另外填在 UM 開戶的英文姓名，
-// 跟 UM 代理後台「近期新開戶」的帳號、姓名對得起來（2026-10-17）
-export const idLabel = (ex) => (ex === "UM" ? "MT5 帳號" : "UID");
+// 交易所帳號：都填 UID（一串數字）
+export const idLabel = () => "UID";
 export const cleanExId = (ex, v) => String(v ?? "").normalize("NFKC").replace(/\s/g, "");
 export const exIdOk = (ex, v) => /^\d{5,20}$/.test(v);
-export const exIdError = (ex) => (ex === "UM" ? "MT5 帳號是一串數字，請再確認一次" : "UID 是一串數字，請再確認一次");
-export const NEEDS_NAME = ["UM"];
+export const exIdError = () => "UID 是一串數字，請再確認一次";
+// 要另外填開戶姓名的交易所（目前沒有；原本是 UM）
+export const NEEDS_NAME = [];
 export const needsName = (ex) => NEEDS_NAME.includes(ex);
-// 姓名：去掉前後空白、多個空白變一個，英文轉大寫（UM 後台大小寫不一，比對比較準）
+// 姓名：去掉前後空白、多個空白變一個，英文轉大寫
 export const cleanAccountName = (v) => String(v ?? "").normalize("NFKC").trim().replace(/\s+/g, " ").toUpperCase();
 export const accountNameOk = (v) => /^[^\r\n`<>@]{2,60}$/u.test(v);
-export const ACCOUNT_NAME_ERROR = "請填你在 UM 開戶的英文姓名（跟護照一樣，例如 WANG XIAO MING）";
+export const ACCOUNT_NAME_ERROR = "請填開戶的英文姓名（跟護照一樣，例如 WANG XIAO MING）";
 // Bybit 的 TradFi（黃金、股票等）交易量打一折算：100 萬 TradFi ≈ 10 萬加密貨幣（2026-10-17 確定）
 export const TRADFI_WEIGHT = 0.1;
 export const TRADFI_NOTE = "Bybit 的 TradFi（黃金、股票等）交易量以十分之一計算。";
@@ -103,18 +104,18 @@ export function progressTo(amounts, tier, exchanges = EXCHANGES) {
   }
   return best;
 }
-// 顯示用：UM「3.5 手」；USDT「120 萬」（不到 1 萬就直接寫數字）
+// 顯示用：USDT「120 萬」（不到 1 萬就直接寫數字）
 export function fmtAmount(ex, n) {
   n = Number(n) || 0;
   if (isLots(ex)) return `${Math.round(n * 100) / 100} 手`;
   return n >= 1e4 ? `${Math.round((n / 1e4) * 10) / 10} 萬` : n.toLocaleString("en-US");
 }
-// 到某一級「還差 18 萬」；最接近的是 UM 的話寫「UM 還差 1.5 手」
+// 到某一級「還差 18 萬」
 export function gapTo(amounts, tier, exchanges = EXCHANGES) {
   const b = progressTo(amounts, tier, exchanges);
   return `${isLots(b.ex) ? b.ex + " " : ""}還差 ${fmtAmount(b.ex, Math.max(0, b.goal - b.n))}`;
 }
-// 「OKX、Bybit、BingX 任一間 20 萬 USDT，或 UM 2 手」
+// 「OKX、Bybit、BingX 任一間 20 萬 USDT」
 export function tierRuleText(tier, exchanges = EXCHANGES) {
   const usdt = exchanges.filter((ex) => !isLots(ex));
   const lots = exchanges.filter(isLots);
@@ -146,19 +147,19 @@ export function tierStatus({ anchor, today, amountsOf, override = null }) {
 }
 
 // ── 單位制（2026-11-11 規劃；後台「交易量」設定開始日期，那天起取代三級制度）──
-// 不分一輪一輪：從加入那天起的交易量全部累計（各交易所加起來，UM 1 手當 10 萬 USDT），只會往上
+// 不分一輪一輪：從加入那天起的交易量全部累計（各交易所加起來），只會往上
 //   每 20 萬解鎖一份系統分享（第 N 份＝CCC、X 的第 N 份一起開，6 份全開要 120 萬），解鎖了就永久，不用等每週排程
 //   直播留檔、研究員專區：加入就能看（等級一律當第二級）
 //   一對一交流：累計 100 萬（等級當第三級）
 // 管理員手動給第三級＝系統分享全開、可以一對一；贈送名額＝系統分享全開（不能一對一）
 export const UNIT_USDT = 200000;
-export const UM_LOT_USDT = 100000;
+export const LOT_USDT = 100000;
 export const ONE_ON_ONE_USDT = 1000000;
 export const isUnitOn = (unitFrom, today) => /^\d{4}-\d\d-\d\d$/.test(String(unitFrom || "")) && today >= unitFrom;
-// 一筆交易量換算成 USDT（UM 手數 × 10 萬）
+// 一筆交易量換算成 USDT（用手算的交易所 × LOT_USDT；目前沒有）
 export function usdtEquiv(amounts) {
   let s = 0;
-  for (const ex of EXCHANGES) s += (Number(amounts?.[ex]) || 0) * (isLots(ex) ? UM_LOT_USDT : 1);
+  for (const ex of EXCHANGES) s += (Number(amounts?.[ex]) || 0) * (isLots(ex) ? LOT_USDT : 1);
   return Math.round(s * 100) / 100;
 }
 // 累計交易量 → 解鎖到第幾份、能不能一對一、下一份要累計到多少
@@ -173,7 +174,7 @@ export const unitPartOpen = (u, part) => !!u && u.units >= part;
 
 // ── 一對一交流（第三級，2026-10-18）──
 // 第三級的研究員每個月（台灣時間的月份）從主講裡選一位（OC 2026-11-09 停止合作後是 CCC、X 二選一）；每位主講一個月最多 5 位
-// 選同一位的超過 5 位 → 照這一輪的交易量排（換算成「到第三級門檻的幾倍」，UM 和 USDT 才比得了），前 5 位確定、其他候補（可以改選別位）
+// 選同一位的超過 5 位 → 照這一輪的交易量排（換算成「到第三級門檻的幾倍」），前 5 位確定、其他候補（可以改選別位）
 // 管理員按「已約好」的人一定算確定，不會被擠掉
 // OC 2026-11-09 停止合作：一對一只剩 CCC、X（他的系統分享影片照舊留在課程裡）
 export const ONE_ON_ONE_HOSTS = ["CCC", "X"];

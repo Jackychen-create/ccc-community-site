@@ -62,7 +62,7 @@ const errs = [];
   check("贈送名額註冊成功", true);
   await a.waitForTimeout(1500);
   const modalText = (await a.locator(".modal-back").count()) ? await a.textContent(".modal-back") : "";
-  check("不會跳出補填交易所 UID", !/填寫你的交易所 UID|重新填 UM/.test(modalText), modalText.slice(0, 80));
+  check("不會跳出補填交易所 UID", !/填寫你的交易所 UID/.test(modalText), modalText.slice(0, 80));
   await closeModals(a);
   await a.waitForSelector("#volPanel:not([hidden])");
   const vp = await a.textContent("#volPanel");

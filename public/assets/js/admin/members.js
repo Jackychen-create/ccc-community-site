@@ -9,8 +9,9 @@ import { canManageMembers } from "../shared/roles.js";
 let members = [];
 let memberQuery = "";
 let memberTab = "active"; // active 正常 | banned 已停權（分開放，不混在一起）
-let memberEx = "all"; // 依交易所分類：all 全部 | OKX、UM、Bybit、BingX | free 贈送名額 | none 還沒填 UID
+let memberEx = "all"; // 依交易所分類：all 全部 | OKX、Bybit、BingX | free 贈送名額 | none 還沒填 UID
 try { memberEx = localStorage.getItem("adminMemberEx") || "all"; } catch {}
+if (!["all", "free", "none", ...EXCHANGES].includes(memberEx)) memberEx = "all"; // 撤掉的交易所（UM）存在瀏覽器裡的分類
 // 這位研究員屬於哪幾類（填了好幾間交易所的，每一間都會出現）
 const exGroupsOf = (m) => {
   if (m.free) return ["free"];

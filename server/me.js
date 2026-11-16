@@ -12,14 +12,17 @@ export default route({
     if (!ctx) return;
     let volume = null;
     let links = null;
+    let legacyLink = false;
     if (ctx.member) {
-      // 四間交易所的 UID：自動同步的（Bybit、BingX）有沒有設定好、這位研究員填了哪個 UID
+      // 三間交易所的 UID：自動同步的（Bybit、BingX）有沒有設定好、這位研究員填了哪個 UID
       const { data: rows } = await supabaseAdmin.from("exchange_links").select("exchange, exchange_uid, account_name, bound_at").eq("user_id", ctx.user.id);
       links = EXCHANGES.map((ex) => {
         const l = (rows || []).find((r) => r.exchange === ex);
         const auto = AUTO_EXCHANGES.includes(ex);
         return { exchange: ex, auto, enabled: auto ? PROVIDERS[ex].configured() : true, uid: l?.exchange_uid || null, accountName: l?.account_name || null, needsName: needsName(ex), boundAt: l?.bound_at || null };
       });
+      // 只填過已經撤掉的交易所（UM，2026-11-16）：不要強制跳「一定要填 UID」的視窗把人擋在外面
+      legacyLink = (rows || []).some((r) => !EXCHANGES.includes(r.exchange));
       // 這一輪：從加入那天起算，每一輪一個月；等級在 requireMember 已經算好（ctx.tier）
       const m = { created_at: ctx.member.created_at || ctx.user.created_at };
       const period = periodFor(m);
@@ -68,8 +71,9 @@ export default route({
       discord: ctx.member ? { linked: !!dc, name: dc?.discord_name || "" } : null,
       volume,
       links,
+      legacyLink,
       streak, // { days 連續幾天, best 最長幾天 }
-      invites: Object.fromEntries(Object.entries(invites).filter(([, u]) => /^https:\/\//.test(String(u)))),
+      invites: Object.fromEntries(Object.entries(invites).filter(([ex, u]) => EXCHANGES.includes(ex) && /^https:\/\//.test(String(u)))),
       nextLive: live ? { title: live.title, startsAt: live.starts_at, hosts: live.hosts || [], note: live.note, link: live.link } : null,
     });
   },

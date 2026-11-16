@@ -52,7 +52,7 @@ const progress = new Map([
 ]);
 const invites = [
   { code: "K7QM-2XPA", max_uses: 30, used_count: 8, note: "第一批研究員", disabled: false, created_at: ago(24 * 20) },
-  { code: "HW3N-8RTE", max_uses: 5, used_count: 5, note: "UM 合作", disabled: false, created_at: ago(24 * 10) },
+  { code: "HW3N-8RTE", max_uses: 5, used_count: 5, note: "合作夥伴", disabled: false, created_at: ago(24 * 10) },
 ];
 const DEMO = [["member@example.com", 2, 3, MEND], ["trader.lin@example.com", 3, 5, MEND], ["wang.k@example.com", 4, 2, MEND], ["chen.yu@example.com", 5, 6, MEND],
   ["jay.h@example.com", 6, 1, d(-3)], ["mei.c@example.com", 7, 4, MEND], ["alex.t@example.com", 8, 0, d(5)], ["kevin.l@example.com", 9, 2, d(-12)]];
@@ -96,13 +96,13 @@ const anchorOf = (mm) => twDay(mm.created_at);
 const curP = (mm) => periodOf(anchorOf(mm), new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10));
 const periodFor = (mm, which) => (which === "previous" ? prevPeriod(anchorOf(mm), curP(mm)) : curP(mm));
 const vols = new Map();
-for (const [n, a, by] of [[2, { OKX: 850000, Bybit: 1260000 }, "x"], [3, { OKX: 1120000 }, "oc"], [4, { UM: 12 }, "oc"], [5, { Bybit: 1460000, UM: 4 }, "x"], [7, { OKX: 1510000 }, "x"], [8, { Bybit: 450000 }, "x"]]) {
+for (const [n, a, by] of [[2, { OKX: 850000, Bybit: 1260000 }, "x"], [3, { OKX: 1120000 }, "oc"], [4, { OKX: 1200000 }, "oc"], [5, { Bybit: 1460000, BingX: 400000 }, "x"], [7, { OKX: 1510000 }, "x"], [8, { Bybit: 450000 }, "x"]]) {
   const mm = members.find((x) => x.user_id === uid(n)); if (!mm) continue;
   vols.set(`${uid(n)}:${curP(mm).start}`, { amounts: a, updated_at: ago(30 + n), updated_by: by + "@example.com" });
 }
-// 研究員填的交易所 UID（UM 是 MT5 帳號＋開戶英文姓名）
+// 研究員填的交易所 UID
 const links = new Map(); // user_id → { ex: { uid, name } }
-for (const [n, ex, id, name] of [[2, "Bybit", "594320471"], [3, "OKX", "701045615417133677"], [4, "UM", "35908033", "TSAI TZU HSU"], [5, "Bybit", "594325795"], [7, "OKX", "884811020408438914"], [8, "BingX", "39104531"]])
+for (const [n, ex, id, name] of [[2, "Bybit", "594320471"], [3, "OKX", "701045615417133677"], [4, "OKX", "705512093318842105"], [5, "Bybit", "594325795"], [7, "OKX", "884811020408438914"], [8, "BingX", "39104531"]])
   links.set(uid(n), { ...(links.get(uid(n)) || {}), [ex]: { uid: id, name: name || null } });
 const linkOf = (id) => Object.fromEntries(Object.entries(links.get(id) || {}).map(([ex, l]) => [ex, l.name ? `${l.uid}・${l.name}` : l.uid]));
 const monthNow = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 7);

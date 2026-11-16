@@ -28,20 +28,13 @@ const errs = [];
   check("還沒綁定時有「綁定 BingX」", await p.isVisible("#volPanel .bx-row:has-text('BingX') .btn:has-text('綁定')"));
   check("也有「綁定 Bybit」", await p.isVisible("#volPanel .bx-row:has-text('Bybit') .btn:has-text('綁定')"));
   check("還沒填任何 UID 會提醒", (await panel()).includes("管理員才對得到你的交易量"));
-  check("四間都可以填 UID", ["OKX", "UM", "Bybit", "BingX"].every((ex) => (async () => true)()) && (await p.locator("#volPanel .bx-row").count()) === 4);
+  check("三間可以填 UID，沒有 UM", (await p.locator("#volPanel .bx-row").count()) === 3 && !(await p.isVisible("#volPanel .bx-row:has-text('UM')")));
   await p.click("#volPanel .bx-row:has-text('OKX') .btn:has-text('填寫')"); await p.waitForSelector(".modal:has-text('填寫 OKX UID')");
   await p.fill(".modal input", "123 456 789 012 345 678"); await p.click(".modal-foot .btn.primary");
   await p.waitForSelector(".toast:has-text('已記下你的 OKX UID')");
   await p.waitForSelector("#volPanel .bx-text:has-text('123456789012345678')");
   check("OKX UID 記下來（18 位數字也可以）", true);
   check("填了之後提醒就消失", !(await panel()).includes("管理員才對得到你的交易量"));
-  await p.click("#volPanel .bx-row:has-text('UM') .btn:has-text('填寫')"); await p.waitForSelector(".modal:has-text('填寫 UM MT5 帳號')");
-  check("UM 要另外填英文姓名", await p.isVisible(".modal input[placeholder*='WANG']"));
-  await p.fill(".modal input.num", "35908033"); await p.click(".modal-foot .btn.primary"); await p.waitForTimeout(300);
-  check("UM 沒填姓名會提醒", (await p.textContent(".modal .form-error")).includes("英文姓名"));
-  await p.fill(".modal input[placeholder*='WANG']", " tsai  tzu hsu "); await p.click(".modal-foot .btn.primary");
-  await p.waitForSelector("#volPanel .bx-text:has-text('TSAI TZU HSU')");
-  check("UM 記下 MT5 帳號和姓名", (await p.textContent("#volPanel")).includes("35908033"));
   const before = await p.evaluate(() => App.api("/api/me").then((m) => m.tier));
 
   await p.click("#volPanel .bx-row:has-text('BingX') .btn:has-text('綁定')"); await p.waitForSelector(".modal:has-text('綁定 BingX')");
@@ -74,7 +67,7 @@ const errs = [];
   const snap = await a.evaluate(() => App.api("/api/admin/volumes").then((r) => r.rows.find((x) => x.email === "amy@example.com").amounts));
   check("手動存 OKX 不會蓋掉 BingX", snap.OKX === 1200000 && snap.BingX === 3500000, JSON.stringify(snap));
   await a.click("#volPaste"); await a.waitForSelector(".modal textarea");
-  check("貼上一整批只要填 OKX、UM（Bybit、BingX 自動）", (await a.textContent(".modal .sub")).includes("順序是 OKX、UM") && (await a.textContent(".modal .sub")).includes("自動同步，不用填"), await a.textContent(".modal .sub"));
+  check("貼上一整批只要填 OKX（Bybit、BingX 自動），沒有 UM", (await a.textContent(".modal .sub")).includes("填的是 OKX 的交易量") && !(await a.textContent(".modal .sub")).includes("UM") && (await a.textContent(".modal .sub")).includes("自動同步，不用填"), await a.textContent(".modal .sub"));
   await closeModals(a);
   await c2.close();
 
@@ -92,10 +85,10 @@ const errs = [];
     await c4.addInitScript(() => { try { localStorage.setItem("tutorialOffered", "true"); localStorage.setItem("seenVersion", JSON.stringify("9.9.9")); } catch {} });
     await c4.route(/fonts\.googleapis\.com/, (r) => r.fulfill({ contentType: "text/css", body: FONT_CSS }));
     const q = await c4.newPage(); q.on("pageerror", (e) => errs.push(e.message));
-    await q.goto(BASE + "/"); await q.evaluate(() => fetch("/api/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: "nouid@example.com", password: "password1", inviteCode: "K7QM-2XPA", exchange: "UM", uid: "99990001", accountName: "NO UID" }) }));
+    await q.goto(BASE + "/"); await q.evaluate(() => fetch("/api/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: "nouid@example.com", password: "password1", inviteCode: "K7QM-2XPA", exchange: "OKX", uid: "99990001" }) }));
     // 模擬舊研究員：把 UID 刪掉再登入
     await login(q, "nouid@example.com"); await q.waitForSelector("#appView:not([hidden])");
-    await q.evaluate(() => App.api("/api/exchange-link?exchange=UM", { method: "DELETE" }));
+    await q.evaluate(() => App.api("/api/exchange-link?exchange=OKX", { method: "DELETE" }));
     await q.evaluate(() => sessionStorage.clear()); await q.reload(); await q.waitForSelector("#appView:not([hidden])"); await q.waitForTimeout(500);
     const news = async () => { if (await q.isVisible(".modal:has-text('網站更新了')")) { await q.keyboard.press("Escape"); await q.waitForTimeout(300); } };
     await news();
@@ -104,21 +97,20 @@ const errs = [];
     check("一定要填：沒有關閉按鈕、只能填或登出", !(await q.isVisible(".modal .modal-head [aria-label='關閉']")) && (await q.textContent(".modal-foot")).includes("登出") && !(await q.textContent(".modal-foot")).includes("之後再說"));
     await q.keyboard.press("Escape"); await q.mouse.click(5, 5); await q.waitForTimeout(300);
     check("按 Esc、點外面都關不掉", await q.isVisible(".modal:has-text('填寫你的交易所 UID')"));
-    await q.selectOption(".modal select", "UM"); await q.fill(".modal input.num", "99990001"); await q.fill(".modal input[placeholder*='WANG']", "NO UID"); await q.click(".modal-foot .btn.primary");
-    await q.waitForSelector(".toast:has-text('已記下你的 UM MT5 帳號')");
+    check("交易所選單沒有 UM", !(await q.locator(".modal select option[value='UM']").count()));
+    await q.selectOption(".modal select", "OKX"); await q.fill(".modal input.num", "99990001"); await q.click(".modal-foot .btn.primary");
+    await q.waitForSelector(".toast:has-text('已記下你的 OKX UID')");
     await q.waitForSelector("#volPanel .bx-text:has-text('99990001')", { timeout: 5000 }).catch(() => {});
-    check("補填 UM 帳號", (await q.textContent("#volPanel")).includes("99990001"));
+    check("補填 OKX UID", (await q.textContent("#volPanel")).includes("99990001"));
     await q.screenshot({ path: "output/shots/v18-uid-prompt-done.png" });
     await q.evaluate(() => sessionStorage.clear()); await q.reload(); await q.waitForSelector("#appView:not([hidden])"); await q.waitForTimeout(500); await news(); await q.waitForTimeout(1500);
     check("填過之後不會再跳出來", !(await q.isVisible(".modal:has-text('填寫你的交易所 UID')")));
-    // 舊版填的 UM 號碼（沒有姓名）：登入後請他重新填 MT5 帳號和姓名
-    await q.evaluate(() => App.api("/api/exchange-link", { method: "POST", body: { exchange: "UM", uid: "1327127", legacy: true } }));
-    await q.evaluate(() => sessionStorage.clear()); await q.reload(); await q.waitForSelector("#appView:not([hidden])"); await q.waitForTimeout(500); await news();
-    await q.waitForSelector(".modal:has-text('請重新填 UM 的 MT5 帳號')", { timeout: 8000 });
-    check("舊的 UM 號碼會請他重新填", (await q.textContent(".modal")).includes("Live"));
-    await q.fill(".modal input.num", "35904693"); await q.fill(".modal input[placeholder*='WANG']", "chun chen chia"); await q.click(".modal-foot .btn.primary");
-    await q.waitForSelector("#volPanel .bx-text:has-text('CHUN CHEN CHIA')");
-    check("重新填好後顯示新的 MT5 帳號和姓名", (await q.textContent("#volPanel")).includes("35904693"));
+    // 只填過 UM（2026-11-16 撤掉）的舊研究員：不強制跳出填 UID 的視窗，也看不到 UM
+    await q.evaluate(() => App.api("/api/exchange-link?exchange=OKX", { method: "DELETE" }));
+    await q.evaluate(() => App.api("/api/exchange-link", { method: "POST", body: { exchange: "UM", uid: "35904693", legacy: true } }));
+    await q.evaluate(() => sessionStorage.clear()); await q.reload(); await q.waitForSelector("#appView:not([hidden])"); await q.waitForTimeout(500); await news(); await q.waitForTimeout(1500);
+    check("只填過 UM 的人不會被強制跳出填 UID", !(await q.isVisible(".modal:has-text('填寫你的交易所 UID')")));
+    check("右欄看不到 UM", !(await q.textContent("#volPanel")).includes("UM"), await q.textContent("#volPanel"));
     await c4.close();
   }
 

@@ -252,8 +252,8 @@ async function login(page, email) {
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${OUT}/17-admin-members.png`, fullPage: true });
   // 依交易所分類
-  check("研究員可以依交易所分類", (await page.locator("#memberTableBox [aria-label='依交易所分類'] .vol-seg-btn").count()) >= 5);
-  for (const key of ["OKX", "UM", "Bybit", "BingX", "none"]) {
+  check("研究員可以依交易所分類", (await page.locator("#memberTableBox [aria-label='依交易所分類'] .vol-seg-btn").count()) >= 4 && !(await page.locator("#memberTableBox .vol-seg-btn[data-tab='UM']").count()));
+  for (const key of ["OKX", "Bybit", "BingX", "none"]) {
     const btn = page.locator(`#memberTableBox [aria-label='依交易所分類'] .vol-seg-btn[data-tab='${key}']`);
     if (!(await btn.count())) continue;
     const n = Number((await btn.locator(".seg-n").textContent()).trim());

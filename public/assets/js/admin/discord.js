@@ -23,7 +23,6 @@ export async function loadDiscord() {
 }
 
 const STATUS = { pending: ["等待審核", "brass"], approved: ["已通過", "good"], rejected: ["不通過", "warn"] };
-const exName = (ex) => (ex === "UM" ? "UM" : ex);
 
 function render() {
   const badge = $("#cDiscord");
@@ -44,14 +43,14 @@ function renderApps() {
   box.replaceChildren(
     el("div", { class: "table-wrap" },
       el("table", { class: "table stack dc-table" },
-        el("thead", null, el("tr", null, el("th", { text: "申請人" }), el("th", { text: "交易所／UID（UM 是帳號）" }), el("th", { text: "結果" }), el("th", { class: "hide-sm", text: "審核" }))),
+        el("thead", null, el("tr", null, el("th", { text: "申請人" }), el("th", { text: "交易所／UID" }), el("th", { text: "結果" }), el("th", { class: "hide-sm", text: "審核" }))),
         el("tbody", null, apps.map((a) => {
           const [label, kind] = STATUS[a.status] || [a.status, ""];
           return el("tr", null,
             el("td", { "data-label": "申請人" }, el("b", { text: a.discord_name || "—" }),
               el("div", { class: "small " + (a.site_email ? "dc-email" : "muted"), text: a.site_email ? `網站：${a.site_email}` : "網站還沒填這個 UID" }),
               el("div", { class: "small muted num", text: A.fmtRel(a.created_at) })),
-            el("td", { "data-label": "交易所／UID（UM 是帳號）" }, el("span", { text: exName(a.exchange) }), el("div", { class: "small muted num", text: a.exchange_uid })),
+            el("td", { "data-label": "交易所／UID" }, el("span", { text: a.exchange }), el("div", { class: "small muted num", text: a.exchange_uid })),
             el("td", { "data-label": "結果" }, el("span", { class: "pill " + kind }, el("span", { class: "dot" }), label),
               a.invite_code ? el("div", { class: "small muted num", text: `實驗室密碼 ${a.invite_code}` }) : null),
             el("td", { class: "small sub hide-sm", text: a.status === "pending" ? "到他的報名頻道按通過" : a.reviewed_by || "—" }));

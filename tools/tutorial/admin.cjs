@@ -103,7 +103,7 @@ const UP = (f) => ({ name: f, mimeType: f.endsWith(".pdf") ? "application/pdf" :
   await t.hl(`${row} .vol-result`, 2400); await t.unhl(200);
   await t.say(S(6, "交易量"), "很多人要填的話，按「貼上一整批」，從試算表複製貼上", { ms: 300 });
   await t.click("#volPaste", 700);
-  await t.type(".modal textarea", "alex.t@example.com UM 12\nkevin.l@example.com OKX 150萬", 45);
+  await t.type(".modal textarea", "alex.t@example.com OKX 120萬\nkevin.l@example.com OKX 150萬", 45);
   await t.wait(600);
   await t.click(".modal-foot .btn.primary", 900);
   await t.say(S(6, "交易量"), "檢查一下，按「儲存」。新達標的人資格自動延長到下一輪結束", { ms: 300 });

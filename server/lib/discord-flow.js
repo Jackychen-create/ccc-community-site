@@ -1,8 +1,9 @@
 // Discord 申請流程的訊息長相（按鈕、選單、表單、結果）。只組資料，不打 API，方便測試
 // 流程（像 Ticket Tool）：報名頻道按「報名培訓計畫」→ 機器人開一個只有他和管理員看得到的私人頻道
 //   → 在私人頻道選交易所、填 UID
-//   → Bybit、BingX：機器人直接問交易所是不是 CCC 邀請的，是就給身分組，並在頻道裡給實驗室密碼
-//   → OKX、UM（或交易所暫時查不到）：在同一個頻道請管理員按「通過／不通過」，通過一樣自動給身分組和實驗室密碼
+//   → OKX、Bybit、BingX：機器人直接問交易所是不是 CCC 邀請的，是就給身分組，並在頻道裡給實驗室密碼
+//   → 交易所暫時查不到：在同一個頻道請管理員按「通過／不通過」，通過一樣自動給身分組和實驗室密碼
+//   （UM 2026-11-16 撤掉）
 import { EXCHANGES, needsName } from "../../public/assets/js/shared/rules.js";
 
 export const T = { PONG: 1, MESSAGE: 4, DEFER: 5, UPDATE: 7, MODAL: 9 }; // 回應類型
@@ -11,11 +12,10 @@ export const SITE_URL = "https://ccc-community-site.pages.dev";
 
 const EX_HINT = {
   OKX: "OKX 的 UID（個人中心可以看到）",
-  UM: "MT5 帳號（UM App 上方 Live 旁的數字）",
   Bybit: "Bybit 主帳號的 UID",
   BingX: "BingX 的 UID",
 };
-export const exLabel = (ex) => (ex === "UM" ? "UM（Ultima Markets）" : ex);
+export const exLabel = (ex) => ex;
 
 const closeBtn = { type: 2, style: 2, custom_id: "close_ticket", label: "關閉這個頻道" };
 const exchangeRow = () => ({
@@ -28,7 +28,7 @@ const exchangeRow = () => ({
 
 // 報名頻道上的固定訊息
 // invites：各交易所的邀請連結（後台「Discord 審核」→ 進階設定）；有填的會在下面多一排註冊按鈕
-const SIGNUP_LABEL = { OKX: "OKX 註冊", UM: "UM 開戶", Bybit: "Bybit 註冊", BingX: "BingX 註冊" };
+const SIGNUP_LABEL = { OKX: "OKX 註冊", Bybit: "Bybit 註冊", BingX: "BingX 註冊" };
 export function signupRow(invites = {}) {
   const btns = EXCHANGES.filter((ex) => /^https:\/\//.test(invites?.[ex] || "")).map((ex) => ({ type: 2, style: 5, label: SIGNUP_LABEL[ex] || ex, url: invites[ex] }));
   return btns.length ? { type: 1, components: btns.slice(0, 5) } : null;
@@ -40,9 +40,9 @@ export function panelMessage(invites = {}) {
     content: [
       "## 報名 CCC 實驗室培訓計畫 🧪",
       "按下面的按鈕，機器人會幫你開一個**只有你和管理員看得到的報名頻道**。",
-      "在頻道裡選你用 CCC 邀請連結註冊的交易所、填 UID（UM 填 MT5 帳號和開戶的英文姓名）：",
-      "• Bybit、BingX：幾秒鐘自動確認，通過就給你研究員身分組和實驗室密碼",
-      "• OKX、UM：管理員確認後通過，一樣在頻道裡給你",
+      "在頻道裡選你用 CCC 邀請連結註冊的交易所（OKX、Bybit、BingX）、填 UID：",
+      "• 幾秒鐘自動確認，通過就給你研究員身分組和實驗室密碼",
+      "• 交易所暫時查不到的話，由管理員確認後通過，一樣在頻道裡給你",
       signup ? "\n還沒有交易所帳號？先用下面的 CCC 邀請連結註冊：" : "",
     ].filter(Boolean).join("\n"),
     components: [{ type: 1, components: [{ type: 2, style: 1, custom_id: "apply", label: "報名培訓計畫", emoji: { name: "🧪" } }] }, ...(signup ? [signup] : [])],
@@ -71,8 +71,8 @@ export function uidModal(ex) {
       title: `報名培訓計畫：${ex}`,
       components: [
         { type: 1, components: [{ type: 4, custom_id: "uid", style: 1, label: EX_HINT[ex] || `${ex} UID`, min_length: 5, max_length: 24, required: true, placeholder: "例如 12345678" }] },
-        // UM 另外填開戶的英文姓名，跟 UM 代理後台對得起來
-        ...(needsName(ex) ? [{ type: 1, components: [{ type: 4, custom_id: "account_name", style: 1, label: "UM 開戶的英文姓名（跟護照一樣）", min_length: 2, max_length: 60, required: true, placeholder: "例如 WANG XIAO MING" }] }] : []),
+        // 要另外填開戶姓名的交易所（目前沒有；原本是 UM）
+        ...(needsName(ex) ? [{ type: 1, components: [{ type: 4, custom_id: "account_name", style: 1, label: "開戶的英文姓名（跟護照一樣）", min_length: 2, max_length: 60, required: true, placeholder: "例如 WANG XIAO MING" }] }] : []),
       ],
     },
   };
@@ -127,13 +127,13 @@ export function rejectedMessage({ userId, ex, invite }) {
 
 const STATUS_TEXT = { pending: "⏳ 等待管理員審核", approved: "✅ 已通過", rejected: "❌ 不通過" };
 
-// 要管理員看的申請（OKX、UM，或自動確認不了的）：在私人頻道裡，附「通過／不通過」
+// 要管理員看的申請（自動確認不了的）：在私人頻道裡，附「通過／不通過」
 export function reviewMessage(app, { reason = "", reviewer = "" } = {}) {
   const lines = [
     `**培訓計畫報名 #${app.id}**　${STATUS_TEXT[app.status] || app.status}`,
     `報名者：<@${app.discord_user_id}>（${app.discord_name || "?"}）`,
     `交易所：${exLabel(app.exchange)}`,
-    `${app.exchange === "UM" ? "MT5 帳號" : "UID"}：\`${app.exchange_uid}\``,
+    `UID：\`${app.exchange_uid}\``,
   ];
   if (app.account_name) lines.push(`姓名：\`${app.account_name}\``);
   if (reason) lines.push(`說明：${reason}`);
@@ -171,7 +171,7 @@ export function resultText(kind, { ex, invite } = {}) {
     case "uid_taken":
       return "這個 UID 已經被其他人用來報名過了。如果是你本人，請在頻道裡告訴管理員。";
     case "bad_name":
-      return "請填你在 UM 開戶的英文姓名（跟護照一樣，例如 WANG XIAO MING）。";
+      return "請填開戶的英文姓名（跟護照一樣，例如 WANG XIAO MING）。";
     case "bad_uid":
       return "UID 是一串數字，請再確認一次。";
     case "not_owner":

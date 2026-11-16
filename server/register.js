@@ -37,8 +37,8 @@ export default route({
     let accountName = null;
     if (withLink) {
       if (!EXCHANGES.includes(exchange)) return res.status(400).json({ error: "請選擇你用 CCC 邀請連結註冊的交易所" });
-      if (!exIdOk(exchange, uid)) return res.status(400).json({ error: exchange === "UM" ? "請填 UM 的 MT5 帳號（一串數字）" : "請填交易所 UID（一串數字）" });
-      // UM 另外要填開戶的英文姓名（管理員對帳用）
+      if (!exIdOk(exchange, uid)) return res.status(400).json({ error: "請填交易所 UID（一串數字）" });
+      // 要另外填開戶姓名的交易所（目前沒有；原本是 UM）
       accountName = needsName(exchange) ? cleanAccountName(body.accountName) : null;
       if (needsName(exchange) && !accountNameOk(accountName)) return res.status(400).json({ error: ACCOUNT_NAME_ERROR });
 

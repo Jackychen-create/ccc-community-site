@@ -3,7 +3,7 @@ import { $, el, icons, fmtRel, api, sb, modal, confirmDialog, setBusy, toast, cf
 import { state } from "./state.js";
 import { emblem, levelUp } from "./levelup.js";
 import { DAY, md } from "./format.js";
-import { UNIT_USDT, ONE_ON_ONE_USDT, COURSE_PARTS, AUTO_EXCHANGES, TIERS, MAX_TIER, SITE_TIER, tierName, tierInfo, tierRuleText, goalFor, fmtAmount, gapTo, progressTo, isLots, addDays, TRADFI_NOTE, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR } from "../shared/rules.js";
+import { UNIT_USDT, ONE_ON_ONE_USDT, COURSE_PARTS, AUTO_EXCHANGES, TIERS, MAX_TIER, SITE_TIER, tierName, tierInfo, tierRuleText, goalFor, fmtAmount, gapTo, progressTo, isLots, addDays, TRADFI_NOTE, cleanExId, exIdOk, exIdError } from "../shared/rules.js";
 
 const twToday = () => new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
 const withUnit = (ex, n) => `${fmtAmount(ex, n)}${isLots(ex) ? "" : " USDT"}`;
@@ -29,7 +29,7 @@ export function renderAccessBanner() {
     el("span", { class: "muted", text: `這一輪${gapTo(v.amounts || {}, v.tier, v.exchanges)}就能保住；沒達到的話，${md(addDays(v.tierUntil, 1))} 起是${tierName(v.cycleTier)}。` }));
 }
 
-// 右欄：我的等級＋這一輪的交易量（每人從加入那天起算，一輪一個月；OKX、UM 管理員填；Bybit、BingX 綁定 UID 後每天自動更新）
+// 右欄：我的等級＋這一輪的交易量（每人從加入那天起算，一輪一個月；OKX、Bybit、BingX 綁定 UID 後每天自動更新）
 export function renderVolPanel() {
   const box = $("#volPanel");
   const v = state.me?.volume;
@@ -100,7 +100,7 @@ function unitPanel(v) {
         el("span", { class: "num vol-n", text: u.oneOnOne ? "可以預約" : `${fmtAmount("", u.cum)}／${fmtAmount("", ONE_ON_ONE_USDT)}` }),
         el("span", { class: "track" }, el("i", { style: { width: pct(u.cum, ONE_ON_ONE_USDT) } })))),
     linkRows(),
-    el("p", { class: "small muted vol-note", text: `每累計 ${fmtAmount("", UNIT_USDT)} USDT 解鎖一份系統分享，解鎖了就不會再鎖；各交易所加起來算，UM 1 手當 10 萬。直播留檔加入就能看。` + (v.updatedAt ? `上次更新：${fmtRel(v.updatedAt)}。` : "") + (v.exchanges.includes("Bybit") ? TRADFI_NOTE : "") }),
+    el("p", { class: "small muted vol-note", text: `每累計 ${fmtAmount("", UNIT_USDT)} USDT 解鎖一份系統分享，解鎖了就不會再鎖；各交易所加起來算。直播留檔加入就能看。` + (v.updatedAt ? `上次更新：${fmtRel(v.updatedAt)}。` : "") + (v.exchanges.includes("Bybit") ? TRADFI_NOTE : "") }),
   ].filter(Boolean);
 }
 
@@ -110,7 +110,7 @@ function tierLadder(v) {
     ...TIERS.map((t) => el("li", { class: "ms-step" + (v.cycleTier >= t.tier ? " on" : "") + (v.cycleTier === t.tier ? " now" : ""), title: t.perks.join("、") },
       emblem(t.tier, 26, false),
       el("span", { class: "ms-label", text: tierName(t.tier) }),
-      el("span", { class: "ms-goal num", text: `${fmtAmount("", t.usdt)}／${t.lots} 手` }))));
+      el("span", { class: "ms-goal num", text: `${fmtAmount("", t.usdt)} USDT` }))));
 }
 
 // 這一輪升級了：首頁跳一次遊戲式的升級畫面（Discord 也會私訊一份）
@@ -133,13 +133,12 @@ export function celebrateMilestone() {
 // ── Bybit、BingX：綁定 UID 後每天自動更新交易量 ──
 const LINK_INFO = {
   OKX: { hint: "UID 在 OKX 的個人中心。填了之後，管理員才對得到你的交易量。", invite: "", lag: "" },
-  UM: { hint: "UM（Ultima Markets）的 MT5 帳號：UM App 最上面「Live」旁邊那串數字（例如 35904693），再加上你在 UM 開戶的英文姓名。填了之後，管理員才對得到你的手數。", invite: "", lag: "", label: "MT5 帳號" },
   Bybit: { hint: "UID 在 Bybit 的個人頁面，請填主帳號的 UID。要用 CCC 的 Bybit 邀請連結註冊的帳號才能綁定。", invite: "BYBIT_INVITE_URL", lag: "Bybit 的數字隔天才會更新。" },
   BingX: { hint: "UID 在 BingX 的個人頁面。要用 CCC 的 BingX 邀請連結註冊的帳號才能綁定。", invite: "BINGX_INVITE_URL", lag: "" },
 };
 const uidLabel = (ex) => LINK_INFO[ex]?.label || "UID";
 
-// 我的交易所 UID：Bybit、BingX 綁定後每天自動更新；OKX、UM 填了讓管理員對得到人
+// 我的交易所 UID：Bybit、BingX、OKX 綁定後每天自動更新
 function linkRows() {
   const links = (state.me?.links || []).filter((l) => l.enabled);
   if (!links.length) return null;
@@ -150,12 +149,9 @@ function linkRows() {
     ...links.map((l) => el("div", { class: "bx-row" },
       el("span", { class: "bx-ex", text: l.exchange }),
       l.uid
-        ? el("span", { class: "bx-text" }, el("b", { class: "num", text: l.uid }), l.auto ? el("span", { class: "muted", text: "・每天自動更新" }) : null,
-          l.needsName ? el("span", { class: "muted bx-mail", text: l.accountName ? `・${l.accountName}` : "・請重新填 MT5 帳號和姓名" }) : null)
+        ? el("span", { class: "bx-text" }, el("b", { class: "num", text: l.uid }), l.auto ? el("span", { class: "muted", text: "・每天自動更新" }) : null)
         : el("span", { class: "bx-text muted", text: l.auto ? "綁定後每天自動更新" : `還沒填${uidLabel(l.exchange)}` }),
-      l.uid && l.needsName && !l.accountName
-        ? el("button", { class: "btn sm", type: "button", text: "重新填寫", "aria-label": `重新填寫 ${l.exchange}`, onclick: () => bindLink(l.exchange, l.auto, UM_REDO) })
-        : l.uid
+      l.uid
         ? el("button", { class: "btn sm ghost", type: "button", text: "解除", "aria-label": `解除 ${l.exchange}`, onclick: () => unbindLink(l.exchange, l.auto) })
         : el("button", { class: "btn sm", type: "button", text: l.auto ? "綁定" : "填寫", "aria-label": `${l.auto ? "綁定" : "填寫"} ${l.exchange}`, onclick: () => bindLink(l.exchange, l.auto) }))));
 }
@@ -174,11 +170,9 @@ function bindLink(ex = null, auto = true, { title, intro, uid: prefill = "", req
   let cur = ex || "";
   const isAuto = () => opts.find((l) => l.exchange === cur)?.auto ?? auto;
   const pick = ex ? null : el("select", { class: "select", "aria-label": "交易所" },
-    el("option", { value: "", text: "選擇交易所" }), ...opts.map((l) => el("option", { value: l.exchange, text: l.exchange === "UM" ? "UM（Ultima Markets）" : l.exchange })));
+    el("option", { value: "", text: "選擇交易所" }), ...opts.map((l) => el("option", { value: l.exchange, text: l.exchange })));
   const input = el("input", { class: "input num", type: "text", inputmode: "numeric", autocomplete: "off", maxlength: "30", placeholder: "例如 12345678" });
   input.value = prefill;
-  const nameInput = el("input", { class: "input", type: "text", autocomplete: "off", maxlength: "60", placeholder: "例如 WANG XIAO MING" });
-  const nameRow = el("label", { class: "field", hidden: true }, el("span", { class: "label", text: "你在 UM 開戶的英文姓名（跟護照一樣）" }), nameInput);
   const label = el("span", { class: "label" });
   const hint = el("span", { class: "hint" });
   const inviteBox = el("p", { class: "small", style: { marginTop: "12px" }, hidden: true });
@@ -186,8 +180,6 @@ function bindLink(ex = null, auto = true, { title, intro, uid: prefill = "", req
   const save = el("button", { class: "btn primary", type: "button", text: ex && auto ? "綁定" : "儲存" });
   const refresh = () => {
     const info = LINK_INFO[cur] || { hint: "先選你用 CCC 邀請連結註冊的交易所。", invite: "" };
-    // UM 另外填開戶的英文姓名
-    nameRow.hidden = !needsName(cur);
     label.textContent = cur ? `你的 ${cur} ${uidLabel(cur)}` : "UID";
     hint.textContent = info.hint;
     const invite = cfg[info.invite];
@@ -201,7 +193,6 @@ function bindLink(ex = null, auto = true, { title, intro, uid: prefill = "", req
       intro ? el("p", { class: "small", style: { marginTop: "12px" }, text: intro }) : null,
       pick ? el("label", { class: "field" }, el("span", { class: "label", text: "交易所" }), pick) : null,
       el("label", { class: "field" }, label, input, hint),
-      nameRow,
       inviteBox,
       err),
     // 一定要填（還沒填任何 UID）：不能關掉，只能填或登出
@@ -218,12 +209,10 @@ function bindLink(ex = null, auto = true, { title, intro, uid: prefill = "", req
     if (!cur) return fail("請先選交易所");
     const uid = cleanExId(cur, input.value);
     if (!exIdOk(cur, uid)) return fail(exIdError(cur));
-    const accountName = needsName(cur) ? cleanAccountName(nameInput.value) : undefined;
-    if (needsName(cur) && !accountNameOk(accountName)) return fail(ACCOUNT_NAME_ERROR);
     const a = isAuto();
     setBusy(save, true, a ? `向 ${cur} 確認中…` : "儲存中…");
     try {
-      const r = await api("/api/exchange-link", { method: "POST", body: { exchange: cur, uid, accountName } });
+      const r = await api("/api/exchange-link", { method: "POST", body: { exchange: cur, uid } });
       m.close();
       toast(!a ? `已記下你的 ${cur} ${uidLabel(cur)}` : r.synced ? `已綁定，這個月的 ${cur} 交易量已經更新。${LINK_INFO[cur]?.lag || ""}` : "已綁定，交易量稍後自動更新");
       refreshMe();
@@ -235,31 +224,24 @@ function bindLink(ex = null, auto = true, { title, intro, uid: prefill = "", req
 }
 
 // 登入後：一間交易所 UID 都還沒填，就跳出視窗一定要填（不能關，只能填或登出；有別的視窗開著就等它關掉）
-// UM 舊號碼要重填的：每次開網站提醒一次，可以先關掉
-// UM 改成填 MT5 帳號＋開戶英文姓名（2026-10-17）之前填的 UM 號碼可能不是 MT5 帳號，沒有姓名的請他重填
-const umNeedsRedo = (me) => (me?.links || []).some((l) => l.exchange === "UM" && l.uid && l.needsName && !l.accountName);
-const UM_REDO = { title: "請重新填 UM 的 MT5 帳號", intro: "UM 改成填 MT5 帳號（UM App 最上面「Live」旁邊那串數字）和你在 UM 開戶的英文姓名，管理員才對得到你的手數。請重新填一次。" };
-
+// 只填過已經撤掉的交易所（UM）的人（legacyLink）不強制跳出來，右欄「我的交易所 UID」可以自己補填
 let uidRequiredOpen = false; // 一定要填的視窗已經開了（或在等），不要重複開
 export function promptUidIfMissing() {
   const me = state.me;
   if (!me?.links || me.isAdmin || me.free) return; // 贈送名額不用填
-  const missing = !me.links.some((l) => l.uid);
-  const redoUm = !missing && umNeedsRedo(me);
-  if (!missing && !redoUm) return;
+  const missing = !me.links.some((l) => l.uid) && !me.legacyLink;
+  if (!missing) return;
   try {
-    // uidPrompted：UM 重填一次開網站只提醒一次；本機測試也用它跳過這個視窗
+    // uidPrompted：本機測試用它跳過這個視窗
     const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
-    if (sessionStorage.getItem("uidPrompted") && (!missing || local)) return;
+    if (sessionStorage.getItem("uidPrompted") && local) return;
     sessionStorage.setItem("uidPrompted", "1");
   } catch {}
-  if (missing && uidRequiredOpen) return;
-  if (missing) uidRequiredOpen = true;
-  let tries = 0;
+  if (uidRequiredOpen) return;
+  uidRequiredOpen = true;
   const open = () => {
-    if (document.querySelector(".modal-back, .lvl-back")) return (missing || ++tries < 120) && setTimeout(open, 1000); // 一定要填的會一直等
-    if (missing && (state.me?.links || []).some((l) => l.uid)) return void (uidRequiredOpen = false);
-    if (redoUm) return bindLink("UM", false, UM_REDO);
+    if (document.querySelector(".modal-back, .lvl-back")) return setTimeout(open, 1000); // 一定要填的會一直等
+    if ((state.me?.links || []).some((l) => l.uid)) return void (uidRequiredOpen = false);
     bindLink(null, false, { required: true, onClose: () => (uidRequiredOpen = false), title: "填寫你的交易所 UID", intro: "請先填你用 CCC 邀請連結註冊的交易所 UID 才能開始使用，管理員才對得到你的交易量。用好幾間的話，之後可以在「我的等級」再加。" });
   };
   setTimeout(open, 800);

@@ -139,7 +139,6 @@ async function interact(payload, { badSig = false } = {}) {
 const member = (id, { roles = [], perms = "0", name = "user" + id.slice(-2) } = {}) => ({ user: { id, username: name, global_name: name }, roles, permissions: perms });
 const button = (custom_id, m) => ({ type: 3, guild_id: GUILD, token: "tok", member: m, data: { custom_id, component_type: 2 } });
 const modal = (ex, uid, m) => ({ type: 5, guild_id: GUILD, token: "tok-" + uid, member: m, data: { custom_id: `apply_uid:${ex}`, components: [{ type: 1, components: [{ type: 4, custom_id: "uid", value: uid }] }] } });
-const umModal = (uid, mail, m) => ({ type: 5, guild_id: GUILD, token: "tok-um-" + uid, member: m, data: { custom_id: "apply_uid:UM", components: [{ type: 1, components: [{ type: 4, custom_id: "uid", value: uid }] }, { type: 1, components: [{ type: 4, custom_id: "account_name", value: mail }] }] } });
 const lastEdit = () => [...calls].reverse().find((c) => c.method === "PATCH" && c.path.includes("/webhooks/"));
 const AMY = "500000000000000001", BOB = "500000000000000002", CAT = "500000000000000003", DAN = "500000000000000004", BOSS = "500000000000000009";
 
@@ -175,7 +174,7 @@ await test("按「申請」→ 開一個只有他和管理員看得到的申請�
   const welcome = postsTo(amyChan, before)[0];
   assert.ok(welcome, "沒有歡迎訊息"); assert.match(welcome.body.content, new RegExp(`<@${AMY}>`));
   assert.equal(welcome.body.components[0].components[0].custom_id, "apply_ex");
-  assert.deepEqual(welcome.body.components[0].components[0].options.map((o) => o.value), ["OKX", "UM", "Bybit", "BingX"]);
+  assert.deepEqual(welcome.body.components[0].components[0].options.map((o) => o.value), ["OKX", "Bybit", "BingX"]);
   assert.match(lastEdit().body.content, new RegExp(`<#${amyChan}>`));
 });
 await test("再按一次不會開第二個，給原本的頻道連結", async () => {
@@ -206,9 +205,16 @@ await test("別人不能在你的申請頻道操作", async () => {
 });
 await test("不在申請頻道裡送 UID 會請他先開頻道", async () => assert.match((await interact(at(PANEL, modal("BingX", "88880001", member(AMY))))).body.data.content, /先到報名頻道/));
 await test("UID 不是數字會提醒", async () => assert.match((await interact(at(amyChan, modal("BingX", "abc", member(AMY))))).body.data.content, /一串數字/));
-await test("UM 的表單要填 MT5 帳號和開戶的英文姓名", async () => {
+await test("UM 撤掉了：選 UM、送 UM 的表單都不收", async () => {
   const r = (await interact(at(amyChan, { ...button("apply_ex", member(AMY)), data: { custom_id: "apply_ex", values: ["UM"] } }))).body;
-  assert.deepEqual(r.data.components.map((row) => row.components[0].custom_id), ["uid", "account_name"]);
+  assert.match(r.data.content, /重新選一次交易所/);
+  assert.match((await interact(at(amyChan, modal("UM", "35908033", member(AMY))))).body.data.content, /重新選一次交易所/);
+});
+await test("報名頻道的訊息沒有 UM", async () => {
+  const { panelMessage } = await import("../server/lib/discord-flow.js");
+  const p = panelMessage({ OKX: "https://okx.com/join/CCC", UM: "https://ultgo.com/x" });
+  assert.ok(!/UM/.test(p.content), p.content);
+  assert.deepEqual(p.components[1].components.map((b) => b.label), ["OKX 註冊"]);
 });
 
 await test("BingX 是 CCC 邀請的 → 自動給身分組，在頻道裡給專用實驗室密碼", async () => {
@@ -254,7 +260,7 @@ await test("OKX → 在申請頻道等管理員，審核頻道收到通知", asy
   const notice = postsTo(REVIEW, before)[0];
   assert.ok(notice, "審核頻道沒有通知"); assert.ok(notice.body.content.includes(`<#${catChan}>`));
 });
-await test("審核中不能再送一次", async () => assert.match((await interact(at(catChan, umModal("556677", "CAT CHEN", member(CAT))))).body.data.content, /審核中/));
+await test("審核中不能再送一次", async () => assert.match((await interact(at(catChan, modal("OKX", "556677", member(CAT))))).body.data.content, /審核中/));
 await test("不是管理員按不了通過", async () => assert.match((await interact(at(catChan, button(`approve:${okxId}`, member(DAN))))).body.data.content, /只有管理員/));
 await test("管理員按通過 → 給身分組、更新訊息、頻道裡給實驗室密碼", async () => {
   const before = calls.length;
@@ -278,11 +284,8 @@ await test("客服身分組也可以審核、也看得到申請分類", async ()
   st.staffRoleIds = [STAFF];
   const danChan = await openFor(member(DAN));
   assert.ok(BigInt(channels.get(danChan).permission_overwrites.find((o) => o.id === STAFF).allow) & (1n << 10n), "客服身分組要看得到申請頻道");
-  const umNoName = await interact(at(danChan, modal("UM", "556677", member(DAN))));
-  assert.match(umNoName.body.data.content, /英文姓名/, "UM 沒填姓名要提醒");
-  await interact(at(danChan, umModal("556677", " dan  wang ", member(DAN))));
-  assert.match(lastEdit().body.content, /MT5 帳號：`556677`/); assert.match(lastEdit().body.content, /姓名：`DAN WANG`/);
-  assert.equal(db.discord_applications.find((a) => a.discord_user_id === DAN).account_name, "DAN WANG");
+  await interact(at(danChan, modal("OKX", "5566778899", member(DAN))));
+  assert.match(lastEdit().body.content, /UID：`5566778899`/);
   const id = db.discord_applications.find((a) => a.discord_user_id === DAN).id;
   const before = calls.length;
   const r = (await interact(at(danChan, button(`reject:${id}`, member(BOSS.replace(/9$/, "8"), { roles: [STAFF], name: "客服" }))))).body;

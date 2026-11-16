@@ -98,7 +98,7 @@ function renderVolumes() {
         if (n !== null && !Number.isNaN(n)) inp.value = fmtUsd(n);
       });
       map[ex] = inp;
-      // 填過 UID（UM 是 MT5 帳號）就顯示在下面，對交易所後台時用；自動同步的沒綁就寫「未綁定」
+      // 填過 UID 就顯示在下面，對交易所後台時用；自動同步的沒綁就寫「未綁定」
       const uid = r.links?.[ex];
       return el("td", { "data-label": ex }, inp, uid || auto ? el("div", { class: "small muted vol-uid", text: uid ? `${idLabel(ex)} ${uid}` : "未綁定" }) : null);
     });
@@ -132,7 +132,7 @@ function renderVolumes() {
         el("thead", null, el("tr", null, el("th", { text: "研究員" }), ...exchanges.map((ex) => el("th", { text: isAuto(ex) ? `${ex}（自動）` : `${ex}（${unitOf(ex)}）` })), el("th", { text: "這一輪達到" }), el("th", { class: "hide-sm", text: "今天的等級" }))),
         el("tbody", null, trs)), empty),
     el("div", { class: "vol-foot" },
-      el("p", { class: "small muted", text: `USDT 可以打 1000000、1,000,000、100萬 或 1m；UM 填手數，例如 10 或 2.5。每個人填的是他自己那一輪（名字下面的日期）的交易量。${TIERS.map((t) => `${tierName(t.tier)}：${tierRuleText(t.tier)}`).join("；")}。升級的人會收到通知。` }),
+      el("p", { class: "small muted", text: `USDT 可以打 1000000、1,000,000、100萬 或 1m。每個人填的是他自己那一輪（名字下面的日期）的交易量。${TIERS.map((t) => `${tierName(t.tier)}：${tierRuleText(t.tier)}`).join("；")}。升級的人會收到通知。` }),
       saveBtn)
   );
   showTab();

@@ -1,5 +1,5 @@
 // 研究員填自己的交易所 UID：Bybit、BingX 會先跟交易所確認是 CCC 邀請的，之後每天自動抓交易量；
-// OKX、UM 不驗證，只是讓管理員對得到「這個 UID 是哪個 Email」（UM 是 MT5 帳號＋開戶英文姓名）
+// 不自動確認的交易所：只是讓管理員對得到「這個 UID 是哪個 Email」
 // GET    /api/exchange-link                       我綁定的帳號、哪幾間已經可以綁
 // POST   /api/exchange-link { exchange, uid }     綁定：先問交易所這個 UID 是不是用我們的邀請碼註冊的，是才綁，並馬上同步這個月的交易量
 // DELETE /api/exchange-link?exchange=Bybit        解除綁定（之後不再自動同步，已經記下的交易量保留）
@@ -33,7 +33,7 @@ export default route({
     const { data: taken } = await supabaseAdmin.from("exchange_links").select("user_id").eq("exchange", ex).eq("exchange_uid", uid).maybeSingle();
     if (taken && taken.user_id !== ctx.user.id) return res.status(409).json({ error: `這個 ${idLabel(ex)}已經被其他研究員綁定了，有問題請聯絡管理員` });
 
-    // OKX、UM：直接記下來
+    // 不自動確認的：直接記下來
     if (!auto) {
       const { error } = await supabaseAdmin.from("exchange_links").upsert({ user_id: ctx.user.id, exchange: ex, exchange_uid: uid, account_name: accountName, direct: null, bound_at: new Date().toISOString() });
       if (error) throw error;

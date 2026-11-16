@@ -1,5 +1,14 @@
 [
   {
+    "version": "1.27.0",
+    "date": "2026-11-16",
+    "items": [
+      "CCC 不再與 UM（Ultima Markets）合作：網站上的交易所只剩 OKX、Bybit、BingX。UM 的開戶教學、註冊選項、Discord 報名選項都拿掉了，UM 的交易量也不再列入計算。",
+      "之前只填過 UM 帳號的研究員，可以在右邊「我的交易所 UID」加填 OKX、Bybit 或 BingX 的 UID。",
+      "後台：交易量表格、研究員分類、Discord 邀請連結設定都拿掉 UM 欄位；資料庫裡舊的 UM 帳號資料保留，沒有刪。"
+    ]
+  },
+  {
     "version": "1.26.36",
     "date": "2026-11-14",
     "items": [

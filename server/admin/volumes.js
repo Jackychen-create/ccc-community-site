@@ -1,6 +1,6 @@
 // 後台：交易量（每人一輪：從加入那天起算，每一輪一個月）
 // GET   /api/admin/volumes?which=current|previous   每位研究員「這一輪／上一輪」在各交易所的交易量、那一輪達到第幾級、今天的等級、填過的交易所 UID
-// POST  /api/admin/volumes  { which, qualifiedOn: "2026-10-20", rows: [{ userId, amounts: { OKX, UM } }] }
+// POST  /api/admin/volumes  { which, qualifiedOn: "2026-10-20", rows: [{ userId, amounts: { OKX } }] }
 //       Bybit、BingX 是自動同步的，這裡送來也會保留資料庫的數字
 //       三級制度：那一輪達到第幾級就是下一輪的等級（規則在 shared/rules.js 的 TIERS，門檻固定、後台不能改）
 import {
@@ -27,7 +27,7 @@ async function snapshot(which) {
   const tiers = await tiersFor(members || [], today);
   const byKey = new Map((vols || []).map((v) => [`${v.user_id}:${v.period_start}`, v]));
   const linkMap = new Map();
-  // UM 的格子下面也寫開戶的英文姓名，對帳比較準
+  // 有開戶姓名的（以前 UM 填的）一起寫，對帳比較準
   for (const l of links || []) linkMap.set(l.user_id, { ...(linkMap.get(l.user_id) || {}), [l.exchange]: l.account_name ? `${l.exchange_uid}・${l.account_name}` : l.exchange_uid });
   return {
     which,

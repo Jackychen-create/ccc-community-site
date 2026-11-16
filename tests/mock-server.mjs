@@ -76,8 +76,9 @@ const clientErrors = [];
 const EX = EXCHANGES;
 // 自動同步的交易所：假的代理商資料
 // BingX UID 88880001 是我們邀請的，這個月 350 萬（10 號跨過門檻）；Bybit UID 77770001 這個月 150 萬（Bybit 隔天才更新，達標日記昨天）
-const autoLinks = Object.fromEntries(EXCHANGES.map((ex) => [ex, new Map()])); // exchange → (user_id → uid)；OKX、UM 只是記下來
-const accNames = new Map(); // `${ex}:${user_id}` → UM 註冊用的 Email
+const autoLinks = Object.fromEntries(EXCHANGES.map((ex) => [ex, new Map()])); // exchange → (user_id → uid)
+const accNames = new Map(); // `${ex}:${user_id}` → 開戶姓名（目前沒有交易所要填）
+const legacyUm = new Map(); // user_id → 以前填的 UM 帳號（UM 2026-11-16 撤掉，資料庫還留著）
 // 模擬伺服器裡 OKX 當作「還沒設定 API Key」：跟以前一樣管理員手填（正式網站 2026-11-10 起 OKX 也自動）
 const AUTO_EXCHANGES = REAL_AUTO.filter((ex) => ex !== "OKX");
 const mockMembership = { unitFrom: null };
@@ -157,7 +158,7 @@ function syncBadgesM(m) {
 // 一對一：[{ user_id, month, host, booked, created_at }]
 const oneRows = [];
 function oneBoard(month) {
-  const entries = oneRows.filter((x) => x.month === month).map((x) => { const m = members.find((y) => y.user_id === x.user_id); if (!m || m.banned) return null; const a = vols.get(m.user_id + ":" + curP(m).start)?.amounts || {}; const b = progressTo(a, 3); return { ...x, email: m.email, tier: tierM(m).tier, score: oneOnOneScore(a), volume: b.n ? `${b.ex} ${fmtAmount(b.ex, b.n)}${b.ex === "UM" ? "" : " USDT"}` : "—" }; }).filter((e) => e && (e.booked || e.tier >= 3));
+  const entries = oneRows.filter((x) => x.month === month).map((x) => { const m = members.find((y) => y.user_id === x.user_id); if (!m || m.banned) return null; const a = vols.get(m.user_id + ":" + curP(m).start)?.amounts || {}; const b = progressTo(a, 3); return { ...x, email: m.email, tier: tierM(m).tier, score: oneOnOneScore(a), volume: b.n ? `${b.ex} ${fmtAmount(b.ex, b.n)} USDT` : "—" }; }).filter((e) => e && (e.booked || e.tier >= 3));
   return { month, hosts: ONE_ON_ONE_HOSTS.map((host) => ({ host, list: rankOneOnOne(entries, host) })) };
 }
 // 連續打卡：user_id → Set(台灣日期)；每週任務：`${user_id}:${week}` → { base, done_at }
@@ -381,7 +382,7 @@ const server = http.createServer(async (req, res) => {
         mrow.notify = body.notify;
         return send(res, 200, { ok: true, notify: body.notify });
       }
-      return send(res, 200, { links: mrow ? EXCHANGES.map((ex) => ({ exchange: ex, auto: AUTO_EXCHANGES.includes(ex), enabled: true, uid: autoLinks[ex].get(mrow.user_id) || null, accountName: accNames.get(`${ex}:${mrow.user_id}`) || null, needsName: needsName(ex), boundAt: null })) : null, feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, adminRole: admin ? role : null, tier: mrow ? ts.tier : null, streak: mrow ? checkinM(mrow) : null, invites: mrow ? Object.fromEntries(Object.entries(discordSettings.invites || {}).filter(([, x]) => /^https:\/\//.test(String(x)))) : {}, free: !!mrow?.free, theme: mrow?.theme || null, notify: mrow ? mrow.notify !== false : null, discord: mrow ? { linked: dcLinks.has(mrow.user_id), name: dcLinks.get(mrow.user_id)?.name || "" } : null, nextLive: (() => { const l = liveNext(); return l ? { title: l.title, startsAt: l.starts_at, hosts: l.hosts || [], note: l.note, link: l.link } : null; })(), volume: mrow ? (() => { const p = curP(mrow); const v = vols.get(mrow.user_id + ":" + p.start); return { periodStart: p.start, periodEnd: p.end, nextEnd: nextPeriod(anchorOf(mrow), p).end, exchanges: EX, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, tier: ts.tier, tierUntil: ts.until, cycleTier: ts.cycleTier, milestone: mrow.free ? null : msUnseen(mrow, p) }; })() : null });
+      return send(res, 200, { links: mrow ? EXCHANGES.map((ex) => ({ exchange: ex, auto: AUTO_EXCHANGES.includes(ex), enabled: true, uid: autoLinks[ex].get(mrow.user_id) || null, accountName: accNames.get(`${ex}:${mrow.user_id}`) || null, needsName: needsName(ex), boundAt: null })) : null, feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, adminRole: admin ? role : null, tier: mrow ? ts.tier : null, streak: mrow ? checkinM(mrow) : null, legacyLink: mrow ? legacyUm.has(mrow.user_id) : false, invites: mrow ? Object.fromEntries(Object.entries(discordSettings.invites || {}).filter(([ex, x]) => EXCHANGES.includes(ex) && /^https:\/\//.test(String(x)))) : {}, free: !!mrow?.free, theme: mrow?.theme || null, notify: mrow ? mrow.notify !== false : null, discord: mrow ? { linked: dcLinks.has(mrow.user_id), name: dcLinks.get(mrow.user_id)?.name || "" } : null, nextLive: (() => { const l = liveNext(); return l ? { title: l.title, startsAt: l.starts_at, hosts: l.hosts || [], note: l.note, link: l.link } : null; })(), volume: mrow ? (() => { const p = curP(mrow); const v = vols.get(mrow.user_id + ":" + p.start); return { periodStart: p.start, periodEnd: p.end, nextEnd: nextPeriod(anchorOf(mrow), p).end, exchanges: EX, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, tier: ts.tier, tierUntil: ts.until, cycleTier: ts.cycleTier, milestone: mrow.free ? null : msUnseen(mrow, p) }; })() : null });
     }
     if (p === "/api/badges") {
       const all = BADGES.map(({ id, icon, name, desc }) => ({ id, icon, name, desc }));
@@ -419,10 +420,10 @@ const server = http.createServer(async (req, res) => {
       if (!mrow) return send(res, 400, { error: "管理員帳號不用綁定交易所" });
       if (req.method === "GET") return send(res, 200, { links: Object.entries(linkOf(u.id)).map(([exchange, exchange_uid]) => ({ exchange, exchange_uid })), enabled: Object.fromEntries(EXCHANGES.map((ex) => [ex, true])) });
       const ex = req.method === "DELETE" ? url.searchParams.get("exchange") : body.exchange;
+      // 測試用：模擬以前填的 UM 帳號（UM 已經撤掉，只留在資料庫）
+      if (body.legacy && ex === "UM") { legacyUm.set(u.id, String(body.uid)); return send(res, 200, { ok: true }); }
       if (!EXCHANGES.includes(ex)) return send(res, 400, { error: "不支援這間交易所" });
       if (req.method === "DELETE") { autoLinks[ex].delete(u.id); return send(res, 200, { ok: true }); }
-      // 測試用：模擬舊版填的 UM 號碼（沒有姓名）
-      if (body.legacy && ex === "UM") { autoLinks.UM.set(u.id, String(body.uid)); accNames.delete(`UM:${u.id}`); return send(res, 200, { ok: true }); }
       const uid = cleanExId(ex, body.uid);
       if (!exIdOk(ex, uid)) return send(res, 400, { error: exIdError(ex) });
       if ([...autoLinks[ex]].some(([k, v]) => v === uid && k !== u.id)) return send(res, 409, { error: "這個 UID 已經被其他研究員綁定了，有問題請聯絡管理員" });
