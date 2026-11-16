@@ -46,7 +46,7 @@ export function unlocksToday(members, tiers, courseVideos, today) {
   for (const m of members) {
     if (m.banned || m.notify === false || !m.email) continue;
     const tier = tiers.get(m.user_id)?.tier || 0;
-    if (!tier || courseSkipSchedule(tier)) continue;
+    if (!tier || courseSkipSchedule(tier) || tiers.get(m.user_id)?.paid) continue; // 付費的研究員是買了才開，沒有每週解鎖
     const start = twDate(m.created_at);
     const list = [];
     for (let part = 1; part <= COURSE_PARTS; part++) for (const host of COURSE_HOSTS) {

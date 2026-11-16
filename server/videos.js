@@ -1,7 +1,7 @@
 // GET /api/videos          已發布影片清單＋我的觀看進度
 // GET /api/videos?id=12    單支影片的播放連結、教材下載連結、上次看到哪
 import { supabaseAdmin, requireMember, signGet, toInt, route, todayTW, twDate, courseUnlockDate } from "./lib/index.js";
-import { SITE_TIER, courseTierOk, courseSkipSchedule, tierRuleText, unitPartOpen, UNIT_USDT, fmtAmount } from "../public/assets/js/shared/rules.js";
+import { SITE_TIER, courseTierOk, courseSkipSchedule, tierRuleText, unitPartOpen, UNIT_USDT, fmtAmount, paidPartOpen } from "../public/assets/js/shared/rules.js";
 import { pointTimesOf } from "./lib/search.js";
 
 // 三級制度：直播留檔要第二級；系統分享第一級看得到每位主講的第 1 份
@@ -14,7 +14,10 @@ export default route({
     const { user, isAdmin } = ctx;
     const tier = ctx.member ? ctx.tier.tier : Infinity;
 
-    if (req.query?.id === undefined) return tier < SITE_TIER ? needTier2(res) : list(res, user);
+    if (req.query?.id === undefined) {
+      if (ctx.tier?.paid && tier < SITE_TIER) return res.status(403).json({ error: "直播留檔要訂閱月費會員才能看", code: "paid_sub" });
+      return tier < SITE_TIER ? needTier2(res) : list(res, user);
+    }
 
     const id = toInt(req.query.id);
     if (id === null) return res.status(400).json({ error: "影片編號不正確" });
@@ -78,13 +81,19 @@ async function detail(res, ctx, id, tier) {
     return res.status(404).json({ error: "找不到這支影片" });
   }
   // 等級不夠：直播留檔要第二級；系統分享第一級只看得到第 1 份
-  const u = !isAdmin ? ctx.tier?.unit : null;
+  // 付費制：直播留檔要月費；系統分享要買那一集（不用等排程）
+  const pd = !isAdmin ? ctx.tier?.paid : null;
+  if (pd) {
+    if (v.course_host && !paidPartOpen(pd, v.course_part)) return res.status(403).json({ error: `系統分享第 ${v.course_part} 集還沒買，到「方案」購買就能看`, code: "paid_part", part: v.course_part });
+    if (!v.course_host && !pd.sub) return res.status(403).json({ error: "直播留檔要訂閱月費會員才能看", code: "paid_sub" });
+  }
+  const u = !isAdmin && !pd ? ctx.tier?.unit : null;
   if (u && v.course_host && !unitPartOpen(u, v.course_part)) {
     return res.status(403).json({ error: `這一份系統分享累計交易量 ${fmtAmount("", v.course_part * UNIT_USDT)} USDT 解鎖`, code: "tier" });
   }
-  if (!isAdmin && !u && (v.course_host ? !courseTierOk(tier, v.course_part) : tier < SITE_TIER)) return needTier2(res);
+  if (!isAdmin && !u && !pd && (v.course_host ? !courseTierOk(tier, v.course_part) : tier < SITE_TIER)) return needTier2(res);
   // 系統分享：從加入那天起每週解鎖，還沒到的不給播放連結
-  if (v.course_host && !isAdmin && !u && !courseSkipSchedule(tier)) { // 第三級不用等排程
+  if (v.course_host && !isAdmin && !u && !pd && !courseSkipSchedule(tier)) { // 第三級不用等排程
     const unlock = courseUnlockDate(twDate(member.created_at), v.course_host, v.course_part);
     if (unlock > todayTW()) return res.status(403).json({ error: `這一份課程 ${unlock} 解鎖`, code: "locked", unlock_on: unlock });
   }

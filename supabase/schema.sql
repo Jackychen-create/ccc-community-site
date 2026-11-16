@@ -659,3 +659,51 @@ select cron.schedule('daily-volume-sync', '17 2,10 * * *', $cron$
   )
   from vault.decrypted_secrets s, unnest(array['BingX', 'Bybit', 'OKX']) ex where s.name = 'cron_secret';
 $cron$);
+
+-- ── v1.28.0（2026-11-16）：訂閱制（綠界） ──
+-- 月費（信用卡定期定額）：直播留檔、研究員專區、Discord 研究員身分組（會員直播）
+-- 系統分享單集購買：第 N 集＝CCC、X 的第 N 份一起開，一次付清、永久看
+-- 設定在 settings 的 pay：{ mode: off|test|live, monthly, part, paidFrom, legacyUntil }
+-- paidFrom 那天起加入的研究員走付費；之前加入的照舊（legacyUntil 空白＝一直照舊）
+create table if not exists public.pay_orders (
+  trade_no    text primary key check (trade_no ~ '^[A-Z0-9]{8,20}$'),
+  user_id     uuid references auth.users(id) on delete set null,
+  kind        text not null check (kind in ('monthly', 'part')),
+  part        int check (part is null or part between 1 and 6),
+  amount      int not null check (amount >= 0),
+  mode        text not null check (mode in ('test', 'live', 'grant')),
+  -- monthly：pending → active（每期延長 paid_until）→ past_due（扣款失敗）/ canceled（不再續扣，用到期滿）→ ended
+  -- part：pending → paid；失敗 failed
+  status      text not null default 'pending' check (status in ('pending', 'active', 'past_due', 'canceled', 'ended', 'paid', 'failed', 'refunded')),
+  paid_until  date,
+  times       int not null default 0,
+  last_msg    text check (last_msg is null or char_length(last_msg) <= 300),
+  note        text check (note is null or char_length(note) <= 200),
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+create index if not exists pay_orders_user_idx on public.pay_orders (user_id, kind, status);
+alter table public.pay_orders enable row level security;
+-- 綠界每一次通知都記下來（對帳、查問題用）
+create table if not exists public.pay_logs (
+  id          bigint generated always as identity primary key,
+  trade_no    text not null,
+  kind        text not null,
+  rtn_code    text,
+  amount      int,
+  raw         jsonb,
+  created_at  timestamptz not null default now()
+);
+create index if not exists pay_logs_trade_idx on public.pay_logs (trade_no, created_at desc);
+alter table public.pay_logs enable row level security;
+-- 期滿的月費每小時整理一次（結束、收回 Discord 身分組、停掉扣款失敗的續扣）
+select cron.unschedule(jobid) from cron.job where jobname = 'pay-sweep';
+select cron.schedule('pay-sweep', '23 * * * *', $cron$
+  select net.http_post(
+    url := 'https://ccc-community-site.pages.dev/api/cron/pay',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'X-Cron-Secret', s.decrypted_secret),
+    body := '{}'::jsonb,
+    timeout_milliseconds := 60000
+  )
+  from vault.decrypted_secrets s where s.name = 'cron_secret';
+$cron$);

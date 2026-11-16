@@ -2,6 +2,9 @@
 // 交易量存檔（自動同步、管理員手動填）都走 saveVolumes → 這裡；記在 milestones 表（level ＝ 第幾級）
 // 通知：有 Discord（報名時審核通過的那個帳號）就私訊；網站首頁下次打開會跳一次恭喜
 import { supabaseAdmin } from "./env.js";
+import { twDate, todayTW } from "./dates.js";
+import { getPay } from "./pay.js";
+import { isLegacyMember } from "../../public/assets/js/shared/rules.js";
 import { discordConfigured, dm } from "./discord.js";
 import { progressTo, fmtAmount, gapTo, isLots, tierName, tierInfo, MAX_TIER, EXCHANGES } from "../../public/assets/js/shared/rules.js";
 
@@ -30,12 +33,14 @@ export async function notifyMilestones(hits) {
   const ids = [...new Set(hits.map((h) => h.user_id))];
   const [{ data: done }, { data: mems }] = await Promise.all([
     supabaseAdmin.from("milestones").select("user_id, period_start, level").in("user_id", ids),
-    supabaseAdmin.from("members").select("user_id, invite_code, free").in("user_id", ids),
+    supabaseAdmin.from("members").select("user_id, invite_code, free, created_at").in("user_id", ids),
   ]);
   const seen = new Set((done || []).map((r) => `${r.user_id}:${r.period_start}:${r.level}`));
   const memBy = new Map((mems || []).map((m) => [m.user_id, m]));
-  // 贈送名額沒有交易量條件，不用通知
-  const fresh = hits.filter((h) => !memBy.get(h.user_id)?.free && !seen.has(`${h.user_id}:${h.period.start}:${h.level}`));
+  // 贈送名額沒有交易量條件，不用通知；付費的研究員（v1.28.0）等級看月費，不是交易量，也不通知
+  const pay = await getPay().catch(() => null);
+  const isPaid = (m) => !!pay && !!m && !isLegacyMember({ joined: twDate(m.created_at), free: !!m.free }, pay, todayTW());
+  const fresh = hits.filter((h) => !memBy.get(h.user_id)?.free && !isPaid(memBy.get(h.user_id)) && !seen.has(`${h.user_id}:${h.period.start}:${h.level}`));
   if (!fresh.length) return { recorded: 0, sent: 0 };
   const now = new Date().toISOString();
   const { error } = await supabaseAdmin.from("milestones").insert(fresh.map((h) => ({ user_id: h.user_id, period_start: h.period.start, level: h.level, reached_at: now, dm_sent: false, seen: false })));

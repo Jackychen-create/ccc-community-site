@@ -6,7 +6,7 @@ import crypto from "node:crypto";
 // 規則跟正式網站讀同一份
 import { canUseApi } from "../public/assets/js/shared/roles.js";
 import { BOTS as BOT_LIST, GROUPS as BOT_GROUPS } from "../supabase/functions/bots/registry.js";
-import { EXCHANGES, AUTO_EXCHANGES as REAL_AUTO, addDays, periodOf, nextPeriod, prevPeriod, COURSE_HOSTS as CH, courseUnlockDate, courseWeek, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR, BADGES, earnedBadges, themeUnlocked, courseTierOk, courseSkipSchedule, tierOf, tierStatus, FIRST_CYCLE_TIER, progressTo, tierName, tierRuleText, gapTo, TIERS, rankOneOnOne, oneOnOneScore, ONE_ON_ONE_HOSTS, ONE_ON_ONE_CAP, fmtAmount, streakOf, bestStreakOf, weekOf, QUESTS } from "../public/assets/js/shared/rules.js";
+import { EXCHANGES, AUTO_EXCHANGES as REAL_AUTO, addDays, periodOf, nextPeriod, prevPeriod, COURSE_HOSTS as CH, courseUnlockDate, courseWeek, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR, BADGES, earnedBadges, themeUnlocked, courseTierOk, courseSkipSchedule, tierOf, tierStatus, FIRST_CYCLE_TIER, progressTo, tierName, tierRuleText, gapTo, TIERS, rankOneOnOne, oneOnOneScore, ONE_ON_ONE_HOSTS, ONE_ON_ONE_CAP, fmtAmount, streakOf, bestStreakOf, weekOf, QUESTS, isPaidOn, isLegacyMember, paidStatus, paidPartOpen, addMonths, PAY_ITEMS } from "../public/assets/js/shared/rules.js";
 
 const PORT = Number(process.env.PORT || 4321);
 const ROOT = path.join(path.dirname(new URL(import.meta.url).pathname), "..");
@@ -125,7 +125,17 @@ const anchorOf = (m) => twDate(m.created_at);
 const curP = (m) => periodOf(anchorOf(m), TODAY());
 const periodFor = (m, which) => (which === "previous" ? prevPeriod(anchorOf(m), curP(m)) : curP(m));
 // 三級制度：今天第幾級（跟 server/lib/tier.js 一樣）
-const tierM = (m) => m.free ? { tier: 2, until: null, cycleTier: 2, period: curP(m), free: true } : tierStatus({ anchor: anchorOf(m), today: TODAY(), amountsOf: (st) => vols.get(m.user_id + ":" + st)?.amounts || {}, override: m.min_tier ? { tier: m.min_tier, until: m.min_tier_until || null } : null });
+// 付費制（v1.28.0）：假伺服器的設定、訂單（綠界用 /mock-ecpay 假裝）
+const mockPay = { mode: "test", monthly: 66, part: 666, paidFrom: null, legacyUntil: null };
+const payOrders = []; // { trade_no, user_id, kind, part, amount, mode, status, paid_until, created_at }
+const paidOf = (m) => {
+  if (!m || isLegacyMember({ joined: twDate(m.created_at), free: !!m.free }, mockPay, TODAY())) return null;
+  const mine = payOrders.filter((o) => o.user_id === m.user_id && (mockPay.mode === "live" ? o.mode !== "test" : true));
+  const subUntil = mine.filter((o) => o.kind === "monthly" && ["active", "canceled", "past_due"].includes(o.status)).map((o) => o.paid_until).sort().pop() || null;
+  return paidStatus({ subUntil, parts: mine.filter((o) => o.kind === "part" && o.status === "paid").map((o) => o.part), today: TODAY() });
+};
+const tierM = (m) => { const pd = paidOf(m); return pd ? { tier: pd.tier, until: pd.sub ? pd.subUntil : null, cycleTier: pd.tier, period: curP(m), paid: pd } : tierM0(m); };
+const tierM0 = (m) => m.free ? { tier: 2, until: null, cycleTier: 2, period: curP(m), free: true } : tierStatus({ anchor: anchorOf(m), today: TODAY(), amountsOf: (st) => vols.get(m.user_id + ":" + st)?.amounts || {}, override: m.min_tier ? { tier: m.min_tier, until: m.min_tier_until || null } : null });
 const clampDay = (d, p) => (d < p.start ? p.start : d > p.end ? p.end : d);
 // 進度里程碑：`${user_id}:${period_start}:${level}` → { seen }
 const msRows = new Map();
@@ -291,6 +301,14 @@ const server = http.createServer(async (req, res) => {
     const body = req.method === "GET" || req.method === "DELETE" ? {} : JSON.parse((await readBody(req)).toString() || "{}");
     if (p === "/api/register") {
       if (body.email === ADMIN) return send(res, 400, { error: "這個 Email 不能用邀請碼註冊" });
+      // 付費制：不用實驗室密碼、不用交易所
+      if (!body.inviteCode && isPaidOn(mockPay.paidFrom, TODAY())) {
+        if (users[body.email]) return send(res, 400, { error: "這個 Email 已經註冊過了，請直接登入" });
+        const id = crypto.randomUUID();
+        users[body.email] = { id, password: body.password };
+        members.unshift({ user_id: id, email: body.email, invite_code: null, banned: false, created_at: new Date().toISOString(), last_sign_in_at: null, watched_count: 0, access_until: null, notify: true });
+        return send(res, 200, { ok: true, free: false });
+      }
       const inv = invites.find((i) => i.code === body.inviteCode && !i.disabled && i.used_count < i.max_uses);
       if (!inv) return send(res, 400, { error: "邀請碼無效、已停用或已被用完" });
       if (users[body.email]) return send(res, 400, { error: "這個 Email 已經註冊過了，請直接登入" });
@@ -334,7 +352,8 @@ const server = http.createServer(async (req, res) => {
       const spark = Array.from({ length: 25 }, (_, i) => 70000 + Math.sin(i / 3) * 800 + i * 40);
       return send(res, 200, { at: new Date().toISOString(), items: [{ name: "BTC", note: null, price: 71000, chg24: 1.2, high24: 72000, low24: 69500, spark }, { name: "ETH", note: null, price: 2020, chg24: -3.4, high24: 2140, low24: 2000, spark: spark.map((x) => x / 35) }], fng: { value: 32, label: "Fear" } });
     }
-    if (p === "/api/public-membership") return send(res, 200, { unitFrom: mockMembership.unitFrom, on: false });
+    if (p === "/api/public-membership") return send(res, 200, { unitFrom: mockMembership.unitFrom, on: false, pay: { on: isPaidOn(mockPay.paidFrom, TODAY()), paidFrom: mockPay.paidFrom, monthly: mockPay.monthly, part: mockPay.part, open: mockPay.mode !== "off", test: mockPay.mode === "test" } });
+    if (p === "/api/__test/pay") { Object.assign(mockPay, body); return send(res, 200, mockPay); }
     if (p === "/api/public-video") {
       const pubs = videos.filter((v) => v.is_published && v.is_public);
       if (!url.searchParams.has("id")) return send(res, 200, { videos: pubs.map((v) => ({ id: v.id, title: v.title, duration_sec: v.duration_sec, thumb_url: thumbUrl(v) })) });
@@ -356,7 +375,7 @@ const server = http.createServer(async (req, res) => {
     const ts = mrow ? tierM(mrow) : null;
     // 第一級：系統分享（每位主講第 1 份）、播放、進度、筆記也可以（詳細的在各自的地方檢查）
     const t1ok = ts && ts.tier >= 1 && (["/api/course", "/api/progress", "/api/notes"].includes(p) || (p === "/api/videos" && url.searchParams.has("id")));
-    if (ts && ts.tier < 2 && !t1ok && !["/api/me", "/api/exchange-link", "/api/feedback", "/api/report", "/api/badges", "/api/oneonone", "/api/quests", "/api/share", "/api/discord-link"].includes(p)) return send(res, 403, { error: `這個內容要第二級（這一輪 ${tierRuleText(2)}）`, code: "tier", tier: ts.tier });
+    if (ts && ts.tier < 2 && !t1ok && !["/api/me", "/api/exchange-link", "/api/feedback", "/api/report", "/api/badges", "/api/oneonone", "/api/quests", "/api/share", "/api/discord-link", "/api/pay"].includes(p)) return send(res, 403, { error: `這個內容要第二級（這一輪 ${tierRuleText(2)}）`, code: "tier", tier: ts.tier });
     // 連結 Discord（假的：__test/discord-token 開一次性連結）
     if (p === "/api/discord-link") {
       if (!mrow) return send(res, 400, { error: "管理員帳號不用連結" });
@@ -382,7 +401,7 @@ const server = http.createServer(async (req, res) => {
         mrow.notify = body.notify;
         return send(res, 200, { ok: true, notify: body.notify });
       }
-      return send(res, 200, { links: mrow ? EXCHANGES.map((ex) => ({ exchange: ex, auto: AUTO_EXCHANGES.includes(ex), enabled: true, uid: autoLinks[ex].get(mrow.user_id) || null, accountName: accNames.get(`${ex}:${mrow.user_id}`) || null, needsName: needsName(ex), boundAt: null })) : null, feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, adminRole: admin ? role : null, tier: mrow ? ts.tier : null, streak: mrow ? checkinM(mrow) : null, legacyLink: mrow ? legacyUm.has(mrow.user_id) : false, invites: mrow ? Object.fromEntries(Object.entries(discordSettings.invites || {}).filter(([ex, x]) => EXCHANGES.includes(ex) && /^https:\/\//.test(String(x)))) : {}, free: !!mrow?.free, theme: mrow?.theme || null, notify: mrow ? mrow.notify !== false : null, discord: mrow ? { linked: dcLinks.has(mrow.user_id), name: dcLinks.get(mrow.user_id)?.name || "" } : null, nextLive: (() => { const l = liveNext(); return l ? { title: l.title, startsAt: l.starts_at, hosts: l.hosts || [], note: l.note, link: l.link } : null; })(), volume: mrow ? (() => { const p = curP(mrow); const v = vols.get(mrow.user_id + ":" + p.start); return { periodStart: p.start, periodEnd: p.end, nextEnd: nextPeriod(anchorOf(mrow), p).end, exchanges: EX, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, tier: ts.tier, tierUntil: ts.until, cycleTier: ts.cycleTier, milestone: mrow.free ? null : msUnseen(mrow, p) }; })() : null });
+      return send(res, 200, { links: mrow ? EXCHANGES.map((ex) => ({ exchange: ex, auto: AUTO_EXCHANGES.includes(ex), enabled: true, uid: autoLinks[ex].get(mrow.user_id) || null, accountName: accNames.get(`${ex}:${mrow.user_id}`) || null, needsName: needsName(ex), boundAt: null })) : null, feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, adminRole: admin ? role : null, tier: mrow ? ts.tier : null, streak: mrow ? checkinM(mrow) : null, legacyLink: mrow ? legacyUm.has(mrow.user_id) : false, invites: mrow ? Object.fromEntries(Object.entries(discordSettings.invites || {}).filter(([ex, x]) => EXCHANGES.includes(ex) && /^https:\/\//.test(String(x)))) : {}, free: !!mrow?.free, theme: mrow?.theme || null, notify: mrow ? mrow.notify !== false : null, discord: mrow ? { linked: dcLinks.has(mrow.user_id), name: dcLinks.get(mrow.user_id)?.name || "" } : null, nextLive: (() => { const l = liveNext(); return l ? { title: l.title, startsAt: l.starts_at, hosts: l.hosts || [], note: l.note, link: l.link } : null; })(), volume: mrow ? (() => { const p = curP(mrow); const v = vols.get(mrow.user_id + ":" + p.start); return { periodStart: p.start, periodEnd: p.end, nextEnd: nextPeriod(anchorOf(mrow), p).end, exchanges: EX, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, tier: ts.tier, tierUntil: ts.until, cycleTier: ts.cycleTier, paid: ts.paid || null, milestone: mrow.free || ts.paid ? null : msUnseen(mrow, p) }; })() : null });
     }
     if (p === "/api/badges") {
       const all = BADGES.map(({ id, icon, name, desc }) => ({ id, icon, name, desc }));
@@ -487,6 +506,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { q, results });
     }
     if (p === "/api/videos" && !url.searchParams.has("id")) {
+      if (ts?.paid && !ts.paid.sub) return send(res, 403, { error: "直播留檔要訂閱月費會員才能看", code: "paid_sub" });
       return send(res, 200, {
         videos: videos.filter((v) => v.is_published && !v.course_host && !v.is_public).map((v) => {
           const pr = progress.get(`${u.id}:${v.id}`);
@@ -497,8 +517,10 @@ const server = http.createServer(async (req, res) => {
     if (p === "/api/videos") {
       const v = videos.find((x) => x.id === Number(url.searchParams.get("id")));
       if (!v || (!v.is_published && !admin)) return send(res, 404, { error: "找不到這支影片" });
-      if (ts && (v.course_host ? !courseTierOk(ts.tier, v.course_part) : ts.tier < 2)) return send(res, 403, { error: `這個內容要第二級（這一輪 ${tierRuleText(2)}）`, code: "tier" });
-      if (v.course_host && !admin && !courseSkipSchedule(ts?.tier ?? 0)) { const un = unlockOn(twDate(mrow.created_at), v.course_host, v.course_part); if (un > TODAY()) return send(res, 403, { error: `這一份課程 ${un} 解鎖`, code: "locked", unlock_on: un }); }
+      if (ts?.paid && v.course_host && !paidPartOpen(ts.paid, v.course_part)) return send(res, 403, { error: `系統分享第 ${v.course_part} 集還沒買，到「方案」購買就能看`, code: "paid_part", part: v.course_part });
+      if (ts?.paid && !v.course_host && !ts.paid.sub) return send(res, 403, { error: "直播留檔要訂閱月費會員才能看", code: "paid_sub" });
+      if (ts && !ts.paid && (v.course_host ? !courseTierOk(ts.tier, v.course_part) : ts.tier < 2)) return send(res, 403, { error: `這個內容要第二級（這一輪 ${tierRuleText(2)}）`, code: "tier" });
+      if (v.course_host && !admin && !ts?.paid && !courseSkipSchedule(ts?.tier ?? 0)) { const un = unlockOn(twDate(mrow.created_at), v.course_host, v.course_part); if (un > TODAY()) return send(res, 403, { error: `這一份課程 ${un} 解鎖`, code: "locked", unlock_on: un }); }
       const pr = progress.get(`${u.id}:${v.id}`);
       return send(res, 200, { id: v.id, title: v.title, description: v.description, published_at: v.published_at, duration_sec: v.duration_sec, is_published: v.is_published, thumb_url: thumbUrl(v), hosts: v.hosts || [], chapters: v.chapters || [], course_host: v.course_host || null, course_part: v.course_part || null, url: "/media/" + (process.env.VIDEO || "live.webm") + "?sig=" + Date.now(), position_sec: pr?.position_sec || 0, attachments: v.attachments.map((a) => ({ ...a, url: "/media/thumb5.jpg?dl=1" })), highlight: (() => { const h = highlights.get(v.id); return h?.status === "done" ? { summary: h.summary, points: h.points, point_times: h.point_times || [], tickers: h.tickers, chapters: h.chapters } : null; })() });
     }
@@ -517,14 +539,44 @@ const server = http.createServer(async (req, res) => {
       const start = mrow ? twDate(mrow.created_at) : TODAY();
       const slots = [];
       for (let part = 1; part <= 6; part++) for (const h of CH) {
-        const un = unlockOn(start, h, part); const tierLocked = !!mrow && !courseTierOk(ts.tier, part); const unlocked = !mrow || ((un <= TODAY() || courseSkipSchedule(ts.tier)) && !tierLocked);
+        const pd = ts?.paid;
+        const un = pd ? null : unlockOn(start, h, part); const tierLocked = !!mrow && (pd ? !paidPartOpen(pd, part) : !courseTierOk(ts.tier, part)); const unlocked = !mrow || (pd ? !tierLocked : (un <= TODAY() || courseSkipSchedule(ts.tier)) && !tierLocked);
         const v = videos.find((x) => x.is_published && x.course_host === h && x.course_part === part);
         const pr = v && progress.get(`${u.id}:${v.id}`);
-        slots.push({ host: h, part, week: courseWeek(h, part) + 1, unlock_on: un, unlocked, tier_locked: tierLocked,
+        slots.push({ host: h, part, week: courseWeek(h, part) + 1, unlock_on: un, unlocked, tier_locked: tierLocked, price: pd && tierLocked ? mockPay.part : null,
           video: v ? (unlocked ? { id: v.id, title: v.title, description: v.description, duration_sec: v.duration_sec, thumb_url: thumbUrl(v), position_sec: pr?.position_sec || 0, watched_at: pr?.updated_at || null, attachment_count: v.attachments.length, chapters: v.chapters || [] } : { title: v.title }) : null });
       }
       slots.sort((a, b) => a.week - b.week);
-      return send(res, 200, { start, today: TODAY(), slots });
+      return send(res, 200, { start, today: TODAY(), slots, paid: ts?.paid ? { parts: ts.paid.parts, price: mockPay.part } : null });
+    }
+    if (p === "/api/pay") {
+      const pd = paidOf(mrow);
+      const mine = mrow ? payOrders.filter((o) => o.user_id === mrow.user_id) : [];
+      const cur = mine.filter((o) => o.kind === "monthly" && ["active", "canceled", "past_due"].includes(o.status) && o.paid_until >= TODAY()).pop();
+      if (req.method === "GET") return send(res, 200, { paid: !!pd, open: mockPay.mode !== "off", test: mockPay.mode === "test", monthly: mockPay.monthly, part: mockPay.part, parts: 6, graceDays: 3,
+        sub: pd ? { on: pd.sub, until: pd.subUntil, status: cur?.status || null, renewing: cur?.status === "active" } : null, owned: pd ? pd.parts : [],
+        orders: mine.filter((o) => o.status !== "pending").map((o) => ({ tradeNo: o.trade_no, kind: o.kind, part: o.part, amount: o.amount, status: o.status, paidUntil: o.paid_until, test: o.mode === "test", grant: o.mode === "grant", createdAt: o.created_at, item: o.kind === "monthly" ? PAY_ITEMS.monthly : PAY_ITEMS.part(o.part) })) });
+      if (!pd) return send(res, 400, { error: "你的帳號照原本的方式（交易量）解鎖，不用付費" });
+      if (req.method === "DELETE") {
+        if (!cur || cur.status !== "active") return send(res, 404, { error: "沒有在自動扣款的月費" });
+        cur.status = "canceled"; return send(res, 200, { ok: true, until: cur.paid_until });
+      }
+      if (mockPay.mode === "off") return send(res, 403, { error: "付款還沒開放，請稍後再試" });
+      let o;
+      if (body.item === "monthly") { if (cur?.status === "active") return send(res, 409, { error: "你已經在訂閱中了，每個月會自動扣款" }); o = { kind: "monthly", part: null, amount: mockPay.monthly }; }
+      else if (body.item === "part") { if (pd.parts.includes(Number(body.part))) return send(res, 409, { error: `第 ${body.part} 集你已經買過了` }); o = { kind: "part", part: Number(body.part), amount: mockPay.part }; }
+      else return send(res, 400, { error: "要買什麼？" });
+      o = { ...o, trade_no: "CCCMOCK" + (payOrders.length + 1), user_id: mrow.user_id, mode: mockPay.mode, status: "pending", paid_until: null, created_at: new Date().toISOString() };
+      payOrders.push(o);
+      return send(res, 200, { action: "/mock-ecpay", fields: { MerchantTradeNo: o.trade_no, TotalAmount: String(o.amount), ClientBackURL: o.kind === "part" ? "/#/course?paid=1" : "/#/plans?paid=1", ...(o.kind === "monthly" ? { PeriodType: "M" } : {}) }, tradeNo: o.trade_no, amount: o.amount, test: true });
+    }
+    if (p === "/api/admin/pay") {
+      if (req.method === "PUT") Object.assign(mockPay, Object.fromEntries(Object.entries(body).filter(([k]) => ["mode", "monthly", "part", "paidFrom", "legacyUntil"].includes(k)).map(([k, v]) => [k, v === "" ? null : v])));
+      if (req.method === "POST") { const m = members.find((x) => x.email === String(body.email || "").toLowerCase()); if (!m) return send(res, 404, { error: "找不到這個 Email 的研究員" }); payOrders.push(body.kind === "monthly" ? { trade_no: "CCCGRANT" + (payOrders.length + 1), user_id: m.user_id, kind: "monthly", part: null, amount: 0, mode: "grant", status: "canceled", paid_until: addMonths(TODAY(), Number(body.months) || 1), created_at: new Date().toISOString(), note: body.note || null } : { trade_no: "CCCGRANT" + (payOrders.length + 1), user_id: m.user_id, kind: "part", part: Number(body.part), amount: 0, mode: "grant", status: "paid", created_at: new Date().toISOString(), note: body.note || null }); }
+      const emailOfU = (id) => members.find((m) => m.user_id === id)?.email || "";
+      return send(res, 200, { cfg: mockPay, today: TODAY(), liveReady: false, on: isPaidOn(mockPay.paidFrom, TODAY()),
+        stats: { subscribers: new Set(payOrders.filter((o) => o.kind === "monthly" && ["active", "canceled"].includes(o.status)).map((o) => o.user_id)).size, renewing: payOrders.filter((o) => o.status === "active").length, partsSold: payOrders.filter((o) => o.kind === "part" && o.status === "paid" && o.mode !== "grant").length, monthIncome: payOrders.filter((o) => o.mode !== "grant" && ["active", "paid", "canceled"].includes(o.status)).reduce((a, o) => a + o.amount, 0), newPaidMembers: 0 },
+        orders: payOrders.filter((o) => o.status !== "pending").slice().reverse().map((o) => ({ tradeNo: o.trade_no, email: emailOfU(o.user_id), kind: o.kind, part: o.part, item: o.kind === "monthly" ? PAY_ITEMS.monthly : PAY_ITEMS.part(o.part), amount: o.amount, mode: o.mode, status: o.status, paidUntil: o.paid_until, end: o.paid_until, times: o.mode === "grant" ? 0 : 1, msg: null, note: o.note || null, createdAt: o.created_at, counted: true })) });
     }
     if (p === "/api/progress") {
       const prevP = progress.get(`${u.id}:${body.videoId}`);
@@ -887,6 +939,14 @@ const server = http.createServer(async (req, res) => {
     return send(res, 404, { error: "not found" });
   }
 
+  // 假的綠界：收到表單就當作付款成功，帶回 ClientBackURL
+  if (p === "/mock-ecpay" && req.method === "POST") {
+    const f = Object.fromEntries(new URLSearchParams((await readBody(req)).toString()));
+    const o = payOrders.find((x) => x.trade_no === f.MerchantTradeNo);
+    if (o && o.status === "pending") { if (o.kind === "monthly") { o.status = "active"; o.paid_until = addMonths(TODAY(), 1); } else o.status = "paid"; }
+    res.writeHead(302, { Location: f.ClientBackURL || "/" });
+    return res.end();
+  }
   if (p === "/__log") return send(res, 200, log.splice(0));
 
   // ── 靜態檔 ──

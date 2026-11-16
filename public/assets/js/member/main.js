@@ -5,6 +5,7 @@
 //   #/course      系統分享       course.js
 //   #/notes       我的筆記       notes.js
 //   #/feedback    我的提問       feedback.js
+//   #/plans       我的方案       plans.js（付費制的研究員：月費、系統分享單集）
 import { $, api, sb, store, whatsNew, confirmDialog, tutorial } from "../core/index.js";
 import { state, SITE } from "./state.js";
 import { show, showBlocked, showUnavailable, leavePage } from "./views.js";
@@ -22,6 +23,7 @@ import { openCourse } from "./course.js";
 import { openNotes } from "./notes.js";
 import { openFeedback } from "./feedback.js";
 import { finishLink } from "./discord-link.js";
+import { isPaidMember, openPlans } from "./plans.js";
 
 document.querySelectorAll("[data-site-name]").forEach((n) => (n.textContent = SITE));
 document.title = SITE;
@@ -36,6 +38,19 @@ function route() {
     return;
   }
   const m = location.hash.match(/^#\/v\/(\d+)(?:\?t=(\d+))?/);
+  // 付費制（v1.28.0）：首頁沒有月費就是「我的方案」；系統分享、筆記、提問一直都能進（買了的集數才看得到）
+  if (isPaidMember()) {
+    if (location.hash.startsWith("#/plans")) return openPlans();
+    if (location.hash.startsWith("#/course?paid=1")) {
+      history.replaceState(null, "", location.pathname + location.search + "#/course");
+      setTimeout(() => refreshMe().then(() => openCourse()), 4000); // 綠界的通知可能晚幾秒到
+    }
+    if (m) return openWatch(Number(m[1]), { t: m[2] !== undefined ? Number(m[2]) : null });
+    if (location.hash === "#/course") return openCourse();
+    if (location.hash === "#/notes") return openNotes();
+    if (location.hash === "#/feedback") return openFeedback();
+    return state.me.volume.paid.sub ? openList() : openPlans();
+  }
   // 還沒到第二級：首頁換成升級說明；第一級還是看得到系統分享（每位主講第 1 份）、筆記；提問每一級都可以
   if (locked()) {
     const t1 = (state.me.tier ?? 0) >= 1;
@@ -50,6 +65,16 @@ function route() {
   else if (location.hash === "#/course") openCourse();
   else if (location.hash === "#/feedback") openFeedback();
   else openList();
+}
+
+// 重新抓一次自己的資料（付款完成後）
+async function refreshMe() {
+  try {
+    state.me = await api("/api/me");
+    renderMenu();
+    renderAccessBanner();
+    renderVolPanel();
+  } catch {}
 }
 
 let routerOn = false;

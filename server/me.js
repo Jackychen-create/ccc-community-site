@@ -38,8 +38,9 @@ export default route({
         tierUntil: ctx.tier.until, // 這個等級至少到哪天（空白＝不限）
         cycleTier: ctx.tier.cycleTier, // 這一輪自己達到的等級＝下一輪的等級
         unit: ctx.tier.unit || null, // 單位制：{ cum 累計, units 解鎖到第幾份, oneOnOne, nextAt }
+        paid: ctx.tier.paid || null, // 付費制（v1.28.0）：{ sub 月費有效, subUntil, parts 買了哪幾集, tier }
         // 這一輪還沒看過的升級，首頁跳一次恭喜；表還沒建立時當作沒有
-        milestone: ctx.member.free || ctx.tier.unit ? null : await unseenMilestone(ctx.user.id, period.start).catch(() => null),
+        milestone: ctx.member.free || ctx.tier.unit || ctx.tier.paid ? null : await unseenMilestone(ctx.user.id, period.start).catch(() => null),
       };
       // 升級畫面要不要出現「分享到 Discord」：後台有設升級慶祝頻道、這一級還沒分享過
       if (volume.milestone) {

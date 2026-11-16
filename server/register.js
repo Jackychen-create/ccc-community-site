@@ -2,7 +2,9 @@
 // 用實驗室密碼建立研究員帳號，同時記下他用哪間交易所、UID 是多少（管理員才對得到交易量）
 // Bybit、BingX 有設定 API Key 的話，先跟交易所確認是 CCC 邀請的才讓他註冊
 // 贈送名額的實驗室密碼（invite_codes.free）：不用填交易所，觀看不限期
-import { supabaseAdmin, isAdminEmail, readBody, route, thisMonthTW, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, cleanExId, exIdOk, idLabel, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR } from "./lib/index.js";
+// 付費制開始後（v1.28.0）：不用實驗室密碼、不用填交易所，直接用 Email 註冊，再到網站訂閱或買單集
+import { supabaseAdmin, isAdminEmail, readBody, route, thisMonthTW, todayTW, getPay, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, cleanExId, exIdOk, idLabel, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR } from "./lib/index.js";
+import { isPaidOn } from "../public/assets/js/shared/rules.js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -15,7 +17,10 @@ export default route({
     const exchange = String(body.exchange || "");
     const uid = cleanExId(body.exchange, body.uid);
 
-    if (!email || !password || !code) {
+    // 付費制：沒填實驗室密碼也可以註冊（有填還是照原本的流程，贈送名額的密碼一樣有效）
+    const pay = await getPay().catch(() => null);
+    const open = !code && !!pay && isPaidOn(pay.paidFrom, todayTW());
+    if (!email || !password || (!code && !open)) {
       return res.status(400).json({ error: "請填寫 Email、密碼與實驗室密碼" });
     }
     if (!EMAIL_RE.test(email) || email.length > 254) {
@@ -29,9 +34,10 @@ export default route({
       return res.status(400).json({ error: "這個 Email 不能用用實驗室密碼加入" });
     }
     // 贈送名額：交易所可以不填（有填還是照一般規則檢查、記下來）
-    const { data: inv } = await supabaseAdmin.from("invite_codes").select("free").eq("code", code).maybeSingle();
+    const { data: inv } = code ? await supabaseAdmin.from("invite_codes").select("free").eq("code", code).maybeSingle() : { data: null };
     const free = !!inv?.free;
-    const withLink = !free || !!exchange;
+    // 付費制：交易所不用填（有填照一般規則檢查、記下來）
+    const withLink = open || (code && isPaidOn(pay?.paidFrom, todayTW())) ? !!exchange : !free || !!exchange;
     let verified = null;
     const p = PROVIDERS[exchange];
     let accountName = null;
@@ -61,13 +67,15 @@ export default route({
       }
     }
 
-    const { data: ok, error: rpcError } = await supabaseAdmin.rpc("use_invite_code", {
-      p_code: code,
-    });
-    if (rpcError) throw rpcError;
-    if (!ok) return res.status(400).json({ error: "實驗室密碼無效、已停用或已被用完" });
+    if (code) {
+      const { data: ok, error: rpcError } = await supabaseAdmin.rpc("use_invite_code", {
+        p_code: code,
+      });
+      if (rpcError) throw rpcError;
+      if (!ok) return res.status(400).json({ error: "實驗室密碼無效、已停用或已被用完" });
+    }
 
-    const refund = () => supabaseAdmin.rpc("refund_invite_code", { p_code: code });
+    const refund = () => (code ? supabaseAdmin.rpc("refund_invite_code", { p_code: code }) : Promise.resolve());
 
     const { data: created, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
@@ -86,7 +94,7 @@ export default route({
     const { error: memberError } = await supabaseAdmin.from("members").insert({
       user_id: created.user.id,
       email,
-      invite_code: code,
+      invite_code: code || null,
       // 三級制度：新研究員第一輪先是第二級（shared/rules.js 的 FIRST_CYCLE_TIER），之後看每一輪的交易量（規則在 shared/rules.js）
       // 贈送名額：一直是第二級（網站全開），不用看交易量
       access_until: null,

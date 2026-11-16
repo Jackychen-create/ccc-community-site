@@ -172,6 +172,38 @@ export const unitTier = (u) => (u.oneOnOne ? MAX_TIER : SITE_TIER);
 // 系統分享第 part 份開了沒（單位制）
 export const unitPartOpen = (u, part) => !!u && u.units >= part;
 
+// ── 付費制（2026-11-16）──
+// 後台「付費」設定 paidFrom（日期）：那天起「新加入」的研究員改成付費；之前加入的照原本的規則（三級制度／單位制），不用付錢
+//   legacyUntil：舊研究員照舊到哪天（空白＝一直照舊）；過了那天舊研究員也改成付費。贈送名額一直照舊
+// 付費的研究員：
+//   月費（信用卡定期定額，每月自動扣）→ 直播留檔、研究員專區、Discord 研究員身分組（會員直播）
+//   系統分享單集購買 → 第 N 集＝CCC、X 的第 N 份一起開，一次付清、永久看，不用等每週排程，也不用訂月費
+//   沒訂月費也能登入、看自己買的集數、記筆記、提問；直播留檔要月費
+//   扣款失敗：到期後寬限 PAY_GRACE_DAYS 天
+//   管理員手動給第二級＝等於有月費；第三級＝系統分享全開＋可以一對一
+// 價格存在後台設定（預設下面兩個）
+export const PAY_MONTHLY = 66;
+export const PAY_PART = 666;
+export const PAY_GRACE_DAYS = 3;
+const isYmd = (v) => /^\d{4}-\d\d-\d\d$/.test(String(v || ""));
+export const isPaidOn = (paidFrom, today) => isYmd(paidFrom) && today >= paidFrom;
+// 這位研究員是不是照舊（不用付費）：joined＝加入那天（台灣日期）
+export function isLegacyMember({ joined, free = false }, { paidFrom, legacyUntil } = {}, today) {
+  if (!isPaidOn(paidFrom, today) || free) return true;
+  if (joined >= paidFrom) return false;
+  return !isYmd(legacyUntil) || today <= legacyUntil;
+}
+// 付費研究員的狀態：subUntil 月費付到哪天（含寬限）、parts 買了哪幾集、override 管理員手動給的等級
+export function paidStatus({ subUntil = null, parts = [], override = 0, today }) {
+  const sub = (!!subUntil && subUntil >= today) || override >= SITE_TIER;
+  const all = override >= MAX_TIER;
+  const owned = all ? Array.from({ length: COURSE_PARTS }, (_, i) => i + 1) : [...new Set(parts.map(Number))].filter((n) => n >= 1 && n <= COURSE_PARTS).sort((a, b) => a - b);
+  return { sub, subUntil: subUntil || null, parts: owned, oneOnOne: all, tier: all ? MAX_TIER : sub ? SITE_TIER : 1 };
+}
+export const paidPartOpen = (p, part) => !!p && p.parts.includes(Number(part));
+// 綠界的訂單編號：英數字 20 字以內
+export const PAY_ITEMS = { monthly: "月費（直播、直播留檔）", part: (n) => `系統分享第 ${n} 集（CCC、X）` };
+
 // ── 一對一交流（第三級，2026-10-18）──
 // 第三級的研究員每個月（台灣時間的月份）從主講裡選一位（OC 2026-11-09 停止合作後是 CCC、X 二選一）；每位主講一個月最多 5 位
 // 選同一位的超過 5 位 → 照這一輪的交易量排（換算成「到第三級門檻的幾倍」），前 5 位確定、其他候補（可以改選別位）

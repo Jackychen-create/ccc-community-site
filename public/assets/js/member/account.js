@@ -14,7 +14,7 @@ export const targetTier = (v) => (v.cycleTier < v.tier ? v.tier : Math.min(MAX_T
 export function renderAccessBanner() {
   const v = state.me?.volume;
   const box = $("#accessBanner");
-  if (!v || state.me.free || v.unit) return (box.hidden = true); // 單位制只會往上，不用提醒
+  if (!v || state.me.free || v.unit || v.paid) return (box.hidden = true); // 單位制只會往上、付費制看「我的方案」，不用提醒
   if (v.tier === 0) {
     box.hidden = false;
     return box.replaceChildren(el("span", { html: icons.clock }),
@@ -45,6 +45,7 @@ export function renderVolPanel() {
       state.me.links?.some((l) => l.uid) ? linkRows() : null,
     ].filter(Boolean));
   }
+  if (v.paid) return box.replaceChildren(...paidPanel(v.paid));
   if (v.unit) return box.replaceChildren(...unitPanel(v));
   const target = targetTier(v);
   const keep = v.cycleTier < v.tier; // 這一輪還沒保住現在的等級
@@ -72,6 +73,21 @@ export function renderVolPanel() {
     linkRows(),
     el("p", { class: "small muted vol-note", text: "從加入那天起算，每一輪一個月；這一輪達到第幾級，下一輪就是第幾級（任一間交易所達到就算）。" + (v.updatedAt ? `上次更新：${fmtRel(v.updatedAt)}。` : `${v.exchanges.filter((ex) => !AUTO_EXCHANGES.includes(ex)).join("、")} 由管理員更新。`) + (v.exchanges.includes("Bybit") ? TRADFI_NOTE : "") }),
   ].filter(Boolean));
+}
+
+// ── 付費制（v1.28.0）：月費到哪天、買了哪幾集 ──
+function paidPanel(p) {
+  return [
+    el("div", { class: "panel-head", style: { padding: "14px 18px" } },
+      el("div", null, el("h2", { text: "我的方案" }), el("div", { class: "small muted num vol-range", text: p.sub ? `月費會員到 ${md(p.subUntil || "")}` : "還沒訂閱月費" })),
+      el("span", { class: "pill" + (p.sub ? " good" : "") }, p.sub ? "月費會員" : "未訂閱")),
+    el("ol", { class: "unit-cells", "aria-label": `系統分享已買 ${p.parts.length}／${COURSE_PARTS} 集` },
+      ...Array.from({ length: COURSE_PARTS }, (_, i) => el("li", { class: p.parts.includes(i + 1) ? "on" : "", title: `系統分享第 ${i + 1} 集${p.parts.includes(i + 1) ? "（已買）" : ""}` },
+        el("b", { class: "num", text: String(i + 1) }),
+        el("span", { text: p.parts.includes(i + 1) ? "已買" : "—" })))),
+    el("p", { class: "small tier-status", text: p.sub ? "直播留檔、會員直播都打開了。" : "訂閱月費就能看直播和直播留檔；系統分享可以一集一集買。" }),
+    el("div", { style: { padding: "0 18px 16px" } }, el("a", { class: "btn block", href: "#/plans", text: p.sub ? "管理方案" : "看方案" })),
+  ];
 }
 
 // ── 單位制：累計交易量，每 20 萬解鎖一份系統分享、100 萬可以一對一 ──
@@ -228,7 +244,7 @@ function bindLink(ex = null, auto = true, { title, intro, uid: prefill = "", req
 let uidRequiredOpen = false; // 一定要填的視窗已經開了（或在等），不要重複開
 export function promptUidIfMissing() {
   const me = state.me;
-  if (!me?.links || me.isAdmin || me.free) return; // 贈送名額不用填
+  if (!me?.links || me.isAdmin || me.free || me.volume?.paid) return; // 贈送名額、付費制（v1.28.0）不用填
   const missing = !me.links.some((l) => l.uid) && !me.legacyLink;
   if (!missing) return;
   try {

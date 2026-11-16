@@ -2,7 +2,7 @@
 // GET    /api/discord-link            連了沒、連的是誰、去哪裡按按鈕
 // POST   /api/discord-link { token }  用 Discord 給的一次性連結完成連結
 // DELETE /api/discord-link            解除
-import { requireMember, readBody, route, getDiscordSettings } from "./lib/index.js";
+import { requireMember, readBody, route, getDiscordSettings, roleWanted, syncRole } from "./lib/index.js";
 import { linkedOf, redeemLinkToken, unlink } from "./lib/discord-link.js";
 
 const where = (s) => (s.guildId && s.linkChannelId ? `https://discord.com/channels/${s.guildId}/${s.linkChannelId}${s.linkMessageId ? `/${s.linkMessageId}` : ""}` : null);
@@ -19,6 +19,8 @@ export default route({
     if (!ctx) return;
     if (ctx.isAdmin && !ctx.member) return res.status(400).json({ error: "管理員帳號不用連結" });
     const r = await redeemLinkToken(ctx.user.id, readBody(req).token);
+    // 付費制：有月費的研究員連好 Discord 就給研究員身分組（會員直播）
+    if (r.ok && (await roleWanted(ctx.user.id).catch(() => null))) r.role = await syncRole(ctx.user.id, true);
     return res.status(r.ok ? 200 : r.status).json(r.ok ? r : { error: r.error });
   },
   async DELETE(req, res) {

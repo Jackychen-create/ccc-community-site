@@ -25,3 +25,4 @@ export * from "./membership.js";
 export * from "./oneonone.js";
 export * from "./quests.js";
 export * from "./chatlog.js";
+export * from "./pay.js";

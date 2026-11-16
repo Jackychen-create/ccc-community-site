@@ -252,3 +252,22 @@
 .ob-group { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-top: 10px; }
 .ob-group-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .ob-group p { margin: 4px 0 0; }
+
+/* 付費（v1.28.0） */
+.pay-panel { display: grid; gap: 12px; padding: 18px 20px; margin-bottom: 14px; }
+.pay-panel h2 { font-size: 16px; margin: 0; }
+.pay-row { display: grid; grid-template-columns: 8.5em minmax(0, 1fr); gap: 12px; align-items: center; }
+.pay-l { color: var(--ink-2); font-size: 13.5px; }
+.pay-c { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+.pay-c .small { flex: 1 1 260px; }
+.pay-actions { display: flex; justify-content: flex-end; }
+.pay-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.pay-tile { display: grid; gap: 4px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.pay-tile b { font-size: 24px; color: var(--amber); }
+.pay-grant { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.pay-grant .input, .pay-grant .select { width: auto; min-width: 0; }
+.pay-grant .select { flex: 0 1 200px; }
+.pay-h { font-size: 16px; margin: 6px 0 10px; }
+.pay-orders tr.dim { opacity: .55; }
+.pay-orders .pill + .pill { margin-left: 6px; }
+@media (max-width: 720px) { .pay-row { grid-template-columns: 1fr; gap: 6px; } }

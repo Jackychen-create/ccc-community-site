@@ -64,6 +64,7 @@ export async function discordApi(method, path, body) {
 }
 
 export const addRole = (guildId, userId, roleId) => discordApi("PUT", `/guilds/${guildId}/members/${userId}/roles/${roleId}`);
+export const removeRole = (guildId, userId, roleId) => discordApi("DELETE", `/guilds/${guildId}/members/${userId}/roles/${roleId}`);
 export const sendMessage = (channelId, payload) => discordApi("POST", `/channels/${channelId}/messages`, payload);
 export const editMessage = (channelId, messageId, payload) => discordApi("PATCH", `/channels/${channelId}/messages/${messageId}`, payload);
 // 回覆（先回「處理中」之後再改內容）

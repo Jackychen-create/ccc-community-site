@@ -4,6 +4,7 @@ import { supabaseAdmin } from "./env.js";
 import { twDate, todayTW } from "./dates.js";
 import { tierStatus, periodOf, prevPeriod, SITE_TIER, MAX_TIER, usdtEquiv, unitStatus, unitTier } from "../../public/assets/js/shared/rules.js";
 import { unitOn } from "./membership.js";
+import { memberPaid, paidFor } from "./pay.js";
 
 export const overrideOf = (m) => (m?.min_tier ? { tier: m.min_tier, until: m.min_tier_until || null } : null);
 
@@ -22,6 +23,9 @@ function unitFromRows(member, rows, today) {
 
 // member 要有 user_id、created_at、min_tier、min_tier_until（有 free 的話贈送名額不分級）
 export async function memberTier(member, today = todayTW()) {
+  // 付費制（v1.28.0）：付費的研究員看月費和買了哪幾集；照舊的人往下照原本的規則
+  const paid = await memberPaid(member, today);
+  if (paid) return paid;
   if (await unitOn(today)) {
     const { data, error } = await supabaseAdmin.from("volumes").select("amounts").eq("user_id", member.user_id);
     if (error) throw error;
@@ -52,9 +56,10 @@ export function tierFromRows(member, volRows, today = todayTW(), unit = false) {
 export async function tiersFor(members, today = todayTW()) {
   const ids = members.map((m) => m.user_id);
   if (!ids.length) return new Map();
+  const paid = await paidFor(members, today); // 付費的研究員（照舊的不在裡面）
   const unit = await unitOn(today);
   const since = unit ? "2000-01-01" : new Date(Date.parse(today + "T00:00:00Z") - 70 * 86400e3).toISOString().slice(0, 10); // 單位制要全部的輪
   const { data, error } = await supabaseAdmin.from("volumes").select("user_id, period_start, amounts").in("user_id", ids).gte("period_start", since);
   if (error) throw error;
-  return new Map(members.map((m) => [m.user_id, tierFromRows(m, data || [], today, unit)]));
+  return new Map(members.map((m) => [m.user_id, paid.get(m.user_id) || tierFromRows(m, data || [], today, unit)]));
 }

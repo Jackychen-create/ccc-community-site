@@ -1,4 +1,4 @@
-// 登入／註冊（用實驗室密碼加入）
+// 登入／註冊（用實驗室密碼加入；付費制開始後直接用 Email 註冊）
 import { $, el, api, sb, icons, store, setBusy, countUp, tutorial, reloadOnceForStale } from "../core/index.js";
 import { SITE } from "./state.js";
 import { show } from "./views.js";
@@ -8,6 +8,7 @@ import { cleanExId, exIdOk } from "../shared/rules.js";
 let mode = "login";
 let onLogin = async () => {};
 let freeInvite = false; // 這組實驗室密碼是贈送名額：不用填交易所
+let payOn = false; // 付費制開始了（v1.28.0）：註冊不用實驗室密碼、不用填交易所，登入後選方案
 
 // 問伺服器這組實驗室密碼是不是贈送名額，是的話把交易所欄位收起來
 let checkSeq = 0;
@@ -24,8 +25,23 @@ async function checkInvite() {
 }
 function applyFree() {
   const reg = mode === "register";
-  $("#uidRow").hidden = !reg || freeInvite;
+  $("#uidRow").hidden = !reg || freeInvite || payOn;
   $("#freeNote").hidden = !reg || !freeInvite;
+}
+// 付費制開了沒（讀不到就照原本：要實驗室密碼）
+let payChecked = false;
+async function checkPay() {
+  if (payChecked) return;
+  try {
+    const r = await api("/api/public-membership");
+    payChecked = true;
+    payOn = !!r.pay?.on;
+  } catch {}
+  if (payOn) {
+    $("#inviteRow").querySelector(".label").textContent = "實驗室密碼（有拿到才填，沒有就空白）";
+    $("#inviteRow").querySelector(".hint").textContent = "現在直接用 Email 註冊就好，登入後選月費或單集。";
+    setMode(mode);
+  }
 }
 
 export function showAuth() {
@@ -40,6 +56,7 @@ export function showAuth() {
   } else {
     setMode(mode);
   }
+  checkPay();
   const remembered = store.get("lastEmail", "");
   if (remembered && !$("#email").value) $("#email").value = remembered;
   loadBoard();
@@ -69,9 +86,9 @@ function setMode(m) {
   $("#tabRegister").setAttribute("aria-selected", String(reg));
   $("#inviteRow").hidden = !reg;
   applyFree();
-  $("#invite").required = reg;
-  $("#authTitle").textContent = reg ? "加入培訓計畫" : "歡迎回來";
-  $("#authSub").textContent = reg ? "輸入實驗室密碼，建立你的帳號" : "用你的 Email 和密碼登入";
+  $("#invite").required = reg && !payOn;
+  $("#authTitle").textContent = reg ? (payOn ? "加入實驗室" : "加入培訓計畫") : "歡迎回來";
+  $("#authSub").textContent = reg ? (payOn ? "用 Email 建立帳號，登入後選方案" : "輸入實驗室密碼，建立你的帳號") : "用你的 Email 和密碼登入";
   $("#pwLabel").textContent = reg ? "設定你的登入密碼（至少 8 個字元）" : "密碼";
   $("#password").autocomplete = reg ? "new-password" : "current-password";
   $("#authSubmit").textContent = reg ? "建立帳號並登入" : "登入";
@@ -159,11 +176,12 @@ export function initAuth(afterLogin) {
     // 登入不檢查長度（管理員在 Supabase 建的帳號密碼可能比較短）；註冊才要求至少 8 個字元
     if (!password) return setAuthError("請輸入密碼");
     if (mode === "register" && password.length < 8) return setAuthError("密碼至少需要 8 個字元");
-    if (mode === "register" && !invite) return setAuthError("請輸入實驗室密碼");
-    // 贈送名額不用填交易所
-    const exchange = freeInvite ? "" : $("#regEx").value;
+    if (mode === "register" && !invite && !payOn) return setAuthError("請輸入實驗室密碼");
+    // 贈送名額、付費制不用填交易所
+    const noEx = freeInvite || payOn;
+    const exchange = noEx ? "" : $("#regEx").value;
     const uid = cleanExId(exchange, $("#regUid").value);
-    const needEx = mode === "register" && !freeInvite;
+    const needEx = mode === "register" && !noEx;
     if (needEx && !exchange) return setAuthError("請選擇你用 CCC 邀請連結註冊的交易所");
     if (needEx && !exIdOk(exchange, uid)) return setAuthError("請填交易所 UID（一串數字）");
 
@@ -172,7 +190,7 @@ export function initAuth(afterLogin) {
     setAuthError("");
     try {
       if (mode === "register") {
-        await api("/api/register", { method: "POST", body: freeInvite ? { email, password, inviteCode: invite } : { email, password, inviteCode: invite, exchange, uid } });
+        await api("/api/register", { method: "POST", body: noEx ? { email, password, inviteCode: invite } : { email, password, inviteCode: invite, exchange, uid } });
       }
       const { error } = await sb.auth.signInWithPassword({ email, password });
       if (error) throw new Error(loginErrorText(error));

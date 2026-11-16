@@ -47,6 +47,10 @@ import adminInvites from "../../server/admin/invites.js";
 import adminMembers from "../../server/admin/members.js";
 import adminUploadUrl from "../../server/admin/upload-url.js";
 import adminVideos from "../../server/admin/videos.js";
+import pay from "../../server/pay.js";
+import { notify as payNotify, period as payPeriod } from "../../server/pay-notify.js";
+import adminPay from "../../server/admin/pay.js";
+import cronPay from "../../server/cron/pay.js";
 
 const ROUTES = {
   "me": me,
@@ -96,11 +100,18 @@ const ROUTES = {
   "admin/members": adminMembers,
   "admin/upload-url": adminUploadUrl,
   "admin/videos": adminVideos,
+  "pay": pay,
+  "pay/notify": payNotify,
+  "pay/period": payPeriod,
+  "admin/pay": adminPay,
+  "cron/pay": cronPay,
 };
 
 const MAX_BODY = 64 * 1024; // API 只收小小的 JSON，檔案一律直傳 R2
 // 例外：直播精華的聲音（GitHub Actions 一段一段送，每段 10 分鐘的 mp3）
 const RAW_ROUTES = { "cron/highlights": 8 * 1024 * 1024 };
+// 綠界的通知是表單（application/x-www-form-urlencoded），不是 JSON
+const FORM_ROUTES = new Set(["pay/notify", "pay/period"]);
 
 // 讀到上限就停：超過回 null
 async function readLimited(stream, max) {
@@ -145,6 +156,13 @@ function makeRes() {
     r.headersSent = true;
     return r;
   };
+  // 純文字（綠界要的 1|OK）
+  r.send = (text) => {
+    r.headers["Content-Type"] ??= "text/plain; charset=utf-8";
+    r.body = String(text);
+    r.headersSent = true;
+    return r;
+  };
   r.end = () => {
     r.headersSent = true;
     return r;
@@ -180,7 +198,9 @@ export async function onRequest(context) {
     const text = await request.text();
     rawText = text;
     if (text.length > MAX_BODY) return json(413, { error: "資料太大" });
-    if (text) {
+    if (text && FORM_ROUTES.has(path)) {
+      body = Object.fromEntries(new URLSearchParams(text));
+    } else if (text) {
       try {
         body = JSON.parse(text);
       } catch {

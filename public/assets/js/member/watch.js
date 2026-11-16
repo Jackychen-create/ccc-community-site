@@ -79,6 +79,14 @@ export async function openWatch(id, { t = null } = {}) {
       $("#wDesc").textContent = unit ? `${e.message}，你現在累計 ${Math.round(unit.cum / 1e3) / 10} 萬。` : `${e.message}。第一級可以先看系統分享每位主講的第 1 份。`;
       return;
     }
+    // 付費制（v1.28.0）：還沒買這一集、沒有月費
+    if (e.code === "paid_part" || e.code === "paid_sub") {
+      $("#videoLoading").hidden = true;
+      setWatchBack(true);
+      $("#wTitle").textContent = e.code === "paid_part" ? `系統分享第 ${e.data?.part || ""} 集還沒買` : "直播留檔要月費會員";
+      $("#wDesc").replaceChildren(el("span", { text: e.message + "。" }), " ", el("a", { href: "#/plans", text: "看方案" }));
+      return;
+    }
     if (e.code === "locked") {
       $("#videoLoading").hidden = true;
       setWatchBack(true);

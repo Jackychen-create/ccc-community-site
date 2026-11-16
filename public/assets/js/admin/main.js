@@ -6,6 +6,7 @@
 //   #discord  Discord 審核  discord.js
 //   #members  研究員      members.js
 //   #volumes  交易量      volumes.js
+//   #pay      付費        pay.js（月費、單集、綠界）
 //   #oneonone 一對一      oneonone.js
 //   #stats    觀看統計    stats.js
 //   #feedback 提問回報    feedback.js
@@ -25,6 +26,7 @@ import { loadOneOnOne } from "./oneonone.js";
 import { loadLives } from "./lives.js";
 import { loadMembers } from "./members.js";
 import { loadVolumes } from "./volumes.js";
+import { loadPay } from "./pay.js";
 import { loadStats } from "./stats.js";
 import { loadFeedback, refreshFeedbackCount } from "./feedback.js";
 import { loadFollowup } from "./followup.js";
@@ -96,7 +98,7 @@ function loadBadges() {
 
 function route() {
   loadBadges();
-  const VIEWS = ["videos", "lives", "invites", "discord", "members", "volumes", "oneonone", "stats", "feedback", "followup", "chat", "bots", "health"];
+  const VIEWS = ["videos", "lives", "invites", "discord", "members", "volumes", "pay", "oneonone", "stats", "feedback", "followup", "chat", "bots", "health"];
   const want = location.hash.slice(1);
   const view = VIEWS.includes(want) && canSeeView(state.me?.adminRole, want) ? want : "videos";
   document.querySelectorAll("[data-view-panel]").forEach((p) => (p.hidden = p.dataset.viewPanel !== view));
@@ -108,7 +110,7 @@ function route() {
     }
     else a.removeAttribute("aria-current");
   });
-  document.title = { videos: "影片", lives: "直播預告", invites: "實驗室密碼", discord: "Discord 審核", members: "研究員", volumes: "交易量", oneonone: "一對一", stats: "觀看統計", feedback: "提問回報", followup: "待跟進", chat: "聊天統計", bots: "機器人", health: "網站狀況" }[view] + "｜後台管理";
+  document.title = { videos: "影片", lives: "直播預告", invites: "實驗室密碼", discord: "Discord 審核", members: "研究員", volumes: "交易量", pay: "付費", oneonone: "一對一", stats: "觀看統計", feedback: "提問回報", followup: "待跟進", chat: "聊天統計", bots: "機器人", health: "網站狀況" }[view] + "｜後台管理";
   if (view === "videos") loadVideos();
   if (view === "lives") loadLives();
   if (view === "invites") loadInvites();
@@ -116,6 +118,7 @@ function route() {
   if (view === "members") loadMembers();
   if (view === "stats") loadStats();
   if (view === "volumes") loadVolumes();
+  if (view === "pay") loadPay();
   if (view === "oneonone") loadOneOnOne();
   if (view === "feedback") loadFeedback();
   if (view === "followup") loadFollowup();

@@ -11,7 +11,7 @@ const menuPanel = $("#menuPanel");
 export function renderMenu() {
   const me = state.me;
   $("#avatar").textContent = (me?.email || "?").charAt(0).toUpperCase();
-  rankRing($("#avatar"), me && !me.isAdmin && !me.free ? me.tier ?? 0 : null); // 頭像外圈：銅／銀／金（贈送名額不分級，不加）
+  rankRing($("#avatar"), me && !me.isAdmin && !me.free && !me.volume?.paid ? me.tier ?? 0 : null); // 頭像外圈：銅／銀／金（贈送名額、付費制不分級，不加）
   // 連續打卡：頭像旁邊「🔥 5」
   const chip = $("#streakChip");
   const st = me && !me.isAdmin ? me.streak : null;
@@ -25,6 +25,7 @@ export function renderMenu() {
   menuPanel.replaceChildren(...[
     el("div", { class: "who" }, el("div", { text: "登入身分" }), el("div", { style: { color: "var(--ink)" }, text: me?.email || "" })),
     me?.isAdmin ? el("a", { href: "/admin", role: "menuitem" }, icon("settings"), "後台管理") : null,
+    me?.volume?.paid && !me.isAdmin ? el("a", { href: "#/plans", role: "menuitem", onclick: () => toggleMenu(false) }, icon("ticket"), "我的方案", el("span", { class: "menu-state" + (me.volume.paid.sub ? " on" : ""), text: me.volume.paid.sub ? "月費會員" : "還沒訂閱" })) : null,
     el("a", { href: "#/course", role: "menuitem", onclick: () => toggleMenu(false) }, icon("book"), "系統分享"),
     el("a", { href: "#/notes", role: "menuitem", onclick: () => toggleMenu(false) }, icon("note"), "我的筆記"),
     el("a", { href: "#/feedback", role: "menuitem", onclick: () => toggleMenu(false) }, icon("chat"), "我的提問", me?.feedbackUnread ? el("span", { class: "menu-dot", "aria-label": "有新回覆" }) : null),
