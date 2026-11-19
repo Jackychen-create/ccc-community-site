@@ -217,3 +217,86 @@
   var brand = document.querySelector(".brand");
   if (brand) { brand.addEventListener("mouseenter", go); brand.addEventListener("focus", go); }
 })();
+
+// ── 首屏的交易所卡片（2026-11-19）：中間那張是選到的，左右兩張往內轉；下面的控制列跟著換、跟下面的註冊步驟分頁同步 ──
+(function () {
+  var orbit = document.getElementById("orbit");
+  if (!orbit) return;
+  var cards = [].slice.call(orbit.querySelectorAll(".oc"));
+  var EX = {
+    okx: { name: "OKX", code: "99357363", sub: "現貨・合約" },
+    bybit: { name: "Bybit", code: "CCCX", sub: "現貨・合約・TradFi" },
+    bingx: { name: "BingX", code: "GTUTWZ", sub: "現貨・合約・跟單" },
+  };
+  // 註冊連結只寫在下面的分頁裡（一個地方改就好）
+  Object.keys(EX).forEach(function (k) { var a = document.querySelector("#p-" + k + " .ex-head a.btn"); if (a) EX[k].href = a.href; });
+  var $ = function (id) { return document.getElementById(id); };
+  var n = cards.length, idx = 0;
+  var wide = function () { return window.matchMedia("(min-width: 761px)").matches; };
+
+  function layout() {
+    var w = cards[0].offsetWidth;
+    cards.forEach(function (c, i) {
+      var d = ((i - idx) % n + n + 1) % n - 1; // -1, 0, 1（繞一圈）
+      var x = d * w * (wide() ? .98 : .9);
+      var z = -Math.abs(d) * (wide() ? 170 : 120);
+      c.style.transform = "translate3d(" + x + "px, " + (Math.abs(d) * 16) + "px, " + z + "px) rotateY(" + (-d * 26) + "deg)";
+      c.style.zIndex = String(10 - Math.abs(d));
+      c.setAttribute("aria-current", String(d === 0));
+      c.tabIndex = d === 0 ? 0 : -1;
+    });
+  }
+  function pick(i, fromTab) {
+    idx = (i + n) % n;
+    layout();
+    var key = cards[idx].dataset.ex, ex = EX[key];
+    $("dockName").textContent = ex.name;
+    $("dockCode").textContent = "邀請碼 " + ex.code;
+    $("dockSub").textContent = "・" + ex.sub;
+    $("dockGo").href = $("dockPlay").href = ex.href || "#exchanges";
+    $("dockGo").textContent = "用 CCC 連結註冊 " + ex.name;
+    $("dockPlay").setAttribute("aria-label", "用 CCC 連結註冊 " + ex.name);
+    $("dockLine").style.width = ((idx + 1) / n * 100) + "%";
+    var art = cards[idx].querySelector(".oc-art");
+    var th = $("dockThumb");
+    th.className = "dock-thumb " + art.className.replace("oc-art", "").trim();
+    th.replaceChildren(art.firstElementChild.cloneNode(true));
+    if (!fromTab) { var t = document.getElementById("t-" + key); if (t && t.getAttribute("aria-selected") !== "true") t.click(); }
+  }
+  cards.forEach(function (c, i) {
+    c.addEventListener("click", function () {
+      if (i !== idx) return pick(i);
+      document.getElementById("exchanges").scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    });
+  });
+  $("dockPrev").addEventListener("click", function () { pick(idx - 1); });
+  $("dockNext").addEventListener("click", function () { pick(idx + 1); });
+  orbit.addEventListener("keydown", function (e) {
+    var d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+    if (d) { e.preventDefault(); pick(idx + d); cards[idx].focus(); }
+  });
+  // 手機：左右滑
+  var sx = null;
+  orbit.addEventListener("pointerdown", function (e) { sx = e.clientX; });
+  orbit.addEventListener("pointerup", function (e) {
+    if (sx === null) return;
+    var dx = e.clientX - sx; sx = null;
+    if (Math.abs(dx) > 40) pick(idx + (dx < 0 ? 1 : -1));
+  });
+  // 複製邀請碼
+  $("dockCopy").addEventListener("click", function () {
+    var code = EX[cards[idx].dataset.ex].code, btn = this;
+    var done = function () { btn.setAttribute("title", "已複製 " + code); btn.classList.add("ok"); setTimeout(function () { btn.classList.remove("ok"); btn.setAttribute("title", "複製邀請碼"); }, 1600); };
+    if (navigator.clipboard) navigator.clipboard.writeText(code).then(done, function () {}); else done();
+  });
+  // 下面的分頁換了，上面也跟著換
+  [].forEach.call(document.querySelectorAll('[role="tab"]'), function (t) {
+    t.addEventListener("click", function () {
+      var k = t.id.replace("t-", ""), i = cards.findIndex(function (c) { return c.dataset.ex === k; });
+      if (i >= 0 && i !== idx) pick(i, true);
+    });
+  });
+  var want = { "#okx": 0, "#bybit": 1, "#bingx": 2 }[location.hash.toLowerCase()];
+  pick(want || 0, true);
+  window.addEventListener("resize", layout);
+})();

@@ -11,12 +11,13 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://ccc-community-site.pages.dev/start/">
 <meta name="twitter:card" content="summary">
-<meta name="theme-color" content="#0F1412">
+<meta name="theme-color" content="#000000">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Sofia+Sans+Semi+Condensed:wght@500;600;700&display=swap">
 <link rel="stylesheet" href="style.css">
+<link rel="preload" as="image" href="terrain-sm.webp" media="(max-width: 900px)">
 <script src="cjk.js" defer></script>
 <script src="app.js" defer></script>
 </head>
@@ -44,25 +45,63 @@
 
 <main id="main">
 
-<section class="hero" id="top">
-  <div class="flare" aria-hidden="true"><i class="core"></i><i class="streak"></i><i class="streak v"></i><i class="g g1"></i><i class="g g2"></i><i class="g g3"></i><i class="g g4"></i></div>
-  <div class="wrap hero-in">
-    <div class="hero-text">
-      <h1>CCC° 交易實驗室</h1>
-      <p class="lead">CCC、X 兩位交易員的交易社群。<br class="pc">在 OKX、Bybit、BingX 交易，就能免費加入培訓計畫：會員直播、兩位交易員的交易系統分享、直播留檔。</p>
-      <div class="hero-act">
-        <a class="btn primary lg" href="#join">看怎麼加入</a>
-        <a class="btn lg" href="https://discord.gg/aPkc23GBF" data-link="discord" target="_blank" rel="noopener">先進 Discord 看看</a>
+<section class="hero space" id="top">
+  <div class="sky" aria-hidden="true"></div>
+  <div class="ground" aria-hidden="true"><img src="terrain.webp" srcset="terrain-sm.webp 1200w, terrain.webp 2400w" sizes="100vw" alt="" decoding="async"></div>
+  <div class="wrap hero-text">
+    <p class="eyebrow">CCC、X 兩位交易員的交易社群</p>
+    <h1>CCC° 交易實驗室</h1>
+    <p class="lead"><span class="ln"><span class="nw">在 OKX、Bybit、BingX 交易，</span><span class="nw">就能免費加入培訓計畫。</span></span><span class="ln"><span class="nw">會員直播、</span><span class="nw">兩位交易員的交易系統分享、</span><span class="nw">直播留檔。</span></span></p>
+  </div>
+
+  <div class="stage">
+    <div class="orbit" id="orbit" aria-roledescription="輪播" aria-label="選一間交易所">
+      <button class="oc" type="button" data-ex="okx" aria-label="OKX">
+        <span class="oc-art t-okx"><img src="logos/okx.svg" alt="" width="24" height="24"></span>
+        <span class="oc-cap"><b>OKX</b><small>現貨・合約</small></span>
+      </button>
+      <button class="oc" type="button" data-ex="bybit" aria-label="Bybit">
+        <span class="oc-art t-bybit"><img src="logos/bybit.svg" alt="" width="24" height="24"></span>
+        <span class="oc-cap"><b>Bybit</b><small>現貨・合約・TradFi</small></span>
+      </button>
+      <button class="oc" type="button" data-ex="bingx" aria-label="BingX">
+        <span class="oc-art t-bingx"><span class="wm">BingX</span></span>
+        <span class="oc-cap"><b>BingX</b><small>現貨・合約・跟單</small></span>
+      </button>
+    </div>
+
+    <div class="dock-wrap">
+      <div class="orbs">
+        <a class="orb" href="#join" aria-label="看怎麼加入" title="看怎麼加入"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m0 0-5-5m5 5 5-5M5 20h14"/></svg></a>
+        <a class="orb" href="#exchanges" aria-label="註冊步驟" title="註冊步驟"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg></a>
+        <a class="orb" href="https://discord.gg/aPkc23GBF" data-link="discord" target="_blank" rel="noopener" aria-label="加入 Discord" title="加入 Discord"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v10H10l-5 4z"/></svg></a>
+      </div>
+      <div class="dock" role="group" aria-label="交易所">
+        <span class="dock-live" aria-hidden="true"></span>
+        <button class="ic" type="button" id="dockPrev" aria-label="上一間"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 6 5 12l6 6V6zm8 0-6 6 6 6V6z"/></svg></button>
+        <a class="ic play" id="dockPlay" href="#" target="_blank" rel="noopener sponsored" aria-label="用 CCC 連結註冊"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></a>
+        <button class="ic" type="button" id="dockNext" aria-label="下一間"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 6 6 6-6 6V6zM5 6l6 6-6 6V6z"/></svg></button>
+        <span class="dock-thumb" id="dockThumb" aria-hidden="true"></span>
+        <span class="dock-meta">
+          <b id="dockName">OKX</b>
+          <small><span id="dockCode">邀請碼 99357363</span><span class="dock-kind" id="dockSub">・現貨・合約</span></small>
+          <span class="dock-line" aria-hidden="true"><i id="dockLine"></i></span>
+        </span>
+        <button class="ic sm" type="button" id="dockCopy" aria-label="複製邀請碼" title="複製邀請碼"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h10v10H9zM5 15V5h10"/></svg></button>
+        <a class="btn primary sm dock-go" id="dockGo" href="#" target="_blank" rel="noopener sponsored">用 CCC 連結註冊</a>
       </div>
     </div>
-    <dl class="board" aria-label="培訓計畫重點">
-      <div><dt>會費</dt><dd class="num">0</dd><span>看交易量，不收錢</span></div>
-      <div><dt>主講</dt><dd class="num">2</dd><span>CCC、X</span></div>
-      <div><dt>交易所</dt><dd class="num">3</dd><span>OKX、Bybit、BingX</span></div>
-      <div data-tier><dt>系統分享</dt><dd class="num">1</dd><span>每週解鎖一份</span></div>
-      <div data-unit hidden><dt>系統分享</dt><dd class="num">20<small>萬</small></dd><span>累計交易量解鎖一份</span></div>
-    </dl>
   </div>
+</section>
+
+<section class="strip" aria-label="培訓計畫重點">
+  <div class="wrap"><dl class="board">
+    <div><dt>會費</dt><dd class="num">0</dd><span>看交易量，不收錢</span></div>
+    <div><dt>主講</dt><dd class="num">2</dd><span>CCC、X</span></div>
+    <div><dt>交易所</dt><dd class="num">3</dd><span>OKX、Bybit、BingX</span></div>
+    <div data-tier><dt>系統分享</dt><dd class="num">1</dd><span>每週解鎖一份</span></div>
+    <div data-unit hidden><dt>系統分享</dt><dd class="num">20<small>萬</small></dd><span>累計交易量解鎖一份</span></div>
+  </dl></div>
 </section>
 
 <section class="mkt" id="market" aria-labelledby="mktTitle" hidden>
@@ -113,7 +152,7 @@
         <span class="step-n num">01</span>
         <div>
           <h3>用 CCC 的連結註冊交易所</h3>
-          <p>四間交易所選一間，<strong>一定要從這個網站的連結進去註冊</strong>，系統才知道你是 CCC 邀請的。註冊完做身分驗證，記下你的 UID。</p>
+          <p>三間交易所選一間，<strong>一定要從這個網站的連結進去註冊</strong>，系統才知道你是 CCC 邀請的。註冊完做身分驗證，記下你的 UID。</p>
           <a class="more" href="#exchanges">各交易所註冊步驟 →</a>
         </div>
       </li>
