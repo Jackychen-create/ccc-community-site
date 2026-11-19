@@ -133,7 +133,7 @@ test("徽章：照事實給，id 不重複", () => {
   assert.deepEqual(earnedBadges({ ...none, streak: 3, qualified: 3, hostsDone: ["CCC"], courseDone: 18, liveDone: 10, notes: 10 }).sort(), ["course18", "half", "host6", "live10", "notes10", "qualified", "streak3"].filter((x) => x !== "half").sort());
 });
 test("主題：前三個免費，其他要對應的徽章；管理員全部可以用", () => {
-  assert.deepEqual(THEMES.filter((t) => !t.unlock).map((t) => t.id), ["board", "night", "paper"]);
+  assert.deepEqual(THEMES.filter((t) => !t.unlock).map((t) => t.id), ["space", "board", "night", "paper"]);
   for (const t of THEMES) if (t.unlock) assert.ok(BADGES.some((b) => b.id === t.unlock), t.id);
   assert.equal(themeUnlocked("vault", []), false);
   assert.equal(themeUnlocked("vault", ["qualified"]), true);

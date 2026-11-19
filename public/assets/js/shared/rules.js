@@ -294,14 +294,15 @@ export const earnedBadges = (f) => BADGES.filter((b) => b.test(f)).map((b) => b.
 // ── 外觀主題（2026-10-18）──
 // 前三個大家都能用；後面三個要先拿到對應的徽章（unlock）。管理員全部都能用
 export const THEMES = [
-  { id: "board", name: "營業廳", desc: "墨綠灰底、琥珀數字（預設）", swatch: ["#0F1412", "#141B18", "#CDA45E"] },
+  { id: "space", name: "深空", desc: "全黑底、米白數字（預設）", swatch: ["#000000", "#151515", "#E6DAC4"] },
+  { id: "board", name: "營業廳", desc: "墨綠灰底、琥珀數字", swatch: ["#0F1412", "#141B18", "#CDA45E"] },
   { id: "night", name: "夜盤", desc: "深藍底、冷藍數字", swatch: ["#0E121A", "#131925", "#7FB2E5"] },
   { id: "paper", name: "晨報", desc: "米白紙色的淺色主題", swatch: ["#F4F1EA", "#FFFDF8", "#875B14"] },
   { id: "vault", name: "金庫", desc: "黑金", unlock: "qualified", swatch: ["#0D0C0A", "#15130F", "#E2B65C"] },
   { id: "aurora", name: "極光", desc: "深紫底、青綠數字", unlock: "streak3", swatch: ["#100F1A", "#161524", "#8FD3C1"] },
   { id: "chalk", name: "黑板", desc: "教室黑板綠、粉筆黃", unlock: "course18", swatch: ["#17241F", "#1C2C26", "#F0D27A"] },
 ];
-export const DEFAULT_THEME = "board";
+export const DEFAULT_THEME = "space";
 export const themeById = (id) => THEMES.find((t) => t.id === id) || null;
 // 這個人能不能用這個主題：earned = 已經拿到的徽章 id
 export const themeUnlocked = (id, earned = [], isAdmin = false) => {

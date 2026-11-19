@@ -3,7 +3,7 @@
 import { TIERS, tierName } from "../shared/rules.js";
 
 export const RANK_COLOR = { 0: "#86938D", 1: "#B9784A", 2: "#B9C4CB", 3: "#CDA45E" };
-const BG = "#0F1412", SURFACE = "#19221E", INK = "#DDE3E0", INK2 = "#A6B2AD", AMBER = "#CDA45E";
+const BG = "#000000", SURFACE = "#151515", INK = "#EDEDEA", INK2 = "#ABABA6", AMBER = "#E6DAC4";
 const FONT = '"Noto Sans TC", system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif';
 const NUM = "零一二三";
 

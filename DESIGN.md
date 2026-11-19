@@ -1,17 +1,17 @@
 ---
 name: CCC 交易實驗室
-description: 「營業廳看板」：墨綠灰底、低飽和琥珀色數字，場次列表像券商營業廳的行情看板。預設深色，研究員可以換外觀主題。
+description: 預設「深空」（2026-11-19 起，跟對外網站同一套）：全黑底、米白色數字和主要按鈕、頁首和面板一層很淡的玻璃；版面還是券商營業廳的行情看板。原本的墨綠「營業廳」改成可以選的外觀主題。
 colors:
-  bg: "#0F1412"
-  surface: "#141B18"
-  surface-2: "#19221E"
-  sunken: "#0B0F0D"
-  line: "#222C28"
-  line-strong: "#34413B"
-  ink: "#DDE3E0"
-  ink-2: "#A6B2AD"
-  ink-3: "#86938D"
-  amber: "#CDA45E"
+  bg: "#000000"
+  surface: "#0C0C0C"
+  surface-2: "#151515"
+  sunken: "#050505"
+  line: "#1E1E1E"
+  line-strong: "#303030"
+  ink: "#EDEDEA"
+  ink-2: "#ABABA6"
+  ink-3: "#85857F"
+  amber: "#E6DAC4"
   amber-ink: "#16120A"
   up: "#C9665D"
   down: "#5FA285"

@@ -1,20 +1,21 @@
 /* 設計代號（顏色、字型、間距）、基本樣式（由 app.css 依序載入） */
-/* CCC 交易實驗室：「營業廳看板」
-   墨綠灰底、低飽和琥珀色數字、紅＝新上架、綠＝看完。固定深色。 */
+/* CCC 交易實驗室：預設「深空」（2026-11-19，跟對外網站同一套）
+   全黑底、米白數字、半透明玻璃的頁首和面板；紅＝新上架、綠＝看完。
+   原本的墨綠「營業廳」變成可以選的主題（themes.css）。 */
 :root {
-  --bg: #0F1412;
-  --surface: #141B18;
-  --surface-2: #19221E;
-  --sunken: #0B0F0D;
-  --line: #222C28;
-  --line-strong: #34413B;
-  --ink: #DDE3E0;
-  --ink-2: #A6B2AD;
-  --ink-3: #86938D;
+  --bg: #000000;
+  --surface: #0C0C0C;
+  --surface-2: #151515;
+  --sunken: #050505;
+  --line: #1E1E1E;
+  --line-strong: #303030;
+  --ink: #EDEDEA;
+  --ink-2: #ABABA6;
+  --ink-3: #85857F;
 
-  --amber: #CDA45E;
-  --amber-ink: #16120A;
-  --amber-soft: rgba(205, 164, 94, 0.14);
+  --amber: #E6DAC4;
+  --amber-ink: #141210;
+  --amber-soft: rgba(230, 218, 196, 0.12);
   --up: #C9665D;
   --up-soft: rgba(201, 102, 93, 0.10);
   --down: #5FA285;
@@ -28,9 +29,9 @@
   --brass-soft: var(--amber-soft);
   --good: var(--down);
   --bad: var(--up);
-  --slate: #7F9790;
+  --slate: #8C8C86;
 
-  --overlay: rgba(4, 7, 6, 0.66);
+  --overlay: rgba(0, 0, 0, 0.7);
   --radius: 14px;   /* 面板、卡片、視窗、播放器 */
   --r-md: 10px;     /* 按鈕、輸入框、提示 */
   --r-sm: 7px;      /* 小元件：選單項目、縮圖、鍵帽 */

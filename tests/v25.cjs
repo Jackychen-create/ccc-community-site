@@ -41,7 +41,7 @@ const j = async (path, { method = "GET", body, token } = {}) => {
 
   // 主題：免費的可以換，要徽章的鎖著
   await p.click("#menuBtn"); await p.click("text=外觀主題"); await p.waitForSelector(".theme-grid");
-  check("有 6 個主題", (await p.locator(".theme-opt").count()) === 6);
+  check("有 7 個主題", (await p.locator(".theme-opt").count()) === 7);
   check("金庫鎖著、寫要哪個徽章", await p.locator(".theme-opt:has-text('金庫')").isDisabled() && (await p.textContent(".theme-opt:has-text('金庫')")).includes("第二級"));
   await p.click(".theme-opt:has-text('晨報')"); await p.waitForTimeout(300);
   check("換成晨報（淺色）", (await p.getAttribute("html", "data-theme")) === "paper");
@@ -88,13 +88,13 @@ const j = async (path, { method = "GET", body, token } = {}) => {
   await c3.route(/fonts\.googleapis\.com/, (r) => r.fulfill({ contentType: "text/css", body: FONT_CSS }));
   const t = await c3.newPage(); t.on("pageerror", (e) => errs.push(e.message));
   const bgs = new Set();
-  for (const th of ["board", "night", "paper", "vault", "aurora", "chalk"]) {
+  for (const th of ["space", "board", "night", "paper", "vault", "aurora", "chalk"]) {
     await t.goto(BASE + "/"); await t.evaluate((x) => localStorage.setItem("theme", JSON.stringify(x)), th);
     await t.goto(BASE + "/"); await t.waitForSelector("#authView:not([hidden])"); await t.waitForTimeout(400);
     bgs.add(await t.evaluate(() => getComputedStyle(document.body).backgroundColor));
     await t.screenshot({ path: `output/shots/v25-login-${th}.png` });
   }
-  check("6 個主題背景都不一樣", bgs.size === 6, [...bgs].join(" "));
+  check("7 個主題背景都不一樣", bgs.size === 7, [...bgs].join(" "));
   await c3.close();
 
   check("沒有頁面錯誤", !errs.length, errs.join(" | "));

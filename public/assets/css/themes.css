@@ -2,6 +2,15 @@
    紅＝新上架、綠＝看完、橘＝警示的意思每個主題都一樣，只換色調。
    html 上的 data-theme 由 /assets/theme-boot.js 在畫面出來前設好，不會先閃一下預設色。 */
 
+/* 營業廳：墨綠灰底、低飽和琥珀數字（2026-11-19 以前的預設） */
+html[data-theme="board"] {
+  --bg: #0F1412; --surface: #141B18; --surface-2: #19221E; --sunken: #0B0F0D;
+  --line: #222C28; --line-strong: #34413B;
+  --ink: #DDE3E0; --ink-2: #A6B2AD; --ink-3: #86938D;
+  --amber: #CDA45E; --amber-ink: #16120A; --amber-soft: rgba(205, 164, 94, 0.14);
+  --slate: #7F9790; --overlay: rgba(4, 7, 6, 0.66);
+}
+
 /* 夜盤：深藍底、冷藍數字 */
 html[data-theme="night"] {
   --bg: #0E121A; --surface: #131925; --surface-2: #19202E; --sunken: #0A0D13;
@@ -67,3 +76,10 @@ html[data-theme="chalk"] {
 .theme-name { font-weight: 600; display: flex; align-items: center; gap: 6px; }
 .theme-desc { font-size: 12.5px; color: var(--ink-3); line-height: 1.45; }
 .theme-lock { font-size: 12.5px; color: var(--ink-2); }
+
+/* 深空（預設）：頁首、面板、視窗是一層很淡的玻璃，主要按鈕是米白色的光面 */
+html:not([data-theme]) .topbar { background: rgba(0, 0, 0, .72); -webkit-backdrop-filter: blur(18px) saturate(140%); backdrop-filter: blur(18px) saturate(140%); border-bottom-color: rgba(255, 255, 255, .08); }
+html:not([data-theme]) .panel, html:not([data-theme]) .modal { background: linear-gradient(180deg, rgba(255, 255, 255, .045), rgba(255, 255, 255, .012)), var(--surface); border-color: rgba(255, 255, 255, .08); box-shadow: 0 1px 0 rgba(255, 255, 255, .05) inset; }
+html:not([data-theme]) .btn.primary { background: linear-gradient(180deg, #FAF6EF, var(--amber) 60%, #CFC3AD); border-color: #E9DFCC; box-shadow: 0 0 0 1px rgba(255, 255, 255, .25) inset, 0 6px 20px -10px rgba(236, 228, 214, .6); }
+html:not([data-theme]) .btn.primary:hover { filter: none; background: linear-gradient(180deg, #FFFFFF, #EFE6D6 60%, #D8CDB9); }
+html:not([data-theme]) body { background: radial-gradient(1200px 500px at 50% -200px, rgba(255, 255, 255, .05), transparent 70%) no-repeat, var(--bg); }

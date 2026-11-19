@@ -121,7 +121,7 @@
 .vthumb.locked { background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); }
 .vthumb-lock { position: absolute; inset: 0; display: grid; place-items: center; color: var(--ink-3); }
 .vthumb-lock svg { width: 18px; height: 18px; }
-.vthumb-badge { display: none; position: absolute; left: 5px; bottom: 5px; padding: 1px 6px; border-radius: 5px; background: rgba(11, 15, 13, .82); font-size: 13px; font-weight: 600; line-height: 1.4; color: var(--amber); }
+.vthumb-badge { display: none; position: absolute; left: 5px; bottom: 5px; padding: 1px 6px; border-radius: 5px; background: rgba(0, 0, 0, .8); font-size: 13px; font-weight: 600; line-height: 1.4; color: var(--amber); }
 @media (max-width: 720px) {
   /* 手機：直播留檔的日期移到封面左下角，標題才有空間 */
   .vrow:not(.course-row) { grid-template-columns: minmax(0, 1fr) auto; }
