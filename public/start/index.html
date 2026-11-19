@@ -15,7 +15,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Sofia+Sans+Semi+Condensed:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@500;600;700&family=Sofia+Sans+Semi+Condensed:wght@500;600;700&display=swap">
 <link rel="stylesheet" href="style.css">
 <link rel="preload" as="image" href="terrain-sm.webp" media="(max-width: 900px)">
 <script src="cjk.js" defer></script>
@@ -48,13 +48,12 @@
 <section class="hero space" id="top">
   <div class="sky" aria-hidden="true"></div>
   <div class="ground" aria-hidden="true"><img src="terrain.webp" srcset="terrain-sm.webp 1200w, terrain.webp 2400w" sizes="100vw" alt="" decoding="async"></div>
-  <div class="wrap hero-text">
-    <p class="eyebrow">CCC、X 兩位交易員的交易社群</p>
-    <h1>CCC° 交易實驗室</h1>
+  <div class="wrap hero-text" data-enter>
+    <h1><span class="h1-mark">CCC°</span><span class="h1-name">交易實驗室</span></h1>
     <p class="lead"><span class="ln"><span class="nw">在 OKX、Bybit、BingX 交易，</span><span class="nw">就能免費加入培訓計畫。</span></span><span class="ln"><span class="nw">會員直播、</span><span class="nw">兩位交易員的交易系統分享、</span><span class="nw">直播留檔。</span></span></p>
   </div>
 
-  <div class="stage">
+  <div class="stage" data-enter>
     <div class="orbit" id="orbit" aria-roledescription="輪播" aria-label="選一間交易所">
       <button class="oc" type="button" data-ex="okx" aria-label="OKX">
         <span class="oc-art t-okx"><img src="logos/okx.svg" alt="" width="24" height="24"></span>

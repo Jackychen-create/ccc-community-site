@@ -300,3 +300,22 @@
   pick(want || 0, true);
   window.addEventListener("resize", layout);
 })();
+
+// 首屏中間那張卡片：滑鼠移動時微微傾斜（只有電腦、沒有減少動態效果）
+(function () {
+  var orbit = document.getElementById("orbit");
+  if (!orbit || !window.matchMedia("(hover: hover) and (pointer: fine)").matches || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  var raf = 0;
+  orbit.addEventListener("pointermove", function (e) {
+    var c = orbit.querySelector('.oc[aria-current="true"]');
+    if (!c) return;
+    var r = c.getBoundingClientRect();
+    var x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
+    if (Math.abs(x) > .8 || Math.abs(y) > .8) x = y = 0;
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(function () { c.querySelector(".oc-art").style.transform = "perspective(700px) rotateY(" + (x * 6) + "deg) rotateX(" + (-y * 6) + "deg)"; });
+  });
+  orbit.addEventListener("pointerleave", function () {
+    [].forEach.call(orbit.querySelectorAll(".oc-art"), function (a) { a.style.transform = ""; });
+  });
+})();

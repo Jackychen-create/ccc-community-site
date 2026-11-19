@@ -37,6 +37,8 @@
   --r-sm: 7px;      /* 小元件：選單項目、縮圖、鍵帽 */
   --f: "Noto Sans TC", system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
   --f-num: "Sofia Sans Semi Condensed", "Noto Sans TC", system-ui, sans-serif;
+  /* 頁面標題用襯線（2026-11-20，跟對外網站一致）；介面、內文還是黑體 */
+  --f-display: "Noto Serif TC", "Noto Sans TC", serif;
   color-scheme: dark;
 }
 
@@ -49,7 +51,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 h1, h2, h3 { margin: 0; line-height: 1.25; font-weight: 700; }
-h1 { font-size: clamp(21px, 2.2vw, 24px); }
+h1 { font-size: clamp(22px, 2.4vw, 27px); font-family: var(--f-display); font-weight: 600; letter-spacing: .02em; }
 h2 { font-size: 16px; }
 h3 { font-size: 15px; }
 p { margin: 0; }
@@ -75,3 +77,9 @@ input { caret-color: var(--amber); }
 .site-note { max-width: 1240px; margin: 8px auto 0; padding: 18px 24px 28px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: 12.5px; line-height: 1.7; text-align: center; }
 .site-note-auth { display: block; margin-top: 8px; font-size: 12px; opacity: .85; }
 @media (max-width: 720px) { .site-note { padding: 16px 16px calc(24px + env(safe-area-inset-bottom)); text-align: left; } }
+
+/* 菁英感（2026-11-20）：品牌字距拉開、焦點框和底線更細緻 */
+.brand-name { font-family: var(--f-display); font-weight: 600; letter-spacing: .12em; }
+:focus-visible { outline-offset: 3px; }
+a { text-underline-offset: .22em; text-decoration-thickness: 1px; }
+.panel h2, .modal h2 { letter-spacing: .02em; }
