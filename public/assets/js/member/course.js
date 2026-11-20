@@ -14,7 +14,8 @@ export async function loadCourse() {
     state.course = null;
   }
   renderCoursePanel();
-  if (!$("#courseView").hidden) renderCourse();
+  // 讀取失敗時 state.course 是 null：交給 openCourse 顯示「讀不到課程」，這裡不畫
+  if (state.course?.slots && !$("#courseView").hidden) renderCourse();
   return state.course;
 }
 const slotName = (s) => `${s.host} 第 ${s.part} 份`;
@@ -56,14 +57,15 @@ function renderCoursePanel() {
 
 export async function openCourse() {
   showPage("courseView", { nav: "course", title: `系統分享｜${SITE}` });
-  if (state.course) renderCourse();
+  if (state.course?.slots) renderCourse();
   else $("#courseList").replaceChildren(skelRow());
   await loadCourse();
   if (!state.course) $("#courseList").replaceChildren(emptyBox("讀不到課程", "請稍後再試。", openCourse));
 }
 
 function renderCourse() {
-  const slots = state.course.slots;
+  const slots = state.course?.slots;
+  if (!slots) return;
   const open = slots.filter((s) => s.unlocked).length;
   $("#courseCount").textContent = `已解鎖 ${open}／${slots.length}`;
   const sub = $("#courseSub");

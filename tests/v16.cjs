@@ -114,6 +114,16 @@ const errs = [];
   check("影片不見時會說明", (await p.textContent(".modal")).includes("系統分享影片還沒放上網站"));
   await p.keyboard.press("Escape");
   await c.close();
+  // v1.31.1：課程讀不到（連線失敗）→ 顯示「讀不到課程」，不會當掉
+  {
+    const [c3, p3] = await ctx({ width: 390, height: 844 });
+    await p3.route("**/api/course", (r) => r.abort());
+    await login(p3, "amy@example.com"); await p3.waitForSelector(".vrow");
+    await p3.evaluate(() => (location.hash = "#/course"));
+    await p3.waitForSelector("#courseList:has-text('讀不到課程')", { timeout: 8000 }).catch(() => {});
+    check("課程讀不到時顯示「讀不到課程」", (await p3.locator("#courseList:has-text('讀不到課程')").count()) === 1);
+    await c3.close();
+  }
   check("沒有頁面錯誤", !errs.length, errs.join(" | "));
   console.log(out.join("\n")); await b.close();
 })().catch((e) => { console.log(out.join("\n")); console.log("TEST CRASHED:", e.message); process.exit(1); });
