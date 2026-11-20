@@ -18,7 +18,6 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@500;600;700&family=Sofia+Sans+Semi+Condensed:wght@500;600;700&display=swap">
 <script src="/start/gate.js"></script>
 <link rel="stylesheet" href="/start/style.css">
-<link rel="preload" as="image" href="/start/terrain-sm.webp" media="(max-width: 900px)">
 <script src="/start/cjk.js" defer></script>
 <script src="/start/app.js" defer></script>
 </head>
@@ -35,7 +34,6 @@
       <a href="#hosts">主講</a>
       <a href="#join">怎麼加入</a>
       <a href="#exchanges">交易所註冊</a>
-      <a href="#tiers"><span data-tier>研究員等級</span><span data-unit hidden>解鎖方式</span></a>
       <a href="#site">研究員專區</a>
       <a href="#discord">Discord</a>
       <a href="#faq">常見問題</a>
@@ -49,7 +47,7 @@
 
 <section class="hero space" id="top">
   <div class="sky" aria-hidden="true"></div>
-  <div class="ground" aria-hidden="true"><img src="/start/terrain.webp" srcset="/start/terrain-sm.webp 1200w, /start/terrain.webp 2400w" sizes="100vw" alt="" decoding="async"></div>
+  <div class="earth" aria-hidden="true"><canvas class="lights"></canvas><span class="limb"></span><span class="dawn"></span></div>
   <div class="wrap hero-text" data-enter>
     <h1><span class="h1-mark">CCC°</span><span class="h1-name">交易實驗室</span></h1>
     <p class="lead"><span class="ln"><span class="nw">在 OKX、Bybit、BingX 交易，</span><span class="nw">就能免費加入培訓計畫。</span></span><span class="ln"><span class="nw">會員直播、</span><span class="nw">兩位交易員的交易系統分享、</span><span class="nw">直播留檔。</span></span></p>
@@ -57,61 +55,20 @@
 
   <div class="stage" data-enter>
     <div class="orbit" id="orbit" aria-roledescription="輪播" aria-label="選一間交易所">
-      <button class="oc" type="button" data-ex="okx" aria-label="OKX">
+      <button class="oc" type="button" data-ex="okx" aria-label="OKX"><span class="oc-ring" aria-hidden="true"></span>
         <span class="oc-art t-okx"><img src="/start/logos/okx.svg" alt="" width="24" height="24"></span>
-        <span class="oc-cap"><b>OKX</b><small>現貨・合約</small></span>
+        <span class="oc-cap"><b>OKX</b><small>用 CCC 連結註冊</small></span>
       </button>
-      <button class="oc" type="button" data-ex="bybit" aria-label="Bybit">
+      <button class="oc" type="button" data-ex="bybit" aria-label="Bybit"><span class="oc-ring" aria-hidden="true"></span>
         <span class="oc-art t-bybit"><img src="/start/logos/bybit.svg" alt="" width="24" height="24"></span>
-        <span class="oc-cap"><b>Bybit</b><small>現貨・合約・TradFi</small></span>
+        <span class="oc-cap"><b>Bybit</b><small>用 CCC 連結註冊</small></span>
       </button>
-      <button class="oc" type="button" data-ex="bingx" aria-label="BingX">
+      <button class="oc" type="button" data-ex="bingx" aria-label="BingX"><span class="oc-ring" aria-hidden="true"></span>
         <span class="oc-art t-bingx"><span class="wm">BingX</span></span>
-        <span class="oc-cap"><b>BingX</b><small>現貨・合約・跟單</small></span>
+        <span class="oc-cap"><b>BingX</b><small>用 CCC 連結註冊</small></span>
       </button>
     </div>
 
-    <div class="dock-wrap">
-      <div class="orbs">
-        <a class="orb" href="#join" aria-label="看怎麼加入" title="看怎麼加入"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m0 0-5-5m5 5 5-5M5 20h14"/></svg></a>
-        <a class="orb" href="#exchanges" aria-label="註冊步驟" title="註冊步驟"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg></a>
-        <a class="orb" href="https://discord.gg/aPkc23GBF" data-link="discord" target="_blank" rel="noopener" aria-label="加入 Discord" title="加入 Discord"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v10H10l-5 4z"/></svg></a>
-      </div>
-      <div class="dock" role="group" aria-label="交易所">
-        <span class="dock-live" aria-hidden="true"></span>
-        <button class="ic" type="button" id="dockPrev" aria-label="上一間"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 6 5 12l6 6V6zm8 0-6 6 6 6V6z"/></svg></button>
-        <a class="ic play" id="dockPlay" href="#" target="_blank" rel="noopener sponsored" aria-label="用 CCC 連結註冊"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></a>
-        <button class="ic" type="button" id="dockNext" aria-label="下一間"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 6 6 6-6 6V6zM5 6l6 6-6 6V6z"/></svg></button>
-        <span class="dock-thumb" id="dockThumb" aria-hidden="true"></span>
-        <span class="dock-meta">
-          <b id="dockName">OKX</b>
-          <small><span id="dockCode">邀請碼 99357363</span><span class="dock-kind" id="dockSub">・現貨・合約</span></small>
-          <span class="dock-line" aria-hidden="true"><i id="dockLine"></i></span>
-        </span>
-        <button class="ic sm" type="button" id="dockCopy" aria-label="複製邀請碼" title="複製邀請碼"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h10v10H9zM5 15V5h10"/></svg></button>
-        <a class="btn primary sm dock-go" id="dockGo" href="#" target="_blank" rel="noopener sponsored">用 CCC 連結註冊</a>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="strip" aria-label="培訓計畫重點">
-  <div class="wrap"><dl class="board">
-    <div><dt>會費</dt><dd class="num">0</dd><span>看交易量，不收錢</span></div>
-    <div><dt>主講</dt><dd class="num">2</dd><span>CCC、X</span></div>
-    <div><dt>交易所</dt><dd class="num">3</dd><span>OKX、Bybit、BingX</span></div>
-    <div data-tier><dt>系統分享</dt><dd class="num">1</dd><span>每週解鎖一份</span></div>
-    <div data-unit hidden><dt>系統分享</dt><dd class="num">20<small>萬</small></dd><span>累計交易量解鎖一份</span></div>
-  </dl></div>
-</section>
-
-<section class="mkt" id="market" aria-labelledby="mktTitle" hidden>
-  <div class="wrap">
-    <div class="mkt-head">
-      <h2 id="mktTitle">現在的行情</h2>
-      <span class="mkt-meta" id="mktMeta"></span>
-    </div>
-    <div class="mkt-list" id="mktList"></div>
   </div>
 </section>
 
@@ -136,10 +93,8 @@
   </div>
 </section>
 
-<section class="sec" id="videos" hidden>
+<section class="sec vids-sec" id="videos" aria-label="介紹影片" hidden>
   <div class="wrap">
-    <h2>先看介紹影片</h2>
-    <p class="intro">不用登入，先看看實驗室在做什麼。</p>
     <div class="vids" id="vidList"></div>
   </div>
 </section>
@@ -187,7 +142,7 @@
 <section class="sec" id="exchanges">
   <div class="wrap">
     <h2>交易所註冊步驟</h2>
-    <p class="intro">選你習慣的那一間就好，<span data-tier>交易量在任何一間達標都算。</span><span data-unit hidden>幾間的交易量會加起來算。</span></p>
+    <p class="intro">選你習慣的那一間就好。</p>
 
     <div class="warn-box" role="note">
       <b>註冊前先看這個</b>
@@ -204,7 +159,7 @@
       <header class="ex-head">
         <div>
           <h3>OKX</h3>
-          <p class="ex-sub">加密貨幣現貨、合約。交易量用 USDT 成交金額計算。</p>
+          <p class="ex-sub">加密貨幣合約。</p>
         </div>
         <a class="btn primary" href="https://okx.com/join/99357363" target="_blank" rel="noopener sponsored">用 CCC 連結註冊 OKX</a>
       </header>
@@ -220,7 +175,7 @@
       <header class="ex-head">
         <div>
           <h3>Bybit</h3>
-          <p class="ex-sub">加密貨幣現貨、合約，另有 TradFi（黃金、股票等）。交易量用 USDT 成交金額計算。</p>
+          <p class="ex-sub">加密貨幣合約，另有 TradFi（黃金、股票等）。</p>
         </div>
         <a class="btn primary" href="https://partner.bybit.com/b/CCCX" target="_blank" rel="noopener sponsored">用 CCC 連結註冊 Bybit</a>
       </header>
@@ -230,14 +185,13 @@
         <li><b>找到你的 UID</b><span>登入後點右上角的頭像，最上面那一串數字就是 UID。</span></li>
         <li><b>回 Discord 報名</b><span>交易所選 Bybit、貼上 UID，機器人會自動確認是不是 CCC 邀請的，通常馬上就有結果。</span></li>
       </ol>
-      <p class="note">Bybit 的 TradFi（黃金、股票等）交易量以十分之一計算：做 100 萬 TradFi 算 10 萬。</p>
     </article>
 
     <article class="ex" id="p-bingx" role="tabpanel" aria-labelledby="t-bingx" hidden>
       <header class="ex-head">
         <div>
           <h3>BingX</h3>
-          <p class="ex-sub">加密貨幣現貨、合約、跟單。交易量用 USDT 成交金額計算。</p>
+          <p class="ex-sub">加密貨幣合約、跟單。</p>
         </div>
         <a class="btn primary" href="https://bingx.com/zh-tc/activity/task/5225173484?themeType=2&amp;ref=GTUTWZ" target="_blank" rel="noopener sponsored">用 CCC 連結註冊 BingX</a>
       </header>
@@ -249,85 +203,6 @@
       </ol>
     </article>
 
-  </div>
-</section>
-
-<section class="sec" id="tiers">
-  <div class="wrap">
-    <div data-unit hidden>
-    <h2>解鎖方式</h2>
-    <p class="intro">不收會費，也不用每個月重新達標。<br class="pc">交易量從加入那天起一直累計，累計到哪就開到哪，開了不會再鎖。</p>
-    <div class="tier-table" role="table" aria-label="累計交易量和解鎖內容">
-      <div class="tr th" role="row">
-        <span role="columnheader">累計交易量</span>
-        <span role="columnheader">換算</span>
-        <span role="columnheader">可以看什麼</span>
-      </div>
-      <div class="tr" role="row">
-        <span role="cell" class="lv"><i class="shield s1" aria-hidden="true"></i>加入就有</span>
-        <span role="cell"><span class="dim">不用交易量</span></span>
-        <span role="cell">Discord 研究員身分組、會員直播、全部直播留檔、研究員專區</span>
-      </div>
-      <div class="tr" role="row">
-        <span role="cell" class="lv"><i class="shield s2" aria-hidden="true"></i>每 20 萬</span>
-        <span role="cell"><b class="num">200,000</b> USDT</span>
-        <span role="cell">解鎖一份系統分享（CCC、X 各一部），六份都開要累計 120 萬</span>
-      </div>
-      <div class="tr" role="row">
-        <span role="cell" class="lv"><i class="shield s3" aria-hidden="true"></i>累計 100 萬</span>
-        <span role="cell"><b class="num">1,000,000</b> USDT</span>
-        <span role="cell">每個月一次一對一交流（CCC、X 二選一）</span>
-      </div>
-    </div>
-    <ul class="fine">
-      <li>OKX、Bybit、BingX 的交易量加起來算。</li>
-      <li>解鎖了就一直看得到，不用等每週排程，也不會因為哪個月少做而鎖回去。</li>
-      <li>Bybit、BingX、OKX 的交易量網站每天自動更新。</li>
-    </ul>
-    </div>
-
-    <div data-tier>
-    <h2>研究員等級</h2>
-    <p class="intro">不收會費，等級看交易量。每個人從加入那天起算，一輪一個月，這一輪達到哪一級，下一輪就是哪一級。新研究員的第一輪直接給第二級。</p>
-    <div class="tier-table" role="table" aria-label="三個等級的門檻和內容">
-      <div class="tr th" role="row">
-        <span role="columnheader">等級</span>
-        <span role="columnheader">一輪的交易量</span>
-        <span role="columnheader">可以看什麼</span>
-      </div>
-      <div class="tr" role="row">
-        <span role="cell" class="lv"><i class="shield s1" aria-hidden="true"></i>第一級</span>
-        <span role="cell"><b class="num">1</b> 萬 USDT</span>
-        <span role="cell">Discord 研究員身分組、會員直播（沒有留檔）、每一組系統分享的第 1 份</span>
-      </div>
-      <div class="tr" role="row">
-        <span role="cell" class="lv"><i class="shield s2" aria-hidden="true"></i>第二級</span>
-        <span role="cell"><b class="num">20</b> 萬 USDT</span>
-        <span role="cell">第一級全部，加上研究員專區：全部系統分享、直播留檔、交易系統分享影片</span>
-      </div>
-      <div class="tr" role="row">
-        <span role="cell" class="lv"><i class="shield s3" aria-hidden="true"></i>第三級</span>
-        <span role="cell"><b class="num">150</b> 萬 USDT</span>
-        <span role="cell">第二級全部，系統分享直接全部解鎖，每個月一次一對一交流（CCC、X 二選一）</span>
-      </div>
-    </div>
-    <ul class="fine">
-      <li>任何一間交易所達標就算，不用加總。</li>
-      <li>沒達標的話，下一輪降一級或沒有等級，之後達標再升回來。</li>
-      <li>Bybit、BingX、OKX 的交易量網站每天自動更新。</li>
-    </ul>
-    </div>
-
-    <form class="calc" id="calc" aria-labelledby="calcTitle" onsubmit="return false">
-      <h3 id="calcTitle"><span data-tier>算算看你會到哪一級</span><span data-unit hidden>算算看多久能全部解鎖</span></h3>
-      <div class="calc-row">
-        <label class="fld" id="fSize"><span>每筆倉位（含槓桿）</span><span class="in"><input type="number" inputmode="decimal" min="0" step="any" id="cSize" value="1000"><em>USDT</em></span></label>
-        <label class="fld"><span>每天幾筆</span><span class="in"><input type="number" inputmode="numeric" min="0" step="1" id="cTrades" value="2"><em>筆</em></span></label>
-        <label class="fld"><span>一個月交易幾天</span><span class="in"><input type="number" inputmode="numeric" min="0" max="31" step="1" id="cDays" value="20"><em>天</em></span></label>
-      </div>
-      <output class="calc-out" id="calcOut" for="cSize cTrades cDays" aria-live="polite"></output>
-      <p class="calc-note" id="calcNote">交易量算開倉加平倉的成交金額，所以一筆來回算兩次。實際以交易所的紀錄為準。</p>
-    </form>
   </div>
 </section>
 
@@ -343,17 +218,11 @@
       </article>
       <article class="card">
         <h3>系統分享</h3>
-        <p data-tier>從你加入那天起，照排程一份一份解鎖。課程頁會寫每一份的解鎖日期，解鎖那天助教也會通知你。</p>
-        <p data-unit hidden>累計交易量每 20 萬解鎖一份，CCC、X 的同一份一起開。課程頁看得到下一份還差多少，解鎖時助教會通知你。</p>
+        <p>CCC、X 兩位交易員的交易系統分享，在課程頁一份一份看。新的一份開放時，助教會通知你。</p>
       </article>
       <article class="card">
         <h3>直播留檔</h3>
         <p>每場會員直播都有留檔，並附整理好的重點和章節，點重點就跳到講到那裡。上面的搜尋框可以搜直播裡講過的話，例如「假突破」。</p>
-      </article>
-      <article class="card">
-        <h3><span data-tier>我的等級和交易量</span><span data-unit hidden>我的累計交易量</span></h3>
-        <p data-tier>首頁看得到這一輪的交易量、離下一級還差多少，和這一輪到哪一天（手機在最上面）。</p>
-        <p data-unit hidden>首頁看得到你從加入到現在的累計交易量、解鎖到第幾份、離一對一還差多少。</p>
       </article>
       <article class="card">
         <h3>我的提問</h3>
@@ -361,7 +230,7 @@
       </article>
       <article class="card">
         <h3>連結 Discord</h3>
-        <p>右上角選單「連結 Discord」，照步驟按一下就好。連好之後，課程解鎖、升級這些提醒都由實驗室助教私訊給你。</p>
+        <p>右上角選單「連結 Discord」，照步驟按一下就好。連好之後，課程開放這些提醒都由實驗室助教私訊給你。</p>
       </article>
     </div>
   </div>
@@ -377,7 +246,7 @@
       <li><b>直播精華</b><span>每場直播結束後，摘要、重點和章節會整理好貼出來。</span></li>
       <li><b>交易檢討投票</b><span>在交易績效頻道，對想聽主講點評的交易按投票表情，每週日晚上整理，主講挑票數多的在直播點評。</span></li>
       <li><b>新人第一週</b><span>報名通過後的 7 天，助教每天晚上 8 點私訊一則引導，帶你把該看的看過一遍。</span></li>
-      <li><b>客服單</b><span>帳號、交易所、等級有問題，開一張客服單，只有你和管理員看得到。</span></li>
+      <li><b>客服單</b><span>帳號、交易所有問題，開一張客服單，只有你和管理員看得到。</span></li>
     </ul>
   </div>
 </section>
@@ -387,7 +256,7 @@
     <h2>常見問題</h2>
     <details>
       <summary>真的不用錢嗎？</summary>
-      <p>不收會費。你用 CCC 的連結註冊交易所，正常交易，交易所會回饋一部分手續費給社群，社群靠這個運作。所以看的是交易量。</p>
+      <p>不收會費。你用 CCC 的連結註冊交易所，正常交易，交易所會回饋一部分手續費給社群，社群靠這個運作。</p>
     </details>
     <details>
       <summary>我已經有交易所帳號了，怎麼辦？</summary>
@@ -400,11 +269,6 @@
     <details>
       <summary>報名沒有通過？</summary>
       <p>最常見的原因是沒有從 CCC 的連結註冊，或 UID 填錯。報名頻道裡可以重新選一次；確定沒問題還是不通過的話，請開客服單。</p>
-    </details>
-    <details>
-      <summary>交易量怎麼算？</summary>
-      <p data-tier>從你加入那天起，每一輪一個月（例如 10/16 加入，第一輪是 10/16～11/15）。這一輪任何一間交易所達到門檻，下一輪就是那一級。算的是 USDT 成交金額。</p>
-      <p data-unit hidden>從你加入那天起一直累計，不分月份。算的是 USDT 成交金額（開倉、平倉各算一次），幾間加起來算。</p>
     </details>
     <details>
       <summary>可以用其他交易所嗎？</summary>

@@ -519,9 +519,9 @@ body::after { content: ""; position: fixed; inset: 0; z-index: 100; pointer-even
 @media (prefers-reduced-motion: no-preference) {
   [data-enter] { animation: rise 1.4s cubic-bezier(.16, 1, .3, 1) both; }
   .stage[data-enter] { animation-delay: .18s; }
-  .ground img { animation: dawn 2.4s cubic-bezier(.16, 1, .3, 1) both; }
+  .earth { animation: dawn 2.4s cubic-bezier(.16, 1, .3, 1) both; }
   @keyframes rise { from { opacity: 0; transform: translateY(18px); filter: blur(10px); } to { opacity: 1; transform: none; filter: none; } }
-  @keyframes dawn { from { opacity: 0; filter: contrast(1.05) brightness(.5); } to { opacity: 1; filter: contrast(1.05) brightness(.92); } }
+  @keyframes dawn { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: none; } }
 }
 /* 卡片：中間那張跟著滑鼠微微傾斜（只有電腦） */
 .oc[aria-current="true"] .oc-art { transition: transform .5s cubic-bezier(.2, .8, .2, 1); }
@@ -529,8 +529,60 @@ body::after { content: ""; position: fixed; inset: 0; z-index: 100; pointer-even
 @media (max-width: 760px) { .h1-name { letter-spacing: .36em; margin-right: -.36em; } .sec h2 { font-size: 28px; } }
 
 /* 首屏要整個放得進一個畫面：卡片跟著視窗高度縮 */
-.orbit { --card-h: clamp(280px, 38vh, 382px); --card-w: calc(var(--card-h) * .75); }
+.orbit { --card-h: clamp(340px, 52vh, 520px); --card-w: calc(var(--card-h) * .75); }
 .hero-text { padding-top: clamp(28px, 6vh, 72px); }
 .stage { gap: clamp(18px, 3vh, 30px); padding: clamp(18px, 3vh, 28px) 0 clamp(28px, 5vh, 56px); }
-@media (max-width: 760px) { .orbit { --card-h: 292px; --card-w: 214px; } }
+@media (max-width: 760px) { .orbit { --card-h: 340px; --card-w: 250px; } }
 .top-login { flex: none; }
+
+/* ── 2026-11-20 晚：首屏改成夜晚的地球（參考 TradingView），卡片放大、拿掉下面的控制列，卡片加旋光 ── */
+.ground { display: none; }
+.earth { position: absolute; inset: 0; z-index: -2; pointer-events: none; overflow: hidden; --top: 60%; }
+.earth .limb { position: absolute; z-index: 0; left: 50%; top: var(--top); width: 230vw; height: 230vw; transform: translateX(-50%); border-radius: 50%;
+  background: radial-gradient(circle at 50% 0%, #0A1326 0, #060A14 9%, #02040A 22%, #000 40%);
+  box-shadow: 0 -1px 2px rgba(214, 232, 255, .85), 0 -6px 18px rgba(140, 186, 255, .55), 0 -30px 90px rgba(70, 130, 255, .32), 0 -120px 220px rgba(40, 90, 220, .18), inset 0 10px 30px rgba(120, 170, 255, .28); }
+.earth .lights { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; }
+.earth .dawn { position: absolute; z-index: 2; left: 50%; top: var(--top); width: 70vw; height: 160px; transform: translate(-50%, -50%);
+  background: radial-gradient(50% 50% at 50% 50%, rgba(255, 255, 255, .55), rgba(170, 205, 255, .22) 30%, transparent 70%); filter: blur(6px); mix-blend-mode: screen; }
+.earth::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 18%; z-index: 3; background: linear-gradient(to top, #000, transparent); }
+@media (prefers-reduced-motion: no-preference) { .earth .dawn { animation: breathe 9s ease-in-out infinite; } }
+@media (max-width: 760px) { .earth { --top: 64%; } .earth .limb { width: 300vw; height: 300vw; } }
+
+/* 卡片放大後，名字也跟著大一點；說明只在中間那張出現 */
+.oc { border-radius: 30px; padding: 11px; }
+.oc-art { border-radius: 21px; }
+.oc-art img { width: 74%; }
+.oc-art .wm { font-size: clamp(46px, 5.4vh, 64px); }
+.oc-cap { padding: 14px 6px 9px; }
+.oc-cap b { font-size: 22px; }
+.oc-cap small { font-size: 13.5px; color: #6B675F; opacity: 0; transition: opacity .5s; }
+.oc[aria-current="true"] { cursor: pointer; }
+.oc[aria-current="true"] .oc-cap small { opacity: 1; }
+@media (max-width: 760px) { .oc { border-radius: 24px; padding: 8px; } .oc-art { border-radius: 17px; } .oc-cap b { font-size: 18px; } }
+
+/* 旋光：一段光沿著卡片邊框繞，游標在哪就停在哪；卡面上跟著一圈柔光 */
+@property --ang { syntax: "<angle>"; inherits: true; initial-value: 0deg; }
+.oc-ring { position: absolute; inset: -3px; border-radius: 33px; pointer-events: none; z-index: -1; opacity: 0; transition: opacity .4s;
+  background: conic-gradient(from calc(var(--ang) - 60deg), transparent 0deg, rgba(255, 236, 205, .25) 25deg, #FFFFFF 60deg, rgba(160, 200, 255, .55) 85deg, transparent 120deg, transparent 360deg);
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, .9)) drop-shadow(0 0 18px rgba(150, 195, 255, .8)); }
+/* 卡片本身的底色蓋在光環上，光只露出邊緣那 2px */
+.oc::after { content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: -1; pointer-events: none; background: linear-gradient(180deg, #FAF8F4, #E8E2D8); }
+.oc::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 1; opacity: 0; transition: opacity .4s; mix-blend-mode: screen;
+  background: radial-gradient(240px circle at var(--mx, 50%) var(--my, 50%), rgba(220, 232, 255, .2), transparent 65%); }
+@media (max-width: 760px) { .oc-ring { border-radius: 26px; } }
+.oc.lit .oc-ring, .oc.lit::before { opacity: 1; }
+.oc.lit { box-shadow: 0 0 0 1px rgba(255,255,255,.6) inset, 0 30px 60px -20px rgba(0,0,0,.9), 0 0 60px -4px rgba(190, 215, 255, .28); }
+@media (prefers-reduced-motion: no-preference) {
+  .oc[aria-current="true"]:not(.lit) .oc-ring { opacity: .75; animation: orbit-light 6s linear infinite; }
+  @keyframes orbit-light { to { --ang: 360deg; } }
+}
+
+/* 介紹影片：不用標題，捲到的時候直接一支一支浮上來 */
+.vids-sec { padding-top: clamp(56px, 8vw, 96px); }
+.vids-sec .vids { margin-top: 0; }
+.vids-sec.pre .vid { opacity: 0; transform: translateY(48px) scale(.96); filter: blur(6px); }
+.vids-sec.pre.shown .vid { opacity: 1; transform: none; filter: none; transition: opacity .9s cubic-bezier(.16, 1, .3, 1), transform 1s cubic-bezier(.16, 1, .3, 1), filter .9s; }
+.vids-sec.pre.shown .vid:nth-child(2) { transition-delay: .12s; }
+.vids-sec.pre.shown .vid:nth-child(3) { transition-delay: .24s; }
+/* 卡片裡的層不做 3D 交疊（不然傾斜的卡面會跟底色、光環互相切到） */
+.oc { transform-style: flat; }
