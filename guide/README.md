@@ -1,10 +1,7 @@
-# CCC° 交易實驗室 對外網站
+# CCC° 交易實驗室 對外網站（已合併）
 
-不用登入的公開頁：加入流程、三間交易所註冊教學、研究員等級、研究員專區使用教學、Discord 功能、常見問題、社群連結。
+2026-11-20 起，對外網站和研究員專區合在同一個網站：`https://ccc-community-site.pages.dev/`。
+沒登入的人在首頁看到介紹頁（`public/start/`），登入後首頁就是研究員專區（`functions/index.js` 看登入旗標決定）。
 
-- 純靜態（`index.html`、`style.css`、`app.js`、`cjk.js`），沒有建置步驟。
-- 部署：Cloudflare Pages 獨立專案，連同一個 repo，建置輸出目錄 `guide`、沒有建置指令、只監看 `guide/*`。研究員專區那個專案排除 `guide/*`。
-- 公開影片從研究員專區的 `/api/public-video` 拿（有開 CORS），拿不到那一段就不顯示。
-- 交易量試算的門檻寫在 `app.js` 的 `TIERS`，要跟 `public/assets/js/shared/rules.js` 一致。
-- 交易所邀請連結、門檻寫死在 `index.html`：改了 `public/assets/js/shared/rules.js` 的 `TIERS` 或後台的邀請連結，這裡也要一起改。
-- 交易所分頁可以直接連：`#okx`、`#bybit`、`#bingx`。
+這個資料夾只剩 `_redirects`：這個 Cloudflare Pages 專案把所有網址 301 轉到合併後的網站，舊連結不會失效。
+介紹頁的內容改在 `public/start/` 改。

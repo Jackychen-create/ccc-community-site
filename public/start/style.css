@@ -533,3 +533,4 @@ body::after { content: ""; position: fixed; inset: 0; z-index: 100; pointer-even
 .hero-text { padding-top: clamp(28px, 6vh, 72px); }
 .stage { gap: clamp(18px, 3vh, 30px); padding: clamp(18px, 3vh, 28px) 0 clamp(28px, 5vh, 56px); }
 @media (max-width: 760px) { .orbit { --card-h: 292px; --card-w: 214px; } }
+.top-login { flex: none; }

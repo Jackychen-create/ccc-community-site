@@ -9,17 +9,18 @@
 <meta property="og:description" content="交易所註冊步驟、加入流程、研究員專區使用說明、社群連結。">
 <meta property="og:image" content="https://ccc-community-site.pages.dev/start/ccc.png">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://ccc-community-site.pages.dev/start/">
+<meta property="og:url" content="https://ccc-community-site.pages.dev/">
 <meta name="twitter:card" content="summary">
 <meta name="theme-color" content="#000000">
-<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/start/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@500;600;700&family=Sofia+Sans+Semi+Condensed:wght@500;600;700&display=swap">
-<link rel="stylesheet" href="style.css">
-<link rel="preload" as="image" href="terrain-sm.webp" media="(max-width: 900px)">
-<script src="cjk.js" defer></script>
-<script src="app.js" defer></script>
+<script src="/start/gate.js"></script>
+<link rel="stylesheet" href="/start/style.css">
+<link rel="preload" as="image" href="/start/terrain-sm.webp" media="(max-width: 900px)">
+<script src="/start/cjk.js" defer></script>
+<script src="/start/app.js" defer></script>
 </head>
 <body>
 <a class="skip" href="#main">跳到內容</a>
@@ -39,6 +40,7 @@
       <a href="#discord">Discord</a>
       <a href="#faq">常見問題</a>
     </nav>
+    <a class="btn ghost sm top-login" href="/login">登入</a>
     <a class="btn primary sm top-cta" href="https://discord.gg/aPkc23GBF" data-link="discord" target="_blank" rel="noopener">加入 Discord</a>
   </div>
 </header>
@@ -47,7 +49,7 @@
 
 <section class="hero space" id="top">
   <div class="sky" aria-hidden="true"></div>
-  <div class="ground" aria-hidden="true"><img src="terrain.webp" srcset="terrain-sm.webp 1200w, terrain.webp 2400w" sizes="100vw" alt="" decoding="async"></div>
+  <div class="ground" aria-hidden="true"><img src="/start/terrain.webp" srcset="/start/terrain-sm.webp 1200w, /start/terrain.webp 2400w" sizes="100vw" alt="" decoding="async"></div>
   <div class="wrap hero-text" data-enter>
     <h1><span class="h1-mark">CCC°</span><span class="h1-name">交易實驗室</span></h1>
     <p class="lead"><span class="ln"><span class="nw">在 OKX、Bybit、BingX 交易，</span><span class="nw">就能免費加入培訓計畫。</span></span><span class="ln"><span class="nw">會員直播、</span><span class="nw">兩位交易員的交易系統分享、</span><span class="nw">直播留檔。</span></span></p>
@@ -56,11 +58,11 @@
   <div class="stage" data-enter>
     <div class="orbit" id="orbit" aria-roledescription="輪播" aria-label="選一間交易所">
       <button class="oc" type="button" data-ex="okx" aria-label="OKX">
-        <span class="oc-art t-okx"><img src="logos/okx.svg" alt="" width="24" height="24"></span>
+        <span class="oc-art t-okx"><img src="/start/logos/okx.svg" alt="" width="24" height="24"></span>
         <span class="oc-cap"><b>OKX</b><small>現貨・合約</small></span>
       </button>
       <button class="oc" type="button" data-ex="bybit" aria-label="Bybit">
-        <span class="oc-art t-bybit"><img src="logos/bybit.svg" alt="" width="24" height="24"></span>
+        <span class="oc-art t-bybit"><img src="/start/logos/bybit.svg" alt="" width="24" height="24"></span>
         <span class="oc-cap"><b>Bybit</b><small>現貨・合約・TradFi</small></span>
       </button>
       <button class="oc" type="button" data-ex="bingx" aria-label="BingX">
@@ -332,7 +334,7 @@
 <section class="sec" id="site">
   <div class="wrap">
     <h2>研究員專區使用說明</h2>
-    <p class="intro">研究員專區是會員網站，系統分享、直播留檔都在這裡。網址：<a href="https://ccc-community-site.pages.dev" target="_blank" rel="noopener">ccc-community-site.pages.dev</a></p>
+    <p class="intro">研究員專區就在這個網站，登入後首頁就是你的系統分享和直播留檔。網址：<a href="/login">ccc-community-site.pages.dev</a></p>
 
     <div class="cards">
       <article class="card">
@@ -421,7 +423,7 @@
     </div>
     <ul class="links" aria-label="社群連結">
       <li><a href="https://discord.gg/aPkc23GBF" data-link="discord" target="_blank" rel="noopener">Discord</a></li>
-      <li><a href="https://ccc-community-site.pages.dev" target="_blank" rel="noopener">研究員專區</a></li>
+      <li><a href="/login">研究員專區</a></li>
     </ul>
     <p class="disclaimer">本站內容是交易交流與社群資訊，不構成任何投資建議。合約、槓桿和差價合約交易風險很高，可能損失全部本金，請評估自己的狀況再決定。透過本站連結註冊交易所，社群會從交易所拿到手續費回饋。</p>
   </div>
