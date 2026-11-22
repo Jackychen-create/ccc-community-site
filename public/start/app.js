@@ -262,8 +262,11 @@
   function size() {
     var b = cv.parentNode.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
     W = b.width; H = b.height; cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    var mob = W <= 760; // 跟 style.css 的 .earth 一樣：地平線在 60%（手機 64%），球寬 230vw（手機 300vw）
-    R = W * (mob ? 1.5 : 1.15); cx = W / 2; cy = H * (mob ? .64 : .60) + R;
+    var mob = W <= 760; // 跟 style.css 的 .earth 一樣：球寬 230vw（手機 300vw）
+    // 地平線的高度直接讀 .limb 的位置（style.css 的 --top 會照螢幕高度往上移）
+    var limb = cv.parentNode.querySelector(".limb");
+    var top = limb ? limb.offsetTop : H * (mob ? .64 : .60);
+    R = W * (mob ? 1.5 : 1.15); cx = W / 2; cy = top + R;
   }
   function draw(t) {
     ctx.clearRect(0, 0, W, H);

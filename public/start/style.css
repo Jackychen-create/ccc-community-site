@@ -744,3 +744,17 @@ body::after { animation: none !important; }
 @media (max-width: 720px) { .film video { width: 100%; height: auto; } }
 .film.rise { transform: translateY(calc((1 - var(--p, 1)) * 90px)) scale(calc(.82 + var(--p, 1) * .18)); opacity: calc(.15 + var(--p, 1) * .85); transform-origin: 50% 0; will-change: transform, opacity; }
 #hosts { padding-bottom: 8px; }
+
+/* v1.33.17：首屏三間交易所後面的顏色更鮮豔（OKX 白、Bybit 黃、BingX 藍）；旁邊兩間不再被降低飽和度 */
+.t-okx { --tint: rgba(255, 255, 255, .5); }
+.t-bybit { --tint: rgba(255, 176, 0, .85); }
+.t-bingx { --tint: rgba(40, 110, 255, .95); }
+.oc-art::before { opacity: .8; filter: blur(22px); }
+.oc[aria-current="true"] .oc-art::before { opacity: 1; }
+.oc:not([aria-current="true"]) { filter: brightness(.68) blur(.4px); }
+
+/* v1.33.17：地球、太陽和交易所整組往上移，跟上面的標題、介紹文字近一點；螢幕越高移越多，矮螢幕不動 */
+.hero.space { --lift: clamp(0px, 39svh - 277px, 260px); }
+.earth { --top: calc(60% - var(--lift)); }
+.stage { translate: 0 calc(var(--lift) * -1); }
+@media (max-width: 760px) { .earth { --top: calc(64% - var(--lift)); } }
