@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "npx wrangler pages dev public --port 8788",
     "test": "bash tests/run.sh",
-    "check": "eslint . && node scripts/check-release.mjs",
+    "check": "eslint . && node scripts/check-release.mjs && node scripts/intro-fonts.mjs --check",
     "lint": "eslint ."
   },
   "devDependencies": {

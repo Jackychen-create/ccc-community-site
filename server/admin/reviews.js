@@ -3,8 +3,9 @@
 // PATCH /api/admin/reviews { perfChannelId, reviewPublicChannelId }   交易績效頻道、公開通知頻道
 // POST  /api/admin/reviews { action: "run" }        立即整理這一週（已整理過的只補新的）
 // POST  /api/admin/reviews { action: "reviewed", week, id, reviewed }   勾「已點評」（第一次勾會私訊投稿的人）
+// POST  /api/admin/reviews { action: "feature", week, id, on }   放上／拿下介紹頁的精選（只放文字和票數）
 import { requireAdmin, readBody, route, discordConfigured, getDiscordSettings, saveDiscordSettings, isSnowflake, discordApi } from "../lib/index.js";
-import { loadReviews, runWeeklyReviews, markReviewed, reviewEmojisOf } from "../lib/reviews.js";
+import { loadReviews, runWeeklyReviews, markReviewed, reviewEmojisOf, loadFeatured, setFeatured } from "../lib/reviews.js";
 
 // 伺服器的自訂表情（後台選投稿表情用）
 const guildEmojis = async (guildId) => {
@@ -19,7 +20,7 @@ export default route({
     const s = await getDiscordSettings();
     const st = await loadReviews();
     const weeks = Object.entries(st.weeks).sort((a, b) => b[0].localeCompare(a[0])).map(([week, w]) => ({ week, at: w.at, items: w.items || [] }));
-    return res.status(200).json({ configured: discordConfigured(), guildId: s.guildId || "", reviewEmojis: reviewEmojisOf(s), guildEmojis: await guildEmojis(s.guildId), perfChannelId: s.perfChannelId || "", perfChannelName: s.perfChannelName || "", reviewPublicChannelId: s.reviewPublicChannelId || "", reviewPublicChannelName: s.reviewPublicChannelName || "", reviewChannelId: s.reviewChannelId || "", weeks });
+    return res.status(200).json({ configured: discordConfigured(), guildId: s.guildId || "", reviewEmojis: reviewEmojisOf(s), guildEmojis: await guildEmojis(s.guildId), perfChannelId: s.perfChannelId || "", perfChannelName: s.perfChannelName || "", reviewPublicChannelId: s.reviewPublicChannelId || "", reviewPublicChannelName: s.reviewPublicChannelName || "", reviewChannelId: s.reviewChannelId || "", featured: (await loadFeatured()).map((x) => x.id), weeks });
   },
 
   async PATCH(req, res) {
@@ -66,8 +67,12 @@ export default route({
 
   async POST(req, res) {
     if (!(await requireAdmin(req, res))) return;
-    if (!discordConfigured()) return res.status(503).json({ error: "還沒設定 Discord 機器人" });
     const b = readBody(req);
+    if (b.action === "feature") {
+      const r = await setFeatured(String(b.week || ""), String(b.id || ""), b.on !== false);
+      return res.status(r.ok ? 200 : 400).json(r.ok ? r : { error: r.error });
+    }
+    if (!discordConfigured()) return res.status(503).json({ error: "還沒設定 Discord 機器人" });
     if (b.action === "run") {
       const r = await runWeeklyReviews(Date.now(), { force: true });
       return res.status(r.ok ? 200 : 400).json(r.ok ? r : { error: r.error });
