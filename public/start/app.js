@@ -299,7 +299,7 @@
   var calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var W = 0, H = 0, drops = [], last = 0, on = false;
   var lastY = window.scrollY, sv = 0; // sv：平滑過的捲動速度（px/秒，往下為正）
-  var dir = 1, flow = 1; // dir：最後一次捲動的方向（1 往下、-1 往上），停下來也記著；flow 慢慢轉到 dir
+  var dir = 1, flow = 1, from = 1, turnT = 0, TURN = 4; // dir：最後一次捲動的方向（1 往下、-1 往上），停下來也記著；flow 用 TURN 秒、頭尾都慢的曲線轉到 dir
   // 預先畫好一條光：上面透明、往下慢慢變亮，最下面是亮頭；外面再一層很淡的光暈
   var sprite = document.createElement("canvas"); sprite.width = 8; sprite.height = 256;
   var spriteUp = document.createElement("canvas"); spriteUp.width = 8; spriteUp.height = 256; // 上下顛倒：往上流時亮頭在上面
@@ -327,13 +327,20 @@
   function covered() { return hero && hero.getBoundingClientRect().bottom >= H; } // 首屏還蓋滿整個畫面
   function paint(dt) {
     ctx.clearRect(0, 0, W, H);
-    // 方向：捲動超過一點點就記下新方向，停下來也維持；flow 用大約兩秒慢慢減速、停住、再往另一邊流，像水被帶著轉向
-    if (sv < -40) dir = -1; else if (sv > 40) dir = 1;
-    flow += (dir - flow) * Math.min(1, dt * 1);
+    // 方向：捲動超過一點點就記下新方向，停下來也維持；flow 用大約四秒慢慢減速、停住、再往另一邊流，像水被帶著轉向
+    var want = sv < -40 ? -1 : sv > 40 ? 1 : dir;
+    if (want !== dir) { dir = want; from = flow; turnT = 0; } // 轉到一半又換方向：從現在的位置重新開始轉
+    if (flow !== dir) {
+      turnT = Math.min(TURN, turnT + dt);
+      var k = turnT / TURN; k = k * k * (3 - 2 * k); // 開始和結束都很慢，中間才轉得比較快
+      flow = from + (dir - from) * k;
+    }
     var stretch = 1 + Math.min(.6, Math.abs(sv) / 1500); // 捲得快，光稍微拉長一點
     for (var i = 0; i < drops.length; i++) {
       var d = drops[i];
-      var v = d.v * flow + Math.max(-2000, Math.min(2000, sv)) * .12; // 捲動速度只帶一點點進來，上限 240px/秒
+      // 捲動速度只帶一點點進來（上限 240px/秒），而且只在跟水流同方向時才加：反方向捲的時候不會把水一下推回去
+      var push = Math.max(-2000, Math.min(2000, sv)) * .12 * Math.max(0, sv >= 0 ? flow : -flow);
+      var v = d.v * flow + push;
       d.y += v * dt;
       var len = d.len * stretch;
       if (v >= 0 && d.y - len > H) { drops[i] = d = drop(false); }
