@@ -321,7 +321,7 @@
     var dpr = Math.min(1.5, window.devicePixelRatio || 1);
     W = window.innerWidth; H = window.innerHeight;
     cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    var n = Math.round(Math.min(140, Math.max(50, W / 12)));
+    var n = Math.round(Math.min(85, Math.max(30, W / 20)));
     drops = []; for (var i = 0; i < n; i++) drops.push(drop(true));
   }
   function covered() { return hero && hero.getBoundingClientRect().bottom >= H; } // 首屏還蓋滿整個畫面
