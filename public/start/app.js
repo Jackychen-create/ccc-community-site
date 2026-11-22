@@ -104,26 +104,34 @@
         };
         document.addEventListener("pointerup", firstTouch, true); document.addEventListener("keydown", firstTouch, true);
         // 閃白光時收成圓形：每一格縮成 24×24 讀平均亮度，越亮 --fr 越小（最後一層圓形遮罩越緊），亮起來快、退得慢一點
+        // 影片的光灑到外面：同一格再畫到影片後面一張很糊、放大的 canvas（像電視的背光），影片哪邊亮、外面那邊就亮；
+        // 亮度也交給 window.__cccFilmLight，背景的水流跟著變亮
         (function () {
           var cv = document.createElement("canvas"); cv.width = cv.height = 24;
-          var cx = cv.getContext("2d", { willReadFrequently: true }), lvl = 0, dead = false;
+          var cx = cv.getContext("2d", { willReadFrequently: true }), lvl = 0, noRead = false;
+          var amb = document.createElement("canvas"); amb.className = "film-ambient"; amb.width = amb.height = 40; amb.setAttribute("aria-hidden", "true");
+          var ax = amb.getContext("2d"); film.insertBefore(amb, film.firstChild);
           var tick = function () {
-            if (dead) return;
             if (!vid.paused && vid.readyState >= 2) {
-              try {
-                cx.drawImage(vid, 0, 0, 24, 24);
-                var d = cx.getImageData(0, 0, 24, 24).data, sum = 0;
-                for (var i = 0; i < d.length; i += 4) sum += d[i] * .2126 + d[i + 1] * .7152 + d[i + 2] * .0722;
-                var L = sum / (d.length / 4) / 255;
-                var f = Math.min(1, Math.max(0, (L - .22) / .33)); f = f * f * (3 - 2 * f);
-                lvl = f > lvl ? lvl + (f - lvl) * .7 : lvl + (f - lvl) * .18;
-                var w = vid.clientWidth, h = vid.clientHeight;
-                var far = Math.sqrt(w * w + h * h) / 2 / .56 + 40, near = Math.min(w, h) / 2;
-                film.style.setProperty("--fr", Math.round(far + (near - far) * lvl) + "px");
-              } catch (e) { dead = true; film.style.removeProperty("--fr"); return; } // 讀不到畫面（沒有 CORS）就不做
+              ax.drawImage(vid, 0, 0, 40, 40); // 只是畫上去給人看，沒有 CORS 也可以
+              if (!noRead) {
+                try {
+                  cx.drawImage(vid, 0, 0, 24, 24);
+                  var d = cx.getImageData(0, 0, 24, 24).data, sum = 0;
+                  for (var i = 0; i < d.length; i += 4) sum += d[i] * .2126 + d[i + 1] * .7152 + d[i + 2] * .0722;
+                  var L = sum / (d.length / 4) / 255;
+                  var f = Math.min(1, Math.max(0, (L - .22) / .33)); f = f * f * (3 - 2 * f);
+                  lvl = f > lvl ? lvl + (f - lvl) * .7 : lvl + (f - lvl) * .18;
+                  var w = vid.clientWidth, h = vid.clientHeight;
+                  var far = Math.sqrt(w * w + h * h) / 2 / .56 + 40, near = Math.min(w, h) / 2;
+                  film.style.setProperty("--fr", Math.round(far + (near - far) * lvl) + "px");
+                  window.__cccFilmLight = Math.min(1, L * 1.6); // 0–1：給背景水流用
+                } catch (e) { noRead = true; film.style.removeProperty("--fr"); window.__cccFilmLight = 0; } // 讀不到畫面（沒有 CORS）就只留背光
+              }
             }
             if (vid.requestVideoFrameCallback) vid.requestVideoFrameCallback(tick); else requestAnimationFrame(tick);
           };
+          vid.addEventListener("pause", function () { window.__cccFilmLight = 0; });
           if (vid.requestVideoFrameCallback) vid.requestVideoFrameCallback(tick); else requestAnimationFrame(tick);
         })();
         // 框的比例跟影片本身一樣（形象片接近正方形），就不會左右留一大片黑
@@ -336,6 +344,8 @@
       flow = from + (dir - from) * k;
     }
     var stretch = 1 + Math.min(.6, Math.abs(sv) / 1500); // 捲得快，光稍微拉長一點
+    // 形象片播到亮的畫面時，背景的水流跟著亮起來（最多亮到 2.5 倍），像影片的光照到水上
+    var glow = 1 + Math.min(1, window.__cccFilmLight || 0) * 1.5;
     for (var i = 0; i < drops.length; i++) {
       var d = drops[i];
       // 捲動速度只帶一點點進來（上限 240px/秒），而且只在跟水流同方向時才加：反方向捲的時候不會把水一下推回去
@@ -347,8 +357,9 @@
       else if (v < 0 && d.y + len < 0) { drops[i] = d = drop(false, true); }
       // 轉向的時候亮頭不要一下跳到另一端：速度接近 0 時兩個方向的光交叉淡入淡出
       var down = Math.min(1, Math.max(0, (v + 25) / 50));
-      if (down > 0) { ctx.globalAlpha = d.a * down; ctx.drawImage(sprite, d.x - 4 * d.w, d.y - len, 8 * d.w, len); }
-      if (down < 1) { ctx.globalAlpha = d.a * (1 - down); ctx.drawImage(spriteUp, d.x - 4 * d.w, d.y, 8 * d.w, len); }
+      var al = Math.min(1, d.a * glow);
+      if (down > 0) { ctx.globalAlpha = al * down; ctx.drawImage(sprite, d.x - 4 * d.w, d.y - len, 8 * d.w, len); }
+      if (down < 1) { ctx.globalAlpha = al * (1 - down); ctx.drawImage(spriteUp, d.x - 4 * d.w, d.y, 8 * d.w, len); }
     }
     ctx.globalAlpha = 1;
   }
