@@ -648,3 +648,10 @@ body::after { animation: none !important; }
 
 /* 主講卡片：後面那層大字 CCC、X 放到最上面 */
 .host-mark { z-index: 2; -webkit-text-stroke: 1px rgba(255, 255, 255, .38); }
+
+/* v1.33.5：形象片不滿版——置中、最寬 1040px、圓角；不裁切（contain）、拿掉邊緣暗角，放大倍數小一點就不會糊 */
+.vids-sec { padding: clamp(48px, 7vw, 88px) 0 0; }
+.film { width: min(1040px, calc(100% - 48px)); margin: 0 auto; border-radius: 18px; border: 1px solid var(--line); box-shadow: 0 40px 80px -40px rgba(0, 0, 0, .9); }
+.film::after { display: none; }
+.film video { object-fit: contain; max-height: 78svh; }
+@media (max-width: 720px) { .film { width: calc(100% - 32px); border-radius: 12px; } }
