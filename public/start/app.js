@@ -129,7 +129,7 @@
   if (brand) { brand.addEventListener("mouseenter", go); brand.addEventListener("focus", go); }
 })();
 
-// ── 首屏的交易所卡片：中間那張是選到的，左右兩張往內轉。點中間那張直接開 CCC 註冊連結，點旁邊的轉到中間 ──
+// ── 首屏的交易所卡片：中間那張是選到的，左右兩張排在同一條線上、變暗。點中間那張直接開 CCC 註冊連結，點旁邊的轉到中間 ──
 (function () {
   var orbit = document.getElementById("orbit");
   if (!orbit) return;
@@ -144,9 +144,9 @@
     var w = cards[0].offsetWidth;
     cards.forEach(function (c, i) {
       var d = ((i - idx) % n + n + 1) % n - 1; // -1, 0, 1（繞一圈）
-      var x = d * w * (wide() ? .98 : .9);
-      var z = -Math.abs(d) * (wide() ? 170 : 120);
-      c.style.transform = "translate3d(" + x + "px, " + (Math.abs(d) * 16) + "px, " + z + "px) rotateY(" + (-d * 26) + "deg)";
+      var x = d * w * (wide() ? .98 : .78);
+      // 三張排在同一條線上（不往下沉、不轉向），旁邊兩張只變暗
+      c.style.transform = "translate3d(" + x + "px, 0, 0)";
       c.style.zIndex = String(10 - Math.abs(d));
       c.setAttribute("aria-current", String(d === 0));
       c.setAttribute("aria-label", c.querySelector(".oc-cap b").textContent + (d === 0 ? "：用 CCC 連結註冊" : ""));
