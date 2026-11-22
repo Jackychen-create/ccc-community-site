@@ -820,3 +820,13 @@ body::after { animation: none !important; }
 
 /* v1.33.45：Bybit 的光改成橘色（不管在不在中間都是橘的，不再被調亮變黃） */
 .t-bybit { --tint: rgba(245, 132, 22, .9); } /* v1.33.46：照 Bybit 宣傳圖的黃橘色 #F28216 */
+
+/* v1.33.47：形象片縮小到一個畫面看得完（扣掉頁首和上下留白），寬度還是不超過上下區塊的對齊寬度 */
+.film { width: min(100%, calc(min(1032px, 100% - 48px) / .88), calc(100svh - 110px)); }
+@media (max-width: 720px) { .film { width: 100%; } }
+/* 去掉影片和外面的分割感：整個影片區（影片＋灑出來的光）用 screen 疊在網頁上——影片的黑色等於透明，
+   背景的水流、星點會從影片的暗處透出來，外面跟裡面接成同一片；四邊淡出也拉寬一點 */
+.film { mix-blend-mode: screen; }
+.film video, .film.rise video {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent), linear-gradient(180deg, transparent, #000 10%, #000 90%, transparent), radial-gradient(ellipse 72% 72% at 50% 50%, #000 62%, transparent 100%), radial-gradient(circle var(--fr, 4000px) at 50% 50%, #000 56%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent), linear-gradient(180deg, transparent, #000 10%, #000 90%, transparent), radial-gradient(ellipse 72% 72% at 50% 50%, #000 62%, transparent 100%), radial-gradient(circle var(--fr, 4000px) at 50% 50%, #000 56%, transparent 100%); }
