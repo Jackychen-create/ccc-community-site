@@ -676,3 +676,16 @@ body::after { animation: none !important; }
   .film video { -webkit-mask-image: linear-gradient(90deg, transparent, #000 13%, #000 87%, transparent), linear-gradient(180deg, transparent, #000 18%, #000 82%, transparent);
     mask-image: linear-gradient(90deg, transparent, #000 13%, #000 87%, transparent), linear-gradient(180deg, transparent, #000 18%, #000 82%, transparent); }
 }
+
+/* v1.33.7：主講卡片的大字 CCC、X 放回最底層、撐滿整張卡片，像浮水印；文字壓在上面 */
+.host { container-type: inline-size; isolation: isolate; }
+.host-mark { inset: 0; right: auto; top: auto; z-index: 0; display: grid; place-items: center; width: 100%; height: 100%;
+  font-size: 36cqw; line-height: .8; letter-spacing: -.03em; white-space: nowrap;
+  color: rgba(255, 255, 255, .025); -webkit-text-stroke: 1px rgba(255, 255, 255, .11); }
+.host > :not(.host-mark) { position: relative; z-index: 1; }
+
+/* 形象片往上拉：跟上一段之間的空白少一點 */
+#hosts { padding-bottom: clamp(24px, 3vw, 40px); }
+.vids-sec { padding-top: 0; }
+.hosts .host:nth-child(1) .host-mark { font-size: 50cqw; }
+.hosts .host:nth-child(2) .host-mark { font-size: 78cqw; }

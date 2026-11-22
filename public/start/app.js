@@ -70,7 +70,7 @@
       });
       return getJson(SITE + "/api/public-video?id=" + encodeURIComponent(vs[0].id)).then(function (one) {
         if (!one || !one.url) return;
-        var film = document.getElementById("film"), vid = document.getElementById("filmVideo"), snd = document.getElementById("filmSound");
+        var film = document.getElementById("film"), vid = document.getElementById("filmVideo");
         if (one.thumb_url) vid.poster = one.thumb_url;
         vid.src = one.url;
         vid.setAttribute("aria-label", one.title || "介紹影片");
@@ -83,12 +83,6 @@
           new IntersectionObserver(function (es) { es.forEach(function (e) { inView = e.isIntersecting; sync(); }); }, { threshold: .3 }).observe(film);
         } else { inView = true; sync(); }
         document.addEventListener("visibilitychange", sync);
-        snd.addEventListener("click", function () {
-          vid.muted = !vid.muted;
-          snd.setAttribute("aria-pressed", String(!vid.muted));
-          snd.textContent = vid.muted ? "開聲音" : "關聲音";
-          if (!vid.muted && vid.paused) vid.play();
-        });
       });
     }).catch(function () {});
   }
