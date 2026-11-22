@@ -4,7 +4,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 
 const FILE = new URL("../public/start/index.html", import.meta.url);
-const EXTRA = "CCC°交易實驗室研究員在聊什麼X"; // 品牌名、JS 才放進去的標題
+const EXTRA = "CCC°交易實驗室研究員在聊什麼X勇於碰撞，才擁卓越"; // 首屏標語（不是 h1/h2，要手動加） // 品牌名、JS 才放進去的標題
 const html = readFileSync(FILE, "utf8");
 const heads = [...html.matchAll(/<h[12][^>]*>([\s\S]*?)<\/h[12]>/g)].map((m) => m[1].replace(/<[^>]+>/g, "")).join("");
 const want = [...new Set([...(heads + EXTRA)].filter((c) => c.trim()))].sort().join("");
