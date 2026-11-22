@@ -1,5 +1,13 @@
 [
   {
+    "version": "1.33.58",
+    "date": "2026-11-23",
+    "items": [
+      "介紹頁最下面的白色光暈和分隔線拿掉，跟背景接在一起。",
+      "風險聲明上面多了 Discord、YouTube、Apple Podcasts、Spotify 四個頻道的標誌，點了直接開。"
+    ]
+  },
+  {
     "version": "1.33.57",
     "date": "2026-11-23",
     "items": [

@@ -932,3 +932,12 @@ body::after { animation: none !important; }
   /* 交易所說明：按鈕下面、步驟之間多一點空 */
   #exchanges .how { gap: 20px; }
 }
+
+/* v1.33.58：頁尾——拿掉上方那團白色半透明光、免責聲明上面的分隔線，跟背景接在一起；
+   風險聲明上面加四個頻道（Discord、YouTube、Apple Podcasts、Spotify），用各自的標誌 */
+.foot::before { display: none; }
+.disclaimer { border-top: 0; padding-top: 6px; }
+.social { grid-column: 1 / -1; list-style: none; margin: 10px 0 0; padding: 0; display: flex; gap: 16px; }
+.social a { display: block; width: 46px; height: 46px; border-radius: 12px; transition: transform .2s, filter .2s, box-shadow .2s; box-shadow: 0 6px 18px -8px rgba(0, 0, 0, .8); }
+.social svg { display: block; width: 100%; height: 100%; }
+.social a:hover, .social a:focus-visible { transform: translateY(-2px); filter: brightness(1.12); box-shadow: 0 0 18px -2px rgba(255, 255, 255, .25); }
