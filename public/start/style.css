@@ -797,3 +797,8 @@ body::after { animation: none !important; }
 /* v1.33.36：左上角換成金色的 CCC° 標誌（public/start/logo-mark.png，透明底），取代原本的三片翻牌 */
 .brand-mark { display: block; height: 32px; width: auto; filter: drop-shadow(0 0 10px rgba(230, 190, 110, .18)); }
 @media (max-width: 760px) { .brand-mark { height: 28px; } }
+
+/* v1.33.37：首屏大標的 CCC° 換成跟左上角一樣的金色標誌 */
+.h1-mark { display: block; line-height: 0; }
+.h1-mark img { display: block; height: clamp(104px, 13vw, 156px); width: auto; margin: 0 auto 10px; filter: drop-shadow(0 0 28px rgba(230, 190, 110, .2)); }
+@media (max-width: 760px) { .h1-mark img { height: 96px; margin-bottom: 6px; } }
