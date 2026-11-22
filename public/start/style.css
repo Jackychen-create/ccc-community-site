@@ -655,3 +655,24 @@ body::after { animation: none !important; }
 .film::after { display: none; }
 .film video { object-fit: contain; max-height: 78svh; }
 @media (max-width: 720px) { .film { width: calc(100% - 32px); border-radius: 12px; } }
+
+/* v1.33.6：形象片無邊際——沒有框、沒有圓角，四邊慢慢淡進黑色背景 */
+.film { border: 0; border-radius: 0; box-shadow: none; background: transparent; overflow: visible; width: min(1180px, 100%); }
+.film video { background: transparent;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent), linear-gradient(180deg, transparent, #000 16%, #000 84%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent), linear-gradient(180deg, transparent, #000 16%, #000 84%, transparent);
+  mask-composite: intersect; }
+.film-sound { right: clamp(18%, 16vw, 22%); bottom: clamp(18px, 4vw, 40px); }
+@media (max-width: 720px) {
+  .film { width: 100%; border-radius: 0; }
+  .film video { -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent), linear-gradient(180deg, transparent, #000 14%, #000 86%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent), linear-gradient(180deg, transparent, #000 14%, #000 86%, transparent); }
+  .film-sound { right: 12%; bottom: 14px; }
+}
+.vids-sec + .sec::before { display: none; }
+.vids-sec + .sec { border-top: 0; }
+@media (max-width: 720px) {
+  .film video { -webkit-mask-image: linear-gradient(90deg, transparent, #000 13%, #000 87%, transparent), linear-gradient(180deg, transparent, #000 18%, #000 82%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 13%, #000 87%, transparent), linear-gradient(180deg, transparent, #000 18%, #000 82%, transparent); }
+}
