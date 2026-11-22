@@ -3,6 +3,22 @@
 // Bybit、BingX 有設定 API Key 的話，先跟交易所確認是 CCC 邀請的才讓他註冊
 // 贈送名額的實驗室密碼（invite_codes.free）：不用填交易所，觀看不限期
 // 付費制開始後（v1.28.0）：不用實驗室密碼、不用填交易所，直接用 Email 註冊，再到網站訂閱或買單集
+// UID 直接加入（v1.34.0）：沒有實驗室密碼也可以，只要交易所 API 確認這個 UID 是 CCC 邀請的（OKX、Bybit、BingX）；
+//   同一個 IP 一小時最多試 10 次（uid_join_attempts，存 IP 的雜湊、不存原始 IP），避免有人一個一個 UID 試
+const UID_TRIES_PER_HOUR = 10;
+async function ipHash(req) {
+  const ip = String(req.headers?.["cf-connecting-ip"] || req.headers?.["x-forwarded-for"] || "").split(",")[0].trim() || "unknown";
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("ccc-uid-join:" + ip));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
+}
+async function tooManyTries(req) {
+  const h = await ipHash(req);
+  const since = new Date(Date.now() - 3600e3).toISOString();
+  const { count } = await supabaseAdmin.from("uid_join_attempts").select("id", { count: "exact", head: true }).eq("ip_hash", h).gte("at", since);
+  if ((count || 0) >= UID_TRIES_PER_HOUR) return true;
+  await supabaseAdmin.from("uid_join_attempts").insert({ ip_hash: h });
+  return false;
+}
 import { supabaseAdmin, isAdminEmail, readBody, route, thisMonthTW, todayTW, getPay, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, cleanExId, exIdOk, idLabel, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR } from "./lib/index.js";
 import { isPaidOn } from "../public/assets/js/shared/rules.js";
 
@@ -20,8 +36,10 @@ export default route({
     // 付費制：沒填實驗室密碼也可以註冊（有填還是照原本的流程，贈送名額的密碼一樣有效）
     const pay = await getPay().catch(() => null);
     const open = !code && !!pay && isPaidOn(pay.paidFrom, todayTW());
-    if (!email || !password || (!code && !open)) {
-      return res.status(400).json({ error: "請填寫 Email、密碼與實驗室密碼" });
+    // 沒有實驗室密碼：用交易所 UID 直接驗證加入
+    const byUid = !code && !open;
+    if (!email || !password) {
+      return res.status(400).json({ error: "請填寫 Email 和密碼" });
     }
     if (!EMAIL_RE.test(email) || email.length > 254) {
       return res.status(400).json({ error: "Email 格式不正確" });
@@ -52,7 +70,12 @@ export default route({
       const { data: taken } = await supabaseAdmin.from("exchange_links").select("user_id").eq("exchange", exchange).eq("exchange_uid", uid).maybeSingle();
       if (taken) return res.status(409).json({ error: `這個 ${exchange} ${idLabel(exchange)}已經被其他研究員填過了，有問題請聯絡管理員` });
 
-      // Bybit、BingX：先跟交易所確認（交易所暫時連不上就先讓他註冊，之後每天同步會再確認交易量）
+      // UID 直接加入：一定要交易所確認得到才行
+      if (byUid) {
+        if (!AUTO_EXCHANGES.includes(exchange) || !p?.configured()) return res.status(400).json({ error: `${exchange} 還不能在網站直接驗證，請到 Discord 報名拿實驗室密碼` });
+        if (await tooManyTries(req)) return res.status(429).json({ error: "試太多次了，請一小時後再試，或到 Discord 開客服單" });
+      }
+      // OKX、Bybit、BingX：先跟交易所確認（有實驗室密碼時，交易所暫時連不上就先讓他註冊，之後每天同步會再確認交易量）
       if (AUTO_EXCHANGES.includes(exchange) && p?.configured()) {
         try {
           const check = await p.check(uid);
@@ -63,6 +86,7 @@ export default route({
           verified = check;
         } catch (e) {
           console.error(`${exchange} check failed (register)`, e?.code, e?.message);
+          if (byUid) return res.status(503).json({ error: `${exchange} 暫時確認不到，請過幾分鐘再試` });
         }
       }
     }

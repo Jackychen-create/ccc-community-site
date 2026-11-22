@@ -19,8 +19,11 @@ export default route({
     if (!ctx) return;
     if (ctx.isAdmin && !ctx.member) return res.status(400).json({ error: "管理員帳號不用連結" });
     const r = await redeemLinkToken(ctx.user.id, readBody(req).token);
-    // 付費制：有月費的研究員連好 Discord 就給研究員身分組（會員直播）
-    if (r.ok && (await roleWanted(ctx.user.id).catch(() => null))) r.role = await syncRole(ctx.user.id, true);
+    // 連好 Discord 就給研究員身分組：付費制看有沒有月費；照舊的研究員（含 v1.34.0 在網站用 UID 直接加入的）一律給
+    if (r.ok) {
+      const want = await roleWanted(ctx.user.id).catch(() => null);
+      if (want || (want === null && ctx.member && !ctx.member.banned)) r.role = await syncRole(ctx.user.id, true);
+    }
     return res.status(r.ok ? 200 : r.status).json(r.ok ? r : { error: r.error });
   },
   async DELETE(req, res) {
