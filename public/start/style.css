@@ -595,3 +595,20 @@ body::after { content: ""; position: fixed; inset: 0; z-index: 100; pointer-even
   background: conic-gradient(from calc(var(--ang) - 60deg), transparent 0deg, rgba(255, 236, 205, .18) 25deg, rgba(255, 255, 255, .85) 60deg, rgba(160, 200, 255, .4) 85deg, transparent 120deg, transparent 360deg); }
 .oc.lit { box-shadow: 0 0 0 1px rgba(255, 255, 255, .4) inset, 0 30px 60px -20px rgba(0, 0, 0, .9), 0 0 50px -8px rgba(190, 215, 255, .22); }
 body::after { animation: none !important; }
+
+/* v1.33.2：整頁收緊——區塊間距小一點、手機頁首一行放得下、研究員專區多一張「進研究員專區」 */
+.sec { padding: clamp(64px, 8vw, 104px) 0; }
+@media (max-width: 720px) { .sec { padding: 56px 0; } }
+.card-go { display: flex; flex-direction: column; text-decoration: none; color: inherit; border-color: rgba(205, 164, 94, .45); background: linear-gradient(160deg, rgba(205, 164, 94, .10), transparent 60%), var(--surface); transition: border-color .2s, transform .2s; }
+.card-go:hover { border-color: var(--amber); transform: translateY(-2px); }
+.card-go .go { margin-top: auto; padding-top: 10px; color: var(--amber); font-weight: 600; }
+@media (max-width: 960px) {
+  .top-in { gap: 0 8px; }
+  .top-login { margin-left: auto; }
+  .top-cta { margin-left: 0; }
+}
+@media (max-width: 420px) {
+  .top-in .btn.sm { padding: 0 11px; font-size: 14px; height: 34px; }
+  .brand-name { font-size: 14px; letter-spacing: .06em; }
+  .flap b { width: 19px; height: 25px; font-size: 16px; }
+}
