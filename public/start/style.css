@@ -787,3 +787,9 @@ body::after { animation: none !important; }
   background: radial-gradient(circle, rgba(255, 255, 255, .035) 0, rgba(255, 255, 255, .015) 35%, rgba(255, 255, 255, 0) 70%);
   mix-blend-mode: screen; opacity: 0; transition: opacity .4s ease; will-change: transform; }
 .cursor-glow.on { opacity: 1; }
+
+/* v1.33.35：形象片放大，左右跟上下區塊的內容對齊（內容寬 = .wrap 1080 − 左右 24）。
+   影片四邊有 6% 淡出，所以框再往外放 6%，看得清楚的部分剛好對齊上下的卡片 */
+.film { width: min(100%, calc(min(1032px, 100% - 48px) / .88)); max-width: none; }
+.film video { width: 100%; height: auto; max-width: 100%; }
+@media (max-width: 720px) { .film { width: 100%; } }
