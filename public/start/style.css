@@ -858,3 +858,6 @@ body::after { animation: none !important; }
 @keyframes flare-sweep { 0% { left: 0; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { left: 82%; opacity: 0; } }
 @media (prefers-reduced-motion: no-preference) { .flare-line i { animation: flare-sweep 5.5s cubic-bezier(.45, 0, .55, 1) infinite; } }
 @media (max-width: 760px) { .flare-line { top: 70px; } }
+/* v1.33.50：交易所下面那兩行字再小一點 */
+.hero.space .lead-under { font-size: 14px; line-height: 1.85; }
+@media (max-width: 760px) { .hero.space .lead-under { font-size: 12.5px; } }
