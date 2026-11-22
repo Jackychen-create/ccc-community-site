@@ -291,7 +291,7 @@
 })();
 
 // 整頁背景（首屏地球以外）：一條條藍色的細光從上往下流，像水流過玻璃；首屏擋住的時候不畫，減少動態效果時只畫一張靜止的
-// 跟著捲動：往下捲水流加速往下，往上捲水流掉頭往上，捲越快流越快；停下來慢慢回到原本的速度
+// 跟著捲動：往下捲水流加速往下；往上捲水流掉頭往上，之後就一直往上流，直到再往下捲才掉頭回來；捲越快流越快
 (function () {
   var cv = document.querySelector("canvas.rain");
   if (!cv || !cv.getContext) return;
@@ -299,6 +299,7 @@
   var calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var W = 0, H = 0, drops = [], last = 0, on = false;
   var lastY = window.scrollY, sv = 0; // sv：平滑過的捲動速度（px/秒，往下為正）
+  var dir = 1, flow = 1; // dir：最後一次捲動的方向（1 往下、-1 往上），停下來也記著；flow 慢慢轉到 dir
   // 預先畫好一條光：上面透明、往下慢慢變亮，最下面是亮頭；外面再一層很淡的光暈
   var sprite = document.createElement("canvas"); sprite.width = 8; sprite.height = 256;
   var spriteUp = document.createElement("canvas"); spriteUp.width = 8; spriteUp.height = 256; // 上下顛倒：往上流時亮頭在上面
@@ -314,7 +315,7 @@
   })();
   function drop(top, fromBottom) {
     return { x: Math.random() * W, y: top ? Math.random() * H : fromBottom ? H + Math.random() * 300 : -Math.random() * 300, len: 70 + Math.random() * 220,
-      v: 50 + Math.random() * 150, a: .05 + Math.random() * .13, w: Math.random() < .2 ? 1.6 : 1 };
+      v: 22 + Math.random() * 60, a: .05 + Math.random() * .13, w: Math.random() < .2 ? 1.6 : 1 };
   }
   function size() {
     var dpr = Math.min(1.5, window.devicePixelRatio || 1);
@@ -326,12 +327,13 @@
   function covered() { return hero && hero.getBoundingClientRect().bottom >= H; } // 首屏還蓋滿整個畫面
   function paint(dt) {
     ctx.clearRect(0, 0, W, H);
-    // 方向：往上捲一點點就掉頭（flow 從 1 變到 -1）；速度再加上捲動速度
-    var flow = sv >= 0 ? 1 : 1 - 2 * Math.min(1, -sv / 90);
-    var stretch = 1 + Math.min(1.6, Math.abs(sv) / 700); // 捲得快，光拉長一點，像有速度感
+    // 方向：捲動超過一點點就記下新方向，停下來也維持；flow 在半秒內轉過去
+    if (sv < -40) dir = -1; else if (sv > 40) dir = 1;
+    flow += (dir - flow) * Math.min(1, dt * 5);
+    var stretch = 1 + Math.min(1.2, Math.abs(sv) / 900); // 捲得快，光拉長一點，像有速度感
     for (var i = 0; i < drops.length; i++) {
       var d = drops[i];
-      var v = d.v * flow + Math.max(-2000, Math.min(2000, sv)) * .5; // 捲動速度帶一半進來，太快的上限 1000px/秒，不會暈
+      var v = d.v * flow + Math.max(-2000, Math.min(2000, sv)) * .25; // 捲動速度帶四分之一進來，上限 500px/秒，不會暈
       d.y += v * dt;
       var len = d.len * stretch;
       if (v >= 0) {
