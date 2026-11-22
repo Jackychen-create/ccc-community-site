@@ -806,3 +806,6 @@ body::after { animation: none !important; }
 /* v1.33.38：首屏交易所下面的「點擊我，用 CCC 連結註冊」字放大 */
 .oc-cap small { font-size: 16px; letter-spacing: .06em; color: rgba(255, 255, 255, .62); }
 @media (max-width: 760px) { .oc-cap small { font-size: 14.5px; } }
+/* v1.33.39：「點擊我，用 CCC 連結註冊」往下移一點（只移字，不影響上面標誌的位置） */
+.oc-cap small { position: relative; top: 10px; }
+@media (max-width: 760px) { .oc-cap small { top: 8px; } }
