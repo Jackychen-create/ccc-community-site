@@ -305,18 +305,18 @@
     glow.addColorStop(0, "rgba(70, 130, 255, 0)"); glow.addColorStop(.85, "rgba(70, 130, 255, .16)"); glow.addColorStop(1, "rgba(120, 170, 255, .28)");
     g.fillStyle = glow; g.fillRect(0, 0, 8, 256);
     var core = g.createLinearGradient(0, 0, 0, 256);
-    core.addColorStop(0, "rgba(110, 160, 255, 0)"); core.addColorStop(.7, "rgba(110, 160, 255, .55)"); core.addColorStop(1, "rgba(215, 232, 255, 1)");
+    core.addColorStop(0, "rgba(110, 160, 255, 0)"); core.addColorStop(.7, "rgba(110, 160, 255, .55)"); core.addColorStop(1, "rgba(170, 200, 255, .85)");
     g.clearRect(3, 0, 2, 256); g.fillStyle = core; g.fillRect(3, 0, 2, 256);
   })();
   function drop(top) {
     return { x: Math.random() * W, y: top ? Math.random() * H : -Math.random() * 300, len: 70 + Math.random() * 220,
-      v: 60 + Math.random() * 170, a: .08 + Math.random() * .24, w: Math.random() < .2 ? 1.6 : 1 };
+      v: 50 + Math.random() * 150, a: .05 + Math.random() * .13, w: Math.random() < .2 ? 1.6 : 1 };
   }
   function size() {
     var dpr = Math.min(1.5, window.devicePixelRatio || 1);
     W = window.innerWidth; H = window.innerHeight;
     cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    var n = Math.round(Math.min(90, Math.max(30, W / 20)));
+    var n = Math.round(Math.min(240, Math.max(80, W / 7)));
     drops = []; for (var i = 0; i < n; i++) drops.push(drop(true));
   }
   function covered() { return hero && hero.getBoundingClientRect().bottom >= H; } // 首屏還蓋滿整個畫面
