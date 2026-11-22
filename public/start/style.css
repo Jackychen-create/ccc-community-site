@@ -793,3 +793,7 @@ body::after { animation: none !important; }
 .film { width: min(100%, calc(min(1032px, 100% - 48px) / .88)); max-width: none; }
 .film video { width: 100%; height: auto; max-width: 100%; }
 @media (max-width: 720px) { .film { width: 100%; } }
+
+/* v1.33.36：左上角換成金色的 CCC° 標誌（public/start/logo-mark.png，透明底），取代原本的三片翻牌 */
+.brand-mark { display: block; height: 32px; width: auto; filter: drop-shadow(0 0 10px rgba(230, 190, 110, .18)); }
+@media (max-width: 760px) { .brand-mark { height: 28px; } }
