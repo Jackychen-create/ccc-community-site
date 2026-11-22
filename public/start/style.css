@@ -813,5 +813,8 @@ body::after { animation: none !important; }
 /* v1.33.44：首屏交易所——中間那張放大、更亮、往前；旁邊兩張縮小、更暗。縮放的中心放在標誌上，三個標誌還是在同一條線上 */
 .oc { transition: transform .7s cubic-bezier(.2, .8, .2, 1), filter .5s; }
 .oc:not([aria-current="true"]) { filter: brightness(.5) blur(.6px); }
-.oc[aria-current="true"] { filter: brightness(1.12) drop-shadow(0 0 22px rgba(255, 255, 255, .14)); z-index: 12; }
-.oc[aria-current="true"] .oc-art::before { opacity: 1; filter: blur(22px) brightness(1.25); }
+.oc[aria-current="true"] { filter: drop-shadow(0 0 22px rgba(255, 255, 255, .12)); z-index: 12; }
+.oc[aria-current="true"] .oc-art::before { opacity: 1; filter: blur(22px) saturate(1.25); }
+
+/* v1.33.45：Bybit 的光改成橘色（不管在不在中間都是橘的，不再被調亮變黃） */
+.t-bybit { --tint: rgba(255, 112, 10, .9); }

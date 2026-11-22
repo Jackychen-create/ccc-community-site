@@ -499,16 +499,38 @@
       stars.push(st); if (m > .55) tw.push(st);
     }
   }
+  // v1.33.45：整片星空慢慢往右飄（每秒幾個像素，繞一圈回來），隨機一顆星會突然閃一下：亮起來、拉出十字的細光芒、再退掉
+  var flashes = [], nextFlash = 0;
+  function spike(x, y, len, a, dx, dy) {
+    for (var k = 1; k <= len; k++) { ctx.globalAlpha = a * Math.pow(1 - k / (len + 1), 1.6); ctx.fillRect(x + dx * k, y + dy * k, 1, 1); }
+  }
   function paint(t) {
     ctx.globalAlpha = 1;
     ctx.clearRect(0, 0, Wp, Hp);
-    for (var i = 0; i < stars.length; i++) { var s = stars[i]; ctx.fillStyle = s.c; ctx.fillRect(s.x, s.y, s.s, s.s); }
-    if (!calm) { // 只有亮星輕輕地閃（大氣擾動），暗的星不動
-      ctx.fillStyle = "#000";
-      for (var k = 0; k < tw.length; k++) { var q = tw[k]; ctx.globalAlpha = .35 * (.5 + .5 * Math.sin(t / 1000 * q.sp + q.ph)); ctx.fillRect(q.x, q.y, q.s, q.s); }
-      ctx.globalAlpha = 1;
+    var drift = calm ? 0 : (t / 1000) * 5 * dpr;
+    for (var i = 0; i < stars.length; i++) {
+      var s = stars[i], x = Math.round((s.x + drift) % Wp), a = 1;
+      if (!calm && s.m > .45) a = .45 + .55 * (.5 + .5 * Math.sin(t / 1000 * s.sp * 1.6 + s.ph)); // 亮星明顯地閃爍
+      ctx.globalAlpha = a; ctx.fillStyle = s.c; ctx.fillRect(x, s.y, s.s, s.s);
     }
+    if (calm) { ctx.globalAlpha = 1; return; }
+    // 偶爾一顆星閃光
+    if (t > nextFlash && stars.length) {
+      var pick = stars[Math.floor(rnd2() * stars.length)];
+      flashes.push({ st: pick, t0: t, dur: 700 + rnd2() * 700, len: Math.round((10 + rnd2() * 14) * dpr) });
+      nextFlash = t + 500 + rnd2() * 1500;
+    }
+    ctx.fillStyle = "#fff";
+    for (var f = flashes.length - 1; f >= 0; f--) {
+      var fl = flashes[f], p = (t - fl.t0) / fl.dur;
+      if (p >= 1) { flashes.splice(f, 1); continue; }
+      var k = Math.sin(Math.PI * p), fx = Math.round((fl.st.x + drift) % Wp), fy = fl.st.y, L = Math.round(fl.len * k);
+      ctx.globalAlpha = k; ctx.fillRect(fx - dpr, fy - dpr, 1 + 2 * dpr, 1 + 2 * dpr);
+      spike(fx, fy, L, k * .9, 1, 0); spike(fx, fy, L, k * .9, -1, 0); spike(fx, fy, L, k * .9, 0, 1); spike(fx, fy, L, k * .9, 0, -1);
+    }
+    ctx.globalAlpha = 1;
   }
+  var rnd2 = Math.random;
   function frame(t) {
     if (!document.hidden && hero.getBoundingClientRect().bottom > 0) paint(t);
     if (on) requestAnimationFrame(frame);
