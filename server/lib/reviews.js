@@ -130,6 +130,37 @@ export async function markReviewed(week, id, reviewed = true) {
   return { ok: true };
 }
 
+// ── 放上介紹頁的精選（2026-11-22）：管理員在後台一筆一筆勾，只放文字和票數、不放名字和圖片 ──
+// 存在 bot_state 的 featured_reviews：{ items: [{ id, at, text, votes, featuredAt }] }，最多 12 筆（trade_reviews 只留 8 週，這裡另外存）
+export const FEATURED_MAX = 12;
+// 公開的文字：拿掉 @提及、頻道、表情、網址，太短的不放
+export function publicText(s) {
+  return String(s || "")
+    .replace(/<a?:\w+:\d+>/g, "")
+    .replace(/<[@#][!&]?\d+>/g, "")
+    .replace(/@(everyone|here)/g, "")
+    .replace(/https?:\/\/\S+/g, "")
+    .replace(/\s+/g, " ").trim().slice(0, 220);
+}
+export async function loadFeatured() {
+  const { data } = await supabaseAdmin.from("bot_state").select("value").eq("key", "featured_reviews").maybeSingle();
+  return Array.isArray(data?.value?.items) ? data.value.items : [];
+}
+export async function setFeatured(week, id, on = true) {
+  const st = await loadReviews();
+  const it = st.weeks[week]?.items?.find((x) => x.id === id);
+  let items = await loadFeatured();
+  if (on) {
+    if (!it) return { ok: false, error: "找不到這筆投稿" };
+    const text = publicText(it.text);
+    if (text.length < 8) return { ok: false, error: "這筆幾乎只有圖片或連結，文字太少，不適合放上介紹頁" };
+    items = [{ id: it.id, at: it.at, text, votes: it.votes || 0, featuredAt: new Date().toISOString() }, ...items.filter((x) => x.id !== id)].slice(0, FEATURED_MAX);
+  } else items = items.filter((x) => x.id !== id);
+  const { error } = await supabaseAdmin.from("bot_state").upsert({ key: "featured_reviews", value: { items }, updated_at: new Date().toISOString() });
+  if (error) throw error;
+  return { ok: true, featured: items.map((x) => x.id) };
+}
+
 // 每 5 分鐘的排程叫一次：週日 21:00～21:10（台灣時間）整理一次
 export async function maybeWeeklyReviews(now = Date.now()) {
   const tw = new Date(now + 8 * 3600e3);

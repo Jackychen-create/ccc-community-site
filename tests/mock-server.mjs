@@ -57,6 +57,7 @@ let chatStats = [];
 const rvCfg = { perfChannelId: "", perfChannelName: "", reviewPublicChannelId: "", reviewPublicChannelName: "", reviewEmojis: [{ name: "🔍" }, { name: "🔎" }] };
 const rvGuildEmojis = [{ id: "800000000000000001", name: "bear_ok", animated: false }];
 const rvWeeks = [];
+let rvFeatured = []; // 放上介紹頁的精選（v1.33.4）
 const rvDms = [];
 const obCfg = { on: false, since: null };
 const nudgeSent = new Set();
@@ -348,6 +349,7 @@ const server = http.createServer(async (req, res) => {
     if (p === "/api/__test/discord-token") { const token = crypto.randomBytes(24).toString("hex"); dcTokens.set(token, { id: body.id || "111111111111111199", name: body.name || "amy_dc", exp: Date.now() + (body.expired ? -1 : 15 * 60e3) }); return send(res, 200, { token }); }
     if (p === "/api/__test/checkin") { const m = members.find((x) => x.email === body.email); if (!m) return send(res, 404, {}); const set = checkinsM.get(m.user_id) || new Set(); for (const dd of body.days || []) set.add(dd); checkinsM.set(m.user_id, set); return send(res, 200, { ok: true }); }
     // 公開影片（不用登入）
+    if (p === "/api/public-stats") return send(res, 200, { discord: 1234, lives: 10, liveHours: 12, featured: [{ at: Date.now() - 864e5, text: "等掃完前低才進，停損放在掃蕩低點下面，這筆照規則出場。", votes: 5 }] });
     if (p === "/api/public-market") { // 對外網站行情（假資料）
       const spark = Array.from({ length: 25 }, (_, i) => 70000 + Math.sin(i / 3) * 800 + i * 40);
       return send(res, 200, { at: new Date().toISOString(), items: [{ name: "BTC", note: null, price: 71000, chg24: 1.2, high24: 72000, low24: 69500, spark }, { name: "ETH", note: null, price: 2020, chg24: -3.4, high24: 2140, low24: 2000, spark: spark.map((x) => x / 35) }], fng: { value: 32, label: "Fear" } });
@@ -651,7 +653,7 @@ const server = http.createServer(async (req, res) => {
     }
     // 交易檢討投稿（假的：兩筆投稿，勾已點評會記一次私訊）
     if (p === "/api/admin/reviews") {
-      if (req.method === "GET") return send(res, 200, { configured: true, guildId: "900000000000000000", ...rvCfg, guildEmojis: rvGuildEmojis, reviewChannelId: "100000000000000008", weeks: rvWeeks });
+      if (req.method === "GET") return send(res, 200, { configured: true, guildId: "900000000000000000", ...rvCfg, guildEmojis: rvGuildEmojis, reviewChannelId: "100000000000000008", featured: rvFeatured, weeks: rvWeeks });
       if (req.method === "PATCH") {
         for (const k of ["perfChannelId", "reviewPublicChannelId"]) if (body[k] !== undefined) {
           const v = String(body[k] || "").trim();
@@ -673,6 +675,13 @@ const server = http.createServer(async (req, res) => {
             { id: "300000000000000001", channel: rvCfg.perfChannelId, author: "111111111111111111", authorName: "Amy", at: Date.parse("2026-10-29T03:00:00Z"), text: "NQ 開盤追空被掃，想請主講看進場點", attachments: 1, votes: 5, reviewed: false },
             { id: "300000000000000002", channel: rvCfg.perfChannelId, author: "222222222222222222", authorName: "Bob", at: Date.parse("2026-10-30T13:30:00Z"), text: "", attachments: 2, votes: 2, reviewed: false }] });
           return send(res, 200, { ok: true, week: "2026-11-01", count: rvWeeks[0].items.length, fresh, dms: fresh, posts: ["主講清單", "公開通知"] });
+        }
+        if (body.action === "feature") { // 放上介紹頁的精選（v1.33.4）
+          const it = rvWeeks.find((w) => w.week === body.week)?.items.find((x) => x.id === body.id);
+          if (!it) return send(res, 404, { error: "找不到這筆投稿" });
+          if (body.on !== false && (it.text || "").length < 8) return send(res, 400, { error: "這筆幾乎只有圖片或連結，文字太少，不適合放上介紹頁" });
+          rvFeatured = body.on !== false ? [it.id, ...rvFeatured.filter((x) => x !== it.id)] : rvFeatured.filter((x) => x !== it.id);
+          return send(res, 200, { ok: true, featured: rvFeatured });
         }
         if (body.action === "reviewed") {
           const it = rvWeeks.find((w) => w.week === body.week)?.items.find((x) => x.id === body.id);

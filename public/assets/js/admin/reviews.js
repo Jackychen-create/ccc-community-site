@@ -76,8 +76,22 @@ function render(card, r) {
         } catch (e) { box.checked = !box.checked; A.toast(e.message, "error"); }
         box.disabled = false;
       });
+      // 放上介紹頁：只放文字和票數，不放名字、圖片（先確認投稿的人同意）
+      const feat = el("input", { type: "checkbox", "aria-label": `${it.authorName} 的投稿放上介紹頁` });
+      feat.checked = (r.featured || []).includes(it.id);
+      feat.addEventListener("change", async () => {
+        feat.disabled = true;
+        try {
+          const x = await api("/api/admin/reviews", { method: "POST", body: { action: "feature", week: w.week, id: it.id, on: feat.checked } });
+          r.featured = x.featured;
+          A.toast(feat.checked ? "已放上介紹頁（只有文字和票數，不會出現名字）" : "已從介紹頁拿下");
+        } catch (e) { feat.checked = !feat.checked; A.toast(e.message, "error"); }
+        feat.disabled = false;
+      });
       return el("div", { class: "rv-item" + (it.reviewed ? " done" : "") },
-        el("label", { class: "rv-check" }, box, el("span", { class: "small", text: "已點評" })),
+        el("div", { style: { display: "grid", gap: "6px", alignContent: "start", flex: "none" } },
+          el("label", { class: "rv-check" }, box, el("span", { class: "small", text: "已點評" })),
+          el("label", { class: "rv-check", title: "放到介紹頁「研究員在聊什麼」：只放文字和票數，沒有名字和圖片。放之前先問過投稿的人。" }, feat, el("span", { class: "small", text: "放上介紹頁" }))),
         el("div", { class: "rv-body" },
           el("div", { class: "small" }, el("b", { text: it.authorName }), it.votes ? el("span", { class: "pill", text: `${it.votes} 票`, style: { marginLeft: "6px" } }) : null, el("span", { class: "muted num", text: `・${when(it.at)}` }), it.attachments ? el("span", { class: "muted", text: `・📎 ${it.attachments}` }) : null),
           el("p", { class: "rv-text", text: it.text || "（只有圖片）" }),
@@ -86,7 +100,7 @@ function render(card, r) {
 
   card.replaceChildren(...[
     el("h2", { text: "交易檢討投稿" }),
-    el("p", { class: "small sub", text: "大家在交易績效頻道對想聽主講點評的交易按投稿表情就是投票，自己的、別人的都可以，誰按都算一票。每週日 21:00 機器人整理：照票數排好的清單貼到審核頻道（只有管理員看得到），公開頻道只貼「本週有 N 筆」，不寫是哪幾筆；被投票的人會收到私訊。點評完在下面勾「已點評」，機器人會再私訊告訴他。" }),
+    el("p", { class: "small sub", text: "大家在交易績效頻道對想聽主講點評的交易按投稿表情就是投票，自己的、別人的都可以，誰按都算一票。每週日 21:00 機器人整理：照票數排好的清單貼到審核頻道（只有管理員看得到），公開頻道只貼「本週有 N 筆」，不寫是哪幾筆；被投票的人會收到私訊。點評完在下面勾「已點評」，機器人會再私訊告訴他。勾「放上介紹頁」會把那一筆的文字和票數放到介紹頁（沒有名字、沒有圖片），放之前先問過投稿的人。" }),
     el("div", { class: "chat-target" },
       el("span", { class: "small chat-k", text: "交易績效" }), perf, r.perfChannelName ? el("span", { class: "small dc-ok", text: `✓ #${r.perfChannelName}` }) : null),
     el("div", { class: "chat-target" },

@@ -412,6 +412,11 @@ await test("對外網站行情 /api/public-market：整理 Edge Function 的資�
   assert.equal(out.code, 502);
   delete env.MARKET_URL;
 });
+await test("介紹頁精選的公開文字：拿掉提及、頻道、表情、網址", async () => {
+  const { publicText } = await import("../server/lib/reviews.js");
+  assert.equal(publicText("<@123456789012345678> 這筆 <:13_:1557600961550360626> 掃完前低才進 https://x.com/a  @everyone"), "這筆 掃完前低才進");
+  assert.equal(publicText("a".repeat(400)).length, 220);
+});
 pfake.close();
 bfake.close();
 

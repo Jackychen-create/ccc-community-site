@@ -48,7 +48,7 @@
 
   // ── 公開影片（研究員專區的 /api/public-video，不用登入）；拿不到就整段不顯示 ──
   // 第一支（形象片）滿版、靜音循環，捲到就直接開始播、捲走就暫停；其他的排在下面
-  var SITE = "https://ccc-community-site.pages.dev";
+  var SITE = ""; // 介紹頁跟研究員專區同一個網站，直接用相對路徑
   var box = document.getElementById("vidList");
   var getJson = function (u) { return fetch(u).then(function (r) { return r.ok ? r.json() : null; }); };
   if (box && window.fetch) {
@@ -92,6 +92,39 @@
       });
     }).catch(function () {});
   }
+
+  // ── 首屏的數字、研究員在聊什麼（/api/public-stats：只有數字和管理員勾過的精選，沒有名字）──
+  getJson(SITE + "/api/public-stats").then(function (d) {
+    if (!d) return;
+    var hs = document.getElementById("heroStats");
+    var bits = [];
+    if (d.discord >= 100) bits.push(["Discord", d.discord.toLocaleString("en-US"), "人"]);
+    if (d.lives >= 3) bits.push(["直播留檔", String(d.lives), "場"]);
+    if (d.liveHours >= 3) bits.push(["", String(d.liveHours), "小時可以回看"]);
+    if (hs && bits.length) {
+      bits.forEach(function (b) {
+        var s = document.createElement("span"); s.className = "hs";
+        if (b[0]) s.append(b[0] + " ");
+        var n = document.createElement("b"); n.className = "num"; n.textContent = b[1]; s.append(n, " " + b[2]);
+        hs.appendChild(s);
+      });
+      hs.hidden = false;
+    }
+    var fs = (d.featured || []).filter(function (f) { return f && f.text; });
+    var vl = document.getElementById("voiceList");
+    if (vl && fs.length) {
+      fs.forEach(function (f) {
+        var q = document.createElement("figure"); q.className = "voice";
+        var t = document.createElement("blockquote"); t.textContent = f.text;
+        var c = document.createElement("figcaption");
+        var dt = new Date(f.at);
+        c.textContent = "研究員・" + (dt.getMonth() + 1) + "/" + dt.getDate() + (f.votes ? "・" + f.votes + " 票想聽點評" : "");
+        q.append(t, c);
+        vl.appendChild(q);
+      });
+      document.getElementById("voices").hidden = false;
+    }
+  }).catch(function () {});
 
   // 品牌三片翻牌：打開時翻一次、滑過再翻
   var flap = document.querySelector(".top .flap");
