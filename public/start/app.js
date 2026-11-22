@@ -72,6 +72,12 @@
         if (!one || !one.url) return;
         var film = document.getElementById("film"), vid = document.getElementById("filmVideo");
         if (one.thumb_url) vid.poster = one.thumb_url;
+        // 要讀畫面亮度（下面的圓形閃光）得用 CORS 載入；R2 有開 GET 的 CORS。萬一載不到，就拿掉 CORS 重載，只是閃光不會變圓
+        vid.crossOrigin = "anonymous";
+        vid.addEventListener("error", function retry() {
+          vid.removeEventListener("error", retry);
+          if (vid.crossOrigin) { vid.removeAttribute("crossorigin"); vid.src = one.url; vid.load(); }
+        });
         vid.src = one.url;
         vid.setAttribute("aria-label", one.title || "介紹影片");
         film.hidden = false;
@@ -97,6 +103,29 @@
           if (!chose) setSound(true);
         };
         document.addEventListener("pointerup", firstTouch, true); document.addEventListener("keydown", firstTouch, true);
+        // 閃白光時收成圓形：每一格縮成 24×24 讀平均亮度，越亮 --fr 越小（最後一層圓形遮罩越緊），亮起來快、退得慢一點
+        (function () {
+          var cv = document.createElement("canvas"); cv.width = cv.height = 24;
+          var cx = cv.getContext("2d", { willReadFrequently: true }), lvl = 0, dead = false;
+          var tick = function () {
+            if (dead) return;
+            if (!vid.paused && vid.readyState >= 2) {
+              try {
+                cx.drawImage(vid, 0, 0, 24, 24);
+                var d = cx.getImageData(0, 0, 24, 24).data, sum = 0;
+                for (var i = 0; i < d.length; i += 4) sum += d[i] * .2126 + d[i + 1] * .7152 + d[i + 2] * .0722;
+                var L = sum / (d.length / 4) / 255;
+                var f = Math.min(1, Math.max(0, (L - .22) / .33)); f = f * f * (3 - 2 * f);
+                lvl = f > lvl ? lvl + (f - lvl) * .7 : lvl + (f - lvl) * .18;
+                var w = vid.clientWidth, h = vid.clientHeight;
+                var far = Math.sqrt(w * w + h * h) / 2 / .56 + 40, near = Math.min(w, h) / 2;
+                film.style.setProperty("--fr", Math.round(far + (near - far) * lvl) + "px");
+              } catch (e) { dead = true; film.style.removeProperty("--fr"); return; } // 讀不到畫面（沒有 CORS）就不做
+            }
+            if (vid.requestVideoFrameCallback) vid.requestVideoFrameCallback(tick); else requestAnimationFrame(tick);
+          };
+          if (vid.requestVideoFrameCallback) vid.requestVideoFrameCallback(tick); else requestAnimationFrame(tick);
+        })();
         // 框的比例跟影片本身一樣（形象片接近正方形），就不會左右留一大片黑
         vid.addEventListener("loadedmetadata", function () {
           if (vid.videoWidth && vid.videoHeight) film.style.setProperty("--ar", vid.videoWidth + " / " + vid.videoHeight);
