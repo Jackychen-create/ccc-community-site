@@ -802,3 +802,7 @@ body::after { animation: none !important; }
 .h1-mark { display: block; line-height: 0; }
 .h1-mark img { display: block; height: clamp(104px, 13vw, 156px); width: auto; margin: 0 auto 10px; filter: drop-shadow(0 0 28px rgba(230, 190, 110, .2)); }
 @media (max-width: 760px) { .h1-mark img { height: 96px; margin-bottom: 6px; } }
+
+/* v1.33.38：首屏交易所下面的「點擊我，用 CCC 連結註冊」字放大 */
+.oc-cap small { font-size: 16px; letter-spacing: .06em; color: rgba(255, 255, 255, .62); }
+@media (max-width: 760px) { .oc-cap small { font-size: 14.5px; } }
