@@ -290,6 +290,59 @@
   });
 })();
 
+// 整頁背景（首屏地球以外）：一條條藍色的細光從上往下流，像水流過玻璃；首屏擋住的時候不畫，減少動態效果時只畫一張靜止的
+(function () {
+  var cv = document.querySelector("canvas.rain");
+  if (!cv || !cv.getContext) return;
+  var ctx = cv.getContext("2d"), hero = document.querySelector(".hero");
+  var calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var W = 0, H = 0, drops = [], last = 0, on = false;
+  // 預先畫好一條光：上面透明、往下慢慢變亮，最下面是亮頭；外面再一層很淡的光暈
+  var sprite = document.createElement("canvas"); sprite.width = 8; sprite.height = 256;
+  (function () {
+    var g = sprite.getContext("2d");
+    var glow = g.createLinearGradient(0, 0, 0, 256);
+    glow.addColorStop(0, "rgba(70, 130, 255, 0)"); glow.addColorStop(.85, "rgba(70, 130, 255, .16)"); glow.addColorStop(1, "rgba(120, 170, 255, .28)");
+    g.fillStyle = glow; g.fillRect(0, 0, 8, 256);
+    var core = g.createLinearGradient(0, 0, 0, 256);
+    core.addColorStop(0, "rgba(110, 160, 255, 0)"); core.addColorStop(.7, "rgba(110, 160, 255, .55)"); core.addColorStop(1, "rgba(215, 232, 255, 1)");
+    g.clearRect(3, 0, 2, 256); g.fillStyle = core; g.fillRect(3, 0, 2, 256);
+  })();
+  function drop(top) {
+    return { x: Math.random() * W, y: top ? Math.random() * H : -Math.random() * 300, len: 70 + Math.random() * 220,
+      v: 60 + Math.random() * 170, a: .08 + Math.random() * .24, w: Math.random() < .2 ? 1.6 : 1 };
+  }
+  function size() {
+    var dpr = Math.min(1.5, window.devicePixelRatio || 1);
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var n = Math.round(Math.min(90, Math.max(30, W / 20)));
+    drops = []; for (var i = 0; i < n; i++) drops.push(drop(true));
+  }
+  function covered() { return hero && hero.getBoundingClientRect().bottom >= H; } // 首屏還蓋滿整個畫面
+  function paint(dt) {
+    ctx.clearRect(0, 0, W, H);
+    for (var i = 0; i < drops.length; i++) {
+      var d = drops[i];
+      d.y += d.v * dt;
+      if (d.y - d.len > H) { drops[i] = d = drop(false); }
+      ctx.globalAlpha = d.a;
+      ctx.drawImage(sprite, d.x - 4 * d.w, d.y - d.len, 8 * d.w, d.len);
+    }
+    ctx.globalAlpha = 1;
+  }
+  function frame(t) {
+    var dt = last ? Math.min(.05, (t - last) / 1000) : 0; last = t;
+    if (!document.hidden && !covered()) paint(dt);
+    if (on) requestAnimationFrame(frame);
+  }
+  size();
+  window.addEventListener("resize", size);
+  if (calm) { paint(0); window.addEventListener("resize", function () { paint(0); }); return; }
+  on = true; requestAnimationFrame(frame);
+  document.addEventListener("visibilitychange", function () { last = 0; });
+})();
+
 // 首屏的地球：夜晚那一面的城市燈光，慢慢轉（減少動態效果時停住）
 (function () {
   var cv = document.querySelector(".earth .lights");
