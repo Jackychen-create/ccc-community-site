@@ -83,6 +83,20 @@
           new IntersectionObserver(function (es) { es.forEach(function (e) { inView = e.isIntersecting; sync(); }); }, { threshold: 0, rootMargin: "120px 0px" }).observe(film); // 一露出來就開始播
         } else { inView = true; sync(); }
         document.addEventListener("visibilitychange", sync);
+        // 影片原本的聲音：瀏覽器不准一打開就有聲音，所以先靜音播；訪客在頁面上第一次點一下或按鍵，就把聲音打開。右下角的按鈕可以自己開關
+        var snd = document.getElementById("filmSound"), chose = false;
+        var setSound = function (on) {
+          vid.muted = !on;
+          if (snd) { snd.setAttribute("aria-pressed", String(on)); snd.textContent = on ? "關閉聲音" : "開啟聲音"; }
+          if (on && vid.paused && inView && !calm) { var p = vid.play(); if (p && p.catch) p.catch(function () {}); }
+        };
+        if (snd) snd.addEventListener("click", function (e) { e.stopPropagation(); chose = true; setSound(vid.muted); });
+        var firstTouch = function (e) {
+          if (snd && e.target === snd) return;
+          document.removeEventListener("pointerup", firstTouch, true); document.removeEventListener("keydown", firstTouch, true);
+          if (!chose) setSound(true);
+        };
+        document.addEventListener("pointerup", firstTouch, true); document.addEventListener("keydown", firstTouch, true);
         // 框的比例跟影片本身一樣（形象片接近正方形），就不會左右留一大片黑
         vid.addEventListener("loadedmetadata", function () {
           if (vid.videoWidth && vid.videoHeight) film.style.setProperty("--ar", vid.videoWidth + " / " + vid.videoHeight);
