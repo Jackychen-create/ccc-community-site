@@ -83,6 +83,26 @@
           new IntersectionObserver(function (es) { es.forEach(function (e) { inView = e.isIntersecting; sync(); }); }, { threshold: 0, rootMargin: "120px 0px" }).observe(film); // 一露出來就開始播
         } else { inView = true; sync(); }
         document.addEventListener("visibilitychange", sync);
+        // 框的比例跟影片本身一樣（形象片接近正方形），就不會左右留一大片黑
+        vid.addEventListener("loadedmetadata", function () {
+          if (vid.videoWidth && vid.videoHeight) film.style.setProperty("--ar", vid.videoWidth + " / " + vid.videoHeight);
+        });
+        // 往下捲的時候，影片從上一段接著浮上來、慢慢放大到原本的大小（捲動帶動，不是定時動畫）
+        if (!calm) {
+          var raf = 0;
+          var rise = function () {
+            raf = 0;
+            var r = film.getBoundingClientRect(), vh = window.innerHeight;
+            var p = Math.min(1, Math.max(0, (vh - r.top) / (vh * 0.75)));
+            var e = 1 - Math.pow(1 - p, 3);
+            film.style.setProperty("--p", e.toFixed(3));
+          };
+          var onScroll = function () { if (!raf) raf = requestAnimationFrame(rise); };
+          window.addEventListener("scroll", onScroll, { passive: true });
+          window.addEventListener("resize", onScroll);
+          film.classList.add("rise");
+          rise();
+        }
       });
     }).catch(function () {});
   }
