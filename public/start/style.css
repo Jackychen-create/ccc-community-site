@@ -905,3 +905,30 @@ body::after { animation: none !important; }
   #site .card:nth-child(5)::before { animation-delay: 1.5s; } #site .card:nth-child(5)::after { animation-delay: 4.5s; }
   #site .card:nth-child(6)::before { animation-delay: 2.5s; } #site .card:nth-child(6)::after { animation-delay: 5.5s; }
 }
+
+/* v1.33.57：手機版整理（只在 760px 以下，電腦版不變） */
+@media (max-width: 760px) {
+  /* 首屏：交易所下面那兩行字原本疊到下一段的標題上——幫它在首屏裡留位置 */
+  .hero.space .stage { padding-bottom: 0; }
+  .orbit { margin-bottom: 128px; }
+  .hero.space .lead-under { top: calc(100% + 40px); line-height: 1.8; }
+  /* 首屏的數字：一行一個不拆開，前面的小點只放在項目之間 */
+  .hero-stats { gap: 4px 16px; font-size: 13px; }
+  .hero-stats .hs + .hs::before { content: none; }
+  .hero-stats b { font-size: 15px; }
+  /* 發光白線、下一段的標題：拉開距離，不跟上面的字擠在一起 */
+  #hosts { padding-top: 72px; }
+  .flare-line { width: calc(100% - 32px); }
+  /* 主講兩段：中間留空、後面的大字小一點，不搶文字 */
+  .hosts.two { gap: 36px; }
+  .hosts .host .host-mark { opacity: .6; }
+  /* 形象片：上下多留一點，不貼著前後的字；聲音開關放到影片下面正中間 */
+  .vids-sec { padding-top: 24px; }
+  .film-sound { left: 50%; right: auto; bottom: 2%; transform: translateX(-50%); }
+  /* 四步、研究員專區：卡片之間留縫，文字不貼邊 */
+  .steps { gap: 14px; }
+  .steps li, #site .card { padding: 20px 18px; }
+  .cards { gap: 14px; }
+  /* 交易所說明：按鈕下面、步驟之間多一點空 */
+  #exchanges .how { gap: 20px; }
+}
