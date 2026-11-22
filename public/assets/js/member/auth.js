@@ -86,9 +86,9 @@ function setMode(m) {
   $("#tabRegister").setAttribute("aria-selected", String(reg));
   $("#inviteRow").hidden = !reg;
   applyFree();
-  $("#invite").required = reg && !payOn;
+  $("#invite").required = false; // v1.34.0：沒有實驗室密碼也能用 UID 直接加入
   $("#authTitle").textContent = reg ? (payOn ? "加入實驗室" : "加入培訓計畫") : "歡迎回來";
-  $("#authSub").textContent = reg ? (payOn ? "用 Email 建立帳號，登入後選方案" : "輸入實驗室密碼，建立你的帳號") : "用你的 Email 和密碼登入";
+  $("#authSub").textContent = reg ? (payOn ? "用 Email 建立帳號，登入後選方案" : "填交易所 UID，網站確認後直接開通") : "用你的 Email 和密碼登入";
   $("#pwLabel").textContent = reg ? "設定你的登入密碼（至少 8 個字元）" : "密碼";
   $("#password").autocomplete = reg ? "new-password" : "current-password";
   $("#authSubmit").textContent = reg ? "建立帳號並登入" : "登入";
@@ -176,7 +176,6 @@ export function initAuth(afterLogin) {
     // 登入不檢查長度（管理員在 Supabase 建的帳號密碼可能比較短）；註冊才要求至少 8 個字元
     if (!password) return setAuthError("請輸入密碼");
     if (mode === "register" && password.length < 8) return setAuthError("密碼至少需要 8 個字元");
-    if (mode === "register" && !invite && !payOn) return setAuthError("請輸入實驗室密碼");
     // 贈送名額、付費制不用填交易所
     const noEx = freeInvite || payOn;
     const exchange = noEx ? "" : $("#regEx").value;

@@ -310,8 +310,11 @@ const server = http.createServer(async (req, res) => {
         members.unshift({ user_id: id, email: body.email, invite_code: null, banned: false, created_at: new Date().toISOString(), last_sign_in_at: null, watched_count: 0, access_until: null, notify: true });
         return send(res, 200, { ok: true, free: false });
       }
-      const inv = invites.find((i) => i.code === body.inviteCode && !i.disabled && i.used_count < i.max_uses);
+      // v1.34.0：沒有實驗室密碼 → 用交易所 UID 直接加入（一定要自動確認得到的交易所）
+      const byUid = !body.inviteCode;
+      const inv = byUid ? { code: null, free: false, used_count: 0 } : invites.find((i) => i.code === body.inviteCode && !i.disabled && i.used_count < i.max_uses);
       if (!inv) return send(res, 400, { error: "邀請碼無效、已停用或已被用完" });
+      if (byUid && !AUTO_EXCHANGES.includes(String(body.exchange || ""))) return send(res, 400, { error: `${body.exchange || "這間交易所"} 還不能在網站直接驗證，請到 Discord 報名拿實驗室密碼` });
       if (users[body.email]) return send(res, 400, { error: "這個 Email 已經註冊過了，請直接登入" });
       const rex = String(body.exchange || ""), ruid = cleanExId(rex, body.uid);
       // 贈送名額：不用填交易所，不限期

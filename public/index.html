@@ -37,7 +37,7 @@
       <section class="auth-card card">
         <div class="seg" role="tablist" aria-label="登入或註冊">
           <button type="button" role="tab" id="tabLogin" aria-selected="true">登入</button>
-          <button type="button" role="tab" id="tabRegister" aria-selected="false">用實驗室密碼加入</button>
+          <button type="button" role="tab" id="tabRegister" aria-selected="false">加入培訓計畫</button>
         </div>
         <h2 id="authTitle">歡迎回來</h2>
         <p id="authSub" class="intro">用你的 Email 和密碼登入</p>
@@ -51,10 +51,6 @@
               <button class="btn ghost reveal" type="button" id="revealPw" aria-label="顯示密碼" aria-pressed="false"></button>
             </span>
           </label>
-          <label class="field" id="inviteRow" hidden><span class="label">實驗室密碼</span>
-            <input class="input" id="invite" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="例如 ABCD-EFGH">
-            <span class="hint">實驗室密碼由管理員提供，每組有使用次數限制</span>
-          </label>
           <div class="field" id="uidRow" hidden>
             <span class="label" id="regUidLabel">你用 CCC 邀請連結註冊的交易所和 UID</span>
             <div class="uid-pair">
@@ -66,8 +62,12 @@
               </select>
               <input class="input num" id="regUid" type="text" inputmode="numeric" autocomplete="off" maxlength="30" placeholder="UID" aria-labelledby="regUidLabel">
             </div>
-            <span class="hint" id="regUidHint">管理員要靠 UID 對到你的交易量。用好幾間的話，登入後可以再加。</span>
+            <span class="hint" id="regUidHint">網站會跟交易所確認這個 UID 是用 CCC 連結註冊的，確認到就直接開通。用好幾間的話，登入後可以再加。</span>
           </div>
+          <label class="field" id="inviteRow" hidden><span class="label">實驗室密碼（有才填，沒有就空白）</span>
+            <input class="input" id="invite" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="例如 ABCD-EFGH">
+            <span class="hint">不用也可以，網站會用上面的 UID 直接跟交易所確認。有拿到的話一起填。</span>
+          </label>
           <p class="hint" id="freeNote" hidden>🎁 這是贈送名額，不用填交易所，觀看不限期。</p>
           <div id="authError" class="form-error" role="alert" hidden></div>
           <button class="btn primary lg block" id="authSubmit" type="submit" style="margin-top: 24px">登入</button>

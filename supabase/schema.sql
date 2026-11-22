@@ -707,3 +707,12 @@ select cron.schedule('pay-sweep', '23 * * * *', $cron$
   )
   from vault.decrypted_secrets s where s.name = 'cron_secret';
 $cron$);
+
+-- v1.34.0：在網站用交易所 UID 直接加入（不用實驗室密碼）；同一個 IP 一小時最多試 10 次，只存 IP 的雜湊
+create table if not exists public.uid_join_attempts (
+  id bigserial primary key,
+  ip_hash text not null,
+  at timestamptz not null default now()
+);
+create index if not exists uid_join_attempts_ip_at on public.uid_join_attempts (ip_hash, at desc);
+alter table public.uid_join_attempts enable row level security;
