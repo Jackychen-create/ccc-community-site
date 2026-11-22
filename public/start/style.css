@@ -872,3 +872,13 @@ body::after { animation: none !important; }
 /* v1.33.54：交易所註冊步驟那一塊也拿掉方塊（邊框、灰底），內容對齊標題左邊；標題列下面那條分隔線保留 */
 #exchanges .ex { background: none; border: 0; box-shadow: none; padding-left: 0; padding-right: 0; }
 #exchanges .ex::before, #exchanges .ex::after { display: none; }
+
+/* v1.33.55：「註冊前先看這個」改成直角長方形、沒有橘色底；邊框是會發光的橘線，一道亮光沿著上下邊慢慢掃過 */
+.warn-box { position: relative; border-radius: 0; background: none; border: 1px solid rgba(240, 150, 80, .75);
+  box-shadow: 0 0 6px rgba(240, 150, 80, .45), 0 0 18px rgba(240, 150, 80, .22), inset 0 0 10px rgba(240, 150, 80, .12); overflow: hidden; }
+.warn-box::before, .warn-box::after { content: ""; position: absolute; left: -30%; width: 30%; height: 2px; pointer-events: none; opacity: 0;
+  background: linear-gradient(90deg, transparent, #FFD7A8 50%, transparent); filter: drop-shadow(0 0 4px #FFB070); }
+.warn-box::before { top: -1px; }
+.warn-box::after { bottom: -1px; animation-delay: 2.6s !important; }
+@keyframes warn-sweep { 0% { left: -30%; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { left: 100%; opacity: 0; } }
+@media (prefers-reduced-motion: no-preference) { .warn-box::before, .warn-box::after { animation: warn-sweep 5.2s ease-in-out infinite; } }
