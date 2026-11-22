@@ -23,7 +23,7 @@
   else if (tabs[0]) pick(tabs[0]);
 
   // 卡片的光：游標在卡片上哪裡，那裡亮一點（只有滑鼠）
-  var glare = [].slice.call(document.querySelectorAll(".steps li, .host, .card, .ex, .calc, .tier-table"));
+  var glare = [].slice.call(document.querySelectorAll(".steps li, .card, .ex, .calc, .tier-table")); // 主講卡片沒有框，不加滑鼠反光（v1.33.53）
   glare.forEach(function (el) {
     el.classList.add("glare");
     el.addEventListener("pointermove", function (e) {
