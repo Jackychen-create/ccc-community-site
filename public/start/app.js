@@ -370,6 +370,31 @@
   document.addEventListener("visibilitychange", function () { last = 0; });
 })();
 
+// 滑鼠周圍的白色光暈：只在有滑鼠的裝置；游標移出視窗就淡掉。減少動態效果時直接貼著游標，不做滑行
+(function () {
+  if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+  var calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var g = document.createElement("div"); g.className = "cursor-glow"; g.setAttribute("aria-hidden", "true");
+  document.body.appendChild(g);
+  var tx = 0, ty = 0, x = 0, y = 0, raf = 0, seen = false;
+  function put() { g.style.transform = "translate3d(" + x.toFixed(1) + "px, " + y.toFixed(1) + "px, 0)"; }
+  function step() {
+    raf = 0;
+    x += (tx - x) * .22; y += (ty - y) * .22; put();
+    if (Math.abs(tx - x) > .3 || Math.abs(ty - y) > .3) raf = requestAnimationFrame(step);
+  }
+  document.addEventListener("pointermove", function (e) {
+    if (e.pointerType && e.pointerType !== "mouse") return;
+    tx = e.clientX; ty = e.clientY;
+    if (!seen || calm) { x = tx; y = ty; put(); seen = true; }
+    g.classList.add("on");
+    if (!calm && !raf) raf = requestAnimationFrame(step);
+  }, { passive: true });
+  document.addEventListener("pointerleave", function () { g.classList.remove("on"); });
+  document.documentElement.addEventListener("mouseleave", function () { g.classList.remove("on"); });
+  window.addEventListener("blur", function () { g.classList.remove("on"); });
+})();
+
 // 首屏的地球：夜晚那一面的城市燈光，慢慢轉（減少動態效果時停住）
 (function () {
   var cv = document.querySelector(".earth .lights");
