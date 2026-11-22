@@ -689,3 +689,22 @@ body::after { animation: none !important; }
 .vids-sec { padding-top: 0; }
 .hosts .host:nth-child(1) .host-mark { font-size: 50cqw; }
 .hosts .host:nth-child(2) .host-mark { font-size: 78cqw; }
+
+/* v1.33.8：交易所卡片融入背景——沒有卡面、沒有框，只剩標誌和名字浮在地球上，後面一團很淡的光，四邊淡掉 */
+.oc-art, .oc[aria-current="true"] .oc-art, .oc.lit .oc-art { background: transparent; border: 0; box-shadow: none; overflow: visible; }
+.oc-art::after, .oc::before { display: none; }
+.oc-art::before { inset: -10%; border-radius: 50%; filter: blur(18px); opacity: .55;
+  background: radial-gradient(closest-side, var(--tint, rgba(255, 255, 255, .14)), transparent 75%); }
+.oc[aria-current="true"] .oc-art::before { opacity: .9; }
+.oc-art img, .oc-art .wm { opacity: .92; filter: drop-shadow(0 0 24px rgba(255, 255, 255, .16)); }
+.oc[aria-current="true"] .oc-art img, .oc[aria-current="true"] .oc-art .wm { opacity: 1; filter: drop-shadow(0 0 30px rgba(255, 255, 255, .28)); }
+.oc:not([aria-current="true"]) { filter: brightness(.55) saturate(.7) blur(.4px); }
+.oc-cap b { font-weight: 500; letter-spacing: .2em; color: rgba(255, 255, 255, .72); font-size: 15px; }
+.oc[aria-current="true"] .oc-cap b { color: rgba(255, 255, 255, .92); }
+.oc-cap small { color: rgba(255, 255, 255, .45); letter-spacing: .08em; }
+.oc-art { place-items: end center; padding-bottom: 18px; }
+.oc-art img { width: 50%; }
+.oc-art .wm { font-size: clamp(34px, 4vh, 46px); }
+.oc-art img, .oc-art .wm { mix-blend-mode: screen; opacity: .8; }
+.oc[aria-current="true"] .oc-art img, .oc[aria-current="true"] .oc-art .wm { opacity: .95; }
+.oc-art::before { inset: auto -10% -6% -10%; height: 70%; }
