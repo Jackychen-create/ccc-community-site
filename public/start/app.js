@@ -327,24 +327,21 @@
   function covered() { return hero && hero.getBoundingClientRect().bottom >= H; } // 首屏還蓋滿整個畫面
   function paint(dt) {
     ctx.clearRect(0, 0, W, H);
-    // 方向：捲動超過一點點就記下新方向，停下來也維持；flow 在半秒內轉過去
+    // 方向：捲動超過一點點就記下新方向，停下來也維持；flow 用大約兩秒慢慢減速、停住、再往另一邊流，像水被帶著轉向
     if (sv < -40) dir = -1; else if (sv > 40) dir = 1;
-    flow += (dir - flow) * Math.min(1, dt * 5);
-    var stretch = 1 + Math.min(1.2, Math.abs(sv) / 900); // 捲得快，光拉長一點，像有速度感
+    flow += (dir - flow) * Math.min(1, dt * 1);
+    var stretch = 1 + Math.min(.6, Math.abs(sv) / 1500); // 捲得快，光稍微拉長一點
     for (var i = 0; i < drops.length; i++) {
       var d = drops[i];
-      var v = d.v * flow + Math.max(-2000, Math.min(2000, sv)) * .25; // 捲動速度帶四分之一進來，上限 500px/秒，不會暈
+      var v = d.v * flow + Math.max(-2000, Math.min(2000, sv)) * .12; // 捲動速度只帶一點點進來，上限 240px/秒
       d.y += v * dt;
       var len = d.len * stretch;
-      if (v >= 0) {
-        if (d.y - len > H) { drops[i] = d = drop(false); }
-        ctx.globalAlpha = d.a;
-        ctx.drawImage(sprite, d.x - 4 * d.w, d.y - len, 8 * d.w, len);
-      } else {
-        if (d.y + len < 0) { drops[i] = d = drop(false, true); }
-        ctx.globalAlpha = d.a;
-        ctx.drawImage(spriteUp, d.x - 4 * d.w, d.y, 8 * d.w, len);
-      }
+      if (v >= 0 && d.y - len > H) { drops[i] = d = drop(false); }
+      else if (v < 0 && d.y + len < 0) { drops[i] = d = drop(false, true); }
+      // 轉向的時候亮頭不要一下跳到另一端：速度接近 0 時兩個方向的光交叉淡入淡出
+      var down = Math.min(1, Math.max(0, (v + 25) / 50));
+      if (down > 0) { ctx.globalAlpha = d.a * down; ctx.drawImage(sprite, d.x - 4 * d.w, d.y - len, 8 * d.w, len); }
+      if (down < 1) { ctx.globalAlpha = d.a * (1 - down); ctx.drawImage(spriteUp, d.x - 4 * d.w, d.y, 8 * d.w, len); }
     }
     ctx.globalAlpha = 1;
   }
@@ -353,7 +350,7 @@
     var y = window.scrollY;
     if (dt > 0) {
       var raw = Math.max(-4000, Math.min(4000, (y - lastY) / dt));
-      sv += (raw - sv) * Math.min(1, dt * (Math.abs(raw) > Math.abs(sv) ? 12 : 3)); // 加速快、停下來慢慢回來
+      sv += (raw - sv) * Math.min(1, dt * (Math.abs(raw) > Math.abs(sv) ? 3 : 1.5)); // 加速、減速都慢慢來，不會一下衝很快
     }
     lastY = y;
     if (!document.hidden && !covered()) paint(dt);
