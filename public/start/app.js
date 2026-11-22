@@ -299,7 +299,7 @@
   var calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var W = 0, H = 0, drops = [], last = 0, on = false;
   var lastY = window.scrollY, sv = 0; // sv：平滑過的捲動速度（px/秒，往下為正）
-  var dir = 1, flow = 1, from = 1, turnT = 0, TURN = 4; // dir：最後一次捲動的方向（1 往下、-1 往上），停下來也記著；flow 用 TURN 秒、頭尾都慢的曲線轉到 dir
+  var dir = 1, flow = 1, from = 1, turnT = 0, TURN = 7; // dir：最後一次捲動的方向（1 往下、-1 往上），停下來也記著；flow 用 TURN 秒、頭尾都慢的曲線轉到 dir
   // 預先畫好一條光：上面透明、往下慢慢變亮，最下面是亮頭；外面再一層很淡的光暈
   var sprite = document.createElement("canvas"); sprite.width = 8; sprite.height = 256;
   var spriteUp = document.createElement("canvas"); spriteUp.width = 8; spriteUp.height = 256; // 上下顛倒：往上流時亮頭在上面
@@ -321,13 +321,13 @@
     var dpr = Math.min(1.5, window.devicePixelRatio || 1);
     W = window.innerWidth; H = window.innerHeight;
     cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    var n = Math.round(Math.min(240, Math.max(80, W / 7)));
+    var n = Math.round(Math.min(140, Math.max(50, W / 12)));
     drops = []; for (var i = 0; i < n; i++) drops.push(drop(true));
   }
   function covered() { return hero && hero.getBoundingClientRect().bottom >= H; } // 首屏還蓋滿整個畫面
   function paint(dt) {
     ctx.clearRect(0, 0, W, H);
-    // 方向：捲動超過一點點就記下新方向，停下來也維持；flow 用大約四秒慢慢減速、停住、再往另一邊流，像水被帶著轉向
+    // 方向：捲動超過一點點就記下新方向，停下來也維持；flow 用大約七秒慢慢減速、停住、再往另一邊流，像水被帶著轉向
     var want = sv < -40 ? -1 : sv > 40 ? 1 : dir;
     if (want !== dir) { dir = want; from = flow; turnT = 0; } // 轉到一半又換方向：從現在的位置重新開始轉
     if (flow !== dir) {
