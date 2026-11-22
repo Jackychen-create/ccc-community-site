@@ -868,3 +868,7 @@ body::after { animation: none !important; }
 /* v1.33.53：「不只一個交易系統」的兩張主講卡片拿掉方塊（邊框、灰底、陰影），只留文字和後面的大字 CCC、X */
 .hosts .host { background: none; border: 0; box-shadow: none; padding-left: 0; padding-right: 0; }
 .hosts .host::before, .hosts .host::after { display: none; }
+
+/* v1.33.54：交易所註冊步驟那一塊也拿掉方塊（邊框、灰底），內容對齊標題左邊；標題列下面那條分隔線保留 */
+#exchanges .ex { background: none; border: 0; box-shadow: none; padding-left: 0; padding-right: 0; }
+#exchanges .ex::before, #exchanges .ex::after { display: none; }
