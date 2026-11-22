@@ -472,71 +472,82 @@
   window.addEventListener("blur", function () { g.classList.remove("on"); });
 })();
 
-// 首屏地球上方的星空（v1.33.44 改寫實）：像照片裡的星星——每顆都是很小、很銳利的一點（直接畫在螢幕的實際像素上，不糊成灰點），
-// 大部分很暗、少數很亮，亮的帶一點藍白或暖黃；沒有光暈。只有幾顆亮星非常輕微地閃。地球蓋在上面，所以只在地平線以上
+// 首屏地球上方的星空：每顆星都是很小、很銳利的一點（畫在螢幕實際像素上），大多很暗、少數很亮，亮的帶一點藍白或暖黃，沒有光暈。
+// v1.33.46：
+// ・移動：星星只畫一次在兩倍寬的 canvas 上（同一片星空接兩次），整張用 transform 以小數像素平移，GPU 做、每格都在動，不會一格一格跳
+// ・閃爍、閃光畫在疊在上面的另一張 canvas，跟著一起平移；每次只擦掉、重畫有變化的小方塊，不重畫整片
 (function () {
-  var cv = document.querySelector(".sky .stars");
-  if (!cv || !cv.getContext) return;
-  var ctx = cv.getContext("2d"), hero = document.querySelector(".hero");
+  var base = document.querySelector(".sky .stars");
+  if (!base || !base.getContext) return;
+  var hero = document.querySelector(".hero"), sky = base.parentNode;
   var calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  var Wp = 0, Hp = 0, dpr = 1, stars = [], tw = [], on = false;
+  var rail = document.createElement("div"); rail.className = "star-rail";
+  var fx = document.createElement("canvas"); fx.className = "stars-fx";
+  sky.insertBefore(rail, base); rail.appendChild(base); rail.appendChild(fx);
+  var bctx = base.getContext("2d"), fctx = fx.getContext("2d");
+  var W = 0, Wp = 0, Hp = 0, dpr = 1, stars = [], tw = [], flashes = [], dirty = [], on = false, nextFlash = 0, t0 = 0;
   var seed = 11; var rnd = function () { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
   function build() {
     dpr = Math.min(2, window.devicePixelRatio || 1);
-    var b = cv.parentNode.getBoundingClientRect();
+    var b = sky.getBoundingClientRect(); W = b.width;
     Wp = Math.round(b.width * dpr); Hp = Math.round(b.height * dpr);
-    cv.width = Wp; cv.height = Hp;
-    seed = 11; stars = []; tw = [];
+    base.width = fx.width = Wp * 2; base.height = fx.height = Hp;
+    seed = 11; stars = []; tw = []; flashes = []; dirty = [];
     var n = Math.round(b.width * b.height / 3200);
     for (var i = 0; i < n; i++) {
-      // 亮度照真實星空的比例：很暗的最多，亮的很少
-      var m = Math.pow(rnd(), 3.2);
-      var v = 40 + Math.round(m * 215);
-      var t = rnd(), r = v, g = v, bl = v;
+      var m = Math.pow(rnd(), 3.2), v = 40 + Math.round(m * 215), t = rnd(), r = v, g = v, bl = v;
       if (m > .35) { if (t < .3) { r = v * .82; g = v * .9; } else if (t < .45) { g = v * .92; bl = v * .78; } }
-      var size = m > .75 ? 2 : 1;
-      var st = { x: Math.round(rnd() * Wp), y: Math.round(Math.pow(rnd(), 1.2) * Hp), s: size * (dpr > 1.5 ? 1 : 1), c: "rgb(" + Math.round(r) + "," + Math.round(g) + "," + Math.round(bl) + ")", m: m, sp: .5 + rnd() * 1.2, ph: rnd() * 6.283 };
-      stars.push(st); if (m > .55) tw.push(st);
+      var st = { x: Math.round(rnd() * Wp), y: Math.round(Math.pow(rnd(), 1.2) * Hp), s: m > .75 ? 2 : 1, c: "rgb(" + Math.round(r) + "," + Math.round(g) + "," + Math.round(bl) + ")", m: m, sp: .5 + rnd() * 1.2, ph: rnd() * 6.283 };
+      stars.push(st); if (m > .45) tw.push(st);
     }
+    bctx.clearRect(0, 0, base.width, Hp);
+    for (var k = 0; k < stars.length; k++) { var q = stars[k]; bctx.fillStyle = q.c; bctx.fillRect(q.x, q.y, q.s, q.s); bctx.fillRect(q.x + Wp, q.y, q.s, q.s); }
+    fctx.clearRect(0, 0, fx.width, Hp);
   }
-  // v1.33.45：整片星空慢慢往右飄（每秒幾個像素，繞一圈回來），隨機一顆星會突然閃一下：亮起來、拉出十字的細光芒、再退掉
-  var flashes = [], nextFlash = 0;
+  function mark(x, y, r) { dirty.push(x - r, y - r, 2 * r + 2); dirty.push(x - r + Wp, y - r, 2 * r + 2); }
   function spike(x, y, len, a, dx, dy) {
-    for (var k = 1; k <= len; k++) { ctx.globalAlpha = a * Math.pow(1 - k / (len + 1), 1.6); ctx.fillRect(x + dx * k, y + dy * k, 1, 1); }
+    for (var k = 1; k <= len; k++) { fctx.globalAlpha = a * Math.pow(1 - k / (len + 1), 1.5); fctx.fillRect(x + dx * k, y + dy * k, 1, 1); fctx.fillRect(x + dx * k + Wp, y + dy * k, 1, 1); }
   }
   function paint(t) {
-    ctx.globalAlpha = 1;
-    ctx.clearRect(0, 0, Wp, Hp);
-    var drift = calm ? 0 : (t / 1000) * 5 * dpr;
-    for (var i = 0; i < stars.length; i++) {
-      var s = stars[i], x = Math.round((s.x + drift) % Wp), a = 1;
-      if (!calm && s.m > .45) a = .45 + .55 * (.5 + .5 * Math.sin(t / 1000 * s.sp * 1.6 + s.ph)); // 亮星明顯地閃爍
-      ctx.globalAlpha = a; ctx.fillStyle = s.c; ctx.fillRect(x, s.y, s.s, s.s);
+    // 擦掉上一格畫過的地方
+    for (var d = 0; d < dirty.length; d += 3) fctx.clearRect(dirty[d], dirty[d + 1], dirty[d + 2], dirty[d + 2]);
+    dirty = [];
+    // 亮星閃爍：在上面蓋一層黑，讓它一明一暗
+    fctx.fillStyle = "#000";
+    for (var i = 0; i < tw.length; i++) {
+      var s = tw[i], a = .55 * (.5 + .5 * Math.sin(t / 1000 * s.sp * 1.6 + s.ph));
+      fctx.globalAlpha = a; fctx.fillRect(s.x, s.y, s.s, s.s); fctx.fillRect(s.x + Wp, s.y, s.s, s.s); mark(s.x, s.y, s.s);
     }
-    if (calm) { ctx.globalAlpha = 1; return; }
-    // 偶爾一顆星閃光
+    // 閃光：常常有，幾顆同時閃也可以；大小不一
     if (t > nextFlash && stars.length) {
-      var pick = stars[Math.floor(rnd2() * stars.length)];
-      flashes.push({ st: pick, t0: t, dur: 700 + rnd2() * 700, len: Math.round((10 + rnd2() * 14) * dpr) });
-      nextFlash = t + 500 + rnd2() * 1500;
+      var pick = stars[Math.floor(Math.random() * stars.length)], big = Math.random() < .3;
+      flashes.push({ st: pick, t0: t, dur: (big ? 1100 : 600) + Math.random() * 700, len: Math.round((big ? 16 + Math.random() * 16 : 7 + Math.random() * 9) * dpr), diag: Math.random() < .35 });
+      nextFlash = t + 120 + Math.random() * 480;
     }
-    ctx.fillStyle = "#fff";
+    fctx.fillStyle = "#fff";
     for (var f = flashes.length - 1; f >= 0; f--) {
       var fl = flashes[f], p = (t - fl.t0) / fl.dur;
       if (p >= 1) { flashes.splice(f, 1); continue; }
-      var k = Math.sin(Math.PI * p), fx = Math.round((fl.st.x + drift) % Wp), fy = fl.st.y, L = Math.round(fl.len * k);
-      ctx.globalAlpha = k; ctx.fillRect(fx - dpr, fy - dpr, 1 + 2 * dpr, 1 + 2 * dpr);
-      spike(fx, fy, L, k * .9, 1, 0); spike(fx, fy, L, k * .9, -1, 0); spike(fx, fy, L, k * .9, 0, 1); spike(fx, fy, L, k * .9, 0, -1);
+      var k = Math.sin(Math.PI * p), x = fl.st.x, y = fl.st.y, L = Math.max(1, Math.round(fl.len * k)), c = Math.round(dpr);
+      fctx.globalAlpha = k; fctx.fillRect(x - c, y - c, 1 + 2 * c, 1 + 2 * c); fctx.fillRect(x - c + Wp, y - c, 1 + 2 * c, 1 + 2 * c);
+      spike(x, y, L, k * .9, 1, 0); spike(x, y, L, k * .9, -1, 0); spike(x, y, L, k * .9, 0, 1); spike(x, y, L, k * .9, 0, -1);
+      if (fl.diag) { var Ld = Math.round(L * .45); spike(x, y, Ld, k * .5, 1, 1); spike(x, y, Ld, k * .5, -1, -1); spike(x, y, Ld, k * .5, 1, -1); spike(x, y, Ld, k * .5, -1, 1); }
+      mark(x, y, fl.len + 2 * c);
     }
-    ctx.globalAlpha = 1;
+    fctx.globalAlpha = 1;
   }
-  var rnd2 = Math.random;
   function frame(t) {
-    if (!document.hidden && hero.getBoundingClientRect().bottom > 0) paint(t);
+    if (!t0) t0 = t;
+    if (!document.hidden && hero.getBoundingClientRect().bottom > 0) {
+      var off = ((t - t0) / 1000 * 6) % W; // 每秒往右 6px，小數像素
+      rail.style.transform = "translate3d(" + (off - W).toFixed(2) + "px, 0, 0)";
+      paint(t);
+    }
     if (on) requestAnimationFrame(frame);
   }
-  build(); paint(0);
-  window.addEventListener("resize", function () { build(); paint(performance.now()); });
+  build();
+  rail.style.transform = "translate3d(" + (-W) + "px, 0, 0)";
+  window.addEventListener("resize", function () { build(); });
   if (!calm) { on = true; requestAnimationFrame(frame); }
 })();
 

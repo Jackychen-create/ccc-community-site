@@ -808,7 +808,9 @@ body::after { animation: none !important; }
 .film-rays { position: absolute; z-index: -1; left: -40%; top: -40%; width: 180%; height: 180%; pointer-events: none; filter: blur(4px); }
 
 /* v1.33.43：首屏地球上方的星空（app.js 畫在 .sky 裡的 canvas），地球蓋在上面所以只露出地平線以上 */
-.sky .stars { position: absolute; inset: 0; width: 100%; height: 100%; }
+.sky { overflow: hidden; }
+.sky .star-rail { position: absolute; left: 0; top: 0; width: 200%; height: 100%; will-change: transform; }
+.sky .stars, .sky .stars-fx { position: absolute; inset: 0; width: 100%; height: 100%; }
 
 /* v1.33.44：首屏交易所——中間那張放大、更亮、往前；旁邊兩張縮小、更暗。縮放的中心放在標誌上，三個標誌還是在同一條線上 */
 .oc { transition: transform .7s cubic-bezier(.2, .8, .2, 1), filter .5s; }
@@ -817,4 +819,4 @@ body::after { animation: none !important; }
 .oc[aria-current="true"] .oc-art::before { opacity: 1; filter: blur(22px) saturate(1.25); }
 
 /* v1.33.45：Bybit 的光改成橘色（不管在不在中間都是橘的，不再被調亮變黃） */
-.t-bybit { --tint: rgba(255, 112, 10, .9); }
+.t-bybit { --tint: rgba(245, 132, 22, .9); } /* v1.33.46：照 Bybit 宣傳圖的黃橘色 #F28216 */
