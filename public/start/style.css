@@ -118,12 +118,15 @@ p.cjk, li.cjk { text-wrap: pretty; }
 .ex-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--line); }
 .ex-head h3 { font-size: 24px; font-family: var(--f-num), var(--f-text); }
 .ex-sub { color: var(--ink-2); font-size: 15px; margin-top: 4px; }
+.ex-code { margin-top: 10px; color: var(--ink-3); font-size: 14px; }
+.ex-code code { margin-left: 4px; }
 .how { list-style: none; counter-reset: how; margin: 20px 0 0; padding: 0; display: grid; gap: 16px; }
 .how li { counter-increment: how; display: grid; grid-template-columns: 34px 1fr; column-gap: 12px; }
 .how li::before { content: counter(how); grid-row: span 2; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--line-strong); display: grid; place-items: center; font: 700 15px/1 var(--f-num); color: var(--amber); }
 .how b { font-weight: 700; }
 .how span { color: var(--ink-2); font-size: 15px; }
 .how strong { color: var(--ink); font-weight: 500; }
+@media (min-width: 900px) { .how { grid-template-columns: 1fr 1fr; column-gap: 40px; row-gap: 22px; } .how li { align-content: start; } }
 .note { margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--line-strong); color: var(--ink-3); font-size: 14px; }
 @media (max-width: 720px) {
   .ex { padding: 20px 16px; }
@@ -712,3 +715,6 @@ body::after { animation: none !important; }
 /* v1.33.9：主講大字整個放得進卡片（app.js 照卡片大小算字級），再淡一點 */
 .hosts .host .host-mark { font-size: 100px; line-height: 1; color: rgba(255, 255, 255, .012); -webkit-text-stroke: 1px rgba(255, 255, 255, .06); }
 .host-mark > span { display: inline-block; line-height: 1; }
+
+/* v1.33.11：首屏三間交易所對齊——三個標誌放在一樣大的正方形裡、中心在同一條線上，左右兩張不再往下沉、不再轉向 */
+.oc-art .wm { display: grid; place-items: center; width: 50%; aspect-ratio: 1; }
