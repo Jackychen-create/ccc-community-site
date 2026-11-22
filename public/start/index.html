@@ -93,7 +93,11 @@
   </div>
 </section>
 
-<section class="sec vids-sec" id="videos" aria-label="介紹影片" hidden>
+<section class="vids-sec" id="videos" aria-label="介紹影片" hidden>
+  <div class="film" id="film" hidden>
+    <video id="filmVideo" muted loop playsinline preload="metadata"></video>
+    <button class="film-sound" id="filmSound" type="button" aria-pressed="false">開聲音</button>
+  </div>
   <div class="wrap">
     <div class="vids" id="vidList"></div>
   </div>

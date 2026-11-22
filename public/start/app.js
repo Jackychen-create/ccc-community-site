@@ -46,14 +46,18 @@
     links.forEach(function (a) { var s = document.querySelector(a.getAttribute("href")); if (s) io.observe(s); });
   }
 
-  // ── 公開影片（研究員專區的 /api/public-video，不用登入）；拿不到就整段不顯示。捲到時一支一支浮上來 ──
+  // ── 公開影片（研究員專區的 /api/public-video，不用登入）；拿不到就整段不顯示 ──
+  // 第一支（形象片）滿版、靜音循環，捲到就直接開始播、捲走就暫停；其他的排在下面
   var SITE = "https://ccc-community-site.pages.dev";
   var box = document.getElementById("vidList");
+  var getJson = function (u) { return fetch(u).then(function (r) { return r.ok ? r.json() : null; }); };
   if (box && window.fetch) {
-    fetch(SITE + "/api/public-video").then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+    getJson(SITE + "/api/public-video").then(function (d) {
       var vs = (d && d.videos) || [];
       if (!vs.length) return;
-      vs.slice(0, 3).forEach(function (v) {
+      var sec = document.getElementById("videos");
+      sec.hidden = false;
+      vs.slice(1, 4).forEach(function (v) {
         var a = document.createElement("a");
         a.className = "vid"; a.href = SITE + "/watch?v=" + encodeURIComponent(v.id); a.target = "_blank"; a.rel = "noopener";
         var th = document.createElement("span"); th.className = "vid-th";
@@ -64,15 +68,28 @@
         a.append(th, t);
         box.appendChild(a);
       });
-      var sec = document.getElementById("videos");
-      sec.hidden = false;
-      if ("IntersectionObserver" in window && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        sec.classList.add("pre");
-        var vio = new IntersectionObserver(function (es) {
-          es.forEach(function (e) { if (e.isIntersecting) { sec.classList.add("shown"); vio.disconnect(); } });
-        }, { threshold: .25 });
-        vio.observe(sec);
-      }
+      return getJson(SITE + "/api/public-video?id=" + encodeURIComponent(vs[0].id)).then(function (one) {
+        if (!one || !one.url) return;
+        var film = document.getElementById("film"), vid = document.getElementById("filmVideo"), snd = document.getElementById("filmSound");
+        if (one.thumb_url) vid.poster = one.thumb_url;
+        vid.src = one.url;
+        vid.setAttribute("aria-label", one.title || "介紹影片");
+        film.hidden = false;
+        var calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (calm) vid.controls = true; // 減少動態效果：不自動播，給播放鍵
+        var inView = false;
+        var sync = function () { if (calm) return; if (inView && !document.hidden) { var p = vid.play(); if (p && p.catch) p.catch(function () { vid.controls = true; }); } else vid.pause(); };
+        if ("IntersectionObserver" in window) {
+          new IntersectionObserver(function (es) { es.forEach(function (e) { inView = e.isIntersecting; sync(); }); }, { threshold: .3 }).observe(film);
+        } else { inView = true; sync(); }
+        document.addEventListener("visibilitychange", sync);
+        snd.addEventListener("click", function () {
+          vid.muted = !vid.muted;
+          snd.setAttribute("aria-pressed", String(!vid.muted));
+          snd.textContent = vid.muted ? "開聲音" : "關聲音";
+          if (!vid.muted && vid.paused) vid.play();
+        });
+      });
     }).catch(function () {});
   }
 
