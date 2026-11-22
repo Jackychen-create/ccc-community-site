@@ -551,6 +551,20 @@
   if (!calm) { on = true; requestAnimationFrame(frame); }
 })();
 
+// 首屏和「不只一個交易系統」之間的發光白線：放在交易所下面那兩行字的底部和標題的正中間（螢幕高矮不同，用量的）
+(function () {
+  var line = document.querySelector("#hosts .flare-line"), sec = document.getElementById("hosts");
+  var above = document.querySelector(".lead-under"), title = sec && sec.querySelector("h2");
+  if (!line || !above || !title) return;
+  function place() {
+    var s = sec.getBoundingClientRect().top, a = above.getBoundingClientRect().bottom, t = title.getBoundingClientRect().top;
+    var mid = (a + t) / 2 - s;
+    line.style.top = Math.round(mid) + "px";
+  }
+  place(); window.addEventListener("resize", place); window.addEventListener("load", place);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(place);
+})();
+
 // 首屏的地球：夜晚那一面的城市燈光，慢慢轉（減少動態效果時停住）
 (function () {
   var cv = document.querySelector(".earth .lights");
