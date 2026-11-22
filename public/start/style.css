@@ -720,7 +720,7 @@ body::after { animation: none !important; }
 .oc-art .wm { display: grid; place-items: center; width: 50%; aspect-ratio: 1; }
 
 /* v1.33.12 → v1.33.15：地球正中間的日出，照太空看日出的樣子：太陽是一個很小、很亮的點，壓在地平線上；
-   光大多沿著大氣層散開成一條細細的暖色弧線，外面一圈淡淡的光暈，光芒長短不一往四周射出去 */
+   光大多沿著大氣層散開成一條細細的暖色弧線，外面一圈淡淡的光暈（v1.33.16 拿掉放射光芒） */
 .earth .sun { position: absolute; z-index: 0; left: 50%; top: var(--top); width: 84px; height: 84px; transform: translate(-50%, -32%); border-radius: 50%;
   background: radial-gradient(circle, #FFFFFF 0, #FFF4E2 32%, #FFD9AA 55%, rgba(255, 160, 90, .4) 68%, transparent 74%); filter: blur(4px); }
 .earth .sunlight { position: absolute; z-index: 2; left: 50%; top: var(--top); width: 100%; height: 620px; transform: translate(-50%, -50%); pointer-events: none; mix-blend-mode: screen;
@@ -731,22 +731,11 @@ body::after { animation: none !important; }
     radial-gradient(34% 22px at 50% 50%, rgba(170, 190, 255, .12), transparent 100%),
     radial-gradient(150px 100px at 50% 47%, rgba(255, 190, 125, .34), rgba(255, 140, 85, .09) 60%, transparent 100%),
     radial-gradient(520px 250px at 50% 45%, rgba(215, 130, 150, .08), rgba(120, 110, 220, .04) 50%, transparent 100%); }
-.earth .sunrays { position: absolute; z-index: 2; left: 50%; top: var(--top); width: 1300px; height: 1300px; margin: -650px 0 0 -650px; pointer-events: none; mix-blend-mode: screen; opacity: .85; filter: blur(.6px);
-  background:
-    repeating-conic-gradient(from -.5deg, rgba(255, 240, 222, .42) 0deg 1deg, transparent 1deg 30deg),
-    repeating-conic-gradient(from 11deg, rgba(255, 226, 198, .2) 0deg .6deg, transparent .6deg 23deg);
-  -webkit-mask-image: radial-gradient(circle, #000 0, rgba(0, 0, 0, .5) 5%, rgba(0, 0, 0, .16) 16%, rgba(0, 0, 0, .05) 28%, transparent 40%);
-  mask-image: radial-gradient(circle, #000 0, rgba(0, 0, 0, .5) 5%, rgba(0, 0, 0, .16) 16%, rgba(0, 0, 0, .05) 28%, transparent 40%); }
-.earth .sunrays::before { content: ""; position: absolute; inset: 0;
-  background: repeating-conic-gradient(from 3deg, rgba(255, 236, 214, .3) 0deg .45deg, transparent .45deg 7deg);
-  -webkit-mask-image: radial-gradient(circle, #000 0, rgba(0, 0, 0, .4) 4%, rgba(0, 0, 0, .08) 11%, transparent 20%);
-  mask-image: radial-gradient(circle, #000 0, rgba(0, 0, 0, .4) 4%, rgba(0, 0, 0, .08) 11%, transparent 20%); }
 @keyframes sun-breathe { 0%, 100% { opacity: .9; } 50% { opacity: 1; } }
 @media (prefers-reduced-motion: no-preference) { .earth .sunlight { animation: sun-breathe 10s ease-in-out infinite; } }
 @media (max-width: 760px) {
   .earth .sun { width: 60px; height: 60px; }
   .earth .sunlight { width: 170%; height: 440px; }
-  .earth .sunrays { width: 820px; height: 820px; margin: -410px 0 0 -410px; }
 }
 
 /* v1.33.13：形象片大一點但不滿版——寬度照影片比例、高度最多 82% 畫面；往下捲時從上一段接著浮上來、慢慢放大 */
