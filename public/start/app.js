@@ -469,6 +469,57 @@
   window.addEventListener("blur", function () { g.classList.remove("on"); });
 })();
 
+// 首屏地球上方的星空：大小、亮度不一的星星，少數帶一點藍或暖色，慢慢閃爍；一條很淡的銀河斜過去。
+// 地球蓋在星空上面，所以星星只會出現在地平線以上。首屏捲出畫面、分頁在背景時不動；減少動態效果時不閃
+(function () {
+  var cv = document.querySelector(".sky .stars");
+  if (!cv || !cv.getContext) return;
+  var ctx = cv.getContext("2d"), hero = document.querySelector(".hero");
+  var calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var W = 0, H = 0, stars = [], band = null, on = false;
+  var seed = 11; var rnd = function () { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+  function build() {
+    var dpr = Math.min(2, window.devicePixelRatio || 1);
+    var b = cv.parentNode.getBoundingClientRect(); W = b.width; H = b.height;
+    cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    seed = 11; stars = [];
+    var n = Math.round(W * H / 2600);
+    for (var i = 0; i < n; i++) {
+      var big = rnd() < .06, r = big ? .9 + rnd() * .9 : .3 + rnd() * .6;
+      var t = rnd(), col = t < .12 ? "190,210,255" : t < .18 ? "255,226,190" : "255,255,255";
+      // 越往上越多一點，靠近地平線少一點
+      var y = Math.pow(rnd(), 1.25) * H;
+      stars.push({ x: rnd() * W, y: y, r: r, a: big ? .55 + rnd() * .4 : .18 + rnd() * .45, c: col, sp: .4 + rnd() * 1.6, ph: rnd() * 6.283, tw: big ? .45 : .3 + rnd() * .3 });
+    }
+    // 銀河：一條斜的淡藍紫霧，預先畫好
+    band = document.createElement("canvas"); band.width = Math.max(1, Math.round(W / 4)); band.height = Math.max(1, Math.round(H / 4));
+    var g = band.getContext("2d"), bw = band.width, bh = band.height;
+    g.translate(bw / 2, bh * .42); g.rotate(-.32);
+    var lg = g.createLinearGradient(0, -bh * .2, 0, bh * .2);
+    lg.addColorStop(0, "rgba(120,140,220,0)"); lg.addColorStop(.5, "rgba(140,150,230,.10)"); lg.addColorStop(1, "rgba(120,140,220,0)");
+    g.fillStyle = lg; g.fillRect(-bw, -bh * .2, bw * 2, bh * .4);
+    for (var k = 0; k < 260; k++) { g.fillStyle = "rgba(220,225,255," + (.05 + rnd() * .12).toFixed(2) + ")"; g.fillRect((rnd() - .5) * bw * 1.6, (rnd() - .5) * bh * .22, .6, .6); }
+  }
+  function paint(t) {
+    ctx.clearRect(0, 0, W, H);
+    ctx.globalAlpha = 1; ctx.drawImage(band, 0, 0, W, H);
+    for (var i = 0; i < stars.length; i++) {
+      var s = stars[i], a = s.a * (calm ? 1 : 1 - s.tw + s.tw * (.5 + .5 * Math.sin(t / 1000 * s.sp + s.ph)));
+      ctx.globalAlpha = a; ctx.fillStyle = "rgb(" + s.c + ")";
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 6.283); ctx.fill();
+      if (s.r > 1.1) { ctx.globalAlpha = a * .18; ctx.beginPath(); ctx.arc(s.x, s.y, s.r * 3.2, 0, 6.283); ctx.fill(); }
+    }
+    ctx.globalAlpha = 1;
+  }
+  function frame(t) {
+    if (!document.hidden && hero.getBoundingClientRect().bottom > 0) paint(t);
+    if (on) requestAnimationFrame(frame);
+  }
+  build(); paint(0);
+  window.addEventListener("resize", function () { build(); paint(performance.now()); });
+  if (!calm) { on = true; requestAnimationFrame(frame); }
+})();
+
 // 首屏的地球：夜晚那一面的城市燈光，慢慢轉（減少動態效果時停住）
 (function () {
   var cv = document.querySelector(".earth .lights");

@@ -820,3 +820,6 @@ body::after { animation: none !important; }
 
 /* v1.33.42：影片裡有光打到邊上時，從那裡往外射出同顏色的光線（app.js 畫在這張比影片大 80% 的 canvas 上），背光只留亮的地方 */
 .film-rays { position: absolute; z-index: -1; left: -40%; top: -40%; width: 180%; height: 180%; pointer-events: none; filter: blur(4px); }
+
+/* v1.33.43：首屏地球上方的星空（app.js 畫在 .sky 裡的 canvas），地球蓋在上面所以只露出地平線以上 */
+.sky .stars { position: absolute; inset: 0; width: 100%; height: 100%; }
