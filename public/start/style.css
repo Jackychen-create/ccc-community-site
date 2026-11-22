@@ -758,3 +758,21 @@ body::after { animation: none !important; }
 .earth { --top: calc(60% - var(--lift)); }
 .stage { translate: 0 calc(var(--lift) * -1); }
 @media (max-width: 760px) { .earth { --top: calc(64% - var(--lift)); } }
+
+/* v1.33.18：形象片看不出邊框——四邊改成橢圓形慢慢淡掉（不再是方形的淡出，角落不會露出一塊），
+   影片本身的暗灰壓成純黑，跟網站背景接在一起；右下角放回聲音按鈕 */
+.film video, .film.rise video {
+  filter: brightness(.92) contrast(1.14);
+  -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 58%, rgba(0, 0, 0, .55) 78%, transparent 100%);
+  mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 58%, rgba(0, 0, 0, .55) 78%, transparent 100%);
+  -webkit-mask-composite: source-over; mask-composite: add; }
+@media (max-width: 720px) {
+  .film video { -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 62%, rgba(0, 0, 0, .55) 80%, transparent 100%);
+    mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 62%, rgba(0, 0, 0, .55) 80%, transparent 100%); }
+}
+.film-sound { position: absolute; right: 16%; bottom: 14%; left: auto; z-index: 2; height: 34px; padding: 0 14px; border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .28); background: rgba(0, 0, 0, .4); color: rgba(255, 255, 255, .85); font: 500 13.5px/1 var(--f-text);
+  cursor: pointer; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); transition: background .2s, border-color .2s; }
+.film-sound:hover { background: rgba(0, 0, 0, .6); border-color: rgba(255, 255, 255, .5); }
+.film-sound[aria-pressed="true"] { color: rgba(255, 255, 255, .6); border-color: rgba(255, 255, 255, .16); }
+@media (max-width: 720px) { .film-sound { right: 10%; bottom: 10%; } }
