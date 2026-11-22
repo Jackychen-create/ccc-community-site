@@ -948,3 +948,5 @@ body::after { animation: none !important; }
   .top-in { gap: 0 6px; }
 }
 @media (max-width: 340px) { .top-in .btn.sm { padding: 0 8px; font-size: 12px; } }
+/* v1.33.61：「不只一個交易系統」上面一行小標「實驗室培訓房」，同一個襯線字、小一點、淡一點 */
+.h2-kicker { display: block; font-size: .56em; letter-spacing: .14em; color: var(--ink-2); margin-bottom: 8px; }
