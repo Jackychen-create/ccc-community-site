@@ -80,7 +80,7 @@
         var inView = false;
         var sync = function () { if (calm) return; if (inView && !document.hidden) { var p = vid.play(); if (p && p.catch) p.catch(function () { vid.controls = true; }); } else vid.pause(); };
         if ("IntersectionObserver" in window) {
-          new IntersectionObserver(function (es) { es.forEach(function (e) { inView = e.isIntersecting; sync(); }); }, { threshold: .3 }).observe(film);
+          new IntersectionObserver(function (es) { es.forEach(function (e) { inView = e.isIntersecting; sync(); }); }, { threshold: 0, rootMargin: "120px 0px" }).observe(film); // 一露出來就開始播
         } else { inView = true; sync(); }
         document.addEventListener("visibilitychange", sync);
       });
@@ -264,4 +264,23 @@
   }
   size(); window.addEventListener("resize", size);
   requestAnimationFrame(draw);
+})();
+
+// 主講卡片後面的大字：照卡片大小縮放，整個字都放得進去、不裁切
+(function () {
+  var marks = [].slice.call(document.querySelectorAll(".host-mark > span"));
+  if (!marks.length) return;
+  function fit() {
+    marks.forEach(function (s) {
+      var box = s.parentNode.parentNode;
+      s.style.fontSize = "100px";
+      var w = s.offsetWidth, h = s.offsetHeight;
+      if (!w || !h) return;
+      var k = Math.min((box.clientWidth * 0.9) / w, (box.clientHeight * 0.9) / h);
+      s.style.fontSize = Math.floor(100 * k) + "px";
+    });
+  }
+  fit();
+  window.addEventListener("resize", fit);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
 })();

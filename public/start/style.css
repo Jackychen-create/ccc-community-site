@@ -708,3 +708,7 @@ body::after { animation: none !important; }
 .oc-art img, .oc-art .wm { mix-blend-mode: screen; opacity: .8; }
 .oc[aria-current="true"] .oc-art img, .oc[aria-current="true"] .oc-art .wm { opacity: .95; }
 .oc-art::before { inset: auto -10% -6% -10%; height: 70%; }
+
+/* v1.33.9：主講大字整個放得進卡片（app.js 照卡片大小算字級），再淡一點 */
+.hosts .host .host-mark { font-size: 100px; line-height: 1; color: rgba(255, 255, 255, .012); -webkit-text-stroke: 1px rgba(255, 255, 255, .06); }
+.host-mark > span { display: inline-block; line-height: 1; }
