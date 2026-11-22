@@ -950,3 +950,6 @@ body::after { animation: none !important; }
 @media (max-width: 340px) { .top-in .btn.sm { padding: 0 8px; font-size: 12px; } }
 /* v1.33.61：「不只一個交易系統」上面一行小標「實驗室培訓房」，同一個襯線字、小一點、淡一點 */
 .h2-kicker { display: block; font-size: .56em; letter-spacing: .14em; color: var(--ink-2); margin-bottom: 8px; }
+/* v1.33.62：標題下面的一句話放大一點 */
+.intro.intro-lg { font-size: 19px; color: var(--ink-2); letter-spacing: .04em; }
+@media (max-width: 760px) { .intro.intro-lg { font-size: 16.5px; } }
