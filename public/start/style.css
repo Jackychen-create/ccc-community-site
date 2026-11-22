@@ -586,3 +586,12 @@ body::after { content: ""; position: fixed; inset: 0; z-index: 100; pointer-even
 .vids-sec.pre.shown .vid:nth-child(3) { transition-delay: .24s; }
 /* 卡片裡的層不做 3D 交疊（不然傾斜的卡面會跟底色、光環互相切到） */
 .oc { transform-style: flat; }
+
+/* v1.33.1：邊框不閃——拿掉自己繞圈的旋光（亮度一明一暗看起來像在閃），
+   中間那張改成一圈固定的淡光；只有滑鼠移到卡片上，光才跟著游標，而且柔一點。底片顆粒改成不動，整頁不再每 0.3 秒重畫一次 */
+.oc[aria-current="true"]:not(.lit) .oc-ring { animation: none !important; opacity: 0; }
+.oc[aria-current="true"] { box-shadow: 0 0 0 1px rgba(255, 255, 255, .28) inset, 0 30px 60px -20px rgba(0, 0, 0, .9), 0 0 46px -10px rgba(190, 215, 255, .2); }
+.oc-ring { transition: opacity .35s ease; filter: drop-shadow(0 0 3px rgba(255, 255, 255, .45)) drop-shadow(0 0 10px rgba(150, 195, 255, .35));
+  background: conic-gradient(from calc(var(--ang) - 60deg), transparent 0deg, rgba(255, 236, 205, .18) 25deg, rgba(255, 255, 255, .85) 60deg, rgba(160, 200, 255, .4) 85deg, transparent 120deg, transparent 360deg); }
+.oc.lit { box-shadow: 0 0 0 1px rgba(255, 255, 255, .4) inset, 0 30px 60px -20px rgba(0, 0, 0, .9), 0 0 50px -8px rgba(190, 215, 255, .22); }
+body::after { animation: none !important; }
