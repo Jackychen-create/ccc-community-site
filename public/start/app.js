@@ -72,13 +72,14 @@
         if (!one || !one.url) return;
         var film = document.getElementById("film"), vid = document.getElementById("filmVideo");
         if (one.thumb_url) vid.poster = one.thumb_url;
-        // 要讀畫面亮度（下面的圓形閃光）得用 CORS 載入；R2 有開 GET 的 CORS。萬一載不到，就拿掉 CORS 重載，只是閃光不會變圓
+        // 形象片（v1.33.41 起）：直接放在網站裡的 /start/film.mp4（1080×1080、30 秒、有聲音），跟網站同一個網址，
+        // 讀畫面亮度（圓形閃光、灑出來的光）一定讀得到。萬一這個檔載不到，就改播研究員專區後台那支（R2）
         vid.crossOrigin = "anonymous";
         vid.addEventListener("error", function retry() {
           vid.removeEventListener("error", retry);
-          if (vid.crossOrigin) { vid.removeAttribute("crossorigin"); vid.src = one.url; vid.load(); }
+          vid.removeAttribute("crossorigin"); vid.src = one.url; vid.load();
         });
-        vid.src = one.url;
+        vid.src = "/start/film.mp4";
         vid.setAttribute("aria-label", one.title || "介紹影片");
         film.hidden = false;
         var calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
