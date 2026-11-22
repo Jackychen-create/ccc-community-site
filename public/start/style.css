@@ -373,21 +373,7 @@ body::after { /* 底片顆粒 */
 /* ── 黑色系首屏（2026-11-19）：一圈交易所卡片浮在灰白岩地上，下面一條玻璃控制列 ── */
 .hero.space { padding: 0; min-height: max(720px, calc(100svh - var(--top-h))); display: flex; flex-direction: column; background: #000; }
 .hero.space::before { display: none; }
-.sky { position: absolute; inset: 0; z-index: -3; pointer-events: none;
-  background:
-    radial-gradient(1px 1px at 12% 18%, rgba(255,255,255,.55), transparent 60%),
-    radial-gradient(1px 1px at 27% 9%, rgba(255,255,255,.35), transparent 60%),
-    radial-gradient(1.4px 1.4px at 41% 26%, rgba(255,255,255,.5), transparent 60%),
-    radial-gradient(1px 1px at 58% 12%, rgba(255,255,255,.4), transparent 60%),
-    radial-gradient(1px 1px at 73% 22%, rgba(255,255,255,.3), transparent 60%),
-    radial-gradient(1.2px 1.2px at 86% 8%, rgba(255,255,255,.5), transparent 60%),
-    radial-gradient(1px 1px at 93% 31%, rgba(255,255,255,.3), transparent 60%),
-    radial-gradient(1px 1px at 6% 37%, rgba(255,255,255,.3), transparent 60%),
-    radial-gradient(1px 1px at 35% 41%, rgba(255,255,255,.25), transparent 60%),
-    radial-gradient(1px 1px at 66% 38%, rgba(255,255,255,.25), transparent 60%),
-    radial-gradient(ellipse 70% 45% at 50% 62%, rgba(255,255,255,.06), transparent 70%),
-    #000;
-}
+.sky { position: absolute; inset: 0; z-index: -3; pointer-events: none; }
 .ground { position: absolute; left: 0; right: 0; bottom: 0; height: 62%; z-index: -2; overflow: hidden; perspective: 900px; perspective-origin: 50% 0%;
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, transparent 12%, #000 52%); mask-image: linear-gradient(to bottom, transparent 0%, transparent 12%, #000 52%); }
 .ground img { position: absolute; left: 50%; bottom: -8%; width: 260%; max-width: none; height: 300%; object-fit: cover; transform: translateX(-50%) rotateX(64deg); transform-origin: 50% 100%; filter: contrast(1.05) brightness(.92); }
@@ -823,3 +809,9 @@ body::after { animation: none !important; }
 
 /* v1.33.43：首屏地球上方的星空（app.js 畫在 .sky 裡的 canvas），地球蓋在上面所以只露出地平線以上 */
 .sky .stars { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+/* v1.33.44：首屏交易所——中間那張放大、更亮、往前；旁邊兩張縮小、更暗。縮放的中心放在標誌上，三個標誌還是在同一條線上 */
+.oc { transition: transform .7s cubic-bezier(.2, .8, .2, 1), filter .5s; }
+.oc:not([aria-current="true"]) { filter: brightness(.5) blur(.6px); }
+.oc[aria-current="true"] { filter: brightness(1.12) drop-shadow(0 0 22px rgba(255, 255, 255, .14)); z-index: 12; }
+.oc[aria-current="true"] .oc-art::before { opacity: 1; filter: blur(22px) brightness(1.25); }
