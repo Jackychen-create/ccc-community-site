@@ -784,6 +784,6 @@ body::after { animation: none !important; }
 
 /* v1.33.31：滑鼠周圍一小圈半透明的白光（只有滑鼠，觸控沒有）；位置由 app.js 設定，跟著游標慢慢滑過去 */
 .cursor-glow { position: fixed; left: 0; top: 0; z-index: 9; width: 240px; height: 240px; margin: -120px 0 0 -120px; border-radius: 50%; pointer-events: none;
-  background: radial-gradient(circle, rgba(255, 255, 255, .07) 0, rgba(255, 255, 255, .03) 35%, rgba(255, 255, 255, 0) 70%);
+  background: radial-gradient(circle, rgba(255, 255, 255, .035) 0, rgba(255, 255, 255, .015) 35%, rgba(255, 255, 255, 0) 70%);
   mix-blend-mode: screen; opacity: 0; transition: opacity .4s ease; will-change: transform; }
 .cursor-glow.on { opacity: 1; }
