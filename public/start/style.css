@@ -719,19 +719,36 @@ body::after { animation: none !important; }
 /* v1.33.11：首屏三間交易所對齊——三個標誌放在一樣大的正方形裡、中心在同一條線上，左右兩張不再往下沉、不再轉向 */
 .oc-art .wm { display: grid; place-items: center; width: 50%; aspect-ratio: 1; }
 
-/* v1.33.12：地球正中間升起一顆太陽——本體藏在地平線後面只露出一點，光從地球邊緣透出來 */
-.earth .sun { position: absolute; z-index: 0; left: 50%; top: var(--top); width: 150px; height: 150px; transform: translate(-50%, -30%); border-radius: 50%;
-  background: radial-gradient(circle, #FFFFFF 0, #FFF8EA 38%, #FFE7BE 56%, rgba(255, 214, 150, .5) 66%, transparent 72%); filter: blur(1.5px); }
-.earth .sunlight { position: absolute; z-index: 2; left: 50%; top: var(--top); width: 100%; height: 520px; transform: translate(-50%, -50%); pointer-events: none; mix-blend-mode: screen;
-  -webkit-mask-image: radial-gradient(50% 50% at 50% 50%, #000 45%, transparent 100%); mask-image: radial-gradient(50% 50% at 50% 50%, #000 45%, transparent 100%);
+/* v1.33.12 → v1.33.14：地球正中間的日出（參考衛星照片的日出）——太陽本體壓在地平線上，中心一團白光、外面一圈暖橘再到淡粉紫，
+   放射狀的光芒慢慢轉，地平線左右被照亮一條 */
+.earth .sun { position: absolute; z-index: 0; left: 50%; top: var(--top); width: 200px; height: 200px; transform: translate(-50%, -42%); border-radius: 50%;
+  background: radial-gradient(circle, #FFFFFF 0, #FFF7EC 30%, #FFD9A8 52%, rgba(255, 170, 110, .55) 64%, transparent 72%); filter: blur(7px); }
+.earth .sunlight { position: absolute; z-index: 2; left: 50%; top: var(--top); width: 100%; height: 820px; transform: translate(-50%, -50%); pointer-events: none; mix-blend-mode: screen;
+  -webkit-mask-image: radial-gradient(50% 50% at 50% 50%, #000 40%, transparent 100%); mask-image: radial-gradient(50% 50% at 50% 50%, #000 40%, transparent 100%);
   background:
-    radial-gradient(150px 22px at 50% 50%, rgba(255, 252, 240, .9), rgba(255, 236, 200, .35) 50%, transparent 100%),
-    radial-gradient(320px 190px at 50% 36%, rgba(255, 232, 190, .34), rgba(255, 214, 160, .1) 55%, transparent 100%),
-    radial-gradient(900px 280px at 50% 40%, rgba(255, 226, 180, .13), rgba(140, 180, 255, .06) 55%, transparent 100%),
-    radial-gradient(16% 2px at 50% 50%, rgba(255, 248, 232, .7), transparent 100%); }
-@keyframes sun-breathe { 0%, 100% { opacity: .88; } 50% { opacity: 1; } }
-@media (prefers-reduced-motion: no-preference) { .earth .sunlight { animation: sun-breathe 7s ease-in-out infinite; } }
-@media (max-width: 760px) { .earth .sun { width: 110px; height: 110px; } .earth .sunlight { width: 160%; height: 420px; opacity: .8; } }
+    radial-gradient(78px 58px at 50% 50%, #FFFFFF 0, rgba(255, 251, 242, .95) 30%, rgba(255, 222, 176, .55) 62%, transparent 100%),
+    radial-gradient(270px 210px at 50% 46%, rgba(255, 196, 130, .6), rgba(255, 150, 100, .2) 55%, transparent 100%),
+    radial-gradient(640px 380px at 50% 44%, rgba(236, 120, 170, .24), rgba(140, 110, 230, .1) 50%, transparent 100%),
+    radial-gradient(44% 30px at 50% 50%, rgba(255, 228, 205, .62), rgba(200, 150, 255, .16) 50%, transparent 100%),
+    radial-gradient(1px 220px at 50% 50%, rgba(255, 244, 230, .5), transparent 100%); }
+.earth .sunrays { position: absolute; z-index: 2; left: 50%; top: var(--top); width: 1100px; height: 1100px; margin: -550px 0 0 -550px; pointer-events: none; mix-blend-mode: screen; filter: blur(.8px);
+  background:
+    repeating-conic-gradient(from 2deg, transparent 0deg 5deg, rgba(255, 236, 214, .30) 6deg, transparent 7deg 13deg),
+    repeating-conic-gradient(from 9deg, transparent 0deg 10deg, rgba(255, 200, 170, .22) 11deg, transparent 12deg 29deg),
+    repeating-conic-gradient(from 0deg, transparent 0deg 42deg, rgba(255, 248, 236, .38) 44deg 46deg, transparent 48deg 90deg);
+  -webkit-mask-image: radial-gradient(circle, #000 0, rgba(0, 0, 0, .6) 7%, rgba(0, 0, 0, .18) 20%, transparent 40%);
+  mask-image: radial-gradient(circle, #000 0, rgba(0, 0, 0, .6) 7%, rgba(0, 0, 0, .18) 20%, transparent 40%); }
+@keyframes sun-breathe { 0%, 100% { opacity: .86; } 50% { opacity: 1; } }
+@keyframes sun-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: no-preference) {
+  .earth .sunlight { animation: sun-breathe 7s ease-in-out infinite; }
+  .earth .sunrays { animation: sun-spin 240s linear infinite; }
+}
+@media (max-width: 760px) {
+  .earth .sun { width: 130px; height: 130px; }
+  .earth .sunlight { width: 170%; height: 560px; }
+  .earth .sunrays { width: 700px; height: 700px; margin: -350px 0 0 -350px; }
+}
 
 /* v1.33.13：形象片大一點但不滿版——寬度照影片比例、高度最多 82% 畫面；往下捲時從上一段接著浮上來、慢慢放大 */
 .film { --ar: 1 / 1; width: auto; max-width: min(1100px, calc(100% - 32px)); margin: 0 auto; display: flex; justify-content: center; }
