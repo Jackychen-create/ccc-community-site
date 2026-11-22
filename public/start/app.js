@@ -85,7 +85,11 @@
         var calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         if (calm) vid.controls = true; // 減少動態效果：不自動播，給播放鍵
         var inView = false;
-        var sync = function () { if (calm) return; if (inView && !document.hidden) { var p = vid.play(); if (p && p.catch) p.catch(function () { vid.controls = true; }); } else vid.pause(); };
+        // 自動播放被擋（例如 iPhone 省電模式）時不跳出系統的播放鍵（在這個版面上很亂），改成訪客碰一下螢幕就開始播
+        var blocked = false;
+        var sync = function () { if (calm) return; if (inView && !document.hidden) { var p = vid.play(); if (p && p.catch) p.catch(function () { blocked = true; }); } else vid.pause(); };
+        var nudge = function () { if (blocked && inView && vid.paused && !calm) { blocked = false; sync(); } };
+        document.addEventListener("touchend", nudge, { passive: true }); document.addEventListener("click", nudge, true);
         if ("IntersectionObserver" in window) {
           new IntersectionObserver(function (es) { es.forEach(function (e) { inView = e.isIntersecting; sync(); }); }, { threshold: 0, rootMargin: "120px 0px" }).observe(film); // 一露出來就開始播
         } else { inView = true; sync(); }
