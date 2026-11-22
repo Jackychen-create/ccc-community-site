@@ -864,3 +864,7 @@ body::after { animation: none !important; }
 /* v1.33.51：交易所下面那兩行字往下移一點 */
 .hero.space .lead-under { top: calc(100% + 48px); }
 @media (max-width: 760px) { .hero.space .lead-under { top: calc(100% + 46px); } }
+
+/* v1.33.53：「不只一個交易系統」的兩張主講卡片拿掉方塊（邊框、灰底、陰影），只留文字和後面的大字 CCC、X */
+.hosts .host { background: none; border: 0; box-shadow: none; padding-left: 0; padding-right: 0; }
+.hosts .host::before, .hosts .host::after { display: none; }
