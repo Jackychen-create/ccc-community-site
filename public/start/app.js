@@ -279,8 +279,11 @@
     cards.forEach(function (c, i) {
       var d = ((i - idx) % n + n + 1) % n - 1; // -1, 0, 1（繞一圈）
       var x = d * w * (wide() ? .98 : .78);
-      // 三張排在同一條線上（不往下沉、不轉向），旁邊兩張只變暗
-      c.style.transform = "translate3d(" + x + "px, 0, 0)";
+      // 三張排在同一條線上，中間那張放大一點、亮一點，像站在前面；旁邊兩張縮小、變暗，像往後退
+      // 縮放的中心放在標誌正中間，三個標誌才會維持在同一條線上（offsetTop 不受 transform 影響）
+      var art = c.querySelector(".oc-art"), mk = art && art.querySelector("img, .wm");
+      if (mk) c.style.transformOrigin = "50% " + (art.offsetTop + mk.offsetTop + mk.offsetHeight / 2) + "px";
+      c.style.transform = "translate3d(" + x + "px, 0, 0) scale(" + (d === 0 ? 1.1 : .8) + ")";
       c.style.zIndex = String(10 - Math.abs(d));
       c.setAttribute("aria-current", String(d === 0));
       c.setAttribute("aria-label", c.querySelector(".oc-cap b").textContent + (d === 0 ? "：用 CCC 連結註冊" : ""));
@@ -469,47 +472,42 @@
   window.addEventListener("blur", function () { g.classList.remove("on"); });
 })();
 
-// 首屏地球上方的星空：大小、亮度不一的星星，少數帶一點藍或暖色，慢慢閃爍；一條很淡的銀河斜過去。
-// 地球蓋在星空上面，所以星星只會出現在地平線以上。首屏捲出畫面、分頁在背景時不動；減少動態效果時不閃
+// 首屏地球上方的星空（v1.33.44 改寫實）：像照片裡的星星——每顆都是很小、很銳利的一點（直接畫在螢幕的實際像素上，不糊成灰點），
+// 大部分很暗、少數很亮，亮的帶一點藍白或暖黃；沒有光暈。只有幾顆亮星非常輕微地閃。地球蓋在上面，所以只在地平線以上
 (function () {
   var cv = document.querySelector(".sky .stars");
   if (!cv || !cv.getContext) return;
   var ctx = cv.getContext("2d"), hero = document.querySelector(".hero");
   var calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  var W = 0, H = 0, stars = [], band = null, on = false;
+  var Wp = 0, Hp = 0, dpr = 1, stars = [], tw = [], on = false;
   var seed = 11; var rnd = function () { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
   function build() {
-    var dpr = Math.min(2, window.devicePixelRatio || 1);
-    var b = cv.parentNode.getBoundingClientRect(); W = b.width; H = b.height;
-    cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    seed = 11; stars = [];
-    var n = Math.round(W * H / 2600);
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    var b = cv.parentNode.getBoundingClientRect();
+    Wp = Math.round(b.width * dpr); Hp = Math.round(b.height * dpr);
+    cv.width = Wp; cv.height = Hp;
+    seed = 11; stars = []; tw = [];
+    var n = Math.round(b.width * b.height / 3200);
     for (var i = 0; i < n; i++) {
-      var big = rnd() < .06, r = big ? .9 + rnd() * .9 : .3 + rnd() * .6;
-      var t = rnd(), col = t < .12 ? "190,210,255" : t < .18 ? "255,226,190" : "255,255,255";
-      // 越往上越多一點，靠近地平線少一點
-      var y = Math.pow(rnd(), 1.25) * H;
-      stars.push({ x: rnd() * W, y: y, r: r, a: big ? .55 + rnd() * .4 : .18 + rnd() * .45, c: col, sp: .4 + rnd() * 1.6, ph: rnd() * 6.283, tw: big ? .45 : .3 + rnd() * .3 });
+      // 亮度照真實星空的比例：很暗的最多，亮的很少
+      var m = Math.pow(rnd(), 3.2);
+      var v = 40 + Math.round(m * 215);
+      var t = rnd(), r = v, g = v, bl = v;
+      if (m > .35) { if (t < .3) { r = v * .82; g = v * .9; } else if (t < .45) { g = v * .92; bl = v * .78; } }
+      var size = m > .75 ? 2 : 1;
+      var st = { x: Math.round(rnd() * Wp), y: Math.round(Math.pow(rnd(), 1.2) * Hp), s: size * (dpr > 1.5 ? 1 : 1), c: "rgb(" + Math.round(r) + "," + Math.round(g) + "," + Math.round(bl) + ")", m: m, sp: .5 + rnd() * 1.2, ph: rnd() * 6.283 };
+      stars.push(st); if (m > .55) tw.push(st);
     }
-    // 銀河：一條斜的淡藍紫霧，預先畫好
-    band = document.createElement("canvas"); band.width = Math.max(1, Math.round(W / 4)); band.height = Math.max(1, Math.round(H / 4));
-    var g = band.getContext("2d"), bw = band.width, bh = band.height;
-    g.translate(bw / 2, bh * .42); g.rotate(-.32);
-    var lg = g.createLinearGradient(0, -bh * .2, 0, bh * .2);
-    lg.addColorStop(0, "rgba(120,140,220,0)"); lg.addColorStop(.5, "rgba(140,150,230,.10)"); lg.addColorStop(1, "rgba(120,140,220,0)");
-    g.fillStyle = lg; g.fillRect(-bw, -bh * .2, bw * 2, bh * .4);
-    for (var k = 0; k < 260; k++) { g.fillStyle = "rgba(220,225,255," + (.05 + rnd() * .12).toFixed(2) + ")"; g.fillRect((rnd() - .5) * bw * 1.6, (rnd() - .5) * bh * .22, .6, .6); }
   }
   function paint(t) {
-    ctx.clearRect(0, 0, W, H);
-    ctx.globalAlpha = 1; ctx.drawImage(band, 0, 0, W, H);
-    for (var i = 0; i < stars.length; i++) {
-      var s = stars[i], a = s.a * (calm ? 1 : 1 - s.tw + s.tw * (.5 + .5 * Math.sin(t / 1000 * s.sp + s.ph)));
-      ctx.globalAlpha = a; ctx.fillStyle = "rgb(" + s.c + ")";
-      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 6.283); ctx.fill();
-      if (s.r > 1.1) { ctx.globalAlpha = a * .18; ctx.beginPath(); ctx.arc(s.x, s.y, s.r * 3.2, 0, 6.283); ctx.fill(); }
-    }
     ctx.globalAlpha = 1;
+    ctx.clearRect(0, 0, Wp, Hp);
+    for (var i = 0; i < stars.length; i++) { var s = stars[i]; ctx.fillStyle = s.c; ctx.fillRect(s.x, s.y, s.s, s.s); }
+    if (!calm) { // 只有亮星輕輕地閃（大氣擾動），暗的星不動
+      ctx.fillStyle = "#000";
+      for (var k = 0; k < tw.length; k++) { var q = tw[k]; ctx.globalAlpha = .35 * (.5 + .5 * Math.sin(t / 1000 * q.sp + q.ph)); ctx.fillRect(q.x, q.y, q.s, q.s); }
+      ctx.globalAlpha = 1;
+    }
   }
   function frame(t) {
     if (!document.hidden && hero.getBoundingClientRect().bottom > 0) paint(t);
