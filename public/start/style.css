@@ -718,3 +718,17 @@ body::after { animation: none !important; }
 
 /* v1.33.11：首屏三間交易所對齊——三個標誌放在一樣大的正方形裡、中心在同一條線上，左右兩張不再往下沉、不再轉向 */
 .oc-art .wm { display: grid; place-items: center; width: 50%; aspect-ratio: 1; }
+
+/* v1.33.12：地球正中間升起一顆太陽——本體藏在地平線後面只露出一點，光從地球邊緣透出來 */
+.earth .sun { position: absolute; z-index: 0; left: 50%; top: var(--top); width: 150px; height: 150px; transform: translate(-50%, -30%); border-radius: 50%;
+  background: radial-gradient(circle, #FFFFFF 0, #FFF8EA 38%, #FFE7BE 56%, rgba(255, 214, 150, .5) 66%, transparent 72%); filter: blur(1.5px); }
+.earth .sunlight { position: absolute; z-index: 2; left: 50%; top: var(--top); width: 100%; height: 520px; transform: translate(-50%, -50%); pointer-events: none; mix-blend-mode: screen;
+  -webkit-mask-image: radial-gradient(50% 50% at 50% 50%, #000 45%, transparent 100%); mask-image: radial-gradient(50% 50% at 50% 50%, #000 45%, transparent 100%);
+  background:
+    radial-gradient(150px 22px at 50% 50%, rgba(255, 252, 240, .9), rgba(255, 236, 200, .35) 50%, transparent 100%),
+    radial-gradient(320px 190px at 50% 36%, rgba(255, 232, 190, .34), rgba(255, 214, 160, .1) 55%, transparent 100%),
+    radial-gradient(900px 280px at 50% 40%, rgba(255, 226, 180, .13), rgba(140, 180, 255, .06) 55%, transparent 100%),
+    radial-gradient(16% 2px at 50% 50%, rgba(255, 248, 232, .7), transparent 100%); }
+@keyframes sun-breathe { 0%, 100% { opacity: .88; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: no-preference) { .earth .sunlight { animation: sun-breathe 7s ease-in-out infinite; } }
+@media (max-width: 760px) { .earth .sun { width: 110px; height: 110px; } .earth .sunlight { width: 160%; height: 420px; opacity: .8; } }
