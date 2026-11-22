@@ -104,21 +104,71 @@
           if (!chose) setSound(true);
         };
         document.addEventListener("pointerup", firstTouch, true); document.addEventListener("keydown", firstTouch, true);
-        // 閃白光時收成圓形：每一格縮成 24×24 讀平均亮度，越亮 --fr 越小（最後一層圓形遮罩越緊），亮起來快、退得慢一點
-        // 影片的光灑到外面：同一格再畫到影片後面一張很糊、放大的 canvas（像電視的背光），影片哪邊亮、外面那邊就亮；
-        // 亮度也交給 window.__cccFilmLight，背景的水流跟著變亮
+        // 閃白光時收成圓形：每一格縮成 64×64 讀平均亮度，越亮 --fr 越小（最後一層圓形遮罩越緊），亮起來快、退得慢一點
+        // 影片的光灑到外面（v1.33.42）：
+        // ・背光：同一格畫到 40×40，先把暗灰扣掉（只留真的亮的地方），再放大、模糊放在影片後面，開頭暗的時候不會有一圈灰白霧
+        // ・光線：讀影片四邊靠內一圈的亮度，哪裡有光打到邊上，就從那裡往外延伸一道同顏色的光，像光線射出影片
         (function () {
-          var cv = document.createElement("canvas"); cv.width = cv.height = 24;
+          var N = 64, cv = document.createElement("canvas"); cv.width = cv.height = N;
           var cx = cv.getContext("2d", { willReadFrequently: true }), lvl = 0, noRead = false;
           var amb = document.createElement("canvas"); amb.className = "film-ambient"; amb.width = amb.height = 40; amb.setAttribute("aria-hidden", "true");
-          var ax = amb.getContext("2d"); film.insertBefore(amb, film.firstChild);
+          var ax = amb.getContext("2d", { willReadFrequently: true });
+          var rays = document.createElement("canvas"); rays.className = "film-rays"; rays.setAttribute("aria-hidden", "true");
+          var rx = rays.getContext("2d");
+          film.insertBefore(rays, film.firstChild); film.insertBefore(amb, film.firstChild);
+          var K = .5, vw = 0, vh = 0, ox = 0, oy = 0;
+          var sizeRays = function () {
+            var w = film.clientWidth, h = film.clientHeight; if (!w || !h) return;
+            rays.width = Math.round(w * 1.8 * K); rays.height = Math.round(h * 1.8 * K);
+            vw = w * K; vh = h * K; ox = w * .4 * K; oy = h * .4 * K;
+          };
+          window.addEventListener("resize", sizeRays);
+          var st = { t: new Float32Array(N), b: new Float32Array(N), l: new Float32Array(N), r: new Float32Array(N) };
+          // 一條邊：沿著邊每一格取靠內 3–8 格的平均顏色。只有「比這條邊其他地方明顯亮」的點才往外射光：
+          // 整條邊都亮（閃白光、整片亮）就不射，交給背光；這樣不會出現一整圈條紋
+          var cr0 = new Float32Array(N), cg0 = new Float32Array(N), cb0 = new Float32Array(N), Ls = new Float32Array(N);
+          var edge = function (d, key, horiz, inner, outward) {
+            var arr = st[key], mean = 0, i;
+            for (i = 0; i < N; i++) {
+              var R = 0, G = 0, B = 0;
+              for (var k = 3; k <= 8; k++) {
+                var row = horiz ? (inner ? k : N - 1 - k) : i, col = horiz ? i : (inner ? k : N - 1 - k);
+                var o = (row * N + col) * 4; R += d[o]; G += d[o + 1]; B += d[o + 2];
+              }
+              cr0[i] = R / 6; cg0[i] = G / 6; cb0[i] = B / 6;
+              Ls[i] = (cr0[i] * .2126 + cg0[i] * .7152 + cb0[i] * .0722) / 255; mean += Ls[i];
+            }
+            mean /= N;
+            var floor = Math.max(.3, mean * 1.3, mean + .14);
+            for (i = 0; i < N; i++) {
+              var Lm = (Ls[Math.max(0, i - 1)] + 2 * Ls[i] + Ls[Math.min(N - 1, i + 1)]) / 4;
+              var sNow = Math.max(0, Math.min(1, (Lm - floor) / .5));
+              arr[i] = Math.max(sNow, arr[i] * .72);
+              var s = arr[i]; if (s < .04) continue;
+              var m = Math.max(cr0[i], cg0[i], cb0[i], 1);
+              var col = Math.round(cr0[i] * 255 / m) + "," + Math.round(cg0[i] * 255 / m) + "," + Math.round(cb0[i] * 255 / m);
+              var cell = (horiz ? vw : vh) / N, len = (horiz ? vh : vw) * (.2 + .6 * s), g, x0, y0, wd = cell * (1.2 + 1.6 * s);
+              if (horiz) {
+                x0 = ox + (i + .5) * cell; y0 = inner ? oy + vh * .08 : oy + vh * .92;
+                g = rx.createLinearGradient(x0, y0, x0, y0 + outward * len);
+              } else {
+                y0 = oy + (i + .5) * cell; x0 = inner ? ox + vw * .08 : ox + vw * .92;
+                g = rx.createLinearGradient(x0, y0, x0 + outward * len, y0);
+              }
+              g.addColorStop(0, "rgba(" + col + "," + (.7 * s).toFixed(3) + ")");
+              g.addColorStop(.3, "rgba(" + col + "," + (.28 * s).toFixed(3) + ")");
+              g.addColorStop(1, "rgba(" + col + ",0)");
+              rx.fillStyle = g;
+              if (horiz) rx.fillRect(x0 - wd / 2, outward < 0 ? y0 - len : y0, wd, len);
+              else rx.fillRect(outward < 0 ? x0 - len : x0, y0 - wd / 2, len, wd);
+            }
+          };
           var tick = function () {
             if (!vid.paused && vid.readyState >= 2) {
-              ax.drawImage(vid, 0, 0, 40, 40); // 只是畫上去給人看，沒有 CORS 也可以
               if (!noRead) {
                 try {
-                  cx.drawImage(vid, 0, 0, 24, 24);
-                  var d = cx.getImageData(0, 0, 24, 24).data, sum = 0;
+                  cx.drawImage(vid, 0, 0, N, N);
+                  var d = cx.getImageData(0, 0, N, N).data, sum = 0;
                   for (var i = 0; i < d.length; i += 4) sum += d[i] * .2126 + d[i + 1] * .7152 + d[i + 2] * .0722;
                   var L = sum / (d.length / 4) / 255;
                   var f = Math.min(1, Math.max(0, (L - .22) / .33)); f = f * f * (3 - 2 * f);
@@ -127,7 +177,19 @@
                   var far = Math.sqrt(w * w + h * h) / 2 / .56 + 40, near = Math.min(w, h) / 2;
                   film.style.setProperty("--fr", Math.round(far + (near - far) * lvl) + "px");
                   window.__cccFilmLight = Math.min(1, L * 1.6); // 0–1：給背景水流用
-                } catch (e) { noRead = true; film.style.removeProperty("--fr"); window.__cccFilmLight = 0; } // 讀不到畫面（沒有 CORS）就只留背光
+                  // 背光：扣掉暗灰，只留亮的地方
+                  ax.drawImage(vid, 0, 0, 40, 40);
+                  var im = ax.getImageData(0, 0, 40, 40), p = im.data;
+                  for (var j = 0; j < p.length; j += 4) { p[j] = Math.max(0, (p[j] - 42) * 1.7); p[j + 1] = Math.max(0, (p[j + 1] - 42) * 1.7); p[j + 2] = Math.max(0, (p[j + 2] - 42) * 1.7); }
+                  ax.putImageData(im, 0, 0);
+                  // 光線
+                  if (!vw) sizeRays();
+                  rx.clearRect(0, 0, rays.width, rays.height);
+                  rx.globalCompositeOperation = "lighter";
+                  edge(d, "t", true, true, -1); edge(d, "b", true, false, 1);
+                  edge(d, "l", false, true, -1); edge(d, "r", false, false, 1);
+                  rx.globalCompositeOperation = "source-over";
+                } catch (e) { noRead = true; film.style.removeProperty("--fr"); window.__cccFilmLight = 0; ax.clearRect(0, 0, 40, 40); rx.clearRect(0, 0, rays.width, rays.height); }
               }
             }
             if (vid.requestVideoFrameCallback) vid.requestVideoFrameCallback(tick); else requestAnimationFrame(tick);
