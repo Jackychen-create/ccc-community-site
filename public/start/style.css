@@ -967,3 +967,11 @@ body::after { animation: none !important; }
   .top-in .btn.primary.sm::after { display: none; }
   .brand-mark { height: 32px; }
 }
+
+/* v1.34.2 手機：首屏數字和地球之間的空白縮小，一進來就看得到交易所（電腦版不變） */
+@media (max-width: 760px) {
+  .hero.space { min-height: 0; --lift: 0px; }
+  .hero.space .stage { flex: none; justify-content: flex-start; padding-top: 0; translate: none; }
+  .orbit { margin-top: -80px; }
+  .earth { --top: calc(100% - 262px); }
+}
