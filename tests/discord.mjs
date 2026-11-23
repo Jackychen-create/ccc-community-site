@@ -337,7 +337,7 @@ await test("一鍵建立：分類＋三個頻道、權限、申請按鈕，不�
   db.settings.find((r) => r.key === "discord").value.labCode = "OLD1-CODE";
   firstRun = await setupGuild();
   assert.equal(firstRun.ok, true);
-  assert.deepEqual(firstRun.created, ["🧪 CCC 交易實驗室", "📝報名培訓計畫", "🔒報名審核", "📢研究員專屬公告"], "申請分類前面已經開過，沿用");
+  assert.deepEqual(firstRun.created, ["🧪 CCC 交易實驗室", "📝加入培訓計畫", "🔒報名審核", "📢研究員專屬公告"], "申請分類前面已經開過，沿用");
   const made = [...channels.values()];
   const lab = made.find((c) => c.name === "📢研究員專屬公告");
   const everyoneLab = lab.permission_overwrites.find((o) => o.id === GUILD_ID);
@@ -346,8 +346,10 @@ await test("一鍵建立：分類＋三個頻道、權限、申請按鈕，不�
   const review = made.find((c) => c.name === "🔒報名審核");
   assert.ok(BigInt(review.permission_overwrites.find((o) => o.id === GUILD_ID).deny) & (1n << 10n), "審核頻道 everyone 要看不到");
   const posts = calls.slice(before).filter((c) => c.method === "POST" && /\/messages$/.test(c.path));
-  assert.ok(posts.some((c) => c.body.components?.[0]?.components?.[0]?.custom_id === "apply"), "沒有申請按鈕");
-  const signup = posts.find((c) => c.body.components?.[0]?.components?.[0]?.custom_id === "apply").body.components[1];
+  // v1.37.9：固定訊息改成帶去實驗室培訓房（網站貼 UID、Discord 授權），按鈕是連結
+  const isJoin = (c) => c.body.components?.[0]?.components?.[0]?.url === "https://ccc-community-site.pages.dev/lab";
+  assert.ok(posts.some(isJoin), "沒有「到實驗室培訓房加入」按鈕");
+  const signup = posts.find(isJoin).body.components[1];
   assert.deepEqual(signup.components.map((b) => [b.style, b.label, b.url]), [[5, "BingX 註冊", "https://bingx.com/invite/CCC"]], "有填邀請連結的交易所要有註冊按鈕");
   assert.equal(posts.length, 1, "只貼申請按鈕");
   assert.ok(!calls.slice(before).some((c) => c.method === "PUT" && /\/pins\//.test(c.path)), "不用釘選");
@@ -374,12 +376,12 @@ await test("舊版預設的頻道名稱會改成新的、報名按鈕改成新�
   await setupGuild();
   const c = calls.slice(before);
   const panelPatch = c.find((x) => x.method === "PATCH" && x.path === `/channels/${st.panelChannelId}`);
-  assert.equal(panelPatch.body.name, "📝報名培訓計畫");
+  assert.equal(panelPatch.body.name, "📝加入培訓計畫");
   assert.equal(c.find((x) => x.method === "PATCH" && x.path === `/channels/${st.reviewChannelId}`).body.name, "🔒報名審核");
   assert.equal(c.find((x) => x.method === "PATCH" && x.path === `/channels/${st.labChannelId}`).body.name, undefined, "自己改過的不動");
   const edit = c.find((x) => x.method === "PATCH" && x.path === `/channels/${st.panelChannelId}/messages/${st.panelMessageId}`);
   assert.ok(edit, "要把報名按鈕那則改成新文字");
-  assert.equal(edit.body.components[0].components[0].label, "報名培訓計畫");
+  assert.equal(edit.body.components[0].components[0].label, "到實驗室培訓房加入");
   assert.ok(!c.some((x) => x.method === "POST" && /\/messages$/.test(x.path)), "不用重貼");
 });
 

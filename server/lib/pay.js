@@ -270,7 +270,7 @@ export async function handleNotify(p, kind, now = Date.now()) {
     await setOrder(order.trade_no, { status: "active", paid_until: until, times: 1, last_msg: msg });
     const role = await syncRole(order.user_id, true);
     await notifyStaff(`💳 ${tag}${who} 訂閱月費，${money(order.amount)}${role === "unlinked" ? "（還沒連結 Discord，連結後會自動拿到研究員身分組）" : role === "error" ? "（⚠️ 給 Discord 身分組失敗，請手動給）" : ""}`);
-    await dmMember(order.user_id, `訂閱成功 🎉 月費會員到 ${until}，之後每個月自動扣款。直播紀錄、研究員專區都打開了：${LAB_URL}`);
+    await dmMember(order.user_id, `訂閱成功 🎉 月費會員到 ${until}，之後每個月自動扣款。直播紀錄、實驗室培訓房都打開了：${LAB_URL}`);
     return "1|OK";
   }
 

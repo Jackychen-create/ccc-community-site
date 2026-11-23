@@ -114,7 +114,7 @@ function render({ back = false } = {}) {
         el("ul", null,
           el("li", { text: "會員直播（Discord 研究員身分組）" }),
           el("li", { text: "全部直播紀錄，含直播精華和章節" }),
-          el("li", { text: "研究員專區：筆記、提問、每日回顧" })),
+          el("li", { text: "實驗室培訓房：筆記、提問、每日回顧" })),
         el("p", { class: "small", text: subLine }),
         canSubscribe ? subBtn : null,
         sub.on && (sub.renewing || sub.status === "past_due") ? el("button", { class: "btn sm ghost", type: "button", text: "取消自動扣款", onclick: (e) => cancelSub(e.currentTarget) }) : null,

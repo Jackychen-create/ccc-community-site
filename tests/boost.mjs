@@ -155,7 +155,7 @@ await test("私訊提醒註冊：附他自己的加入連結；30 天內不再�
   assert.equal(r.sent, 1);
   assert.equal(dms[0].to, "111111111111111101");
   assert.equal(dms.length, 1); // 已經註冊的「連到的人」不在這組
-  assert.ok(dms[0].body.embeds[0].description.includes("/lab?invite=AAAA-0001"));
+  assert.ok(dms[0].body.embeds[0].description.includes("/lab") && dms[0].body.embeds[0].description.includes("貼上 UID")); // v1.37.9：新流程
   const again = await runNudge("unregistered", NOW + D / 2);
   assert.deepEqual([again.sent, again.skipped], [0, 1]);
   assert.ok((await nudgeLists(NOW + D / 2)).unregistered[0].sentAt);
@@ -171,7 +171,7 @@ await test("推薦最新一場直播紀錄（v1.37.0 系統分享收起來了）
   assert.equal((await runNudge("unwatched", NOW + D / 2)).sent, 0);
 });
 await test("提醒註冊的私訊內容", () => {
-  assert.ok(unregisteredEmbed("X-1").description.includes("只能用一次") || unregisteredEmbed("X-1").footer.text.includes("只能用一次"));
+  assert.ok(unregisteredEmbed("X-1").description.includes("Discord 授權"), "v1.37.9：新流程用 Discord 授權開通");
 });
 
 console.log(`\n${pass} 項通過，${fail} 項失敗`);
