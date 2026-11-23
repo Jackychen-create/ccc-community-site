@@ -4,6 +4,7 @@
 // DELETE /api/discord-link            解除
 import { requireMember, readBody, route, getDiscordSettings, roleWanted, syncRole } from "./lib/index.js";
 import { linkedOf, redeemLinkToken, unlink } from "./lib/discord-link.js";
+import { isDiscordAuthEmail } from "./lib/join.js";
 
 const where = (s) => (s.guildId && s.linkChannelId ? `https://discord.com/channels/${s.guildId}/${s.linkChannelId}${s.linkMessageId ? `/${s.linkMessageId}` : ""}` : null);
 
@@ -29,6 +30,8 @@ export default route({
   async DELETE(req, res) {
     const ctx = await requireMember(req, res, { minTier: 0 });
     if (!ctx) return;
+    // v1.36.0：用 Discord 加入的人是靠 Discord 登入，解除了就登不進來
+    if (isDiscordAuthEmail(ctx.user.email)) return res.status(400).json({ error: "你是用 Discord 登入的，不能解除 Discord 連結" });
     if (ctx.member) await unlink(ctx.user.id);
     return res.status(200).json({ ok: true });
   },

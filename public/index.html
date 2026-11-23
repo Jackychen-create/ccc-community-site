@@ -35,43 +35,92 @@
         <div><small>累計場次</small><b class="num" id="statCount">—</b></div>
       </div>
       <section class="auth-card card">
-        <div class="seg" role="tablist" aria-label="登入或註冊">
-          <button type="button" role="tab" id="tabLogin" aria-selected="true">登入</button>
-          <button type="button" role="tab" id="tabRegister" aria-selected="false">加入培訓計畫</button>
+        <!-- v1.36.0：加入培訓計畫兩步（UID → Discord 授權開通），之後用 Discord 登入；Email＋密碼留給舊帳號 -->
+        <div class="seg" role="tablist" aria-label="加入或登入" id="mainTabs">
+          <button type="button" role="tab" id="tabJoin" aria-selected="true">加入培訓計畫</button>
+          <button type="button" role="tab" id="tabSignin" aria-selected="false">登入</button>
         </div>
-        <h2 id="authTitle">歡迎回來</h2>
-        <p id="authSub" class="intro">用你的 Email 和密碼登入</p>
-        <form id="authForm" novalidate>
-          <label class="field"><span class="label">Email</span>
-            <input class="input" id="email" type="email" autocomplete="email" inputmode="email" required>
-          </label>
-          <label class="field"><span class="label" id="pwLabel">密碼</span>
-            <span class="input-wrap" style="display: block">
-              <input class="input" id="password" type="password" autocomplete="current-password" required>
-              <button class="btn ghost reveal" type="button" id="revealPw" aria-label="顯示密碼" aria-pressed="false"></button>
-            </span>
-          </label>
-          <div class="field" id="uidRow" hidden>
-            <span class="label" id="regUidLabel">你用 CCC 邀請連結註冊的交易所和 UID</span>
-            <div class="uid-pair">
-              <select class="select" id="regEx" aria-label="交易所">
-                <option value="">選擇交易所</option>
-                <option value="OKX">OKX</option>
-                <option value="Bybit">Bybit</option>
-                <option value="BingX">BingX</option>
-              </select>
-              <input class="input num" id="regUid" type="text" inputmode="numeric" autocomplete="off" maxlength="30" placeholder="UID" aria-labelledby="regUidLabel">
+        <div id="joinPane">
+          <form id="joinForm" novalidate>
+            <h2>加入培訓計畫</h2>
+            <p class="intro">填你用 CCC 連結註冊的交易所和 UID，網站會直接跟交易所確認。</p>
+            <div class="field">
+              <span class="label" id="joinUidLabel">交易所和 UID</span>
+              <div class="uid-pair">
+                <select class="select" id="joinEx" aria-label="交易所">
+                  <option value="">選擇交易所</option>
+                  <option value="OKX">OKX</option>
+                  <option value="Bybit">Bybit</option>
+                  <option value="BingX">BingX</option>
+                </select>
+                <input class="input num" id="joinUid" type="text" inputmode="numeric" autocomplete="off" maxlength="30" placeholder="UID" aria-labelledby="joinUidLabel">
+              </div>
+              <span class="hint" id="joinUidHint">UID 在交易所 App 的個人頁面，是一串數字。</span>
             </div>
-            <span class="hint" id="regUidHint">網站會跟交易所確認這個 UID 是用 CCC 連結註冊的，確認到就直接開通。用好幾間的話，登入後可以再加。</span>
+            <div id="joinError" class="form-error" role="alert" hidden></div>
+            <div class="join-links" id="joinLinks" hidden>
+              <span>用 CCC 連結註冊：</span>
+              <a data-ex="OKX" target="_blank" rel="noopener sponsored">OKX</a>
+              <a data-ex="Bybit" target="_blank" rel="noopener sponsored">Bybit</a>
+              <a data-ex="BingX" target="_blank" rel="noopener sponsored">BingX</a>
+            </div>
+            <button class="btn primary lg block" id="joinSubmit" type="submit" style="margin-top: 24px">確認 UID</button>
+          </form>
+          <div id="joinStep2" hidden>
+            <p class="join-ok" id="joinOk">✓ 已確認</p>
+            <h2>最後一步</h2>
+            <p class="intro">按下去會到 Discord 的授權頁，按「授權」就完成：自動加入 CCC 的 Discord、拿到「實驗室研究員」身分組。</p>
+            <a class="btn primary lg block" id="joinDiscord" href="#" style="margin-top: 22px">進入 Discord 實驗室研究員專區</a>
+            <p class="hint join-consent">按下即表示同意 CCC 交易實驗室用你 Discord 帳號的 Email 寄送直播通知與活動資訊，之後可以隨時取消。</p>
+            <button class="btn ghost sm" id="joinBack" type="button">換一個 UID</button>
           </div>
-          <label class="field" id="inviteRow" hidden><span class="label">實驗室密碼（有才填，沒有就空白）</span>
-            <input class="input" id="invite" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="例如 ABCD-EFGH">
-            <span class="hint">不用也可以，網站會用上面的 UID 直接跟交易所確認。有拿到的話一起填。</span>
-          </label>
-          <p class="hint" id="freeNote" hidden>🎁 這是贈送名額，不用填交易所，觀看不限期。</p>
-          <div id="authError" class="form-error" role="alert" hidden></div>
-          <button class="btn primary lg block" id="authSubmit" type="submit" style="margin-top: 24px">登入</button>
-        </form>
+        </div>
+        <div id="signinPane" hidden>
+          <h2>歡迎回來</h2>
+          <p class="intro">用加入時授權的 Discord 帳號登入。</p>
+          <div id="signinError" class="form-error" role="alert" hidden></div>
+          <button class="btn primary lg block" id="discordLogin" type="button" style="margin-top: 22px">用 Discord 登入</button>
+        </div>
+        <details class="legacy-auth" id="legacyAuth">
+          <summary>用 Email 登入（舊帳號）、用實驗室密碼加入</summary>
+            <div class="seg" role="tablist" aria-label="登入或註冊">
+              <button type="button" role="tab" id="tabLogin" aria-selected="true">登入</button>
+              <button type="button" role="tab" id="tabRegister" aria-selected="false">用 Email 註冊</button>
+            </div>
+            <h2 id="authTitle">歡迎回來</h2>
+            <p id="authSub" class="intro">用你的 Email 和密碼登入</p>
+            <form id="authForm" novalidate>
+              <label class="field"><span class="label">Email</span>
+                <input class="input" id="email" type="email" autocomplete="email" inputmode="email" required>
+              </label>
+              <label class="field"><span class="label" id="pwLabel">密碼</span>
+                <span class="input-wrap" style="display: block">
+                  <input class="input" id="password" type="password" autocomplete="current-password" required>
+                  <button class="btn ghost reveal" type="button" id="revealPw" aria-label="顯示密碼" aria-pressed="false"></button>
+                </span>
+              </label>
+              <div class="field" id="uidRow" hidden>
+                <span class="label" id="regUidLabel">你用 CCC 邀請連結註冊的交易所和 UID</span>
+                <div class="uid-pair">
+                  <select class="select" id="regEx" aria-label="交易所">
+                    <option value="">選擇交易所</option>
+                    <option value="OKX">OKX</option>
+                    <option value="Bybit">Bybit</option>
+                    <option value="BingX">BingX</option>
+                  </select>
+                  <input class="input num" id="regUid" type="text" inputmode="numeric" autocomplete="off" maxlength="30" placeholder="UID" aria-labelledby="regUidLabel">
+                </div>
+                <span class="hint" id="regUidHint">網站會跟交易所確認這個 UID 是用 CCC 連結註冊的，確認到就直接開通。用好幾間的話，登入後可以再加。</span>
+              </div>
+              <label class="field" id="inviteRow" hidden><span class="label">實驗室密碼（有才填，沒有就空白）</span>
+                <input class="input" id="invite" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="例如 ABCD-EFGH">
+                <span class="hint">不用也可以，網站會用上面的 UID 直接跟交易所確認。有拿到的話一起填。</span>
+              </label>
+              <p class="hint" id="freeNote" hidden>🎁 這是贈送名額，不用填交易所，觀看不限期。</p>
+              <div id="authError" class="form-error" role="alert" hidden></div>
+              <button class="btn primary lg block" id="authSubmit" type="submit" style="margin-top: 24px">登入</button>
+            </form>
+        </details>
         <a class="auth-intro-link" id="authIntro" href="/watch" hidden><span>還沒加入？</span><b id="authIntroTitle">先看培訓計畫介紹</b><span aria-hidden="true">→</span></a>
       </section>
       <p class="auth-foot">僅限實驗室研究員。忘記密碼請聯絡管理員重設。<a href="#" id="authTutorial">第一次使用？看使用說明</a>・<a href="/start/#join">還不是研究員？看怎麼加入</a><span class="site-note-auth">本站內容僅供交易交流與經驗分享，不構成任何投資建議。合約、槓桿交易風險很高，可能損失全部本金，請自行判斷、自負盈虧。</span></p>

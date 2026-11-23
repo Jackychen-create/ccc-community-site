@@ -5,22 +5,9 @@
 // 付費制開始後（v1.28.0）：不用實驗室密碼、不用填交易所，直接用 Email 註冊，再到網站訂閱或買單集
 // UID 直接加入（v1.34.0）：沒有實驗室密碼也可以，只要交易所 API 確認這個 UID 是 CCC 邀請的（OKX、Bybit、BingX）；
 //   同一個 IP 一小時最多試 10 次（uid_join_attempts，存 IP 的雜湊、不存原始 IP），避免有人一個一個 UID 試
-const UID_TRIES_PER_HOUR = 10;
-async function ipHash(req) {
-  const ip = String(req.headers?.["cf-connecting-ip"] || req.headers?.["x-forwarded-for"] || "").split(",")[0].trim() || "unknown";
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("ccc-uid-join:" + ip));
-  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
-}
-async function tooManyTries(req) {
-  const h = await ipHash(req);
-  const since = new Date(Date.now() - 3600e3).toISOString();
-  const { count } = await supabaseAdmin.from("uid_join_attempts").select("id", { count: "exact", head: true }).eq("ip_hash", h).gte("at", since);
-  if ((count || 0) >= UID_TRIES_PER_HOUR) return true;
-  await supabaseAdmin.from("uid_join_attempts").insert({ ip_hash: h });
-  return false;
-}
 import { supabaseAdmin, isAdminEmail, readBody, route, thisMonthTW, todayTW, getPay, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, cleanExId, exIdOk, idLabel, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR } from "./lib/index.js";
 import { isPaidOn } from "../public/assets/js/shared/rules.js";
+import { tooManyTries } from "./lib/join.js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

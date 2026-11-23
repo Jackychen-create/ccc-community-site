@@ -33,6 +33,7 @@ import share from "../../server/share.js";
 import search from "../../server/search.js";
 import discordLink from "../../server/discord-link.js";
 import discordOauth, { callback as discordOauthCallback } from "../../server/discord-oauth.js";
+import join, { login as joinLogin, contact as joinContact } from "../../server/join.js";
 import adminReviews from "../../server/admin/reviews.js";
 import adminOnboarding from "../../server/admin/onboarding.js";
 import adminChatlog from "../../server/admin/chatlog.js";
@@ -86,6 +87,9 @@ const ROUTES = {
   "discord-link": discordLink,
   "discord-oauth": discordOauth,
   "discord-oauth/callback": discordOauthCallback,
+  "join": join,
+  "join/login": joinLogin,
+  "join/contact": joinContact,
   "admin/reviews": adminReviews,
   "admin/onboarding": adminOnboarding,
   "admin/chatlog": adminChatlog,

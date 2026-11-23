@@ -716,3 +716,9 @@ create table if not exists public.uid_join_attempts (
 );
 create index if not exists uid_join_attempts_ip_at on public.uid_join_attempts (ip_hash, at desc);
 alter table public.uid_join_attempts enable row level security;
+
+-- v1.36.0：加入培訓計畫改成「UID → Discord 授權」兩步，之後用 Discord 登入（網站帳號用代號 Email，沒有密碼）
+--   members.email 存 Discord 驗證過的 Email（研究員名單、寄通知用，研究員可以在成功頁改）
+--   notify_consent_at：同意收直播通知與活動資訊的時間；joined_via：discord＝用新流程加入
+alter table public.members add column if not exists notify_consent_at timestamptz;
+alter table public.members add column if not exists joined_via text;

@@ -26,7 +26,30 @@ export function markMembersStale() {
 
 // 研究員
 let membersLoaded = false;
+// v1.36.0：匯出研究員名單（Email、收不收通知、交易所 UID、Discord），Excel 直接打得開（UTF-8 加 BOM）
+const FAKE_EMAIL = "@users.ccc-community-site.pages.dev"; // 用 Discord 加入、Discord 沒給 Email 的人：網站帳號的代號，不是真的信箱
+export function exportMembers(list = members) {
+  const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const rows = [["Email", "收通知", "同意時間", "加入方式", ...EXCHANGES.map((ex) => `${ex} UID`), "Discord", "加入日期", "狀態"]];
+  for (const m of list) {
+    const email = String(m.email || "").endsWith(FAKE_EMAIL) ? "" : m.email;
+    rows.push([email, m.notify ? "是" : "否", m.notify_consent_at ? m.notify_consent_at.slice(0, 10) : "", m.joined_via === "discord" ? "Discord" : "Email", ...EXCHANGES.map((ex) => m.uids?.[ex] || ""), m.discord || "", String(m.created_at || "").slice(0, 10), m.banned ? "停權" : "正常"]);
+  }
+  const csv = "\ufeff" + rows.map((r) => r.map(q).join(",")).join("\r\n");
+  const a = el("a", { href: URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })), download: `CCC研究員名單-${new Date().toISOString().slice(0, 10)}.csv` });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+let exportWired = false;
+
 export async function loadMembers(silent) {
+  if (!exportWired && $("#memberExport")) {
+    exportWired = true;
+    $("#memberExport").addEventListener("click", async () => {
+      if (!membersLoaded) await loadMembers(true);
+      exportMembers();
+    });
+  }
   if (!membersLoaded && !silent) $("#memberTableBox").replaceChildren(loadingBox());
   try {
     const r = await api("/api/admin/members");

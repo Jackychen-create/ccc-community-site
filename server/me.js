@@ -3,6 +3,7 @@
 // PATCH /api/me { milestoneSeen: true }  看過里程碑恭喜了（不再跳）
 // PATCH /api/me { theme }  換外觀主題（要拿到對應徽章的主題會檢查）
 import { linkedOf } from "./lib/discord-link.js";
+import { isDiscordAuthEmail } from "./lib/join.js";
 import { themeUnlocked } from "../public/assets/js/shared/rules.js";
 import { checkin, getDiscordSettings, discordConfigured, supabaseAdmin, adminRole, unseenMilestone, markMilestonesSeen, earnedIds, requireMember, readBody, route, nextLive, needsName, EXCHANGES, AUTO_EXCHANGES, PROVIDERS, periodFor, nextPeriod, anchorOf } from "./lib/index.js";
 
@@ -61,7 +62,8 @@ export default route({
     // 自己連結的 Discord 帳號（右上角選單「連結 Discord」）；表還沒建立時當作沒有
     const dc = ctx.member ? await linkedOf(ctx.user.id).catch(() => null) : null;
     return res.status(200).json({
-      email: ctx.user.email,
+      // v1.36.0：用 Discord 加入的，網站帳號是代號 Email：顯示他留的 Email（沒有就 Discord 名稱）
+      email: isDiscordAuthEmail(ctx.user.email) ? (isDiscordAuthEmail(ctx.member?.email) ? dc?.discord_name || "研究員" : ctx.member?.email) : ctx.user.email,
       feedbackUnread: unread || 0,
       isAdmin: ctx.isAdmin,
       adminRole: role,

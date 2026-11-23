@@ -5,6 +5,7 @@
 //                              管理員手動給「至少第幾級到哪天」（空白＝不限；minTier null＝清掉，照交易量）
 //                            volumeFrom: "2026-10-13" | null  第一輪交易量從哪天算（社群舊成員，網站才剛註冊）
 import { supabaseAdmin, requireAdmin, readBody, randomPassword, cleanText, isDate, route, tiersFor, twDate, addDays, PROVIDERS } from "../lib/index.js";
+import { isDiscordAuthEmail } from "../lib/join.js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const FOREVER = "876000h"; // 約 100 年
@@ -13,10 +14,11 @@ export default route({
   async GET(req, res) {
     if (!(await requireAdmin(req, res))) return;
 
-    const { data: members, error } = await supabaseAdmin
-      .from("members")
-      .select("user_id, email, invite_code, banned, created_at, min_tier, min_tier_until, volume_from, note, notify, free")
-      .order("created_at", { ascending: false });
+    const BASE_COLS = "user_id, email, invite_code, banned, created_at, min_tier, min_tier_until, volume_from, note, notify, free";
+    const list = (cols) => supabaseAdmin.from("members").select(cols).order("created_at", { ascending: false });
+    // v1.36.0 的欄位（同意時間、加入方式）：schema 還沒套用的話退回原本的欄位
+    let { data: members, error } = await list(`${BASE_COLS}, notify_consent_at, joined_via`);
+    if (error) ({ data: members, error } = await list(BASE_COLS));
     if (error) throw error;
 
     // 最近登入時間在 Supabase Auth 裡，分頁抓回來對照
@@ -36,11 +38,13 @@ export default route({
     }
 
     // 每個人看過幾支影片；填過的交易所 UID；用同一個 UID 在 Discord 通過申請的人（對得到 Discord 名稱）
-    const [{ data: prog }, { data: links }, { data: apps }] = await Promise.all([
+    const [{ data: prog }, { data: links }, { data: apps }, { data: dcLinks }] = await Promise.all([
       supabaseAdmin.from("watch_progress").select("user_id"),
       supabaseAdmin.from("exchange_links").select("user_id, exchange, exchange_uid, account_name"),
       supabaseAdmin.from("discord_applications").select("exchange, exchange_uid, discord_name, discord_user_id").eq("status", "approved"),
+      supabaseAdmin.from("member_discord").select("user_id, discord_name, discord_user_id"),
     ]);
+    const dcOf = new Map((dcLinks || []).map((d) => [d.user_id, d.discord_name || d.discord_user_id]));
     const uids = new Map();
     const accountNames = new Map(); // 開戶的英文姓名（以前 UM 填的）
     for (const l of links || []) {
@@ -56,7 +60,8 @@ export default route({
     return res.status(200).json({
       members: (members || []).map((m) => ({
         ...m,
-        email: authEmail.get(m.user_id) || m.email,
+        // v1.36.0：用 Discord 加入的，網站帳號是代號 Email，顯示他留的 Email
+        email: isDiscordAuthEmail(authEmail.get(m.user_id)) ? m.email : authEmail.get(m.user_id) || m.email,
         last_sign_in_at: lastSeen.get(m.user_id) || null,
         tier: tiers.get(m.user_id)?.tier ?? 0, // 贈送名額不分級（free），畫面寫「贈送」
         tier_until: tiers.get(m.user_id)?.until ?? null,
@@ -64,7 +69,7 @@ export default route({
         watched_count: watched.get(m.user_id) || 0,
         uids: uids.get(m.user_id) || {},
         account_names: accountNames.get(m.user_id) || {},
-        discord: Object.entries(uids.get(m.user_id) || {}).map(([ex, uid]) => dcBy.get(`${ex}:${uid}`)).find(Boolean) || null,
+        discord: dcOf.get(m.user_id) || Object.entries(uids.get(m.user_id) || {}).map(([ex, uid]) => dcBy.get(`${ex}:${uid}`)).find(Boolean) || null,
       })),
     });
   },
