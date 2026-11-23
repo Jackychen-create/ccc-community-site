@@ -2,7 +2,7 @@
 // 規則在 shared/rules.js 的 BADGES、THEMES
 import { $, el, api, modal, toast, applyTheme, currentTheme } from "../core/index.js";
 import { state } from "./state.js";
-import { THEMES, themeUnlocked, badgeById, COURSE_TOTAL } from "../shared/rules.js";
+import { THEMES, themeUnlocked, badgeById, COURSE_TOTAL, BADGES_ON } from "../shared/rules.js";
 
 let data = null; // GET /api/badges 的結果
 const earned = () => (data?.badges || []).map((b) => b.id);
@@ -22,6 +22,7 @@ function hint(id, p) {
 }
 
 export async function loadBadges() {
+  if (!BADGES_ON) return ($("#badgePanel").hidden = true); // v1.37.2：徽章收起來了
   if (!state.me || state.me.isAdmin) return;
   try {
     data = await api("/api/badges");
@@ -107,7 +108,7 @@ async function setTheme(id) {
 
 // 帳號選單 →「外觀主題」
 export async function openThemePicker() {
-  if (!data && state.me && !state.me.isAdmin) { try { data = await api("/api/badges"); renderBadges(); } catch {} }
+  if (BADGES_ON && !data && state.me && !state.me.isAdmin) { try { data = await api("/api/badges"); renderBadges(); } catch {} }
   const isAdmin = !!state.me?.isAdmin;
   const grid = el("div", { class: "theme-grid", role: "group", "aria-label": "外觀主題" });
   const draw = () => grid.replaceChildren(...THEMES.map((t) => {
