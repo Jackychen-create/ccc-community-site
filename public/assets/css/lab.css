@@ -131,3 +131,30 @@ html:not([data-theme]) .vrow.is-new { background: linear-gradient(90deg, rgba(21
 @media (prefers-reduced-transparency: reduce) {
   html:not([data-theme]) .panel, html:not([data-theme]) .auth-card { -webkit-backdrop-filter: none; backdrop-filter: none; background: #070707; }
 }
+
+/* v1.37.1：星空背景上，內容要亮、好讀
+   面板改成幾乎不透明（星點、光線不會透進字後面），字、次要字、框線都調亮 */
+html:not([data-theme]) {
+  --ink: #F7F5F1;
+  --ink-2: #CFCCC6;
+  --ink-3: #A9A6A0;
+  --line: #2A2A2A;
+  --line-strong: #3D3D3D;
+  --surface: #0E0E0E;
+  --surface-2: #1A1A1A;
+  --frame: rgba(255, 255, 255, .2);
+  --frame-hi: rgba(255, 255, 255, .7);
+}
+html:not([data-theme]) .panel,
+html:not([data-theme]) .auth-card,
+html:not([data-theme]) .auth-board,
+html:not([data-theme]) .modal {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .04), rgba(255, 255, 255, .01)), #0C0C0C;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+html:not([data-theme]) .vrow:hover { background: rgba(255, 255, 255, .05); }
+html:not([data-theme]) .muted, html:not([data-theme]) .small.muted { color: var(--ink-3); }
+html:not([data-theme]) .vdesc, html:not([data-theme]) .sub, html:not([data-theme]) .intro { color: var(--ink-2); }
+/* 背景本身再收一點，讓內容站在前面 */
+html:not([data-theme]) body::after { opacity: .55; }
+@media (max-width: 760px) { html:not([data-theme]) body::after { opacity: .35; } }
