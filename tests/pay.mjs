@@ -1,4 +1,5 @@
 // v1.28.0：付費制（綠界）——誰照舊、月費、單集、綠界通知驗證、續扣、扣款失敗、到期、取消、後台設定和手動給、Discord 身分組、註冊不用實驗室密碼
+import "./tiers-on.mjs"; // v1.37.0：這組測的是留著的等級算法，先把等級打開
 import assert from "node:assert/strict";
 import http from "node:http";
 import { setEnv } from "../server/lib/env.js";
@@ -145,7 +146,7 @@ await test("舊研究員（付費制之前加入）不是付費制，照原本�
   const p = await call(payApi, { method: "POST", token: "tok-old", body: { item: "monthly" } });
   assert.equal(p.statusCode, 400);
 });
-await test("新研究員還沒付錢：第一級，直播留檔擋住，系統分享每集都鎖、標價 666", async () => {
+await test("新研究員還沒付錢：第一級，直播紀錄擋住，系統分享每集都鎖、標價 666", async () => {
   const m = await call(me, { token: "tok-new" });
   assert.equal(m.body.tier, 1);
   assert.equal(m.body.volume.paid.sub, false);
@@ -153,7 +154,7 @@ await test("新研究員還沒付錢：第一級，直播留檔擋住，系統�
   assert.equal(v.statusCode, 403); assert.equal(v.body.code, "paid_sub");
   const c = await call(course, { token: "tok-new" });
   assert.equal(c.statusCode, 200);
-  assert.ok(c.body.slots.every((s) => !s.unlocked && s.price === 666 && s.unlock_on === null), JSON.stringify(c.body.slots[0]));
+  assert.equal(c.body.locked, true, "v1.37.0：交易分享沒月費只給標題"); // 系統分享單集的鎖看下面的 /api/videos
   const d = await call(videosApi, { token: "tok-new", query: { id: "2" } });
   assert.equal(d.statusCode, 403); assert.equal(d.body.code, "paid_part");
 });
@@ -186,7 +187,7 @@ await test("第一次刷卡成功：月費到下個月同一天、給 Discord �
   assert.ok(discordCalls.some((c) => c === "POST /channels/900000000000000009/messages"));
   assert.equal(db.pay_logs.length, 1);
 });
-await test("有月費：第二級，直播留檔看得到；系統分享還是要買", async () => {
+await test("有月費：第二級，直播紀錄看得到；系統分享還是要買", async () => {
   const m = await call(me, { token: "tok-new" });
   assert.equal(m.body.tier, 2);
   assert.equal((await call(videosApi, { token: "tok-new" })).statusCode, 200);
@@ -223,9 +224,6 @@ await test("買第 2 集：單次付款表單（沒有定期定額欄位）", as
 await test("單集付款成功：CCC、X 的第 2 份都打開，其他集還鎖著；不能再買一次", async () => {
   assert.equal(await handleNotify(await ecpayPost({ MerchantTradeNo: partNo, RtnCode: "1", RtnMsg: "成功", TradeAmt: "666" }), "first"), "1|OK");
   assert.equal(order(partNo).status, "paid");
-  const c = await call(course, { token: "tok-new" });
-  const open = c.body.slots.filter((s) => s.unlocked).map((s) => `${s.host}${s.part}`).sort();
-  assert.deepEqual(open, ["CCC2", "X2"]);
   assert.equal((await call(videosApi, { token: "tok-new", query: { id: "3" } })).statusCode, 200);
   assert.equal((await call(videosApi, { token: "tok-new", query: { id: "2" } })).statusCode, 403);
   assert.equal((await call(payApi, { method: "POST", token: "tok-new", body: { item: "part", part: 2 } })).statusCode, 409);

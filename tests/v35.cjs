@@ -30,20 +30,16 @@ const yesterday = new Date(Date.now() + 8 * 3600e3 - 86400e3).toISOString().slic
     check(`${name}：測試模式有測試卡說明`, txt.includes("4311-9522-2222-2222"));
     if (name === "手機") check("手機沒有橫向捲動（方案頁）", await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
     await p.screenshot({ path: shot("plans"), fullPage: true });
-    // 直播留檔：沒月費進不去
+    // 直播紀錄：沒月費進不去
     await p.goto(BASE + "/#/v/6"); await p.waitForFunction(() => document.querySelector("#wTitle").textContent.includes("月費"));
-    check(`${name}：沒月費打開直播留檔 → 說要月費、有「看方案」`, (await p.locator("#wDesc a[href='#/plans']").count()) === 1);
-    // 系統分享頁：鎖著的有購買按鈕
-    await p.goto(BASE + "/#/course"); await p.waitForSelector("#courseList .course-row");
-    check(`${name}：系統分享每一份都有「購買第 N 集」`, (await p.locator("#courseList button:has-text('購買第 1 集')").count()) === 2 && (await p.locator("#courseList button:has-text('購買')").count()) === 12);
-    await p.screenshot({ path: shot("course-locked") });
-    // 買第 1 集（系統分享頁）→ 確認 → 綠界（假的）→ 回來
-    await p.locator("#courseList button:has-text('購買第 1 集')").first().click();
-    await p.waitForSelector(".modal:has-text('購買系統分享第 1 集')");
-    await p.click(".modal .btn.primary");
-    await p.waitForURL(/#\/course/);
-    await p.waitForFunction(() => document.querySelectorAll("#courseList a.course-row").length === 2, null, { timeout: 15000 }).catch(() => {});
-    check(`${name}：買了第 1 集：CCC、X 的第 1 份都打開`, (await p.locator("#courseList a.course-row").count()) === 2);
+    check(`${name}：沒月費打開直播紀錄 → 說要月費、有「看方案」`, (await p.locator("#wDesc a[href='#/plans']").count()) === 1);
+    // v1.37.0：系統分享頁改成交易分享，單集改在「我的方案」買
+    await p.goto(BASE + "/#/plans"); await p.waitForSelector(".plans .part-list");
+    await p.waitForTimeout(400);
+    if (await p.locator(".modal-back").count()) { await p.keyboard.press("Escape"); await p.waitForTimeout(300); }
+    check(`${name}：我的方案有六集可以買`, (await p.locator(".part-list li button:has-text('購買')").count()) === 6);
+    await p.locator(".part-list li button:has-text('購買') >> nth=0").click();
+    await p.waitForURL(/#\/course/); await p.waitForTimeout(800);
     // 訂閱月費
     await p.goto(BASE + "/#/plans"); await p.waitForSelector(".plans");
     await p.waitForTimeout(600);
@@ -55,7 +51,7 @@ const yesterday = new Date(Date.now() + 8 * 3600e3 - 86400e3).toISOString().slic
     check(`${name}：訂閱後顯示「訂閱中」、每月自動扣、第 1 集已買`, t2.includes("訂閱中") && t2.includes("每個月自動扣") && (await p.locator(".part-list li.own").count()) === 1, t2.slice(0, 160));
     await p.screenshot({ path: shot("subscribed"), fullPage: true });
     await p.goto(BASE + "/#/"); await p.waitForSelector("#grid .vrow, #grid .vcard, #grid a", { timeout: 8000 }).catch(() => {});
-    check(`${name}：有月費：首頁是直播留檔列表`, !(await p.locator(".plans").count()) && (await p.locator("#volPanel h2:has-text('我的方案')").count()) === 1);
+    check(`${name}：有月費：首頁是直播紀錄列表`, !(await p.locator(".plans").count()) && (await p.locator("#volPanel h2:has-text('我的方案')").count()) === 1);
     await p.click("#menuBtn");
     check(`${name}：選單有「我的方案・月費會員」`, (await p.textContent("#menuPanel")).includes("我的方案") && (await p.textContent("#menuPanel")).includes("月費會員"));
     await p.keyboard.press("Escape");

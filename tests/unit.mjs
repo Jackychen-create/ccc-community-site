@@ -1,6 +1,6 @@
 // 規則和伺服器小工具的單元測試（不用瀏覽器，幾秒鐘跑完）。npm test 會先跑這一支。
 import assert from "node:assert/strict";
-import { addDays, cycleEnd, periodOf, nextPeriod, prevPeriod, addMonths, courseWeek, courseUnlockDate, COURSE_HOSTS, COURSE_PARTS, EXCHANGES, AUTO_EXCHANGES, TIERS, tierOf, tierStatus, gapTo, tierRuleText, tierName, rankOneOnOne, oneOnOneScore, ONE_ON_ONE_CAP, streakOf, bestStreakOf, weekOf, BADGES, earnedBadges, THEMES, themeUnlocked } from "../public/assets/js/shared/rules.js";
+import { addDays, cycleEnd, periodOf, nextPeriod, prevPeriod, addMonths, courseWeek, courseUnlockDate, COURSE_HOSTS, COURSE_PARTS, EXCHANGES, AUTO_EXCHANGES, TIERS, tierOf, tierStatus, gapTo, tierRuleText, tierName, rankOneOnOne, oneOnOneScore, ONE_ON_ONE_CAP, streakOf, bestStreakOf, weekOf, BADGES, earnedBadges, THEMES, themeUnlocked, badgeById } from "../public/assets/js/shared/rules.js";
 import { longestStreak } from "../server/lib/badges.js";
 import { oneOnOneNotice } from "../server/lib/oneonone.js";
 const pick = ({ tier, until, cycleTier }) => ({ tier, until, cycleTier });
@@ -128,14 +128,16 @@ test("徽章：照事實給，id 不重複", () => {
   assert.equal(new Set(BADGES.map((b) => b.id)).size, BADGES.length);
   const none = { traded: false, bestPct: 0, qualified: 0, maxTier: 0, streak: 0, hostsDone: [], courseDone: 0, liveDone: 0, notes: 0, questions: 0 };
   assert.deepEqual(earnedBadges(none), []);
-  assert.deepEqual(earnedBadges({ ...none, traded: true, bestPct: 60, questions: 1 }), ["first_trade", "half", "question"]);
-  assert.deepEqual(earnedBadges({ ...none, maxTier: 3 }), ["tier3"]);
-  assert.deepEqual(earnedBadges({ ...none, streak: 3, qualified: 3, hostsDone: ["CCC"], courseDone: 18, liveDone: 10, notes: 10 }).sort(), ["course18", "half", "host6", "live10", "notes10", "qualified", "streak3"].filter((x) => x !== "half").sort());
+  // v1.37.0：交易量、等級、系統分享的徽章收起來了
+  assert.deepEqual(earnedBadges({ ...none, traded: true, bestPct: 60, questions: 1 }), ["question"]);
+  assert.deepEqual(earnedBadges({ ...none, maxTier: 3 }), []);
+  assert.deepEqual(earnedBadges({ ...none, streak: 3, qualified: 3, hostsDone: ["CCC"], courseDone: 18, liveDone: 10, notes: 10 }).sort(), ["live10", "notes10"]);
+  assert.ok(badgeById("tier3"), "收起來的徽章還認得（已經拿到的記錄）");
 });
 test("主題：前三個免費，其他要對應的徽章；管理員全部可以用", () => {
   assert.deepEqual(THEMES.filter((t) => !t.unlock).map((t) => t.id), ["space", "board", "night", "paper"]);
-  for (const t of THEMES) if (t.unlock) assert.ok(BADGES.some((b) => b.id === t.unlock), t.id);
-  assert.equal(themeUnlocked("vault", []), false);
+  for (const t of THEMES) if (t.unlock) assert.ok(badgeById(t.unlock), t.id);
+  assert.equal(themeUnlocked("vault", []), true, "v1.37.0：主題全部開放");
   assert.equal(themeUnlocked("vault", ["qualified"]), true);
   assert.equal(themeUnlocked("vault", [], true), true);
   assert.equal(themeUnlocked("nope", ["qualified"], true), false);

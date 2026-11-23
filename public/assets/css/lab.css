@@ -1,0 +1,133 @@
+/* v1.37.0：實驗室培訓房的預設主題（深空）跟介紹網站同一套質感
+   黑底＋很淡的星空和光線、金色 CCC° 標誌、襯線標題、直角細光框（介紹頁的四步卡片那種）
+   只套在預設主題（html 沒有 data-theme）；研究員自己選了別的主題就照那個主題 */
+
+/* 標誌：介紹頁同一張金色 CCC°，字用襯線、拉開字距 */
+.brand-logo { display: block; height: 30px; width: auto; filter: drop-shadow(0 0 10px rgba(230, 190, 110, .18)); }
+.brand-name { font-family: "Noto Serif TC", "Noto Sans TC", serif; font-weight: 600; letter-spacing: .12em; }
+@media (max-width: 760px) { .brand-logo { height: 26px; } }
+
+html:not([data-theme]) {
+  --gold: #D9B26A;
+  --frame: rgba(255, 255, 255, .13);
+  --frame-hi: rgba(255, 255, 255, .5);
+  --radius: 4px;
+}
+
+/* 背景：黑底，上方一層很淡的暖光、四周一點藍，星點和直落的細光線（不會動，不吃效能） */
+html:not([data-theme]) body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(70% 45% at 50% -10%, rgba(236, 210, 160, .16), transparent 70%),
+    radial-gradient(50% 45% at 100% 0%, rgba(70, 110, 200, .12), transparent 70%),
+    radial-gradient(50% 45% at 0% 100%, rgba(70, 110, 200, .09), transparent 70%),
+    radial-gradient(circle at 32.7% 15.8%, rgba(255, 255, 255, 0.33) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 36.8% 6.7%, rgba(255, 255, 255, 0.32) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 7.8% 9.9%, rgba(200, 215, 255, 0.67) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 22.9% 62.5%, rgba(255, 255, 255, 0.56) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 96.7% 5.6%, rgba(200, 215, 255, 0.43) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 12.5% 31.2%, rgba(255, 255, 255, 0.38) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 63.6% 37.5%, rgba(200, 215, 255, 0.33) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 21.2% 67.7%, rgba(255, 255, 255, 0.44) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 45.4% 30.4%, rgba(200, 215, 255, 0.61) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 57.3% 52.5%, rgba(255, 255, 255, 0.63) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 97.1% 12.6%, rgba(200, 215, 255, 0.64) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 48.9% 4.8%, rgba(255, 255, 255, 0.64) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 86.8% 31.7%, rgba(255, 255, 255, 0.57) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 45.7% 83.3%, rgba(255, 255, 255, 0.51) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 6.9% 69.7%, rgba(255, 255, 255, 0.75) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 28.9% 38.8%, rgba(255, 255, 255, 0.31) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 17.5% 12.5%, rgba(200, 215, 255, 0.65) 0 1.3px, transparent 2.0px),
+    radial-gradient(circle at 25.3% 39.3%, rgba(255, 255, 255, 0.34) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 54.8% 87.6%, rgba(255, 255, 255, 0.69) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 41.7% 36.2%, rgba(200, 215, 255, 0.73) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 18.3% 23.7%, rgba(255, 255, 255, 0.52) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 26.7% 1.4%, rgba(255, 255, 255, 0.47) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 94.4% 68.7%, rgba(255, 255, 255, 0.58) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 6.3% 89.2%, rgba(255, 255, 255, 0.69) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 39.5% 40.1%, rgba(200, 215, 255, 0.59) 0 1.3px, transparent 2.0px),
+    radial-gradient(circle at 7.6% 21.5%, rgba(200, 215, 255, 0.45) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 1.0% 15.8%, rgba(200, 215, 255, 0.46) 0 1.3px, transparent 2.0px),
+    radial-gradient(circle at 86.7% 61.2%, rgba(255, 255, 255, 0.41) 0 1.3px, transparent 2.0px),
+    radial-gradient(circle at 36.7% 13.0%, rgba(255, 255, 255, 0.75) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 48.4% 9.4%, rgba(255, 255, 255, 0.45) 0 1.3px, transparent 2.0px),
+    radial-gradient(circle at 82.2% 16.8%, rgba(255, 255, 255, 0.73) 0 1.3px, transparent 2.0px),
+    radial-gradient(circle at 15.4% 54.2%, rgba(255, 255, 255, 0.54) 0 1.3px, transparent 2.0px),
+    radial-gradient(circle at 85.6% 69.2%, rgba(200, 215, 255, 0.47) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 76.6% 53.2%, rgba(200, 215, 255, 0.45) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 80.5% 97.5%, rgba(255, 255, 255, 0.66) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 73.5% 23.2%, rgba(200, 215, 255, 0.46) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 3.7% 28.4%, rgba(255, 255, 255, 0.61) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 44.8% 92.8%, rgba(255, 255, 255, 0.73) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 22.6% 23.2%, rgba(255, 255, 255, 0.39) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 89.2% 83.4%, rgba(255, 255, 255, 0.59) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 9.3% 65.7%, rgba(255, 255, 255, 0.65) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 47.8% 18.5%, rgba(255, 255, 255, 0.45) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 96.2% 39.8%, rgba(255, 255, 255, 0.73) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 17.7% 13.4%, rgba(255, 255, 255, 0.71) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 15.3% 82.0%, rgba(255, 255, 255, 0.6) 0 0.9px, transparent 1.6px),
+    radial-gradient(circle at 54.8% 13.8%, rgba(255, 255, 255, 0.74) 0 1.3px, transparent 2.0px);
+}
+html:not([data-theme]) { background: #000; }
+html:not([data-theme]) body { background: transparent; } /* body 自己的底色會蓋掉 z-index:-1 的星空，交給 html 塗黑 */
+/* 直落的細光線：跟介紹頁的雨同一個方向，淡到幾乎看不出來 */
+html:not([data-theme]) body::after {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: .9;
+  background:
+    linear-gradient(to bottom, transparent, rgba(150, 185, 240, .26) 40%, transparent 75%) 8% 0 / 1px 46% no-repeat,
+    linear-gradient(to bottom, transparent, rgba(150, 185, 240, .2) 50%, transparent) 23% 30% / 1px 38% no-repeat,
+    linear-gradient(to bottom, transparent, rgba(150, 185, 240, .22) 40%, transparent) 47% 8% / 1px 30% no-repeat,
+    linear-gradient(to bottom, transparent, rgba(150, 185, 240, .18) 50%, transparent) 71% 52% / 1px 40% no-repeat,
+    linear-gradient(to bottom, transparent, rgba(150, 185, 240, .26) 40%, transparent) 91% 14% / 1px 44% no-repeat;
+}
+@media (max-width: 760px) { html:not([data-theme]) body::after { opacity: .35; } }
+
+/* 頁首：介紹頁一樣的黑色毛玻璃 */
+html:not([data-theme]) .topbar { background: rgba(0, 0, 0, .62); border-bottom-color: rgba(255, 255, 255, .07); }
+html:not([data-theme]) .topnav a[aria-current="page"], html:not([data-theme]) .topnav a.on { color: #fff; }
+
+/* 面板、卡片：直角細框，上緣一道淡淡的光（介紹頁的直角發光框） */
+html:not([data-theme]) .panel,
+html:not([data-theme]) .auth-card,
+html:not([data-theme]) .auth-board,
+html:not([data-theme]) .modal {
+  position: relative; border-radius: var(--radius); border-color: var(--frame);
+  background: rgba(6, 6, 6, .78); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .02) inset, 0 24px 60px -30px rgba(0, 0, 0, .9);
+}
+html:not([data-theme]) .panel::before,
+html:not([data-theme]) .auth-card::before {
+  content: ""; position: absolute; left: 0; right: 0; top: -1px; height: 1px; pointer-events: none; z-index: 1;
+  background: linear-gradient(90deg, transparent, var(--frame-hi) 50%, transparent);
+  opacity: .55;
+}
+html:not([data-theme]) .auth-board { border-bottom: 0; border-radius: var(--radius) var(--radius) 0 0; }
+html:not([data-theme]) .auth-card { border-radius: 0 0 var(--radius) var(--radius); }
+@media (min-width: 960px) {
+  html:not([data-theme]) .auth-board { border-bottom: 1px solid var(--frame); border-radius: var(--radius); }
+  html:not([data-theme]) .auth-card { border-radius: var(--radius); }
+}
+
+/* 標題：介紹頁同一套襯線字 */
+html:not([data-theme]) .panel-head h1,
+html:not([data-theme]) .panel-head h2,
+html:not([data-theme]) .auth-copy h1,
+html:not([data-theme]) .modal-head h2,
+html:not([data-theme]) .page h1 { font-family: "Noto Serif TC", "Noto Sans TC", serif; font-weight: 600; letter-spacing: .02em; }
+
+/* 按鈕：介紹頁的米白漸層＋一點光 */
+html:not([data-theme]) .btn.primary { background: linear-gradient(180deg, #FAF6EF, #E6DAC4 60%, #CFC3AD); border-color: transparent; box-shadow: 0 0 0 1px rgba(236, 228, 214, .25) inset, 0 6px 22px -8px rgba(236, 218, 190, .45); }
+html:not([data-theme]) .btn.primary:hover { background: linear-gradient(180deg, #FFFFFF, #EFE6D6 60%, #D8CDB9); }
+html:not([data-theme]) .btn:not(.primary):not(.ghost) { border-radius: 999px; }
+
+/* 列表：滑過時一點冷光 */
+html:not([data-theme]) .vrow:hover { background: rgba(255, 255, 255, .03); }
+html:not([data-theme]) .vrow.is-new { background: linear-gradient(90deg, rgba(217, 178, 106, .07), transparent 60%); }
+
+/* 交易分享還沒有東西 */
+.empty-share { padding: 56px 20px 60px; text-align: center; }
+.empty-share-t { font-family: "Noto Serif TC", "Noto Sans TC", serif; font-size: 20px; font-weight: 600; color: var(--ink); margin: 0 0 6px; }
+
+@media (prefers-reduced-transparency: reduce) {
+  html:not([data-theme]) .panel, html:not([data-theme]) .auth-card { -webkit-backdrop-filter: none; backdrop-filter: none; background: #070707; }
+}

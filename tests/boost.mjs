@@ -1,4 +1,4 @@
-// v1.26.19：直播留檔搜尋、AI 重點對時間、課程解鎖提醒、補發給掉隊的人
+// v1.26.19：直播紀錄搜尋、AI 重點對時間、課程解鎖提醒、補發給掉隊的人
 import assert from "node:assert/strict";
 import http from "node:http";
 import { setEnv } from "../server/lib/env.js";
@@ -105,7 +105,7 @@ const db = {
   watch_progress: [{ user_id: "m1" }],
   exchange_links: [{ user_id: "m6", exchange: "OKX", exchange_uid: "55550001" }],
   member_discord: [],
-  videos: [{ id: 1, title: "EP1 我的進出場規則以及邏輯", is_published: true, course_host: "CCC", course_part: 1 }],
+  videos: [{ id: 1, title: "EP1 我的進出場規則以及邏輯", is_published: true, course_host: "CCC", course_part: 1, is_public: false }, { id: 9, title: "11/20 直播：盤勢檢討", is_published: true, course_host: null, course_part: null, is_public: false }],
 };
 const supa = http.createServer(async (req, res) => {
   const u = new URL(req.url, "http://x");
@@ -117,6 +117,7 @@ const supa = http.createServer(async (req, res) => {
     for (const [k, v] of u.searchParams) {
       if (["select", "order", "limit"].includes(k)) continue;
       if (v === "not.is.null") { rows = rows.filter((r) => r[k] != null); continue; }
+      if (v === "is.null") { rows = rows.filter((r) => r[k] == null); continue; }
       const [op, ...rest] = v.split("."); const val = rest.join(".");
       if (op === "eq") rows = rows.filter((r) => String(r[k]) === val);
       if (op === "in") { const list = val.replace(/^\(|\)$/g, "").split(",").map((x) => x.replace(/^"|"$/g, "")); rows = rows.filter((r) => list.includes(String(r[k]))); }
@@ -159,14 +160,14 @@ await test("私訊提醒註冊：附他自己的加入連結；30 天內不再�
   assert.deepEqual([again.sent, again.skipped], [0, 1]);
   assert.ok((await nudgeLists(NOW + D / 2)).unregistered[0].sentAt);
 });
-await test("推薦 EP1：有連 Discord 的私訊、沒連的寄信，都連到 EP1；30 天內不再發", async () => {
+await test("推薦最新一場直播紀錄（v1.37.0 系統分享收起來了）：有連 Discord 的私訊、沒連的寄信；30 天內不再發", async () => {
   const r = await runNudge("unwatched", NOW);
   assert.deepEqual([r.sent, r.dms, r.mails], [2, 1, 1], JSON.stringify(r));
   assert.equal(mails.length, 1);
   assert.equal(mails[0].messageVersions[0].to[0].email, "never@x");
-  assert.ok(mails[0].htmlContent.includes("/lab#/v/1") && mails[0].htmlContent.includes("EP1"));
+  assert.ok(mails[0].htmlContent.includes("/lab#/v/9") && mails[0].htmlContent.includes("盤勢檢討"));
   const d = dms.find((x) => x.to === "111111111111111106");
-  assert.ok(d && d.body.embeds[0].description.includes("/lab#/v/1"));
+  assert.ok(d && d.body.embeds[0].description.includes("/lab#/v/9"));
   assert.equal((await runNudge("unwatched", NOW + D / 2)).sent, 0);
 });
 await test("提醒註冊的私訊內容", () => {

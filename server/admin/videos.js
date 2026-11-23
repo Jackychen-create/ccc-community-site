@@ -23,13 +23,11 @@ import {
 export default route({
   async GET(req, res) {
     if (!(await requireAdmin(req, res))) return;
-    const { data, error } = await supabaseAdmin
-      .from("videos")
-      .select(
-        "id, title, description, published_at, is_published, is_public, duration_sec, size_bytes, thumb_key, hosts, chapters, notified_at, course_host, course_part, created_at, attachments(id, title, size_bytes, created_at)"
-      )
-      .order("published_at", { ascending: false })
-      .order("id", { ascending: false });
+    const COLS = "id, title, description, published_at, is_published, is_public, duration_sec, size_bytes, thumb_key, hosts, chapters, notified_at, course_host, course_part, created_at, attachments(id, title, size_bytes, created_at)";
+    const list = (cols) => supabaseAdmin.from("videos").select(cols).order("published_at", { ascending: false }).order("id", { ascending: false });
+    // v1.37.0 交易分享（trade_share）：schema 還沒套用的話退回原本的欄位
+    let { data, error } = await list(`${COLS}, trade_share`);
+    if (error) ({ data, error } = await list(COLS));
     if (error) throw error;
 
     const videos = await Promise.all(
@@ -96,7 +94,9 @@ export default route({
     if (b.chapters !== undefined) patch.chapters = cleanChapters(b.chapters);
     // 公開影片：不用登入就能看（分享連結 /watch?v=id）；公開的不能同時是系統分享
     if (b.is_public !== undefined) patch.is_public = b.is_public === true;
-    // 系統分享：course_host + course_part（1–6）一起給；都給 null 就變回直播留檔
+    // 交易分享（v1.37.0）：放在研究員的「交易分享」頁
+    if (b.trade_share !== undefined) patch.trade_share = b.trade_share === true;
+    // 系統分享：course_host + course_part（1–6）一起給；都給 null 就變回直播紀錄
     if (b.course_host !== undefined || b.course_part !== undefined) {
       if (b.course_host === null || b.course_host === "") {
         patch.course_host = null;
@@ -122,12 +122,14 @@ export default route({
     }
     if (!Object.keys(patch).length) return res.status(400).json({ error: "沒有要修改的內容" });
 
-    const { data, error } = await supabaseAdmin
-      .from("videos")
-      .update(patch)
-      .eq("id", id)
-      .select("id")
-      .maybeSingle();
+    const update = () => supabaseAdmin.from("videos").update(patch).eq("id", id).select("id").maybeSingle();
+    let { data, error } = await update();
+    if (error && patch.trade_share !== undefined && /trade_share/.test(error.message || "")) {
+      // schema 還沒套用 v1.37.0（沒有 trade_share 欄位）：要標成交易分享就請管理員先套用；不是的話拿掉這個欄位照存
+      if (patch.trade_share) return res.status(400).json({ error: "資料庫還沒加「交易分享」欄位（supabase/schema.sql 最後的 v1.37.0），請先套用" });
+      delete patch.trade_share;
+      ({ data, error } = await update());
+    }
     if (error?.code === "23505") return res.status(409).json({ error: `${patch.course_host} 第 ${patch.course_part} 份已經有影片了，請先把那支改掉或刪除` });
     if (error) throw error;
     if (!data) return res.status(404).json({ error: "找不到這支影片" });

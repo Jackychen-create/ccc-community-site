@@ -133,7 +133,7 @@ const errs = [];
   await age("amy@example.com", 40, { OKX: 15000 });
   [c, p] = await ctx({ width: 1100, height: 700 });
   await login(p, "amy@example.com"); await p.waitForSelector(".lock-page");
-  check("第一級看不到直播留檔，顯示升級說明", (await p.textContent(".lock-page")).includes("升上第二級") && !(await p.locator("#grid .vrow").count()));
+  check("第一級看不到直播紀錄，顯示升級說明", (await p.textContent(".lock-page")).includes("升上第二級") && !(await p.locator("#grid .vrow").count()));
   await c.close();
   check("沒有頁面錯誤", !errs.length, errs.join(" | "));
   console.log(out.join("\n")); await b.close();

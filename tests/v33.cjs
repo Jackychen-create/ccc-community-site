@@ -1,5 +1,5 @@
 // 執行方式：npm test（會自動開模擬伺服器）
-// v1.26.19：直播留檔搜尋（連逐字稿）、AI 重點點了跳到那一段、後台補發給掉隊的人
+// v1.26.19：直播紀錄搜尋（連逐字稿）、AI 重點點了跳到那一段、後台補發給掉隊的人
 const { chromium } = require("playwright");
 const BASE = "http://localhost:4321";
 const FONT_CSS = ["noto-sans-tc/400","noto-sans-tc/500","noto-sans-tc/700","sofia-sans-semi-condensed/500","sofia-sans-semi-condensed/600","sofia-sans-semi-condensed/700"].map((f) => `@import url("${BASE}/__fonts/${f}.css");`).join("\n");

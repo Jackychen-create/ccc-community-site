@@ -62,8 +62,8 @@ const HL = { status: "done", summary: "這場講開盤區間怎麼畫，以及�
     check("手動貼到 Discord", (await p.textContent(".toast:last-child")).includes("已貼到 Discord"));
     await p.click(".hl-admin details summary");
     check("看得到逐字稿", (await p.textContent(".hl-transcript pre")).includes("大家好"));
-    await p.click(".modal .chip:has-text('系統分享')");
-    check("系統分享不顯示直播精華", await p.isHidden(".hl-admin"));
+    await p.click(".modal .chip:has-text('交易分享')");
+    check("交易分享不顯示直播精華", await p.isHidden(".hl-admin"));
     await p.screenshot({ path: "output/shots/v31-editor.png", fullPage: true });
     await c.close();
   }

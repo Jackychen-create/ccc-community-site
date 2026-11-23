@@ -6,6 +6,7 @@ import { maybeWeeklyReviews } from "../lib/reviews.js";
 import { flushAnnouncements } from "../lib/announce.js";
 import { runOnboarding } from "../lib/onboarding.js";
 import { runCourseMail } from "../lib/course-mail.js";
+const COURSE_MAIL_ON = false;
 import { runExchangeRoles } from "../lib/exchange-roles.js";
 import { okxProbe } from "../lib/okx.js";
 import { fixHighlightFooters } from "../lib/highlights.js";
@@ -36,8 +37,8 @@ export default route({
     const announced = await flushAnnouncements().catch((e) => [{ ok: false, error: String(e?.message || e) }]);
     // 順便：新人試用週，每天 20:00 私訊（server/lib/onboarding.js）
     const onboarding = await runOnboarding(now).catch((e) => ({ ok: false, error: String(e?.message || e) }));
-    // 順便：每天 9:00 課程解鎖提醒信（server/lib/course-mail.js）
-    const courseMail = await runCourseMail(now).catch((e) => ({ ok: false, error: String(e?.message || e) }));
+    // 課程解鎖提醒信（server/lib/course-mail.js）：v1.37.0 系統分享改成交易分享、沒有解鎖排程，停掉
+    const courseMail = COURSE_MAIL_ON ? await runCourseMail(now).catch((e) => ({ ok: false, error: String(e?.message || e) })) : { skipped: true };
     // 順便：每小時補發交易所活動身分組（server/lib/exchange-roles.js）
     const exchangeRoles = await runExchangeRoles(now).catch((e) => ({ ok: false, error: String(e?.message || e) }));
     // OKX 連線測試：bot_state 的 okx_probe 有 { uid, pending: true } 就跑一次，結果寫回去（設定 OKX 時用）

@@ -231,7 +231,7 @@
     var hs = document.getElementById("heroStats");
     var bits = [];
     if (d.discord >= 100) bits.push(["Discord", d.discord.toLocaleString("en-US"), "人"]);
-    if (d.lives >= 3) bits.push(["直播留檔", String(d.lives), "場"]);
+    if (d.lives >= 3) bits.push(["直播紀錄", String(d.lives), "場"]);
     if (d.liveHours >= 3) bits.push(["", String(d.liveHours), "小時可以回看"]);
     if (hs && bits.length) {
       bits.forEach(function (b) {

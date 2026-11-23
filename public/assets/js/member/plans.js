@@ -34,7 +34,7 @@ async function cancelSub(btn) {
   const until = info?.sub?.until;
   const ok = await confirmDialog({
     title: "取消自動扣款？",
-    message: `之後不會再扣款。已經付的會員照常用到 ${until ? md(until) : "這一期結束"}，到期後直播留檔會關起來，Discord 研究員身分組也會收回；買過的系統分享一直都看得到。`,
+    message: `之後不會再扣款。已經付的會員照常用到 ${until ? md(until) : "這一期結束"}，到期後直播紀錄會關起來，Discord 研究員身分組也會收回；買過的系統分享一直都看得到。`,
     confirmText: "取消自動扣款",
     cancelText: "先不要",
     danger: true,
@@ -113,7 +113,7 @@ function render({ back = false } = {}) {
         el("div", { class: "plan-price" }, el("span", { class: "num", text: money(p.monthly) }), el("small", { text: "／月，信用卡每月自動扣" })),
         el("ul", null,
           el("li", { text: "會員直播（Discord 研究員身分組）" }),
-          el("li", { text: "全部直播留檔，含直播精華和章節" }),
+          el("li", { text: "全部直播紀錄，含直播精華和章節" }),
           el("li", { text: "研究員專區：筆記、提問、每日回顧" })),
         el("p", { class: "small", text: subLine }),
         canSubscribe ? subBtn : null,

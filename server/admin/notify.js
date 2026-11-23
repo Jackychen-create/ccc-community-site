@@ -36,7 +36,7 @@ export default route({
     const link = `https://${host}/#/v/${v.id}`;
     const hosts = (v.hosts || []).length ? `主講：${v.hosts.join("、")}<br>` : "";
     const html = `<div style="font-family:system-ui,'Noto Sans TC',sans-serif;font-size:15px;line-height:1.7;color:#1b1f1d">
-<p>新的一場直播留檔上架了：</p>
+<p>新的一場直播紀錄上架了：</p>
 <p style="font-size:18px;font-weight:700;margin:8px 0">${esc(v.title)}</p>
 <p style="color:#555">${esc(v.published_at)}<br>${hosts}${esc(v.description || "")}</p>
 <p><a href="${link}" style="display:inline-block;background:#CDA45E;color:#16120A;padding:10px 18px;border-radius:10px;text-decoration:none;font-weight:700">打開來看</a></p>

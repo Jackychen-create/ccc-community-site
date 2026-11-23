@@ -27,7 +27,7 @@ export function renderVideos() {
   $("#cVideos").textContent = state.videos.length || "";
   const box = $("#videoTableBox");
   if (!state.videos.length) {
-    box.replaceChildren(el("div", { class: "empty" }, el("h2", { text: "還沒有影片" }), el("p", { class: "small", style: { marginTop: "6px" }, text: "上傳第一場直播留檔吧，上傳完成後會先存成草稿。" })));
+    box.replaceChildren(el("div", { class: "empty" }, el("h2", { text: "還沒有影片" }), el("p", { class: "small", style: { marginTop: "6px" }, text: "上傳第一場直播紀錄吧，上傳完成後會先存成草稿。" })));
     return;
   }
   const rows = state.videos.map((v) => {

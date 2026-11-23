@@ -1,6 +1,6 @@
 // 研究員前台的進入點（index.html 載入這一支）：開機、登入後進主畫面、網址分頁
 //
-//   #/            直播留檔列表   list.js
+//   #/            直播紀錄列表   list.js
 //   #/v/:id?t=秒  播放頁         watch.js（章節 chapters.js、筆記 notes.js）
 //   #/course      系統分享       course.js
 //   #/notes       我的筆記       notes.js
@@ -137,7 +137,7 @@ async function offerTutorial() {
   store.set("tutorialOffered", true);
   const yes = await confirmDialog({
     title: "歡迎加入實驗室培訓計畫",
-    message: "第一次來？花 2 分鐘看使用說明：怎麼找影片、接著看、章節、筆記和每月交易量。之後也可以在右上角選單打開。",
+    message: "第一次來？花 2 分鐘看使用說明：怎麼找影片、接著看、章節和筆記。之後也可以在右上角選單打開。",
     confirmText: "看使用說明",
     cancelText: "之後再看",
   });

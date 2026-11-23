@@ -72,7 +72,7 @@ await test("晚上 8 點：通過後第 1～7 天的人各收到當天那一則�
   const r = await runOnboarding(NOW);
   assert.equal(r.sent, 3, JSON.stringify(r));
   assert.deepEqual(title("111111111111111101"), ["第 1 天｜先把研究員專區註冊好"]);
-  assert.deepEqual(title("111111111111111102"), ["第 1 天｜從系統分享開始"]);
+  assert.deepEqual(title("111111111111111102"), ["第 1 天｜從直播紀錄開始"]);
   assert.deepEqual(title("111111111111111103"), ["第 3 天｜想聽主講點評你的交易？"]);
   assert.equal(dms.filter((d) => ["111111111111111104", "111111111111111105", "111111111111111106"].includes(d.to)).length, 0);
   assert.equal(r.failed.length, 1); assert.equal(r.failed[0].day, 2); // 關私訊的略過

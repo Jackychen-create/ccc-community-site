@@ -29,7 +29,7 @@ const j = async (path, { method = "GET", body, token } = {}) => {
   await p.goto(BASE + "/admin"); await p.waitForSelector("#videoTableBox tbody tr, .vtable tbody tr, table tbody tr");
   await p.click("tr:has-text('資金控管') .btn:has-text('編輯')"); await p.waitForSelector(".modal");
   await p.click(".modal .chip:has-text('公開影片')");
-  check("類型切到公開影片", (await p.getAttribute(".modal .chip:has-text('公開影片')", "aria-pressed")) === "true" && (await p.getAttribute(".modal .chip:has-text('直播留檔')", "aria-pressed")) === "false");
+  check("類型切到公開影片", (await p.getAttribute(".modal .chip:has-text('公開影片')", "aria-pressed")) === "true" && (await p.getAttribute(".modal .chip:has-text('直播紀錄')", "aria-pressed")) === "false");
   check("選公開影片：出現分享連結", (await p.inputValue(".modal .share-row input")).endsWith("/watch?v=2"));
   check("發布開關寫拿到連結的人都看得到", (await p.textContent(".modal .switch")).includes("拿到連結"));
   check("公開影片不能寄通知", await p.isDisabled(".modal .notify-row .btn"));
@@ -37,10 +37,10 @@ const j = async (path, { method = "GET", body, token } = {}) => {
   await p.click(".modal-foot .btn.primary"); await p.waitForTimeout(500);
   check("儲存後告訴分享連結", (await p.textContent(".toast:last-child")).includes("/watch?v=2"));
   check("列表標「公開」、有複製連結按鈕", (await p.textContent("tr:has-text('資金控管')")).includes("公開") && (await p.locator("tr:has-text('資金控管') [aria-label*='分享連結']").count()) === 1);
-  // 研究員畫面：直播留檔列表沒有它
+  // 研究員畫面：直播紀錄列表沒有它
   const tok = (await j("/sb/auth/v1/token", { method: "POST", body: { email: "boss@gmail.com", password: "password1" } })).body.access_token;
   const list = await j("/api/videos", { token: tok });
-  check("公開影片不在直播留檔列表", !list.body.videos.some((v) => v.id === 2));
+  check("公開影片不在直播紀錄列表", !list.body.videos.some((v) => v.id === 2));
   await c.close();
 
   // 沒登入：分享連結直接看
@@ -64,9 +64,9 @@ const j = async (path, { method = "GET", body, token } = {}) => {
   await p.goto(BASE + "/watch"); await p.waitForSelector(".pub-title");
   check("/watch 只有一支就直接播", (await p.textContent(".pub-title")).includes("資金控管") && (await p.evaluate(() => location.search)) === "?v=2");
   await c.close();
-  // 下架（改回直播留檔）就看不到
+  // 下架（改回直播紀錄）就看不到
   await j("/api/admin/videos", { method: "PATCH", token: tok, body: { id: 2, is_public: false } });
-  check("改回直播留檔：不用登入就看不到", (await j("/api/public-video?id=2")).status === 404);
+  check("改回直播紀錄：不用登入就看不到", (await j("/api/public-video?id=2")).status === 404);
 
   check("沒有頁面錯誤", !errs.length, errs.join(" | "));
   console.log(out.join("\n")); await b.close();

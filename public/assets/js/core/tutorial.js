@@ -15,7 +15,7 @@ export function tutorial(who = "member") {
   let video = null;
   const ctrl = new AbortController();
   const missing = () => wrap.replaceChildren(el("div", { class: "empty", style: { padding: "36px 12px" } },
-    el("h2", { text: "系統分享影片還沒放上網站" }),
+    el("h2", { text: "使用說明影片還沒放上網站" }),
     el("p", { class: "small", style: { marginTop: "6px" }, text: "請管理員把影片放到 public/tutorial/ 之後重新部署。" })));
   const m = modal({
     title: who === "admin" ? "管理員使用說明" : "使用說明",

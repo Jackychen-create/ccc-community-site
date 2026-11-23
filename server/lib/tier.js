@@ -2,7 +2,7 @@
 // 看「上一輪」和「這一輪」的交易量，加上管理員手動給的等級（members.min_tier、min_tier_until）
 import { supabaseAdmin } from "./env.js";
 import { twDate, todayTW } from "./dates.js";
-import { tierStatus, periodOf, prevPeriod, SITE_TIER, MAX_TIER, usdtEquiv, unitStatus, unitTier } from "../../public/assets/js/shared/rules.js";
+import { tierStatus, periodOf, prevPeriod, SITE_TIER, MAX_TIER, usdtEquiv, unitStatus, unitTier, VOLUME_TIERS_ON, openTier } from "../../public/assets/js/shared/rules.js";
 import { unitOn } from "./membership.js";
 import { memberPaid, paidFor } from "./pay.js";
 
@@ -26,6 +26,7 @@ export async function memberTier(member, today = todayTW()) {
   // 付費制（v1.28.0）：付費的研究員看月費和買了哪幾集；照舊的人往下照原本的規則
   const paid = await memberPaid(member, today);
   if (paid) return paid;
+  if (!VOLUME_TIERS_ON) return member.free ? freeStatus(member, today) : openTier(twDate(member.created_at), today); // v1.37.0：不看交易量
   if (await unitOn(today)) {
     const { data, error } = await supabaseAdmin.from("volumes").select("amounts").eq("user_id", member.user_id);
     if (error) throw error;
@@ -45,6 +46,7 @@ export async function memberTier(member, today = todayTW()) {
 // 很多人一次算（後台列表用）：volRows 是這些人的交易量（至少含上一輪、這一輪）
 // unit＝單位制（volRows 要含這個人全部的輪）
 export function tierFromRows(member, volRows, today = todayTW(), unit = false) {
+  if (!VOLUME_TIERS_ON) return member.free ? freeStatus(member, today) : openTier(twDate(member.created_at), today); // v1.37.0：不看交易量
   if (unit) return unitFromRows(member, volRows.filter((r) => r.user_id === member.user_id), today);
   if (member.free) return freeStatus(member, today);
   const by = new Map(volRows.filter((r) => r.user_id === member.user_id).map((r) => [r.period_start, r.amounts || {}]));

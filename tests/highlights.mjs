@@ -193,12 +193,12 @@ await test("沒有密碼、亂給的 Bearer 都不能用", async () => {
   assert.equal((await call("GET", { headers: {} })).statusCode, 401);
   assert.equal((await call("GET", { headers: { authorization: "Bearer abc.def.ghi" } })).statusCode, 401);
 });
-await test("拿工作：只給已發布的直播留檔（不給系統分享、草稿），附 6 小時的下載連結、標成處理中", async () => {
+await test("拿工作：只給已發布的直播紀錄（不給系統分享、草稿），附 6 小時的下載連結、標成處理中", async () => {
   const r = await call("GET");
   assert.equal(r.body.job.videoId, 1);
   assert.match(r.body.job.url, /X-Amz-Expires=21600/);
   assert.equal(db.video_highlights.find((x) => x.video_id === 1).status, "processing");
-  assert.equal((await call("GET")).body.job, null, "處理中的不會再給一次、其他兩支不是直播留檔");
+  assert.equal((await call("GET")).body.job, null, "處理中的不會再給一次、其他兩支不是直播紀錄");
 });
 await test("送聲音：每段轉文字、時間加上段落起點；太大、沒在處理中的擋掉", async () => {
   const a = await call("PUT", { query: { video: "1", chunk: "0" }, rawBytes: new Uint8Array([1, 2, 3]).buffer });

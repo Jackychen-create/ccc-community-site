@@ -1,5 +1,5 @@
 // 後台編輯影片：直播精華（AI 整理的摘要、重點、標的、建議章節）
-// 直播留檔發布後，GitHub Actions 大約 2 小時內會自動產生；這裡看結果、套用章節、重做、再貼一次 Discord
+// 直播紀錄發布後，GitHub Actions 大約 2 小時內會自動產生；這裡看結果、套用章節、重做、再貼一次 Discord
 import * as A from "../core/index.js";
 
 const { el, api, icon } = A;

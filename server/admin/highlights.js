@@ -29,7 +29,7 @@ export default route({
     if (!v) return res.status(404).json({ error: "找不到這支影片" });
 
     if (b.action === "redo") {
-      if (v.course_host || v.is_public) return res.status(400).json({ error: "只有直播留檔會做直播精華" });
+      if (v.course_host || v.is_public) return res.status(400).json({ error: "只有直播紀錄會做直播精華" });
       if (!v.is_published) return res.status(400).json({ error: "影片發布後才能產生" });
       const { error } = await supabaseAdmin.from("video_highlights").upsert({ video_id: id, status: "pending", attempts: 0, error: null, updated_at: new Date().toISOString() });
       if (error) throw error;

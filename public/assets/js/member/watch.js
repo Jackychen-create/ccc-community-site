@@ -36,11 +36,11 @@ function setNotice(node) {
   $("#watchNotice").replaceChildren(...(node ? [node] : []));
 }
 
-// 「← 直播留檔」或「← 系統分享」
+// 「← 直播紀錄」或「← 交易分享」
 function setWatchBack(isCourse) {
   const a = $("#watchBack");
   a.href = isCourse ? "#/course" : "#/";
-  a.lastChild.textContent = isCourse ? "系統分享" : "直播留檔";
+  a.lastChild.textContent = isCourse ? "交易分享" : "直播紀錄";
 }
 
 export async function openWatch(id, { t = null } = {}) {
@@ -76,14 +76,14 @@ export async function openWatch(id, { t = null } = {}) {
       setWatchBack(true);
       const unit = state.me?.volume?.unit; // 單位制：累計交易量解鎖
       $("#wTitle").textContent = unit ? "這一份還沒解鎖" : "這一部要第二級才看得到";
-      $("#wDesc").textContent = unit ? `${e.message}，你現在累計 ${Math.round(unit.cum / 1e3) / 10} 萬。` : `${e.message}。第一級可以先看系統分享每位主講的第 1 份。`;
+      $("#wDesc").textContent = unit ? `${e.message}，你現在累計 ${Math.round(unit.cum / 1e3) / 10} 萬。` : `${e.message}。`;
       return;
     }
     // 付費制（v1.28.0）：還沒買這一集、沒有月費
     if (e.code === "paid_part" || e.code === "paid_sub") {
       $("#videoLoading").hidden = true;
       setWatchBack(true);
-      $("#wTitle").textContent = e.code === "paid_part" ? `系統分享第 ${e.data?.part || ""} 集還沒買` : "直播留檔要月費會員";
+      $("#wTitle").textContent = e.code === "paid_part" ? `系統分享第 ${e.data?.part || ""} 集還沒買` : "直播紀錄要月費會員";
       $("#wDesc").replaceChildren(el("span", { text: e.message + "。" }), " ", el("a", { href: "#/plans", text: "看方案" }));
       return;
     }
@@ -115,6 +115,7 @@ export async function openWatch(id, { t = null } = {}) {
     $("#wDate").textContent = "課程";
     meta.replaceChildren(el("span", null, "系統分享・", el("span", { class: "host", text: d.course_host }), ` 第 ${d.course_part} 份`));
   } else if (d.hosts?.length) meta.append(el("span", null, "主講 ", ...d.hosts.map((h) => el("span", { class: "host", text: h }))));
+  if (d.trade_share) setWatchBack(true); // v1.37.0：交易分享
   if (d.duration_sec) meta.append(el("span", { class: "num", text: fmtDur(d.duration_sec) }));
   if (!d.is_published) meta.append(el("span", { class: "pill warn", text: "草稿預覽（研究員看不到）" }));
   $("#wDesc").textContent = d.description || "";
