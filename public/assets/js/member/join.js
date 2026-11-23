@@ -51,6 +51,7 @@ export async function checkJoin() {
   $("#mainTabs").hidden = true;
   $("#joinPane").hidden = true;
   $("#signinPane").hidden = true;
+  for (const id of ["legacySeg", "authTitle", "authSub"]) { const n = document.getElementById(id); if (n) n.hidden = false; }
   $("#legacyAuth").open = true;
   return false;
 }
