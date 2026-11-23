@@ -134,28 +134,57 @@ export async function syncPanelMessage() {
   return { updated: true };
 }
 
-// 機器人（實驗室助教）的頭貼：v1.38.0 換成研究員貓頭鷹「研研」
-// 每 5 分鐘由 /api/cron/lives 呼叫；bot_state 的 bot_avatar 記換過的版本，換好就不再動
+// 每一個自動化的 Discord 機器人頭貼：v1.37.16 起換成研究員貓頭鷹「研研」
+// 1. 實驗室助教（機器人帳號）：PATCH /users/@me
+// 2. 網站存著的每個 Webhook（後台「機器人」的 Webhook、聊天統計每日回顧的 Webhook）：用 Webhook 自己的網址改頭貼，不用機器人權限
+//    行情機器人（Supabase）就是用這些 Webhook 貼的，所以頭像一起換
+// 每 5 分鐘由 /api/cron/lives 呼叫；bot_state 的 bot_avatar 記換過的版本，換好的不再動，之後新加的 Webhook 也會自動換
 // Discord 換頭貼有頻率限制，失敗了 1 小時後再試
 export const BOT_AVATAR = { version: "owl-1", path: "/assets/brand/ccc-owl.png" };
+const HOOK_RE = /^https:\/\/(?:(?:canary|ptb)\.)?discord(?:app)?\.com\/api\/(?:v\d+\/)?webhooks\/(\d{17,20})\/([\w-]{20,100})$/;
+const hookBase = (u) => (env.DISCORD_API_BASE ? u.replace(/^https:\/\/[^/]+\/api(?:\/v\d+)?/, env.DISCORD_API_BASE) : u);
+
+async function knownWebhooks() {
+  const urls = new Set();
+  const { data } = await supabaseAdmin.from("settings").select("value").eq("key", "bots").maybeSingle();
+  for (const o of data?.value?.outlets || []) if (HOOK_RE.test(o?.url || "")) urls.add(o.url);
+  const d = await getDiscordSettings().catch(() => ({}));
+  for (const c of d.chatChannels || []) if (HOOK_RE.test(c?.webhook || "")) urls.add(c.webhook);
+  return [...urls].map((url) => ({ url, id: url.match(HOOK_RE)[1] }));
+}
+
 export async function syncBotAvatar(now = Date.now()) {
-  if (!discordConfigured()) return null;
   const { data } = await supabaseAdmin.from("bot_state").select("value").eq("key", "bot_avatar").maybeSingle();
-  const st = data?.value || {};
-  if (st.version === BOT_AVATAR.version) return { updated: false };
+  const st = { webhooks: {}, ...(data?.value || {}) };
   if (st.triedAt && now - st.triedAt < 60 * 60e3) return { updated: false, waiting: true };
-  const save = (value) => supabaseAdmin.from("bot_state").upsert({ key: "bot_avatar", value, updated_at: new Date(now).toISOString() });
+  const botTodo = discordConfigured() && st.version !== BOT_AVATAR.version;
+  const hooks = (await knownWebhooks()).filter((h) => st.webhooks[h.id] !== BOT_AVATAR.version);
+  if (!botTodo && !hooks.length) return { updated: false };
+  const out = { bot: null, webhooks: 0, errors: [] };
+  let avatar;
   try {
     const img = await fetch(SITE_URL + BOT_AVATAR.path, { signal: AbortSignal.timeout(10000) });
     if (!img.ok) throw new Error(`頭貼圖片讀不到（${img.status}）`);
     const bytes = new Uint8Array(await img.arrayBuffer());
     let bin = "";
     for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-    await discordApi("PATCH", "/users/@me", { avatar: `data:image/png;base64,${btoa(bin)}` });
-    await save({ version: BOT_AVATAR.version, at: now });
-    return { updated: true };
+    avatar = `data:image/png;base64,${btoa(bin)}`;
   } catch (e) {
-    await save({ ...st, triedAt: now, error: String(e?.message || e) });
-    return { updated: false, error: String(e?.message || e) };
+    out.errors.push(String(e?.message || e));
   }
+  if (avatar && botTodo) {
+    try { await discordApi("PATCH", "/users/@me", { avatar }); st.version = BOT_AVATAR.version; st.at = now; out.bot = true; }
+    catch (e) { out.bot = false; out.errors.push(`機器人：${e?.message || e}`); }
+  }
+  if (avatar) for (const h of hooks) {
+    try {
+      const r = await fetch(hookBase(h.url), { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ avatar }), signal: AbortSignal.timeout(10000) });
+      if (r.ok) { st.webhooks[h.id] = BOT_AVATAR.version; out.webhooks++; }
+      else if (r.status === 404 || r.status === 401) st.webhooks[h.id] = "gone"; // Webhook 被刪了：不再試
+      else out.errors.push(`Webhook ${h.id}：Discord ${r.status}`);
+    } catch (e) { out.errors.push(`Webhook ${h.id}：${e?.message || e}`); }
+  }
+  if (out.errors.length) { st.triedAt = now; st.error = out.errors.slice(0, 5).join("；"); } else { delete st.triedAt; delete st.error; }
+  await supabaseAdmin.from("bot_state").upsert({ key: "bot_avatar", value: st, updated_at: new Date(now).toISOString() });
+  return { updated: !!(out.bot || out.webhooks), ...out };
 }
