@@ -629,3 +629,27 @@
   window.addEventListener("resize", fit);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
 })();
+
+// v1.36.2：網址帶 #join 這類錨點（例如登入頁「看怎麼加入」）：影片、字型晚一點載完會把上面撐高，
+// 錨點的段落就被擠到下面、畫面停在影片。載完之後再對準一次，研究員自己捲動了就不再動
+(function () {
+  var id = decodeURIComponent(location.hash.slice(1));
+  if (!id || /^(okx|bybit|bingx)$/i.test(id)) return;
+  var target = document.getElementById(id);
+  if (!target) return;
+  var done = false;
+  var stop = function () { done = true; };
+  ["wheel", "touchstart", "keydown", "mousedown"].forEach(function (ev) { window.addEventListener(ev, stop, { once: true, passive: true }); });
+  var head = document.querySelector(".top");
+  var align = function () {
+    if (done) return;
+    var y = target.getBoundingClientRect().top + window.scrollY - (head ? head.offsetHeight : 0);
+    if (Math.abs(window.scrollY - y) > 2) window.scrollTo(0, y);
+  };
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(align);
+  window.addEventListener("load", align);
+  var film = document.getElementById("filmVideo");
+  if (film) film.addEventListener("loadedmetadata", align);
+  [100, 600, 1500, 3000].forEach(function (t) { setTimeout(align, t); });
+  setTimeout(stop, 6000);
+})();
