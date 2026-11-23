@@ -252,6 +252,9 @@ export function weekOf(date) {
   return { start, end: addDays(start, 6) };
 }
 // 本週小目標（選做，不要讓人覺得被要求；2026-10-19 改輕）：三個都完成算完成一週
+// v1.37.7：「本週小目標」和頁首的連續打卡（🔥）先收起來（跟等級、徽章一起，舊的測試打開等級時一起打開）
+export const QUESTS_ON = VOLUME_TIERS_ON;
+export const STREAK_ON = VOLUME_TIERS_ON;
 export const QUESTS = [
   { id: "watch", icon: "📺", name: "看完 1 部影片", target: 1 },
   { id: "notes", icon: "✍️", name: "記 1 則筆記", target: 1 },
