@@ -4,6 +4,7 @@ import { SITE } from "./state.js";
 import { show } from "./views.js";
 import { shortDate } from "./format.js";
 import { cleanExId, exIdOk } from "../shared/rules.js";
+import { initJoin, checkJoin } from "./join.js";
 
 let mode = "login";
 let onLogin = async () => {};
@@ -49,7 +50,9 @@ export function showAuth() {
   document.title = SITE;
   const params = new URLSearchParams(location.search);
   const invite = params.get("invite");
+  checkJoin();
   if (invite) {
+    $("#legacyAuth").open = true; // 拿實驗室密碼連結來的：直接打開舊的 Email 註冊
     $("#invite").value = invite.toUpperCase();
     setMode("register");
     checkInvite();
@@ -118,7 +121,7 @@ const UID_HINT = {
 
 // 掛上表單事件；登入成功後呼叫 afterLogin
 // 網站剛更新時，瀏覽器可能拿到舊的頁面配新的程式（或反過來），找不到欄位就重新整理一次拿新的
-const AUTH_IDS = ["tabLogin", "tabRegister", "invite", "regEx", "regUidHint", "authForm", "authError", "email", "password"];
+const AUTH_IDS = ["tabJoin", "joinForm", "discordLogin", "legacyAuth", "tabLogin", "tabRegister", "invite", "regEx", "regUidHint", "authForm", "authError", "email", "password"];
 function reloadIfStale() {
   if (AUTH_IDS.every((id) => document.getElementById(id))) return false;
   return reloadOnceForStale();
@@ -140,6 +143,7 @@ function showPublicIntro() {
 export function initAuth(afterLogin) {
   if (reloadIfStale()) return;
   showPublicIntro();
+  initJoin();
   onLogin = afterLogin;
   $("#tabLogin").addEventListener("click", () => setMode("login"));
   $("#tabRegister").addEventListener("click", () => setMode("register"));

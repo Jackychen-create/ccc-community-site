@@ -38,3 +38,24 @@
 /* 註冊：交易所＋UID 並排 */
 .uid-pair { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 8px; }
 .auth-copy .intro .nw { display: inline-block; }
+
+/* v1.36.0：加入培訓計畫兩步（UID → Discord）、用 Discord 登入；舊的 Email 登入收在最下面 */
+.join-ok { margin-top: 22px; padding: 10px 14px; border: 1px solid rgba(107, 181, 146, .45); border-radius: 10px; color: var(--ink); font-size: 14px; line-height: 1.5; background: rgba(107, 181, 146, .1); }
+.join-ok + h2 { margin-top: 16px; }
+.join-consent { margin-top: 12px; font-size: 12.5px; line-height: 1.6; color: var(--ink-3); }
+#joinBack { margin-top: 10px; }
+.join-links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 12px; font-size: 14px; color: var(--ink-2); }
+.join-links a { color: var(--amber); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+#joinDiscord { display: flex; align-items: center; justify-content: center; text-align: center; }
+.legacy-auth { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 14px; }
+.legacy-auth > summary { cursor: pointer; font-size: 13.5px; color: var(--ink-3); list-style: none; text-align: center; }
+.legacy-auth > summary::-webkit-details-marker { display: none; }
+.legacy-auth > summary::after { content: " ›"; }
+.legacy-auth[open] > summary::after { content: " ⌄"; }
+.legacy-auth[open] > summary { margin-bottom: 8px; }
+.legacy-auth .seg { margin: 6px 0 0 !important; padding: 0 !important; }
+.check-line { display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; font-size: 14px; line-height: 1.5; color: var(--ink-2); cursor: pointer; }
+.check-line input { margin-top: 3px; width: 16px; height: 16px; flex: none; accent-color: var(--amber); }
+.welcome-box .field { margin-top: 18px; }
+.welcome-save { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.welcome-save .btn[hidden] { display: none; }

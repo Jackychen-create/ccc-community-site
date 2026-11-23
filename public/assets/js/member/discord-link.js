@@ -48,6 +48,9 @@ export async function openDiscordLink(after) {
 // 一鍵連結回來：#/discord-oauth?r=ok|err|cancel&n=名字&j=joined|already&g=1|0&m=錯誤訊息
 export function finishOAuth(params, done) {
   const r = params.get("r");
+  // v1.36.0：用 Discord 加入培訓計畫（welcome）、用 Discord 登入（login）回來，已經登入網站了
+  if (r === "welcome") { welcome(params); done?.(); return; }
+  if (r === "login") { toast(`歡迎回來${params.get("n") ? `，${params.get("n")}` : ""}`); done?.(); return; }
   if (r === "ok") {
     state.me.discord = { linked: true, name: params.get("n") || "" };
     const joined = params.get("j") === "joined";
@@ -72,4 +75,40 @@ export async function finishLink(token, done) {
     modal({ title: "連結沒有成功", body: el("p", { class: "sub", text: e.message }) });
   }
   done?.();
+}
+
+// 開通完成：歡迎畫面＋研究員名單的 Email（Discord 給的，可以改）＋收不收通知＋打開 Discord 研究員頻道
+async function welcome(params) {
+  if (state.me) state.me.discord = { linked: true, name: params.get("n") || "" };
+  const role = params.get("g") === "1";
+  const channel = /^https:\/\/discord\.com\/channels\//.test(params.get("c") || "") ? params.get("c") : "https://discord.com/channels/@me";
+  let c = { email: "", notify: false };
+  try { c = await api("/api/join/contact"); } catch {}
+  const email = el("input", { class: "input", type: "email", inputmode: "email", autocomplete: "email", value: c.email, placeholder: "你的 Email" });
+  const notify = el("input", { type: "checkbox" });
+  notify.checked = c.email ? c.notify : true;
+  const msg = el("p", { class: "small muted", hidden: true });
+  const save = el("button", { class: "btn sm", type: "button", text: "儲存" });
+  const dirty = () => (save.hidden = email.value.trim().toLowerCase() === c.email && notify.checked === c.notify);
+  email.addEventListener("input", dirty); notify.addEventListener("change", dirty);
+  dirty();
+  save.addEventListener("click", async () => {
+    setBusy(save, true, "儲存中…");
+    try {
+      c = await api("/api/join/contact", { method: "POST", body: { email: email.value.trim(), notify: notify.checked } });
+      msg.textContent = "已儲存"; msg.hidden = false; dirty();
+    } catch (e) { msg.textContent = e.message; msg.hidden = false; }
+    finally { setBusy(save, false); }
+  });
+  const go = el("a", { class: "btn primary lg block", href: channel, target: "_blank", rel: "noopener", text: "打開 Discord 研究員頻道" });
+  modal({
+    title: "開通完成 🎉",
+    body: el("div", { class: "welcome-box" },
+      el("p", { class: "sub", text: role ? "你已經在 CCC 的 Discord 裡，也拿到「實驗室研究員」身分組了，會員直播和研究員頻道現在都看得到。" : "你已經在 CCC 的 Discord 裡了。" }),
+      el("label", { class: "field" }, el("span", { class: "label", text: c.email ? "我們會寄重要通知到這個 Email（可以改）" : "留個 Email，直播通知才寄得到你" }), email),
+      el("label", { class: "check-line" }, notify, el("span", { text: "我同意 CCC 交易實驗室寄送直播通知與活動資訊" })),
+      el("div", { class: "welcome-save" }, save, msg),
+      el("p", { class: "small muted", text: "之後回網站看直播留檔，按「用 Discord 登入」就好，不用密碼。" })),
+    actions: [go],
+  });
 }

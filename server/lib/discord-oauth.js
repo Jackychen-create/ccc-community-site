@@ -30,12 +30,35 @@ export async function readState(state, now = Date.now()) {
   return want === m[3] ? m[1] : null;
 }
 export async function authorizeUrl(userId) {
-  const q = new URLSearchParams({ client_id: env.DISCORD_APP_ID, response_type: "code", redirect_uri: redirectUri(), scope: "identify guilds.join", state: await makeState(userId) });
-  return `https://discord.com/oauth2/authorize?${q}`;
+  return discordAuthorizeUrl("identify guilds.join", await makeState(userId));
+}
+// v1.36.0：「加入培訓計畫」「用 Discord 登入」也走同一個回網站的網址，靠 state 開頭分辨
+//   j.交易所.UID.到期.簽章 ＝ 剛在網站確認好 UID、要用 Discord 開通的新研究員
+//   l.到期.簽章           ＝ 用 Discord 登入
+// 這兩種多要 email（研究員名單、寄直播通知）
+export const discordAuthorizeUrl = (scope, state) =>
+  `https://discord.com/oauth2/authorize?${new URLSearchParams({ client_id: env.DISCORD_APP_ID, response_type: "code", redirect_uri: redirectUri(), scope, state, prompt: "none" })}`;
+export async function makeJoinState(exchange, uid, now = Date.now()) {
+  const body = `j.${exchange}.${uid}.${now + OAUTH_TTL_MS}`;
+  return `${body}.${await hmac(body)}`;
+}
+export async function makeLoginState(now = Date.now()) {
+  const body = `l.${now + OAUTH_TTL_MS}`;
+  return `${body}.${await hmac(body)}`;
+}
+// 回傳 { kind: "link", userId } / { kind: "join", exchange, uid } / { kind: "login" }；不對、過期回 null
+export async function readAnyState(state, now = Date.now()) {
+  const s = String(state || "");
+  const j = s.match(/^(j\.([A-Za-z]{2,10})\.(\d{5,20})\.(\d{13}))\.([A-Za-z0-9_-]{20,})$/);
+  if (j) return Number(j[4]) >= now && (await hmac(j[1])) === j[5] ? { kind: "join", exchange: j[2], uid: j[3] } : null;
+  const l = s.match(/^(l\.(\d{13}))\.([A-Za-z0-9_-]{20,})$/);
+  if (l) return Number(l[2]) >= now && (await hmac(l[1])) === l[3] ? { kind: "login" } : null;
+  const userId = await readState(s, now);
+  return userId ? { kind: "link", userId } : null;
 }
 
-// 回來之後：換 token → 拿 Discord 帳號 → 記下來 → 加進伺服器／補身分組
-export async function finishOAuth(userId, code) {
+// 拿 code 換 token、讀 Discord 帳號（含 email，有給 email 權限的話）
+export async function discordUserFromCode(code) {
   const base = env.DISCORD_API_BASE || "https://discord.com/api/v10";
   const tr = await fetch(`${base}/oauth2/token`, {
     method: "POST",
@@ -44,17 +67,15 @@ export async function finishOAuth(userId, code) {
     signal: AbortSignal.timeout(10000),
   });
   const tok = await tr.json().catch(() => null);
-  if (!tr.ok || !tok?.access_token) return { ok: false, error: "Discord 授權沒有完成，請再試一次" };
+  if (!tr.ok || !tok?.access_token) return { error: "Discord 授權沒有完成，請再試一次" };
   const ur = await fetch(`${base}/users/@me`, { headers: { Authorization: `Bearer ${tok.access_token}` }, signal: AbortSignal.timeout(10000) });
   const du = await ur.json().catch(() => null);
-  if (!ur.ok || !isSnowflake(du?.id || "")) return { ok: false, error: "拿不到你的 Discord 帳號，請再試一次" };
-  const other = await linkedUserOfDiscord(du.id);
-  if (other && other !== userId) return { ok: false, error: "這個 Discord 帳號已經連在別的研究員帳號上了，有問題請開客服單" };
-  const name = String(du.global_name || du.username || "").slice(0, 80) || null;
-  const { error } = await supabaseAdmin.from("member_discord").upsert({ user_id: userId, discord_user_id: du.id, discord_name: name, linked_at: new Date().toISOString() });
-  if (error) throw error;
+  if (!ur.ok || !isSnowflake(du?.id || "")) return { error: "拿不到你的 Discord 帳號，請再試一次" };
+  return { token: tok.access_token, user: du, name: String(du.global_name || du.username || "").slice(0, 80) || null, email: du.verified && du.email ? String(du.email).toLowerCase() : null };
+}
 
-  // 該不該給身分組：付費制看有沒有月費（roleWanted＝false 就只加進伺服器、不給身分組）；照舊的研究員一律給
+// 加進伺服器（不在的話）＋給「實驗室研究員」身分組（付費制看有沒有月費；照舊的研究員一律給）
+export async function joinGuild(userId, discordId, accessToken) {
   const { data: m } = await supabaseAdmin.from("members").select("banned").eq("user_id", userId).maybeSingle();
   const want = await roleWanted(userId).catch(() => null);
   const giveRole = !m?.banned && (want === true || want === null);
@@ -64,13 +85,27 @@ export async function finishOAuth(userId, code) {
     const roles = giveRole && isSnowflake(s.roleId || "") ? [s.roleId] : [];
     try {
       // 不在伺服器：直接加進去（同時帶身分組，回 201）；已經在：回 204，身分組要另外補
-      const r = await discordApi("PUT", `/guilds/${s.guildId}/members/${du.id}`, { access_token: tok.access_token, roles });
+      const r = await discordApi("PUT", `/guilds/${s.guildId}/members/${discordId}`, { access_token: accessToken, roles });
       joined = r ? "joined" : "already";
-      if (!r && roles.length) await addRole(s.guildId, du.id, roles[0]);
+      if (!r && roles.length) await addRole(s.guildId, discordId, roles[0]);
     } catch (e) {
       console.error("discord oauth join failed", e?.status, e?.message);
       joined = "error";
     }
   }
-  return { ok: true, name, joined, role: giveRole };
+  // 研究員頻道：Discord 設定裡有 labChannelId 就直接開到那個頻道
+  const channel = s.guildId ? `https://discord.com/channels/${s.guildId}${isSnowflake(s.labChannelId || "") ? `/${s.labChannelId}` : ""}` : "https://discord.com/channels/@me";
+  return { joined, role: giveRole, channel };
+}
+
+// 回來之後（連結現有的網站帳號）：換 token → 拿 Discord 帳號 → 記下來 → 加進伺服器／補身分組
+export async function finishOAuth(userId, code) {
+  const d = await discordUserFromCode(code);
+  if (d.error) return { ok: false, error: d.error };
+  const other = await linkedUserOfDiscord(d.user.id);
+  if (other && other !== userId) return { ok: false, error: "這個 Discord 帳號已經連在別的研究員帳號上了，有問題請開客服單" };
+  const { error } = await supabaseAdmin.from("member_discord").upsert({ user_id: userId, discord_user_id: d.user.id, discord_name: d.name, linked_at: new Date().toISOString() });
+  if (error) throw error;
+  const j = await joinGuild(userId, d.user.id, d.token);
+  return { ok: true, name: d.name, joined: j.joined, role: j.role };
 }

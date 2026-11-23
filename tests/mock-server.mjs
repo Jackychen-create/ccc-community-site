@@ -63,6 +63,10 @@ const obCfg = { on: false, since: null };
 const nudgeSent = new Set();
 const dcLinks = new Map(); // user_id → { id, name }
 const dcTokens = new Map();
+// v1.36.0：加入培訓計畫（UID → Discord）。預設關著（舊的測試照舊用 Email 登入），測試打 /api/__test/join-on 打開
+let joinOn = false;
+const joinHashes = new Map(); // token_hash → 網站帳號 Email
+const JOIN_LINKS = { OKX: "https://okx.com/join/99357363", Bybit: "https://partner.bybit.com/b/CCCX", BingX: "https://bingx.com/zh-tc/activity/task/5225173484?themeType=2&ref=GTUTWZ" };
 const members = [
   { user_id: users["amy@example.com"].id, email: "amy@example.com", invite_code: "K7QM-2XPA", banned: false, created_at: new Date(Date.now() - 18 * 86400e3).toISOString(), last_sign_in_at: new Date(Date.now() - 3600e3).toISOString(), watched_count: 2, min_tier: 2, min_tier_until: d(-5), note: "10 月交易量 120 口", notify: true },
   { user_id: users["banned@example.com"].id, email: "banned@example.com", invite_code: "HW3N-8RTE", banned: true, created_at: new Date(Date.now() - 9 * 86400e3).toISOString(), last_sign_in_at: null, watched_count: 0 },
@@ -254,6 +258,17 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, u);
     }
     if (p === "/sb/auth/v1/logout") return send(res, 204);
+    // v1.36.0：用 Discord 加入／登入回來，網站用一次性代碼（token_hash）登入
+    if (p === "/sb/auth/v1/verify") {
+      const b = JSON.parse(body || "{}");
+      const email = joinHashes.get(b.token_hash);
+      if (!email) return send(res, 403, { error_code: "otp_expired", msg: "Email link is invalid or has expired" });
+      joinHashes.delete(b.token_hash);
+      const t = crypto.randomBytes(8).toString("hex");
+      const user = { id: users[email].id, email, aud: "authenticated", role: "authenticated", email_confirmed_at: "2026-01-01T00:00:00Z", app_metadata: {}, user_metadata: {} };
+      tokens.set(t, user);
+      return send(res, 200, { access_token: t, token_type: "bearer", expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, refresh_token: "r" + t, user });
+    }
     return send(res, 404, {});
   }
 
@@ -352,6 +367,45 @@ const server = http.createServer(async (req, res) => {
     if (p === "/api/__test/discord-token") { const token = crypto.randomBytes(24).toString("hex"); dcTokens.set(token, { id: body.id || "111111111111111199", name: body.name || "amy_dc", exp: Date.now() + (body.expired ? -1 : 15 * 60e3) }); return send(res, 200, { token }); }
     if (p === "/api/__test/checkin") { const m = members.find((x) => x.email === body.email); if (!m) return send(res, 404, {}); const set = checkinsM.get(m.user_id) || new Set(); for (const dd of body.days || []) set.add(dd); checkinsM.set(m.user_id, set); return send(res, 200, { ok: true }); }
     // 公開影片（不用登入）
+    if (p === "/api/__test/join-on") { joinOn = body.on !== false; return send(res, 200, { ok: true }); }
+    if (p === "/api/join") {
+      if (req.method === "GET") return send(res, 200, { enabled: joinOn, links: JOIN_LINKS });
+      const ex = String(body.exchange || ""), uid = cleanExId(ex, body.uid);
+      if (!EXCHANGES.includes(ex)) return send(res, 400, { error: "請選擇你用 CCC 連結註冊的交易所", code: "bad_input" });
+      if (!/^\d{5,20}$/.test(uid)) return send(res, 400, { error: "UID 是一串數字，請再確認一次", code: "bad_input" });
+      if (uid.startsWith("9")) return send(res, 400, { error: "查不到這個 UID 是用 CCC 連結註冊的。剛註冊完的話，交易所資料要幾分鐘才會更新，請稍後再試一次；如果當初不是用 CCC 連結註冊，請用下面的連結重新註冊", code: "not_invited", links: JOIN_LINKS });
+      if (members.some((m) => m.join_uid === `${ex}:${uid}`)) return send(res, 409, { error: `這個 ${ex} UID已經加入過了。如果是你，請到「登入」用 Discord 登入`, code: "taken" });
+      return send(res, 200, { ok: true, exchange: ex, uid, url: `/api/discord-oauth/callback?state=j.${ex}.${uid}&code=mockcode123456` });
+    }
+    if (p === "/api/join/login") return send(res, 200, { url: "/api/discord-oauth/callback?state=l.mock&code=mockcode123456" });
+    if (p === "/api/discord-oauth/callback") {
+      // 假的 Discord：授權的人一律是「Amy Lin」（Discord 帳號 333333333333333333）
+      const st = url.searchParams.get("state") || "";
+      const email = "discord-333333333333333333@users.ccc-community-site.pages.dev";
+      const go = (q) => { res.writeHead(302, { Location: `/#/discord-oauth?${new URLSearchParams(q)}` }); res.end(); };
+      let isNew = false;
+      if (!users[email]) {
+        if (!st.startsWith("j.")) return go({ r: "err", m: "這個 Discord 帳號還沒加入培訓計畫。請先在這裡填交易所 UID", w: "join" });
+        const [, ex, uid] = st.split(".");
+        const id = crypto.randomUUID();
+        users[email] = { id, password: crypto.randomBytes(8).toString("hex") };
+        members.unshift({ user_id: id, email: "amy.lin@gmail.com", invite_code: null, banned: false, created_at: new Date().toISOString(), last_sign_in_at: null, watched_count: 0, access_until: null, notify: true, joined_via: "discord", join_uid: `${ex}:${uid}` });
+        autoLinks[ex]?.set(id, uid);
+        dcLinks.set(id, { id: "333333333333333333", name: "Amy Lin" });
+        isNew = true;
+      }
+      const h = crypto.randomBytes(12).toString("hex");
+      joinHashes.set(h, email);
+      return go({ r: isNew ? "welcome" : "login", t: h, n: "Amy Lin", g: "1", c: "https://discord.com/channels/100000000000000001/100000000000000003" });
+    }
+    if (p === "/api/join/contact") {
+      const u = auth(req), m = u && members.find((x) => x.user_id === u.id);
+      if (!m) return send(res, 401, { error: "請先登入" });
+      if (req.method === "GET") return send(res, 200, { email: m.email, notify: !!m.notify });
+      if (body.email !== undefined) { const e = String(body.email).trim().toLowerCase(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return send(res, 400, { error: "Email 格式不正確" }); m.email = e; }
+      if (body.notify !== undefined) m.notify = !!body.notify;
+      return send(res, 200, { ok: true, email: m.email, notify: m.notify });
+    }
     if (p === "/api/discord-oauth") return req.method === "POST" ? send(res, 503, { error: "一鍵連結還沒設定好，請先用 Discord 裡的按鈕連結" }) : send(res, 200, { enabled: false }); // v1.35.0：假伺服器沒有 Discord OAuth
     if (p === "/api/public-stats") return send(res, 200, { discord: 1234, lives: 10, liveHours: 12, featured: [{ at: Date.now() - 864e5, text: "等掃完前低才進，停損放在掃蕩低點下面，這筆照規則出場。", votes: 5 }] });
     if (p === "/api/public-market") { // 對外網站行情（假資料）
@@ -407,7 +461,7 @@ const server = http.createServer(async (req, res) => {
         mrow.notify = body.notify;
         return send(res, 200, { ok: true, notify: body.notify });
       }
-      return send(res, 200, { links: mrow ? EXCHANGES.map((ex) => ({ exchange: ex, auto: AUTO_EXCHANGES.includes(ex), enabled: true, uid: autoLinks[ex].get(mrow.user_id) || null, accountName: accNames.get(`${ex}:${mrow.user_id}`) || null, needsName: needsName(ex), boundAt: null })) : null, feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: u.email, isAdmin: admin, adminRole: admin ? role : null, tier: mrow ? ts.tier : null, streak: mrow ? checkinM(mrow) : null, legacyLink: mrow ? legacyUm.has(mrow.user_id) : false, invites: mrow ? Object.fromEntries(Object.entries(discordSettings.invites || {}).filter(([ex, x]) => EXCHANGES.includes(ex) && /^https:\/\//.test(String(x)))) : {}, free: !!mrow?.free, theme: mrow?.theme || null, notify: mrow ? mrow.notify !== false : null, discord: mrow ? { linked: dcLinks.has(mrow.user_id), name: dcLinks.get(mrow.user_id)?.name || "" } : null, nextLive: (() => { const l = liveNext(); return l ? { title: l.title, startsAt: l.starts_at, hosts: l.hosts || [], note: l.note, link: l.link } : null; })(), volume: mrow ? (() => { const p = curP(mrow); const v = vols.get(mrow.user_id + ":" + p.start); return { periodStart: p.start, periodEnd: p.end, nextEnd: nextPeriod(anchorOf(mrow), p).end, exchanges: EX, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, tier: ts.tier, tierUntil: ts.until, cycleTier: ts.cycleTier, paid: ts.paid || null, milestone: mrow.free || ts.paid ? null : msUnseen(mrow, p) }; })() : null });
+      return send(res, 200, { links: mrow ? EXCHANGES.map((ex) => ({ exchange: ex, auto: AUTO_EXCHANGES.includes(ex), enabled: true, uid: autoLinks[ex].get(mrow.user_id) || null, accountName: accNames.get(`${ex}:${mrow.user_id}`) || null, needsName: needsName(ex), boundAt: null })) : null, feedbackUnread: feedback.filter((x) => x.user_id === u.id && x.seen_reply === false).length, email: String(u.email).endsWith("@users.ccc-community-site.pages.dev") ? mrow?.email || "研究員" : u.email, isAdmin: admin, adminRole: admin ? role : null, tier: mrow ? ts.tier : null, streak: mrow ? checkinM(mrow) : null, legacyLink: mrow ? legacyUm.has(mrow.user_id) : false, invites: mrow ? Object.fromEntries(Object.entries(discordSettings.invites || {}).filter(([ex, x]) => EXCHANGES.includes(ex) && /^https:\/\//.test(String(x)))) : {}, free: !!mrow?.free, theme: mrow?.theme || null, notify: mrow ? mrow.notify !== false : null, discord: mrow ? { linked: dcLinks.has(mrow.user_id), name: dcLinks.get(mrow.user_id)?.name || "" } : null, nextLive: (() => { const l = liveNext(); return l ? { title: l.title, startsAt: l.starts_at, hosts: l.hosts || [], note: l.note, link: l.link } : null; })(), volume: mrow ? (() => { const p = curP(mrow); const v = vols.get(mrow.user_id + ":" + p.start); return { periodStart: p.start, periodEnd: p.end, nextEnd: nextPeriod(anchorOf(mrow), p).end, exchanges: EX, amounts: v?.amounts || null, updatedAt: v?.updated_at || null, tier: ts.tier, tierUntil: ts.until, cycleTier: ts.cycleTier, paid: ts.paid || null, milestone: mrow.free || ts.paid ? null : msUnseen(mrow, p) }; })() : null });
     }
     if (p === "/api/badges") {
       const all = BADGES.map(({ id, icon, name, desc }) => ({ id, icon, name, desc }));

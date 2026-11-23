@@ -10,6 +10,7 @@ import { $, api, sb, store, whatsNew, confirmDialog, tutorial } from "../core/in
 import { state, SITE } from "./state.js";
 import { show, showBlocked, showUnavailable, leavePage } from "./views.js";
 import { showAuth, initAuth } from "./auth.js";
+import { showJoinError } from "./join.js";
 import { renderMenu } from "./menu.js";
 import { loadBadges, syncThemeFromAccount } from "./badges.js";
 import { loadOneOnOne } from "./oneonone.js";
@@ -159,6 +160,24 @@ sb.auth.onAuthStateChange((event) => {
 });
 
 (async function boot() {
+  // v1.36.0：加入培訓計畫、用 Discord 登入回來：用一次性代碼登入網站，代碼用完就從網址拿掉
+  if (location.hash.startsWith("#/discord-oauth?")) {
+    const q = new URLSearchParams(location.hash.slice(location.hash.indexOf("?") + 1));
+    const t = q.get("t");
+    if (t) {
+      q.delete("t");
+      history.replaceState(null, "", `${location.pathname}${location.search}#/discord-oauth?${q}`);
+      const { error } = await sb.auth.verifyOtp({ token_hash: t, type: "magiclink" });
+      if (error) { history.replaceState(null, "", location.pathname + location.search); showAuth(); return showJoinError("登入沒有完成，請按「用 Discord 登入」再試一次", "signin"); }
+    } else if (q.get("r") === "err") {
+      const { data: d } = await sb.auth.getSession();
+      if (!d.session) {
+        history.replaceState(null, "", location.pathname + location.search);
+        showAuth();
+        return showJoinError(q.get("m") || "請再試一次", q.get("w") === "join" ? "join" : "signin");
+      }
+    }
+  }
   const { data } = await sb.auth.getSession();
   if (!data.session) return showAuth();
   await enterApp();
