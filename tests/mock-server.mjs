@@ -352,6 +352,7 @@ const server = http.createServer(async (req, res) => {
     if (p === "/api/__test/discord-token") { const token = crypto.randomBytes(24).toString("hex"); dcTokens.set(token, { id: body.id || "111111111111111199", name: body.name || "amy_dc", exp: Date.now() + (body.expired ? -1 : 15 * 60e3) }); return send(res, 200, { token }); }
     if (p === "/api/__test/checkin") { const m = members.find((x) => x.email === body.email); if (!m) return send(res, 404, {}); const set = checkinsM.get(m.user_id) || new Set(); for (const dd of body.days || []) set.add(dd); checkinsM.set(m.user_id, set); return send(res, 200, { ok: true }); }
     // 公開影片（不用登入）
+    if (p === "/api/discord-oauth") return req.method === "POST" ? send(res, 503, { error: "一鍵連結還沒設定好，請先用 Discord 裡的按鈕連結" }) : send(res, 200, { enabled: false }); // v1.35.0：假伺服器沒有 Discord OAuth
     if (p === "/api/public-stats") return send(res, 200, { discord: 1234, lives: 10, liveHours: 12, featured: [{ at: Date.now() - 864e5, text: "等掃完前低才進，停損放在掃蕩低點下面，這筆照規則出場。", votes: 5 }] });
     if (p === "/api/public-market") { // 對外網站行情（假資料）
       const spark = Array.from({ length: 25 }, (_, i) => 70000 + Math.sin(i / 3) * 800 + i * 40);

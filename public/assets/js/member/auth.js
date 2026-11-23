@@ -189,6 +189,7 @@ export function initAuth(afterLogin) {
     setAuthError("");
     try {
       if (mode === "register") {
+        try { sessionStorage.setItem("justJoined", "1"); } catch {} // 登入後跳出「連結 Discord」
         await api("/api/register", { method: "POST", body: noEx ? { email, password, inviteCode: invite } : { email, password, inviteCode: invite, exchange, uid } });
       }
       const { error } = await sb.auth.signInWithPassword({ email, password });
