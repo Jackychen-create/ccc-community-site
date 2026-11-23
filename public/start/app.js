@@ -18,8 +18,9 @@
       if (d) { e.preventDefault(); pick(tabs[(i + d + tabs.length) % tabs.length], true); }
     });
   });
-  var want = { "#okx": "t-okx", "#bybit": "t-bybit", "#bingx": "t-bingx" }[location.hash.toLowerCase()];
-  if (want) { pick(document.getElementById(want)); document.getElementById("exchanges").scrollIntoView(); }
+  // v1.37.8：#okx 這類網址只選那一間，不捲過去（一律從最上面開始，見 gate.js）
+  var want = { "#okx": "t-okx", "#bybit": "t-bybit", "#bingx": "t-bingx" }[window.__startHash || ""];
+  if (want) pick(document.getElementById(want));
   else if (tabs[0]) pick(tabs[0]);
 
   // 卡片的光：游標在卡片上哪裡，那裡亮一點（只有滑鼠）
@@ -327,7 +328,7 @@
       if (i >= 0 && i !== idx) pick(i, true);
     });
   });
-  var want = { "#okx": 0, "#bybit": 1, "#bingx": 2 }[location.hash.toLowerCase()];
+  var want = { "#okx": 0, "#bybit": 1, "#bingx": 2 }[window.__startHash || ""];
   pick(want || 0, true);
   window.addEventListener("resize", layout);
 })();
@@ -630,22 +631,36 @@
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
 })();
 
-// v1.36.2：網址帶 #join 這類錨點（例如登入頁「看怎麼加入」）：影片、字型晚一點載完會把上面撐高，
-// 錨點的段落就被擠到下面、畫面停在影片。載完之後再對準一次，研究員自己捲動了就不再動
+// v1.37.8：打開介紹頁一律從最上面開始；要直接到某一段用 ?go=join（登入頁的「看怎麼加入」）
+// 影片、字型晚一點載完會把上面撐高，所以載完之後再對準一次；研究員自己捲動了就不再動
+// 頁面裡的選單、「→」連結：平滑捲到那一段，網址不加 #（重新整理、分享出去都從最上面開始）
 (function () {
-  var id = decodeURIComponent(location.hash.slice(1));
-  if (!id || /^(okx|bybit|bingx)$/i.test(id)) return;
-  var target = document.getElementById(id);
-  if (!target) return;
+  var head = document.querySelector(".top");
+  var topOf = function (el) { return el.getBoundingClientRect().top + window.scrollY - (head ? head.offsetHeight : 0); };
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest && e.target.closest('a[href^="#"]');
+    if (!a || e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    var id = a.getAttribute("href").slice(1);
+    if (!id) return;
+    var el = id === "top" ? null : document.getElementById(id);
+    if (id !== "top" && !el) return;
+    e.preventDefault();
+    window.scrollTo({ top: el ? topOf(el) : 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    if (el && id === "main") { el.setAttribute("tabindex", "-1"); el.focus({ preventScroll: true }); }
+  });
+
+  var go = new URLSearchParams(location.search).get("go");
+  var target = go && /^[a-z]+$/.test(go) ? document.getElementById(go) : null;
+  if (go) { try { history.replaceState(null, "", location.pathname); } catch (e) {} }
   var done = false;
   var stop = function () { done = true; };
   ["wheel", "touchstart", "keydown", "mousedown"].forEach(function (ev) { window.addEventListener(ev, stop, { once: true, passive: true }); });
-  var head = document.querySelector(".top");
   var align = function () {
     if (done) return;
-    var y = target.getBoundingClientRect().top + window.scrollY - (head ? head.offsetHeight : 0);
+    var y = target ? topOf(target) : 0;
     if (Math.abs(window.scrollY - y) > 2) window.scrollTo(0, y);
   };
+  align();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(align);
   window.addEventListener("load", align);
   var film = document.getElementById("filmVideo");
