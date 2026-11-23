@@ -953,3 +953,17 @@ body::after { animation: none !important; }
 /* v1.33.62：標題下面的一句話放大一點 */
 .intro.intro-lg { font-size: 19px; color: var(--ink-2); letter-spacing: .04em; }
 @media (max-width: 760px) { .intro.intro-lg { font-size: 16.5px; } }
+
+/* v1.34.1 手機：交易所卡片滑動後不會卡在「變暗、模糊」；頁首按鈕改低調，讓 CCC 標誌當主角（電腦版不變） */
+@media (max-width: 760px) {
+  /* iPhone 的 Safari 在 filter 動畫中換卡片時，會把中間那張留在旁邊卡片的暗、糊狀態。手機改用透明度表現前後 */
+  .oc, .oc:hover, .oc[aria-current="true"], .oc:not([aria-current="true"]), .oc:not([aria-current="true"]):hover { filter: none !important; }
+  .oc { will-change: auto; transition: transform .7s cubic-bezier(.2, .8, .2, 1), opacity .7s; }
+  .oc:not([aria-current="true"]) { opacity: .5; }
+  .oc[aria-current="true"] { opacity: 1; }
+  /* 頁首兩顆按鈕：透明底、細框、字小一點 */
+  .top-in .btn.sm, .top-in .btn.primary.sm { background: transparent; border: 1px solid rgba(236, 228, 214, .28); color: rgba(236, 228, 214, .82); box-shadow: none; font-weight: 500; height: 30px; font-size: 12.5px; padding: 0 10px; }
+  .top-in .btn.sm:hover, .top-in .btn.primary.sm:hover { background: rgba(236, 228, 214, .08); border-color: rgba(236, 228, 214, .45); box-shadow: none; }
+  .top-in .btn.primary.sm::after { display: none; }
+  .brand-mark { height: 32px; }
+}
