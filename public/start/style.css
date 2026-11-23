@@ -980,3 +980,43 @@ body::after { animation: none !important; }
 :root { --ink: #F7F5F1; --ink-2: #D2CFC9; --ink-3: #ABA8A2; }
 .host p, .steps p, .how span, .card p, .feat span, .faq p, details p { color: var(--ink-2); }
 .host-tag { color: var(--ink); }
+
+/* v1.37.11：手機版的層次（電腦版不變）
+   段落標題上面一行金色小標（這一段在講什麼）→ 大標題（最亮最大）→ 卡片標題（白、中）→ 內文（淡、小）
+   數字、重點用金色帶眼睛，不再每個字一樣大一樣亮 */
+@media (max-width: 760px) {
+  .sec { padding: 64px 0 56px; }
+  .sec h2[data-k]::before {
+    content: attr(data-k); display: flex; align-items: center; gap: 10px;
+    margin-bottom: 12px; font: 600 12.5px/1 var(--f-text); letter-spacing: .28em; color: #D9B26A;
+  }
+  .sec h2[data-k]::after { content: none; }
+  .sec h2[data-k] { font-size: 30px; line-height: 1.25; color: #fff; }
+  .sec h2[data-k] .h2-kicker { font-size: .5em; color: #A9A6A0; margin-bottom: 6px; }
+  .sec .intro, .sec .intro.intro-lg { font-size: 15px; color: #9E9B95; margin-top: 10px; }
+
+  /* 主講 */
+  .host h3 { font-size: 26px; color: #fff; }
+  .host .host-tag { font-size: 15px; font-weight: 600; color: #D9B26A; margin-top: 4px; }
+  .host p:not(.host-tag) { font-size: 14.5px; color: #A9A6A0; }
+
+  /* 四步、說明卡片：標題白、內文淡 */
+  .steps li h3, #site .card h3 { font-size: 18px; color: #fff; }
+  .steps li p, #site .card p { font-size: 14.5px; line-height: 1.7; color: #A9A6A0; }
+  .steps li p strong { color: #fff; }
+  .steps .step-n { color: #D9B26A; }
+  .steps .more, #site .card .go { color: #E6DAC4; }
+
+  /* 交易所：步驟標題白、說明淡，交易所名稱最大 */
+  .ex-head h3 { font-size: 26px; color: #fff; }
+  .how li b { font-size: 16px; color: #fff; }
+  .how li span { font-size: 14px; color: #A9A6A0; }
+  .warn-box b { font-size: 15.5px; }
+  .warn-box p { font-size: 14px; color: #C9C6C0; }
+
+  /* Discord、常見問題 */
+  .feat li b { font-size: 16.5px; color: #fff; }
+  .feat li span { font-size: 14px; color: #A9A6A0; }
+  #faq summary { font-size: 16px; color: #fff; }
+  #faq details p { font-size: 14.5px; color: #A9A6A0; }
+}
