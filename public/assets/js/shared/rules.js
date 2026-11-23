@@ -299,6 +299,9 @@ export const ALL_BADGES = [
 const VOLUME_BADGES = ["first_trade", "half", "qualified", "tier3", "streak3", "host6", "course18"];
 export const BADGES = VOLUME_TIERS_ON ? ALL_BADGES : ALL_BADGES.filter((b) => !VOLUME_BADGES.includes(b.id));
 export const badgeById = (id) => ALL_BADGES.find((b) => b.id === id) || null;
+// v1.37.2：徽章整個收起來（右欄「我的徽章」、拿到新徽章的恭喜都不顯示；已經拿到的記錄還在資料庫）
+// 跟等級一起：舊的測試打開等級時徽章也一起打開
+export const BADGES_ON = VOLUME_TIERS_ON;
 export const earnedBadges = (f) => BADGES.filter((b) => b.test(f)).map((b) => b.id);
 
 // ── 外觀主題（2026-10-18）──
