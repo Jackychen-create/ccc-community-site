@@ -975,3 +975,8 @@ body::after { animation: none !important; }
   .orbit { margin-top: -80px; }
   .earth { --top: calc(100% - 262px); }
 }
+
+/* v1.37.4：介紹網站的字調亮一點（內文、說明、小字在黑底上更清楚） */
+:root { --ink: #F7F5F1; --ink-2: #D2CFC9; --ink-3: #ABA8A2; }
+.host p, .steps p, .how span, .card p, .feat span, .faq p, details p { color: var(--ink-2); }
+.host-tag { color: var(--ink); }
