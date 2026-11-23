@@ -171,7 +171,7 @@ function membershipBar() {
   if (!membership) return null;
   const input = el("input", { type: "date", class: "input", value: membership.unitFrom || "", "aria-label": "單位制開始日期", style: { width: "170px" } });
   const status = membership.on
-    ? `現在是單位制（${membership.unitFrom} 起）：累計交易量每 ${UNIT_USDT / 1e4} 萬解鎖一份系統分享、${ONE_ON_ONE_USDT / 1e4} 萬可以一對一，直播留檔加入就能看。`
+    ? `現在是單位制（${membership.unitFrom} 起）：累計交易量每 ${UNIT_USDT / 1e4} 萬解鎖一份系統分享、${ONE_ON_ONE_USDT / 1e4} 萬可以一對一，直播紀錄加入就能看。`
     : membership.unitFrom
     ? `${membership.unitFrom} 起改成單位制，在那之前照三級制度。`
     : "現在是三級制度。設定日期後，那天起改成單位制（累計每 20 萬解鎖一份系統分享）。";

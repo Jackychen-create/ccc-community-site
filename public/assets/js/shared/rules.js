@@ -75,11 +75,11 @@ export const unitOf = (ex) => (isLots(ex) ? "手" : "USDT");
 // 贈送名額不分級：網站內容照第二級開，但不顯示等級、不升降級、不收升級通知
 export const TIERS = [
   { tier: 1, usdt: 10000, lots: 0.01, perks: ["Discord 研究員身分組", "會員直播（不提供留檔）", "每一組系統分享的第 1 份"] },
-  { tier: 2, usdt: 200000, lots: 2, perks: ["全部交易系統分享影音（之後的更新）", "直播留檔", "研究員專屬網站"] },
+  { tier: 2, usdt: 200000, lots: 2, perks: ["全部交易系統分享影音（之後的更新）", "直播紀錄", "研究員專屬網站"] },
   { tier: 3, usdt: 1500000, lots: 15, perks: ["系統分享全部直接解鎖，不用等排程", "每個月一次一對一交流（CCC、X 二選一）"] },
 ];
 export const MAX_TIER = TIERS.length;
-export const SITE_TIER = 2; // 網站內容（直播留檔、系統分享、教材、筆記）要第二級
+export const SITE_TIER = 2; // 網站內容（直播紀錄、系統分享、教材、筆記）要第二級
 // 第一級也看得到系統分享每位主講的第 1 份（每位主講各一部，照原本的解鎖時間），第 2 份以後的更新要第二級（2026-10-18）
 export const TIER1_COURSE_PARTS = 1;
 export const courseTierOk = (tier, part) => tier >= SITE_TIER || (tier >= 1 && part <= TIER1_COURSE_PARTS);
@@ -129,6 +129,12 @@ export function tierRuleText(tier, exchanges = EXCHANGES) {
 //   anchor：加入那天；amountsOf(periodStart) → 那一輪的交易量；override：{ tier, until }（until 空白＝不限）
 //   回傳 { tier, until, cycleTier, period }：tier 今天的等級、until 這個等級至少到哪天、cycleTier 這一輪自己達到的等級（＝下一輪的等級）
 export const FIRST_CYCLE_TIER = 2; // 第一輪先給第幾級（不管公告前後加入都一樣）
+// 2026-11-23（v1.37.0）拿掉交易量門檻：VOLUME_TIERS_ON = false → 加入就是第二級（網站內容全開），不看交易量、不升降級
+//   一對一交流（第三級）先拿掉，所以等級一律第二級。伺服器在 server/lib/tier.js 照這個決定（openTier）；
+//   下面三級制度、單位制的算法先留著（之後要恢復，把 VOLUME_TIERS_ON 改回 true）
+// 測試用：舊的等級測試在載入前設 globalThis.__CCC_TIERS_ON = true（tests/tiers-on.mjs），驗證留著的算法還是對的
+export const VOLUME_TIERS_ON = globalThis.__CCC_TIERS_ON === true;
+export const openTier = (anchor, today) => ({ tier: SITE_TIER, until: null, cycleTier: SITE_TIER, period: periodOf(anchor, today) });
 export function tierStatus({ anchor, today, amountsOf, override = null }) {
   const period = periodOf(anchor, today);
   const prev = prevPeriod(anchor, period);
@@ -149,13 +155,14 @@ export function tierStatus({ anchor, today, amountsOf, override = null }) {
 // ── 單位制（2026-11-11 規劃；後台「交易量」設定開始日期，那天起取代三級制度）──
 // 不分一輪一輪：從加入那天起的交易量全部累計（各交易所加起來），只會往上
 //   每 20 萬解鎖一份系統分享（第 N 份＝CCC、X 的第 N 份一起開，6 份全開要 120 萬），解鎖了就永久，不用等每週排程
-//   直播留檔、研究員專區：加入就能看（等級一律當第二級）
+//   直播紀錄、研究員專區：加入就能看（等級一律當第二級）
 //   一對一交流：累計 100 萬（等級當第三級）
 // 管理員手動給第三級＝系統分享全開、可以一對一；贈送名額＝系統分享全開（不能一對一）
 export const UNIT_USDT = 200000;
 export const LOT_USDT = 100000;
 export const ONE_ON_ONE_USDT = 1000000;
-export const isUnitOn = (unitFrom, today) => /^\d{4}-\d\d-\d\d$/.test(String(unitFrom || "")) && today >= unitFrom;
+// 2026-11-23（v1.37.0）停用：交易量不再解鎖任何東西（後台設了日期也不會開）
+export const isUnitOn = (unitFrom, today) => VOLUME_TIERS_ON && /^\d{4}-\d\d-\d\d$/.test(String(unitFrom || "")) && today >= unitFrom;
 // 一筆交易量換算成 USDT（用手算的交易所 × LOT_USDT；目前沒有）
 export function usdtEquiv(amounts) {
   let s = 0;
@@ -176,9 +183,9 @@ export const unitPartOpen = (u, part) => !!u && u.units >= part;
 // 後台「付費」設定 paidFrom（日期）：那天起「新加入」的研究員改成付費；之前加入的照原本的規則（三級制度／單位制），不用付錢
 //   legacyUntil：舊研究員照舊到哪天（空白＝一直照舊）；過了那天舊研究員也改成付費。贈送名額一直照舊
 // 付費的研究員：
-//   月費（信用卡定期定額，每月自動扣）→ 直播留檔、研究員專區、Discord 研究員身分組（會員直播）
+//   月費（信用卡定期定額，每月自動扣）→ 直播紀錄、研究員專區、Discord 研究員身分組（會員直播）
 //   系統分享單集購買 → 第 N 集＝CCC、X 的第 N 份一起開，一次付清、永久看，不用等每週排程，也不用訂月費
-//   沒訂月費也能登入、看自己買的集數、記筆記、提問；直播留檔要月費
+//   沒訂月費也能登入、看自己買的集數、記筆記、提問；直播紀錄要月費
 //   扣款失敗：到期後寬限 PAY_GRACE_DAYS 天
 //   管理員手動給第二級＝等於有月費；第三級＝系統分享全開＋可以一對一
 // 價格存在後台設定（預設下面兩個）
@@ -202,7 +209,7 @@ export function paidStatus({ subUntil = null, parts = [], override = 0, today })
 }
 export const paidPartOpen = (p, part) => !!p && p.parts.includes(Number(part));
 // 綠界的訂單編號：英數字 20 字以內
-export const PAY_ITEMS = { monthly: "月費（直播、直播留檔）", part: (n) => `系統分享第 ${n} 集（CCC、X）` };
+export const PAY_ITEMS = { monthly: "月費（直播、直播紀錄）", part: (n) => `系統分享第 ${n} 集（CCC、X）` };
 
 // ── 一對一交流（第三級，2026-10-18）──
 // 第三級的研究員每個月（台灣時間的月份）從主講裡選一位（OC 2026-11-09 停止合作後是 CCC、X 二選一）；每位主講一個月最多 5 位
@@ -272,15 +279,15 @@ export const BUCKET_SEC = 30;
 // 伺服器整理每位研究員的「事實」（facts），用 earnedBadges 算出拿到哪些徽章；拿到的記在 badges 表，第一次拿到會跳恭喜
 // facts：traded 有交易量、bestPct 單輪往第二級的最高進度（%）、qualified 幾輪到第二級以上、maxTier 單輪最高等級、
 //        streak 最多連續幾輪第二級以上、hostsDone 看完全部 6 份的主講（陣列）、courseDone 看完幾份課程、
-//        liveDone 看完幾場直播留檔、notes 寫了幾則筆記、questions 提問幾次、questWeeks 完成幾週小目標、bestStreak 最長連續打卡幾天
+//        liveDone 看完幾場直播紀錄、notes 寫了幾則筆記、questions 提問幾次、questWeeks 完成幾週小目標、bestStreak 最長連續打卡幾天
 // 「看完」＝看到片長的 95%（跟後台觀看統計一樣）
-export const BADGES = [
+export const ALL_BADGES = [
   { id: "first_trade", icon: "🌱", name: "第一筆", desc: "第一次有交易量", test: (f) => f.traded },
   { id: "half", icon: "⛰️", name: "半山腰", desc: "單輪交易量到第二級的一半", test: (f) => f.bestPct >= 50 },
   { id: "qualified", icon: "🏅", name: "第二級", desc: "第一次在一輪內升到第二級", test: (f) => f.qualified >= 1 },
   { id: "tier3", icon: "🏆", name: "第三級", desc: "第一次在一輪內升到第三級", test: (f) => f.maxTier >= 3 },
   { id: "streak3", icon: "🔥", name: "連續三輪", desc: "連續 3 輪第二級以上", test: (f) => f.streak >= 3 },
-  { id: "live10", icon: "📺", name: "全勤觀眾", desc: "看完 10 場直播留檔", test: (f) => f.liveDone >= 10 },
+  { id: "live10", icon: "📺", name: "全勤觀眾", desc: "看完 10 場直播紀錄", test: (f) => f.liveDone >= 10 },
   { id: "host6", icon: "🎓", name: "學完一位", desc: "看完任一位主講的 6 份課程", test: (f) => f.hostsDone.length >= 1 },
   { id: "course18", icon: "🧠", name: "全部修完", desc: "看完全部系統分享", test: (f) => f.courseDone >= COURSE_TOTAL }, // id 沿用（已經拿到的人記錄在資料庫）
   { id: "notes10", icon: "✍️", name: "筆記達人", desc: "寫了 10 則筆記", test: (f) => f.notes >= 10 },
@@ -288,7 +295,10 @@ export const BADGES = [
   { id: "quests4", icon: "🗓️", name: "小目標達人", desc: "累積 4 週完成本週小目標", test: (f) => (f.questWeeks || 0) >= 4 },
   { id: "streak7", icon: "⚡", name: "七日連登", desc: "連續 7 天打開網站", test: (f) => (f.bestStreak || 0) >= 7 },
 ];
-export const badgeById = (id) => BADGES.find((b) => b.id === id) || null;
+// v1.37.0：拿掉交易量門檻、系統分享改成交易分享 → 跟交易量、等級、系統分享有關的徽章先收起來（已經拿到的記錄還在資料庫）
+const VOLUME_BADGES = ["first_trade", "half", "qualified", "tier3", "streak3", "host6", "course18"];
+export const BADGES = VOLUME_TIERS_ON ? ALL_BADGES : ALL_BADGES.filter((b) => !VOLUME_BADGES.includes(b.id));
+export const badgeById = (id) => ALL_BADGES.find((b) => b.id === id) || null;
 export const earnedBadges = (f) => BADGES.filter((b) => b.test(f)).map((b) => b.id);
 
 // ── 外觀主題（2026-10-18）──
@@ -307,5 +317,5 @@ export const themeById = (id) => THEMES.find((t) => t.id === id) || null;
 // 這個人能不能用這個主題：earned = 已經拿到的徽章 id
 export const themeUnlocked = (id, earned = [], isAdmin = false) => {
   const t = themeById(id);
-  return !!t && (isAdmin || !t.unlock || earned.includes(t.unlock));
+  return !!t && (isAdmin || !t.unlock || !VOLUME_TIERS_ON || earned.includes(t.unlock)); // v1.37.0：解鎖用的徽章收起來了，主題全部開放
 };

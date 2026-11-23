@@ -5,7 +5,7 @@ export const SITE = cfg.SITE_NAME || "交易實驗室";
 
 export const state = {
   me: null, // /api/me 的結果
-  videos: [], // 直播留檔列表
+  videos: [], // 直播紀錄列表
   loadedList: false,
   course: null, // /api/course 的結果
   current: null, // 正在看的影片

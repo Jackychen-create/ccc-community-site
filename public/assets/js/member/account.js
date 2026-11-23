@@ -3,7 +3,7 @@ import { $, el, icons, fmtRel, api, sb, modal, confirmDialog, setBusy, toast, cf
 import { state } from "./state.js";
 import { emblem, levelUp } from "./levelup.js";
 import { DAY, md } from "./format.js";
-import { UNIT_USDT, ONE_ON_ONE_USDT, COURSE_PARTS, AUTO_EXCHANGES, TIERS, MAX_TIER, SITE_TIER, tierName, tierInfo, tierRuleText, goalFor, fmtAmount, gapTo, progressTo, isLots, addDays, TRADFI_NOTE, cleanExId, exIdOk, exIdError } from "../shared/rules.js";
+import { UNIT_USDT, ONE_ON_ONE_USDT, COURSE_PARTS, AUTO_EXCHANGES, TIERS, MAX_TIER, SITE_TIER, tierName, tierInfo, tierRuleText, goalFor, fmtAmount, gapTo, progressTo, isLots, addDays, TRADFI_NOTE, cleanExId, exIdOk, exIdError, VOLUME_TIERS_ON } from "../shared/rules.js";
 
 const twToday = () => new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
 const withUnit = (ex, n) => `${fmtAmount(ex, n)}${isLots(ex) ? "" : " USDT"}`;
@@ -14,6 +14,7 @@ export const targetTier = (v) => (v.cycleTier < v.tier ? v.tier : Math.min(MAX_T
 export function renderAccessBanner() {
   const v = state.me?.volume;
   const box = $("#accessBanner");
+  if (!VOLUME_TIERS_ON && !v?.paid) return (box.hidden = true); // v1.37.0：沒有交易量門檻，不用提醒
   if (!v || state.me.free || v.unit || v.paid) return (box.hidden = true); // 單位制只會往上、付費制看「我的方案」，不用提醒
   if (v.tier === 0) {
     box.hidden = false;
@@ -34,6 +35,7 @@ export function renderVolPanel() {
   const box = $("#volPanel");
   const v = state.me?.volume;
   if (!v) return (box.hidden = true);
+  if (!VOLUME_TIERS_ON && !v.paid) return (box.hidden = true); // v1.37.0：沒有等級、交易量，右欄不放「我的等級」
   box.hidden = false;
   // 贈送名額：一直是第二級；交易所 UID 想填再填
   if (state.me.free) {
@@ -85,7 +87,7 @@ function paidPanel(p) {
       ...Array.from({ length: COURSE_PARTS }, (_, i) => el("li", { class: p.parts.includes(i + 1) ? "on" : "", title: `系統分享第 ${i + 1} 集${p.parts.includes(i + 1) ? "（已買）" : ""}` },
         el("b", { class: "num", text: String(i + 1) }),
         el("span", { text: p.parts.includes(i + 1) ? "已買" : "—" })))),
-    el("p", { class: "small tier-status", text: p.sub ? "直播留檔、會員直播都打開了。" : "訂閱月費就能看直播和直播留檔；系統分享可以一集一集買。" }),
+    el("p", { class: "small tier-status", text: p.sub ? "直播紀錄、會員直播都打開了。" : "訂閱月費就能看直播和直播紀錄；系統分享可以一集一集買。" }),
     el("div", { style: { padding: "0 18px 16px" } }, el("a", { class: "btn block", href: "#/plans", text: p.sub ? "管理方案" : "看方案" })),
   ];
 }
@@ -116,7 +118,7 @@ function unitPanel(v) {
         el("span", { class: "num vol-n", text: u.oneOnOne ? "可以預約" : `${fmtAmount("", u.cum)}／${fmtAmount("", ONE_ON_ONE_USDT)}` }),
         el("span", { class: "track" }, el("i", { style: { width: pct(u.cum, ONE_ON_ONE_USDT) } })))),
     linkRows(),
-    el("p", { class: "small muted vol-note", text: `每累計 ${fmtAmount("", UNIT_USDT)} USDT 解鎖一份系統分享，解鎖了就不會再鎖；各交易所加起來算。直播留檔加入就能看。` + (v.updatedAt ? `上次更新：${fmtRel(v.updatedAt)}。` : "") + (v.exchanges.includes("Bybit") ? TRADFI_NOTE : "") }),
+    el("p", { class: "small muted vol-note", text: `每累計 ${fmtAmount("", UNIT_USDT)} USDT 解鎖一份系統分享，解鎖了就不會再鎖；各交易所加起來算。直播紀錄加入就能看。` + (v.updatedAt ? `上次更新：${fmtRel(v.updatedAt)}。` : "") + (v.exchanges.includes("Bybit") ? TRADFI_NOTE : "") }),
   ].filter(Boolean);
 }
 
@@ -133,7 +135,7 @@ function tierLadder(v) {
 export function celebrateMilestone() {
   const v = state.me?.volume;
   const ms = v?.milestone;
-  if (!ms || state.me.isAdmin) return;
+  if (!ms || state.me.isAdmin || !VOLUME_TIERS_ON) return;
   let tries = 0;
   const open = () => {
     if (document.querySelector(".modal-back, .lvl-back")) return ++tries < 120 && setTimeout(open, 1000);
@@ -245,6 +247,7 @@ let uidRequiredOpen = false; // 一定要填的視窗已經開了（或在等）
 export function promptUidIfMissing() {
   const me = state.me;
   if (!me?.links || me.isAdmin || me.free || me.volume?.paid) return; // 贈送名額、付費制（v1.28.0）不用填
+  if (!VOLUME_TIERS_ON) return; // v1.37.0：交易量不影響什麼，不再追著要 UID
   const missing = !me.links.some((l) => l.uid) && !me.legacyLink;
   if (!missing) return;
   try {

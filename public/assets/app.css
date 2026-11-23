@@ -16,3 +16,4 @@
 @import url("css/game.css"); /* 遊戲感：等級徽章、升級畫面 */
 @import url("css/public.css"); /* 公開影片頁（/watch）、登入頁的「先看介紹」 */
 @import url("css/themes.css"); /* 外觀主題（換顏色代號）、選主題視窗；放最後才蓋得過 base.css */
+@import url("css/lab.css"); /* v1.37.0 預設主題跟介紹網站同一套：黑底星空、金色標誌、襯線標題、直角細光框 */

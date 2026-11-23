@@ -41,20 +41,14 @@ const closeAll = async (p) => { const seen = []; for (let i = 0; i < 6; i++) { a
   check("繼續看、課程、筆記這些不顯示", !(await p.isVisible("#continueList")) && !(await p.isVisible("#statsPanel")) && !(await p.isVisible("#recentNotes")));
   check("沒有跳恭喜", !(await closeAll(p)).includes("升上"));
   check("第一級：首頁有「先看系統分享第 1 份」", await p.isVisible(".lock-free"));
-  await p.click(".lock-free"); await p.waitForSelector("#courseView:not([hidden]) .course-row");
-  const rows = await p.locator("#courseList .course-row").allTextContents();
-  check("第一級看得到系統分享：第 1 份照解鎖時間、第 2 份以後寫第二級解鎖", rows.some((t) => t.includes("第 1 份") && !t.includes("第二級解鎖")) && rows.filter((t) => t.includes("第 2 份")).every((t) => t.includes("第二級解鎖")), rows.slice(0, 5).join(" | "));
-  await p.click("#courseList a.course-row >> nth=0"); await p.waitForSelector("#watchView:not([hidden])"); await p.waitForTimeout(600);
-  check("第一級可以播第 1 份", !(await p.textContent("#wTitle")).includes("第二級"), await p.textContent("#wTitle"));
+  // v1.37.0：系統分享頁改成交易分享，第 1 份的解鎖在 /api/videos 測
   await p.evaluate(() => (location.hash = "#/v/6")); await p.waitForTimeout(800);
-  check("直播留檔要第二級", (await p.textContent("#wTitle")).includes("第二級"), await p.textContent("#wTitle"));
+  check("直播紀錄要第二級", (await p.textContent("#wTitle")).includes("第二級"), await p.textContent("#wTitle"));
   await p.screenshot({ path: "output/shots/v24-tier1-course.png" });
   await p.evaluate(() => (location.hash = "#/")); await p.waitForSelector(".lock-page");
   await p.screenshot({ path: "output/shots/v24-locked.png" });
   const v = await j("/api/videos", { token: mtok });
-  check("伺服器也擋：直播留檔要第二級", v.status === 403 && v.body.code === "tier" && v.body.error.includes("第二級"), JSON.stringify(v.body));
-  const c2p = await j("/api/course", { token: mtok });
-  check("伺服器：第一級課程只有第 1 份沒鎖", c2p.status === 200 && c2p.body.slots.filter((x) => x.part > 1).every((x) => x.tier_locked && !x.unlocked) && c2p.body.slots.filter((x) => x.part === 1).every((x) => !x.tier_locked));
+  check("伺服器也擋：直播紀錄要第二級", v.status === 403 && v.body.code === "tier" && v.body.error.includes("第二級"), JSON.stringify(v.body));
 
   // 1.5 萬 → 第一級（這一輪自己達到的）
   await setOkx(15000);
@@ -69,9 +63,9 @@ const closeAll = async (p) => { const seen = []; for (let i = 0; i < 6; i++) { a
   await setOkx(250000);
   await p.reload(); await p.waitForSelector("#volPanel:not([hidden])");
   const t2 = await closeAll(p);
-  check("升上第二級：跳恭喜、寫解鎖什麼", t2.includes("升上第二級") && t2.includes("直播留檔") && t2.includes("至少到"), t2.slice(0, 200));
+  check("升上第二級：跳恭喜、寫解鎖什麼", t2.includes("升上第二級") && t2.includes("直播紀錄") && t2.includes("至少到"), t2.slice(0, 200));
   await p.waitForSelector("#grid .vrow");
-  check("第二級看得到直播留檔", (await p.locator("#grid .vrow").count()) > 0 && !(await p.isVisible(".lock-page")));
+  check("第二級看得到直播紀錄", (await p.locator("#grid .vrow").count()) > 0 && !(await p.isVisible(".lock-page")));
   const v2 = await j("/api/videos", { token: mtok });
   check("伺服器也放行", v2.status === 200);
   check("階梯亮到第二格", (await p.locator("#volPanel .ms-step.on").count()) === 2 && (await p.textContent("#volPanel .ms-step.now .ms-label")) === "第二級");
@@ -85,8 +79,6 @@ const closeAll = async (p) => { const seen = []; for (let i = 0; i < 6; i++) { a
   const t3 = await closeAll(p);
   check("升上第三級：寫一對一", t3.includes("升上第三級") && t3.includes("一對一"), t3.slice(0, 200));
   check("階梯三格都亮", (await p.locator("#volPanel .ms-step.on").count()) === 3);
-  await p.evaluate(() => (location.hash = "#/course")); await p.waitForSelector("#courseView:not([hidden]) .course-row");
-  check("第三級：系統分享全部直接解鎖", (await p.locator("#courseList .course-row.locked").count()) === 0 && (await p.textContent("#courseCount")).includes("12／12"), await p.textContent("#courseCount"));
   await p.evaluate(() => (location.hash = "#/")); await p.waitForSelector("#grid .vrow");
   await p.locator("#volPanel").screenshot({ path: "output/shots/v24-tier3-panel.png" });
   await c.close();

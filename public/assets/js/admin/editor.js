@@ -1,4 +1,4 @@
-// 編輯影片：標題、類型（直播留檔／系統分享／公開影片）、日期、主講、封面、簡介、章節、發布、教材、寄信通知
+// 編輯影片：標題、類型（直播紀錄／交易分享／公開影片；舊的系統分享收起來了）、日期、主講、封面、簡介、章節、發布、教材、寄信通知
 import * as A from "../core/index.js";
 const { el, api, icon } = A;
 import { COURSE_HOSTS, COURSE_PARTS, courseWeek } from "../shared/rules.js";
@@ -34,9 +34,12 @@ export function openEditor(id, { justUploaded = false } = {}) {
     }));
   const pickedHosts = () => hostOpts.filter((h) => hostSet.has(h));
 
-  // 類型：直播留檔／系統分享（CCC、X 各 6 份，研究員加入後每週解鎖一份）／公開影片（不用登入，例如培訓計畫介紹）
-  let kind = v.is_public ? "public" : v.course_host ? "course" : "live";
-  const kindBtns = [["live", "直播留檔"], ["course", "系統分享"], ["public", "公開影片（不用登入）"]].map(([k, label]) => {
+  // 類型：直播紀錄／系統分享（CCC、X 各 6 份，研究員加入後每週解鎖一份）／公開影片（不用登入，例如培訓計畫介紹）
+  // v1.37.0：系統分享改成交易分享（加入就能看、沒有排程）。舊的系統分享影片才會出現「系統分享（已收起來）」，可以改成別的類型
+  let kind = v.is_public ? "public" : v.course_host ? "course" : v.trade_share ? "share" : "live";
+  const kindList = [["live", "直播紀錄"], ["share", "交易分享"], ["public", "公開影片（不用登入）"]];
+  if (v.course_host) kindList.splice(2, 0, ["course", "系統分享（已收起來）"]);
+  const kindBtns = kindList.map(([k, label]) => {
     const b = el("button", { class: "chip", type: "button", "aria-pressed": String(kind === k), text: label });
     b.addEventListener("click", () => { kind = k; paintKind(); });
     b.dataset.k = k;
@@ -49,19 +52,21 @@ export function openEditor(id, { justUploaded = false } = {}) {
   const courseHint = el("div", { class: "hint" });
   const courseFields = el("div", { class: "field course-fields" },
     el("div", { class: "course-pick" }, cHost, cPart), courseHint);
+  const shareFields = el("div", { class: "field" }, el("div", { class: "hint", text: "放在研究員的「交易分享」頁，加入就能看，沒有解鎖排程。不會出現在直播紀錄列表。" }));
   // 公開影片：分享連結
   const shareUrl = `${location.origin}/watch?v=${v.id}`;
   const publicFields = el("div", { class: "field" },
     el("div", { class: "share-row" },
       el("input", { class: "input num", type: "text", readonly: true, value: shareUrl, "aria-label": "分享連結", onfocus: (e) => e.target.select() }),
       el("button", { class: "btn sm", type: "button", onclick: () => A.copyText(shareUrl) }, icon("copy"), "複製連結")),
-    el("div", { class: "hint", text: "任何人拿到連結都能看，不用登入；登入頁也會出現「還沒加入？先看…」。不會出現在研究員的直播留檔列表，也不寄通知。要發布才看得到。" }));
+    el("div", { class: "hint", text: "任何人拿到連結都能看，不用登入；登入頁也會出現「還沒加入？先看…」。不會出現在研究員的直播紀錄列表，也不寄通知。要發布才看得到。" }));
   const pubLabel = el("span", { text: "發布（研究員看得到）" });
   const hostField = hostOpts.length ? el("div", { class: "field" }, el("span", { class: "label", style: { display: "block", marginBottom: "8px" }, text: "主講（可複選）" }), hostBox) : null;
   const paintKind = () => {
     kindBtns.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.k === kind)));
     courseFields.hidden = kind !== "course";
     publicFields.hidden = kind !== "public";
+    shareFields.hidden = kind !== "share";
     pubLabel.textContent = kind === "public" ? "發布（拿到連結的人都看得到）" : "發布（研究員看得到）";
     if (hostField) hostField.hidden = kind === "course";
     hlField.hidden = kind !== "live";
@@ -69,7 +74,7 @@ export function openEditor(id, { justUploaded = false } = {}) {
     const taken = kind === "course" && state.videos.find((x) => x.id !== v.id && x.course_host === cHost.value && x.course_part === Number(cPart.value));
     courseHint.textContent = taken
       ? `「${cHost.value} 第 ${cPart.value} 份」已經是「${taken.title}」，要換的話先把那支改掉。`
-      : `研究員加入後第 ${week} 週解鎖（${week === 1 ? "加入當天" : `加入第 ${(week - 1) * 7} 天`}）。不會出現在直播留檔列表，也不寄全體通知。`;
+      : `系統分享已經收起來，研究員看不到（第 ${week} 週那一份）。要給研究員看，改成「交易分享」。`;
     courseHint.classList.toggle("warn-text", !!taken);
     paintNotify();
   };
@@ -89,7 +94,7 @@ export function openEditor(id, { justUploaded = false } = {}) {
   };
   chapText.addEventListener("input", updateChapHint);
   updateChapHint();
-  // 直播精華（只有直播留檔）：AI 建議的章節可以一鍵填進上面的章節欄
+  // 直播精華（只有直播紀錄）：AI 建議的章節可以一鍵填進上面的章節欄
   const hlField = highlightField(v, { onApply: (chaps) => { chapText.value = chaps.map((c) => `${A.fmtDur(c.t)} ${c.title}`).join("\n"); updateChapHint(); } });
 
   // 封面
@@ -116,7 +121,7 @@ export function openEditor(id, { justUploaded = false } = {}) {
   const paintNotify = () => {
     const isCourse = typeof kind !== "undefined" ? kind === "course" : !!v.course_host;
     const isPublic = typeof kind !== "undefined" ? kind === "public" : !!v.is_public;
-    notifyNote.textContent = isPublic ? "公開影片是給還沒加入的人看的，不寄全體通知" : isCourse ? "系統分享依每個人的加入日期解鎖，不寄全體通知" : v.notified_at ? `上次寄出：${A.fmtRel(v.notified_at)}` : v.is_published ? "還沒寄過" : "發布後才能寄";
+    notifyNote.textContent = isPublic ? "公開影片是給還沒加入的人看的，不寄全體通知" : isCourse ? "系統分享已經收起來，不寄通知" : v.notified_at ? `上次寄出：${A.fmtRel(v.notified_at)}` : v.is_published ? "還沒寄過" : "發布後才能寄";
     notifyBtn.disabled = !v.is_published || isCourse || isPublic;
   };
   notifyBtn.addEventListener("click", async () => {
@@ -172,6 +177,7 @@ export function openEditor(id, { justUploaded = false } = {}) {
       el("div", { class: "field" }, el("span", { class: "label", style: { display: "block", marginBottom: "8px" }, text: "類型" }), el("div", { class: "chips" }, ...kindBtns)),
       courseFields,
       publicFields,
+      shareFields,
       el("label", { class: "field" }, el("span", { class: "label", text: "日期" }), date),
       hostField,
       el("div", { class: "field" },
@@ -216,12 +222,12 @@ export function openEditor(id, { justUploaded = false } = {}) {
       const saved = await api("/api/admin/videos", {
         method: "PATCH",
         body: { id: v.id, title: t, description: desc.value, published_at: date.value || A.today(), is_published: pub.checked, hosts: kind === "course" ? [cHost.value] : pickedHosts(), chapters: parseChapters(chapText.value).chapters,
-          course_host: kind === "course" ? cHost.value : null, course_part: kind === "course" ? Number(cPart.value) : null, is_public: kind === "public" },
+          course_host: kind === "course" ? cHost.value : null, course_part: kind === "course" ? Number(cPart.value) : null, is_public: kind === "public", trade_share: kind === "share" },
       });
       const savedTitle = saved?.title || t;
       const wasPublished = v.is_published;
       Object.assign(v, { title: savedTitle, description: desc.value.trim() || null, published_at: date.value || A.today(), is_published: pub.checked, hosts: kind === "course" ? [cHost.value] : pickedHosts(), chapters: parseChapters(chapText.value).chapters,
-        course_host: kind === "course" ? cHost.value : null, course_part: kind === "course" ? Number(cPart.value) : null, is_public: kind === "public" });
+        course_host: kind === "course" ? cHost.value : null, course_part: kind === "course" ? Number(cPart.value) : null, is_public: kind === "public", trade_share: kind === "share" });
       renderVideos();
       m.close();
       if (kind === "public" && pub.checked) A.toast(`已儲存。分享連結：${shareUrl}`);

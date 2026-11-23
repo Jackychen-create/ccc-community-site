@@ -63,7 +63,7 @@ function paidReply() {
   return reply([
     "CCC 研究員改成訂閱制了：",
     `1. 到研究員專區用 Email 註冊（不用實驗室密碼）`,
-    `2. 在網站訂閱月費會員，直播和直播留檔就打開了；系統分享可以一集一集買`,
+    `2. 在網站訂閱月費會員，直播和直播紀錄就打開了；系統分享可以一集一集買`,
     "3. 回 Discord 按「🔗 連結網站帳號」，研究員身分組會自動給你",
   ].join("\n"), { components: [{ type: 1, components: [{ type: 2, style: 5, label: "到研究員專區", url: `${LAB_URL}#/plans` }] }] });
 }

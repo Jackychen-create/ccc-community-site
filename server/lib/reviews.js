@@ -126,7 +126,7 @@ export async function markReviewed(week, id, reviewed = true) {
   it.reviewedAt = reviewed ? new Date().toISOString() : null;
   if (first) it.notifiedAt = it.reviewedAt;
   await saveReviews(st);
-  if (first) await dm(it.author, `🎙️ 你投稿的交易（${twStamp(it.at).slice(5, 16)} 那一筆）主講點評了！到網站看最新一場直播留檔就看得到。`);
+  if (first) await dm(it.author, `🎙️ 你投稿的交易（${twStamp(it.at).slice(5, 16)} 那一筆）主講點評了！到網站看最新一場直播紀錄就看得到。`);
   return { ok: true };
 }
 

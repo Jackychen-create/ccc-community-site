@@ -1,10 +1,11 @@
 // GET /api/videos          已發布影片清單＋我的觀看進度
 // GET /api/videos?id=12    單支影片的播放連結、教材下載連結、上次看到哪
+import { tradeShareIds } from "./lib/trade-share.js";
 import { supabaseAdmin, requireMember, signGet, toInt, route, todayTW, twDate, courseUnlockDate } from "./lib/index.js";
 import { SITE_TIER, courseTierOk, courseSkipSchedule, tierRuleText, unitPartOpen, UNIT_USDT, fmtAmount, paidPartOpen } from "../public/assets/js/shared/rules.js";
 import { pointTimesOf } from "./lib/search.js";
 
-// 三級制度：直播留檔要第二級；系統分享第一級看得到每位主講的第 1 份
+// 三級制度：直播紀錄要第二級；系統分享第一級看得到每位主講的第 1 份
 const needTier2 = (res) => res.status(403).json({ error: `這個內容要第二級（這一輪 ${tierRuleText(SITE_TIER)}）`, code: "tier" });
 
 export default route({
@@ -15,7 +16,7 @@ export default route({
     const tier = ctx.member ? ctx.tier.tier : Infinity;
 
     if (req.query?.id === undefined) {
-      if (ctx.tier?.paid && tier < SITE_TIER) return res.status(403).json({ error: "直播留檔要訂閱月費會員才能看", code: "paid_sub" });
+      if (ctx.tier?.paid && tier < SITE_TIER) return res.status(403).json({ error: "直播紀錄要訂閱月費會員才能看", code: "paid_sub" });
       return tier < SITE_TIER ? needTier2(res) : list(res, user);
     }
 
@@ -32,7 +33,7 @@ async function list(res, user) {
       .select("id, title, description, published_at, duration_sec, thumb_key, hosts, chapters, created_at")
       .eq("is_published", true)
       .is("course_host", null) // 系統分享另外列在 /api/course
-      .eq("is_public", false) // 公開影片（培訓計畫介紹）不放進直播留檔列表
+      .eq("is_public", false) // 公開影片（培訓計畫介紹）不放進直播紀錄列表
       .order("published_at", { ascending: false })
       .order("id", { ascending: false }),
     supabaseAdmin
@@ -42,6 +43,9 @@ async function list(res, user) {
     supabaseAdmin.from("attachments").select("video_id"),
   ]);
   if (error) throw error;
+  // v1.37.0：交易分享的影片另外列在 /api/course，不放進直播紀錄
+  const share = await tradeShareIds();
+  if (share.size) videos.splice(0, videos.length, ...videos.filter((v) => !share.has(v.id)));
 
   const prog = new Map((progress || []).map((p) => [p.video_id, p]));
   const attCount = new Map();
@@ -80,12 +84,12 @@ async function detail(res, ctx, id, tier) {
   if (!v || (!v.is_published && !isAdmin)) {
     return res.status(404).json({ error: "找不到這支影片" });
   }
-  // 等級不夠：直播留檔要第二級；系統分享第一級只看得到第 1 份
-  // 付費制：直播留檔要月費；系統分享要買那一集（不用等排程）
+  // 等級不夠：直播紀錄要第二級；系統分享第一級只看得到第 1 份
+  // 付費制：直播紀錄要月費；系統分享要買那一集（不用等排程）
   const pd = !isAdmin ? ctx.tier?.paid : null;
   if (pd) {
     if (v.course_host && !paidPartOpen(pd, v.course_part)) return res.status(403).json({ error: `系統分享第 ${v.course_part} 集還沒買，到「方案」購買就能看`, code: "paid_part", part: v.course_part });
-    if (!v.course_host && !pd.sub) return res.status(403).json({ error: "直播留檔要訂閱月費會員才能看", code: "paid_sub" });
+    if (!v.course_host && !pd.sub) return res.status(403).json({ error: "直播紀錄要訂閱月費會員才能看", code: "paid_sub" });
   }
   const u = !isAdmin && !pd ? ctx.tier?.unit : null;
   if (u && v.course_host && !unitPartOpen(u, v.course_part)) {
@@ -141,6 +145,7 @@ async function detail(res, ctx, id, tier) {
     chapters: v.chapters || [],
     course_host: v.course_host || null,
     course_part: v.course_part || null,
+    trade_share: (await tradeShareIds()).has(v.id), // v1.37.0：交易分享（返回連到交易分享頁）
     thumb_url: v.thumb_key ? await signGet(v.thumb_key, { expiresIn: 12 * 60 * 60 }) : null,
     url: await signGet(v.r2_key),
     position_sec: p?.position_sec ?? 0,

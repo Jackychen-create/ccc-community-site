@@ -1,5 +1,6 @@
-// GET /api/search?q=假突破   直播留檔搜尋：標題、簡介、章節、AI 重點、逐字稿（講到這個字的那一分鐘）
-// 跟直播留檔列表一樣要第二級；只找已發布、不是系統分享、不是公開影片的
+// GET /api/search?q=假突破   直播紀錄搜尋：標題、簡介、章節、AI 重點、逐字稿（講到這個字的那一分鐘）
+// 跟直播紀錄列表一樣要第二級；只找已發布、不是系統分享、不是公開影片的
+import { tradeShareIds } from "./lib/trade-share.js";
 import { supabaseAdmin, requireMember, route } from "./lib/index.js";
 import { SITE_TIER, tierRuleText } from "../public/assets/js/shared/rules.js";
 import { cleanQuery, likeEscape, hitsIn, metaHits } from "./lib/search.js";
@@ -26,7 +27,8 @@ export default route({
     const hl = new Map((hls || []).map((h) => [Number(h.video_id), h]));
     const tr = new Map((found || []).map((r) => [Number(r.video_id), r.chunks]));
     const results = [];
-    for (const v of videos || []) {
+    const share = await tradeShareIds(); // v1.37.0：交易分享另外列
+    for (const v of (videos || []).filter((x) => !share.has(x.id))) {
       const h = hl.get(Number(v.id));
       const meta = metaHits(v, h, q);
       const said = tr.has(Number(v.id)) ? hitsIn(tr.get(Number(v.id)), q) : [];

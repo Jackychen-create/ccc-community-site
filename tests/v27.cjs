@@ -14,7 +14,7 @@ const closeAll = async (p) => { for (let i = 0; i < 6; i++) { await p.waitForTim
   const tok = (await j("/sb/auth/v1/token", { method: "POST", body: { email: "boss@gmail.com", password: "password1" } })).body.access_token;
   await j("/api/register", { method: "POST", body: { email: "qq@example.com", password: "password1", inviteCode: "K7QM-2XPA", exchange: "OKX", uid: "88881111" } });
   const id = (await j("/api/admin/members", { token: tok })).body.members.find((m) => m.email === "qq@example.com").user_id;
-  // 先到第二級（看得到直播留檔）
+  // 先到第二級（看得到直播紀錄）
   await j("/api/admin/volumes", { method: "POST", token: tok, body: { which: "current", rows: [{ userId: id, amounts: { OKX: 250000 } }] } });
   const mt = (await j("/sb/auth/v1/token", { method: "POST", body: { email: "qq@example.com", password: "password1" } })).body.access_token;
 

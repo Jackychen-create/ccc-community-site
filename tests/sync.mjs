@@ -1,4 +1,5 @@
 // 自動同步交易量（每人一輪）＋後台「交易量」「待跟進」、研究員 /api/me：用假的 Supabase、BingX、Bybit 跑真的伺服器程式
+import "./tiers-on.mjs"; // v1.37.0：這組測的是留著的等級算法，先把等級打開
 import assert from "node:assert/strict";
 import http from "node:http";
 import { setEnv, env } from "../server/lib/env.js";
@@ -284,7 +285,7 @@ await test("升級通知：Discord 私訊內容", async () => {
   const t1 = milestoneText({ level: 1, amounts: { OKX: 15000 }, period, nextEnd: "2026-12-17" });
   assert.ok(t1.includes("升上第一級") && t1.includes("會員直播") && t1.includes("12/17") && t1.includes("第二級還差 18.5 萬"), t1);
   const t2 = milestoneText({ level: 2, amounts: { OKX: 300000 }, period, nextEnd: "2026-12-17" });
-  assert.ok(t2.includes("升上第二級") && t2.includes("直播留檔") && t2.includes("第三級還差 120 萬"), t2);
+  assert.ok(t2.includes("升上第二級") && t2.includes("直播紀錄") && t2.includes("第三級還差 120 萬"), t2);
   const t3 = milestoneText({ level: 3, amounts: { Bybit: 1600000 }, period, nextEnd: "2026-12-17" });
   assert.ok(t3.includes("升上第三級") && t3.includes("一對一"), t3);
 });
@@ -321,12 +322,10 @@ await test("沒有等級的研究員：/api/me 打得開，系統分享被擋（
   tokens["tok-c1"] = { id: "00000000-0000-4000-8000-0000000000f1", email: "u-f@example.com", email_confirmed_at: null };
   const ok = await call(course, { token: "tok-c1" });
   assert.equal(ok.statusCode, 200, JSON.stringify(ok.body)); // 第三級看得到
-  assert.ok(ok.body.slots.every((x) => x.unlocked), "第三級全部直接解鎖，不用等排程");
-  const ok2 = await call(course, { token: "tok-a" }); // 第二級照排程
-  assert.ok(ok2.body.slots.some((x) => !x.unlocked && !x.tier_locked));
+  assert.ok(Array.isArray(ok.body.items), "v1.37.0：/api/course 改成交易分享清單"); // 系統分享的解鎖規則看 /api/videos（下面幾組）
 });
 
-await test("第一級：系統分享只開每位主講第 1 份，直播留檔被擋", async () => {
+await test("第一級：系統分享只開每位主講第 1 份，直播紀錄被擋", async () => {
   const id = "00000000-0000-4000-8000-0000000000a1";
   const join = addDays(today, -40); // 第二輪，上一輪只到第一級
   db.members.push(member(id, join, { email: "t1@example.com" }));
@@ -336,9 +335,7 @@ await test("第一級：系統分享只開每位主講第 1 份，直播留檔�
   tokens["tok-t1"] = { id, email: "t1@example.com", email_confirmed_at: null };
   const c = await call(course, { token: "tok-t1" });
   assert.equal(c.statusCode, 200, JSON.stringify(c.body));
-  const ccc1 = c.body.slots.find((x) => x.host === "CCC" && x.part === 1), ccc2 = c.body.slots.find((x) => x.host === "CCC" && x.part === 2);
-  assert.deepEqual([ccc1.unlocked, ccc1.tier_locked, ccc2.unlocked, ccc2.tier_locked], [true, false, false, true]);
-  assert.equal(ccc2.video.id, undefined); // 鎖著的不給播放資訊
+  assert.ok(Array.isArray(c.body.items)); // v1.37.0：/api/course 改成交易分享清單；系統分享的解鎖規則看下面的 /api/videos
   const live = await call(videosApi, { token: "tok-t1", query: { id: "503" } });
   assert.equal(live.statusCode, 403); assert.equal(live.body.code, "tier");
   const l2 = await call(videosApi, { token: "tok-t1", query: { id: "502" } });
@@ -498,19 +495,17 @@ await test("後台「機器人」：新增 Webhook 會先跟 Discord 確認、�
   delete env.DISCORD_API_BASE;
 });
 
-await test("單位制（v1.26.34）：設定開始日期後，累計每 20 萬解鎖一份、直播留檔加入就能看、100 萬可以一對一", async () => {
+await test("單位制（v1.26.34）：設定開始日期後，累計每 20 萬解鎖一份、直播紀錄加入就能看、100 萬可以一對一", async () => {
   const oc = await call(adminMembership, { route: "admin/membership", method: "PUT", token: "tok-oc", body: { unitFrom: today } });
   assert.equal(oc.statusCode, 403, "協作管理員不能改");
   let r = await call(adminMembership, { route: "admin/membership", method: "PUT", body: { unitFrom: addDays(today, 1) } });
   assert.equal(r.statusCode, 200, JSON.stringify(r.body)); assert.equal(r.body.on, false, "明天才開始");
   r = await call(adminMembership, { route: "admin/membership", method: "PUT", body: { unitFrom: today } });
   assert.equal(r.body.on, true);
-  // t1：上一輪 OKX 2 萬 → 累計 2 萬，系統分享一份都還沒開，但直播留檔看得到
+  // t1：上一輪 OKX 2 萬 → 累計 2 萬，系統分享一份都還沒開，但直播紀錄看得到
   let c = await call(course, { token: "tok-t1" });
   assert.equal(c.statusCode, 200, JSON.stringify(c.body));
-  assert.equal(c.body.unit.units, 0);
-  const s1 = c.body.slots.find((x) => x.host === "CCC" && x.part === 1);
-  assert.deepEqual([s1.unlocked, s1.need_usdt, s1.unlock_on], [false, 200000, null]);
+  assert.ok(Array.isArray(c.body.items)); // v1.37.0：/api/course 改成交易分享清單
   const live = await call(videosApi, { token: "tok-t1", query: { id: "503" } });
   assert.notEqual(live.statusCode, 403, JSON.stringify(live.body));
   const l1 = await call(videosApi, { token: "tok-t1", query: { id: "501" } });
@@ -520,12 +515,9 @@ await test("單位制（v1.26.34）：設定開始日期後，累計每 20 萬�
   const join = db.members.find((m) => m.user_id === id).created_at.slice(0, 10);
   const cur = periodOf(join, today);
   db.volumes.push({ user_id: id, period_start: cur.start, period_end: cur.end, amounts: { Bybit: 330000, BingX: 10000, UM: 5 }, qualified_at: null });
-  c = await call(course, { token: "tok-t1" });
-  assert.equal(c.body.unit.units, 1); assert.equal(c.body.unit.cum, 360000); // 2 萬＋33 萬＋1 萬
-  assert.deepEqual(c.body.slots.filter((x) => x.unlocked).map((x) => `${x.host}${x.part}`), ["CCC1", "X1"], "36 萬 → 第 1 份");
+  assert.notEqual((await call(videosApi, { token: "tok-t1", query: { id: "501" } })).statusCode, 403, "36 萬 → 第 1 份");
+  assert.equal((await call(videosApi, { token: "tok-t1", query: { id: "502" } })).statusCode, 403, "第 2 份還沒");
   db.volumes.at(-1).amounts.BingX = 100000; // 累計 45 萬（2＋33＋10）
-  c = await call(course, { token: "tok-t1" });
-  assert.deepEqual(c.body.slots.filter((x) => x.unlocked).map((x) => `${x.host}${x.part}`), ["CCC1", "X1", "CCC2", "X2"]);
   const l2 = await call(videosApi, { token: "tok-t1", query: { id: "502" } });
   assert.notEqual(l2.statusCode, 403, "第 2 份不用等排程");
   const m1 = await call(me, { token: "tok-t1" });
@@ -540,8 +532,7 @@ await test("單位制（v1.26.34）：設定開始日期後，累計每 20 萬�
   assert.equal(v.body.rows.find((x) => x.user_id === id).unit.units, 5);
   r = await call(adminMembership, { route: "admin/membership", method: "PUT", body: { unitFrom: "" } });
   assert.equal(r.body.on, false);
-  c = await call(course, { token: "tok-t1" });
-  assert.equal(c.body.unit, null, "取消後回到三級制度");
+  assert.equal((await call(me, { token: "tok-t1" })).body.volume.unit ?? null, null, "取消後回到三級制度");
 });
 
 // 排程一間一間同步（Cloudflare 一次請求的對外連線有上限，三間一起跑研究員一多會超過）

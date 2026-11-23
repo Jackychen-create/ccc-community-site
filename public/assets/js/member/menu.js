@@ -4,6 +4,7 @@ import { openDiscordLink } from "./discord-link.js";
 import { rankRing } from "./levelup.js";
 import { $, el, api, sb, icon, modal, setBusy, toast, tutorial, whatsNew } from "../core/index.js";
 import { state } from "./state.js";
+import { VOLUME_TIERS_ON } from "../shared/rules.js";
 
 const menuBtn = $("#menuBtn");
 const menuPanel = $("#menuPanel");
@@ -11,7 +12,7 @@ const menuPanel = $("#menuPanel");
 export function renderMenu() {
   const me = state.me;
   $("#avatar").textContent = (me?.email || "?").charAt(0).toUpperCase();
-  rankRing($("#avatar"), me && !me.isAdmin && !me.free && !me.volume?.paid ? me.tier ?? 0 : null); // 頭像外圈：銅／銀／金（贈送名額、付費制不分級，不加）
+  rankRing($("#avatar"), VOLUME_TIERS_ON && me && !me.isAdmin && !me.free && !me.volume?.paid ? me.tier ?? 0 : null); // 頭像外圈：銅／銀／金（贈送名額、付費制不分級，不加；v1.37.0 拿掉等級後不加）
   // 連續打卡：頭像旁邊「🔥 5」
   const chip = $("#streakChip");
   const st = me && !me.isAdmin ? me.streak : null;
@@ -26,12 +27,12 @@ export function renderMenu() {
     el("div", { class: "who" }, el("div", { text: "登入身分" }), el("div", { style: { color: "var(--ink)" }, text: me?.email || "" })),
     me?.isAdmin ? el("a", { href: "/admin", role: "menuitem" }, icon("settings"), "後台管理") : null,
     me?.volume?.paid && !me.isAdmin ? el("a", { href: "#/plans", role: "menuitem", onclick: () => toggleMenu(false) }, icon("ticket"), "我的方案", el("span", { class: "menu-state" + (me.volume.paid.sub ? " on" : ""), text: me.volume.paid.sub ? "月費會員" : "還沒訂閱" })) : null,
-    el("a", { href: "#/course", role: "menuitem", onclick: () => toggleMenu(false) }, icon("book"), "系統分享"),
+    el("a", { href: "#/course", role: "menuitem", onclick: () => toggleMenu(false) }, icon("book"), "交易分享"),
     el("a", { href: "#/notes", role: "menuitem", onclick: () => toggleMenu(false) }, icon("note"), "我的筆記"),
     el("a", { href: "#/feedback", role: "menuitem", onclick: () => toggleMenu(false) }, icon("chat"), "我的提問", me?.feedbackUnread ? el("span", { class: "menu-dot", "aria-label": "有新回覆" }) : null),
     me && me.notify !== null && !me.isAdmin
       ? el("button", { type: "button", role: "menuitemcheckbox", "aria-checked": String(!!me.notify), onclick: toggleNotify },
-          icon("mail"), el("span", { style: { flex: "1" }, text: "新影片、課程解鎖通知" }), el("span", { class: "menu-state" + (me.notify ? " on" : ""), text: me.notify ? "開" : "關" }))
+          icon("mail"), el("span", { style: { flex: "1" }, text: "新影片通知" }), el("span", { class: "menu-state" + (me.notify ? " on" : ""), text: me.notify ? "開" : "關" }))
       : null,
     me?.discord ? el("button", { type: "button", role: "menuitem", id: "menuDiscord", onclick: () => { toggleMenu(false); openDiscordLink(renderMenu); } },
       icon("chat"), el("span", { style: { flex: "1" }, text: me.discord.linked ? "Discord 已連結" : "連結 Discord" }),
@@ -51,7 +52,7 @@ async function toggleNotify() {
     await api("/api/me", { method: "PATCH", body: { notify: next } });
     state.me.notify = next;
     renderMenu();
-    toast(next ? "新影片上架、課程解鎖時會通知你" : "已關閉新影片、課程解鎖通知");
+    toast(next ? "新影片上架時會通知你" : "已關閉新影片通知");
   } catch (e) {
     toast(e.message, "err");
   }

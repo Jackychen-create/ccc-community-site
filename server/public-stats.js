@@ -1,4 +1,4 @@
-// GET /api/public-stats   介紹頁用（不用登入）：Discord 人數、直播留檔場數和時數、交易檢討精選
+// GET /api/public-stats   介紹頁用（不用登入）：Discord 人數、直播紀錄場數和時數、交易檢討精選
 // 只給數字和管理員勾過的精選（沒有名字、沒有圖片）；Cloudflare 快取 10 分鐘
 import { route, supabaseAdmin, getDiscordSettings, discordApi, discordConfigured } from "./lib/index.js";
 import { loadFeatured } from "./lib/reviews.js";

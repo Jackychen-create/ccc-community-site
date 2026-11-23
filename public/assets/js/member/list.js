@@ -1,4 +1,4 @@
-// 直播留檔列表（首頁）：篩選、搜尋、每一列、右欄（上次看到、統計、課程、筆記）
+// 直播紀錄列表（首頁）：篩選、搜尋、每一列、右欄（上次看到、統計、課程、筆記）
 import { $, el, api, icon, cfg, report, countUp, fmtDur, placeholderSvg } from "../core/index.js";
 import { state } from "./state.js";
 import { showPage, onLeavePage, handleErr } from "./views.js";
@@ -130,7 +130,7 @@ function renderList() {
   renderAside();
 
   if (!videos.length) {
-    $("#grid").replaceChildren(emptyBox("目前還沒有影片", "新的直播留檔上傳後會出現在這裡。"));
+    $("#grid").replaceChildren(emptyBox("目前還沒有影片", "新的直播紀錄上傳後會出現在這裡。"));
     return;
   }
   if (!list.length) {

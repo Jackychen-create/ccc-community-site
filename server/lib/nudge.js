@@ -54,26 +54,26 @@ export function unregisteredEmbed(code) {
   return {
     author: { name: `${BRAND}｜實驗室助教`, icon_url: LOGO },
     title: "你的研究員專區還沒開通喔",
-    description: `之前你的培訓計畫報名已經通過，但還沒用實驗室密碼註冊網站。\n直播留檔、系統分享、交易系統分享都在研究員專區，註冊一分鐘就好：\n\n${LAB_URL}?invite=${code}\n（註冊時選報名時的交易所、填同一個 UID）\n\n密碼不能用或有問題，直接回這則訊息或開客服單。`,
+    description: `之前你的培訓計畫報名已經通過，但還沒用實驗室密碼註冊網站。\n直播紀錄、交易分享都在研究員專區，註冊一分鐘就好：\n\n${LAB_URL}?invite=${code}\n（註冊時選報名時的交易所、填同一個 UID）\n\n密碼不能用或有問題，直接回這則訊息或開客服單。`,
     color: 0xcda45e,
     footer: { text: "這個連結只能用一次，請不要給別人", icon_url: LOGO },
   };
 }
 export function unwatchedEmbed(ep1) {
-  const link = ep1 ? `${LAB_URL}#/v/${ep1.id}` : `${LAB_URL}#/course`;
+  const link = ep1 ? `${LAB_URL}#/v/${ep1.id}` : `${LAB_URL}#/`;
   return {
     author: { name: `${BRAND}｜實驗室助教`, icon_url: LOGO },
     title: "從這一支開始看吧",
-    description: `研究員專區開通好幾天了，還沒看過影片的話，推薦從這支開始：\n\n**[${ep1?.title || "系統分享第 1 份"}](${link})**\n\nCCC 講自己的進出場規則和邏輯，大部分研究員都從這支開始，看完再接著看其他系統分享和直播留檔。`,
+    description: `研究員專區開通好幾天了，還沒看過影片的話，推薦從這支開始：\n\n**[${ep1?.title || "最新一場直播紀錄"}](${link})**\n\n最新一場直播的完整紀錄，可以跳章節、記筆記，看完再接著看其他直播紀錄和交易分享。`,
     color: 0xcda45e,
     footer: { text: "登入有問題：直接回這則訊息或開客服單", icon_url: LOGO },
   };
 }
 export function unwatchedHtml(ep1) {
-  const link = ep1 ? `${LAB_URL}#/v/${ep1.id}` : `${LAB_URL}#/course`;
+  const link = ep1 ? `${LAB_URL}#/v/${ep1.id}` : `${LAB_URL}#/`;
   return `<p>研究員專區開通了好幾天，還沒看過任何影片的話，推薦從這一支開始：</p>
-<p style="font-size:18px;font-weight:700;margin:8px 0">${escHtml(ep1?.title || "系統分享第 1 份")}</p>
-<p>CCC 講自己的進出場規則和邏輯，大部分研究員都從這支開始，看完再接著看其他系統分享和直播留檔。</p>
+<p style="font-size:18px;font-weight:700;margin:8px 0">${escHtml(ep1?.title || "最新一場直播紀錄")}</p>
+<p>最新一場直播的完整紀錄，可以跳章節、記筆記，看完再接著看其他直播紀錄和交易分享。</p>
 <p><a href="${link}" style="display:inline-block;background:#cda45e;color:#1b1f1d;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700">開始看</a></p>
 <p style="color:#7a817d;font-size:13px">登入遇到問題，回這封信或在 Discord 開客服單。</p>`;
 }
@@ -99,12 +99,13 @@ export async function runNudge(kind, now = Date.now()) {
     const todo = unwatched.filter((p) => !p.sentAt);
     if (!mailReady() && todo.some((p) => !p.discordId)) return { ok: false, error: "有人沒有連到 Discord，要寄信但還沒設定寄信服務（Brevo）" };
     out.skipped = unwatched.length - todo.length;
-    const { data: ep1 } = await supabaseAdmin.from("videos").select("id, title").eq("is_published", true).eq("course_host", "CCC").eq("course_part", 1).maybeSingle();
+    // v1.37.0：系統分享收起來了，改推最新一場直播紀錄
+    const { data: ep1 } = await supabaseAdmin.from("videos").select("id, title").eq("is_published", true).is("course_host", null).eq("is_public", false).order("published_at", { ascending: false }).limit(1).maybeSingle();
     for (const p of todo) sent.users[`m:${p.id}`] = new Date(now).toISOString();
     await saveSent(sent, now);
     out.dms = 0; out.mails = 0;
     for (const p of todo) {
-      const how = await dmOrMail(p.discordId, p.email, { embed: unwatchedEmbed(ep1), subject: "從這一支開始看：CCC 的進出場規則", html: unwatchedHtml(ep1) });
+      const how = await dmOrMail(p.discordId, p.email, { embed: unwatchedEmbed(ep1), subject: "從這一支開始看：最新一場直播紀錄", html: unwatchedHtml(ep1) });
       if (how) { out.sent++; out[how === "dm" ? "dms" : "mails"]++; } else out.failed.push({ name: p.email, error: "私訊、寄信都失敗" });
     }
     return out;

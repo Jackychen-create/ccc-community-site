@@ -1,4 +1,5 @@
 // 測試用（npm test 會自動啟動）：提供 public/ 靜態檔，並模擬 /api 與 Supabase Auth、R2。只在本機測試用。
+import "./tiers-env.mjs"; // TIERS_ON=1：打開 v1.37.0 拿掉的交易量等級（舊的等級測試用）
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
@@ -6,7 +7,7 @@ import crypto from "node:crypto";
 // 規則跟正式網站讀同一份
 import { canUseApi } from "../public/assets/js/shared/roles.js";
 import { BOTS as BOT_LIST, GROUPS as BOT_GROUPS } from "../supabase/functions/bots/registry.js";
-import { EXCHANGES, AUTO_EXCHANGES as REAL_AUTO, addDays, periodOf, nextPeriod, prevPeriod, COURSE_HOSTS as CH, courseUnlockDate, courseWeek, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR, BADGES, earnedBadges, themeUnlocked, courseTierOk, courseSkipSchedule, tierOf, tierStatus, FIRST_CYCLE_TIER, progressTo, tierName, tierRuleText, gapTo, TIERS, rankOneOnOne, oneOnOneScore, ONE_ON_ONE_HOSTS, ONE_ON_ONE_CAP, fmtAmount, streakOf, bestStreakOf, weekOf, QUESTS, isPaidOn, isLegacyMember, paidStatus, paidPartOpen, addMonths, PAY_ITEMS } from "../public/assets/js/shared/rules.js";
+import { EXCHANGES, AUTO_EXCHANGES as REAL_AUTO, addDays, periodOf, nextPeriod, prevPeriod, COURSE_HOSTS as CH, courseUnlockDate, courseWeek, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR, BADGES, earnedBadges, themeUnlocked, courseTierOk, courseSkipSchedule, tierOf, tierStatus, FIRST_CYCLE_TIER, progressTo, tierName, tierRuleText, gapTo, TIERS, rankOneOnOne, oneOnOneScore, ONE_ON_ONE_HOSTS, ONE_ON_ONE_CAP, fmtAmount, streakOf, bestStreakOf, weekOf, QUESTS, isPaidOn, isLegacyMember, paidStatus, paidPartOpen, addMonths, PAY_ITEMS, VOLUME_TIERS_ON } from "../public/assets/js/shared/rules.js";
 
 const PORT = Number(process.env.PORT || 4321);
 const ROOT = path.join(path.dirname(new URL(import.meta.url).pathname), "..");
@@ -140,7 +141,7 @@ const paidOf = (m) => {
   return paidStatus({ subUntil, parts: mine.filter((o) => o.kind === "part" && o.status === "paid").map((o) => o.part), today: TODAY() });
 };
 const tierM = (m) => { const pd = paidOf(m); return pd ? { tier: pd.tier, until: pd.sub ? pd.subUntil : null, cycleTier: pd.tier, period: curP(m), paid: pd } : tierM0(m); };
-const tierM0 = (m) => m.free ? { tier: 2, until: null, cycleTier: 2, period: curP(m), free: true } : tierStatus({ anchor: anchorOf(m), today: TODAY(), amountsOf: (st) => vols.get(m.user_id + ":" + st)?.amounts || {}, override: m.min_tier ? { tier: m.min_tier, until: m.min_tier_until || null } : null });
+const tierM0 = (m) => !VOLUME_TIERS_ON ? { tier: 2, until: null, cycleTier: 2, period: curP(m), ...(m.free ? { free: true } : {}) } : m.free ? { tier: 2, until: null, cycleTier: 2, period: curP(m), free: true } : tierStatus({ anchor: anchorOf(m), today: TODAY(), amountsOf: (st) => vols.get(m.user_id + ":" + st)?.amounts || {}, override: m.min_tier ? { tier: m.min_tier, until: m.min_tier_until || null } : null });
 const clampDay = (d, p) => (d < p.start ? p.start : d > p.end ? p.end : d);
 // 進度里程碑：`${user_id}:${period_start}:${level}` → { seen }
 const msRows = new Map();
@@ -548,7 +549,7 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { ok: true });
       }
     }
-    // 直播留檔搜尋（假的：標題、章節、AI 重點、逐字稿「[m:ss] 文字」）
+    // 直播紀錄搜尋（假的：標題、章節、AI 重點、逐字稿「[m:ss] 文字」）
     if (p === "/api/search") {
       const q = String(url.searchParams.get("q") || "").trim().toLowerCase();
       if ([...q].length < 2) return send(res, 400, { error: "至少打兩個字" });
@@ -566,9 +567,9 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { q, results });
     }
     if (p === "/api/videos" && !url.searchParams.has("id")) {
-      if (ts?.paid && !ts.paid.sub) return send(res, 403, { error: "直播留檔要訂閱月費會員才能看", code: "paid_sub" });
+      if (ts?.paid && !ts.paid.sub) return send(res, 403, { error: "直播紀錄要訂閱月費會員才能看", code: "paid_sub" });
       return send(res, 200, {
-        videos: videos.filter((v) => v.is_published && !v.course_host && !v.is_public).map((v) => {
+        videos: videos.filter((v) => v.is_published && !v.course_host && !v.is_public && !v.trade_share).map((v) => {
           const pr = progress.get(`${u.id}:${v.id}`);
           return { id: v.id, title: v.title, description: v.description, published_at: v.published_at, duration_sec: v.duration_sec, thumb_url: thumbUrl(v), position_sec: pr?.position_sec || 0, watched_at: pr?.updated_at || null, attachment_count: v.attachments.length, hosts: v.hosts || [], chapters: v.chapters || [] };
         }),
@@ -578,11 +579,11 @@ const server = http.createServer(async (req, res) => {
       const v = videos.find((x) => x.id === Number(url.searchParams.get("id")));
       if (!v || (!v.is_published && !admin)) return send(res, 404, { error: "找不到這支影片" });
       if (ts?.paid && v.course_host && !paidPartOpen(ts.paid, v.course_part)) return send(res, 403, { error: `系統分享第 ${v.course_part} 集還沒買，到「方案」購買就能看`, code: "paid_part", part: v.course_part });
-      if (ts?.paid && !v.course_host && !ts.paid.sub) return send(res, 403, { error: "直播留檔要訂閱月費會員才能看", code: "paid_sub" });
+      if (ts?.paid && !v.course_host && !ts.paid.sub) return send(res, 403, { error: "直播紀錄要訂閱月費會員才能看", code: "paid_sub" });
       if (ts && !ts.paid && (v.course_host ? !courseTierOk(ts.tier, v.course_part) : ts.tier < 2)) return send(res, 403, { error: `這個內容要第二級（這一輪 ${tierRuleText(2)}）`, code: "tier" });
       if (v.course_host && !admin && !ts?.paid && !courseSkipSchedule(ts?.tier ?? 0)) { const un = unlockOn(twDate(mrow.created_at), v.course_host, v.course_part); if (un > TODAY()) return send(res, 403, { error: `這一份課程 ${un} 解鎖`, code: "locked", unlock_on: un }); }
       const pr = progress.get(`${u.id}:${v.id}`);
-      return send(res, 200, { id: v.id, title: v.title, description: v.description, published_at: v.published_at, duration_sec: v.duration_sec, is_published: v.is_published, thumb_url: thumbUrl(v), hosts: v.hosts || [], chapters: v.chapters || [], course_host: v.course_host || null, course_part: v.course_part || null, url: "/media/" + (process.env.VIDEO || "live.webm") + "?sig=" + Date.now(), position_sec: pr?.position_sec || 0, attachments: v.attachments.map((a) => ({ ...a, url: "/media/thumb5.jpg?dl=1" })), highlight: (() => { const h = highlights.get(v.id); return h?.status === "done" ? { summary: h.summary, points: h.points, point_times: h.point_times || [], tickers: h.tickers, chapters: h.chapters } : null; })() });
+      return send(res, 200, { id: v.id, title: v.title, description: v.description, published_at: v.published_at, duration_sec: v.duration_sec, is_published: v.is_published, thumb_url: thumbUrl(v), hosts: v.hosts || [], chapters: v.chapters || [], course_host: v.course_host || null, course_part: v.course_part || null, trade_share: !!v.trade_share, url: "/media/" + (process.env.VIDEO || "live.webm") + "?sig=" + Date.now(), position_sec: pr?.position_sec || 0, attachments: v.attachments.map((a) => ({ ...a, url: "/media/thumb5.jpg?dl=1" })), highlight: (() => { const h = highlights.get(v.id); return h?.status === "done" ? { summary: h.summary, points: h.points, point_times: h.point_times || [], tickers: h.tickers, chapters: h.chapters } : null; })() });
     }
     // 升級後「分享到 Discord」
     if (p === "/api/share" && req.method === "POST") {
@@ -596,18 +597,14 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { ok: true });
     }
     if (p === "/api/course") {
-      const start = mrow ? twDate(mrow.created_at) : TODAY();
-      const slots = [];
-      for (let part = 1; part <= 6; part++) for (const h of CH) {
-        const pd = ts?.paid;
-        const un = pd ? null : unlockOn(start, h, part); const tierLocked = !!mrow && (pd ? !paidPartOpen(pd, part) : !courseTierOk(ts.tier, part)); const unlocked = !mrow || (pd ? !tierLocked : (un <= TODAY() || courseSkipSchedule(ts.tier)) && !tierLocked);
-        const v = videos.find((x) => x.is_published && x.course_host === h && x.course_part === part);
-        const pr = v && progress.get(`${u.id}:${v.id}`);
-        slots.push({ host: h, part, week: courseWeek(h, part) + 1, unlock_on: un, unlocked, tier_locked: tierLocked, price: pd && tierLocked ? mockPay.part : null,
-          video: v ? (unlocked ? { id: v.id, title: v.title, description: v.description, duration_sec: v.duration_sec, thumb_url: thumbUrl(v), position_sec: pr?.position_sec || 0, watched_at: pr?.updated_at || null, attachment_count: v.attachments.length, chapters: v.chapters || [] } : { title: v.title }) : null });
-      }
-      slots.sort((a, b) => a.week - b.week);
-      return send(res, 200, { start, today: TODAY(), slots, paid: ts?.paid ? { parts: ts.paid.parts, price: mockPay.part } : null });
+      // v1.37.0：交易分享（trade_share 的影片，加入就能看）；付費制沒月費的只給標題
+      const pd = ts?.paid; const locked = !!pd && !pd.sub;
+      const items = videos.filter((x) => x.is_published && x.trade_share).sort((a, b) => String(b.published_at).localeCompare(String(a.published_at))).map((v) => {
+        const pr = progress.get(`${u.id}:${v.id}`);
+        return locked ? { id: v.id, title: v.title, published_at: v.published_at, hosts: v.hosts || [], locked: true }
+          : { id: v.id, title: v.title, description: v.description, published_at: v.published_at, hosts: v.hosts || [], duration_sec: v.duration_sec, thumb_url: thumbUrl(v), position_sec: pr?.position_sec ?? 0, watched_at: pr?.updated_at ?? null, attachment_count: 0, chapters: v.chapters || [] };
+      });
+      return send(res, 200, { items, locked });
     }
     if (p === "/api/pay") {
       const pd = paidOf(mrow);
@@ -796,7 +793,7 @@ const server = http.createServer(async (req, res) => {
       }
       if (req.method === "PATCH") {
         const v = videos.find((x) => x.id === body.id);
-        for (const k of ["description", "published_at", "is_published", "is_public", "hosts", "chapters", "course_host", "course_part"]) if (body[k] !== undefined) v[k] = body[k];
+        for (const k of ["description", "published_at", "is_published", "is_public", "hosts", "chapters", "course_host", "course_part", "trade_share"]) if (body[k] !== undefined) v[k] = body[k];
         const out = { ok: true };
         if (body.title !== undefined) out.title = v.title = String(body.title).replace(/^\s*\d{1,2}\s*[\/.\-]\s*\d{1,2}\s*(?:(?:直播|live)\s*)?(?:[：:\-–—|｜]\s*|\s+(?=\S))/i, "").trim() || body.title;
         if (body.thumb_key) { v.thumb = null; v.thumbKey = body.thumb_key; out.thumb_url = `/r2/${body.thumb_key}`; }
@@ -1029,6 +1026,8 @@ const server = http.createServer(async (req, res) => {
   const ext = path.extname(full);
   const types = { ".mp4": "video/mp4", ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".json": "application/json" };
   res.writeHead(200, { "Content-Type": types[ext] || "application/octet-stream", "Content-Security-Policy": CSP });
+  // 舊的等級測試（TIERS_ON=1）：瀏覽器拿到的規則也把等級打開
+  if (globalThis.__CCC_TIERS_ON && full.endsWith(path.join("shared", "rules.js"))) return res.end(fs.readFileSync(full, "utf8").replace("globalThis.__CCC_TIERS_ON === true", "true"));
   fs.createReadStream(full).pipe(res);
 });
 server.listen(PORT, () => console.log("mock on " + PORT));

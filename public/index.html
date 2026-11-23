@@ -21,16 +21,16 @@
 <!-- 登入／註冊 -->
 <div id="authView" class="auth" hidden>
   <header class="topbar">
-    <a class="brand" href="/"><span class="mark">CCC</span><span class="brand-name">交易實驗室</span></a>
+    <a class="brand" href="/"><img class="brand-logo" src="/start/logo-mark.png" alt="CCC°" width="39" height="32"><span class="brand-name">交易實驗室</span></a>
   </header>
   <main class="auth-main">
     <div class="auth-grid rise">
       <div class="auth-copy">
-        <h1><span class="nw">直播留檔和系統分享，</span><span class="nw">研究員專屬</span></h1>
-        <p class="intro"><span class="nw">CCC、X 每週直播的完整留檔，</span><span class="nw">可以跳章節、記筆記。</span><span class="nw">系統分享從你加入那天起，</span><span class="nw">每週解鎖一份。</span></p>
+        <h1><span class="nw">直播紀錄和交易分享，</span><span class="nw">研究員專屬</span></h1>
+        <p class="intro"><span class="nw">CCC、X 每週直播的完整紀錄，</span><span class="nw">可以跳章節、記筆記。</span><span class="nw">交易分享加入就能看。</span></p>
       </div>
     <div class="auth-col">
-      <div class="auth-board" id="authBoard" aria-label="直播留檔概況">
+      <div class="auth-board" id="authBoard" aria-label="直播紀錄概況">
         <div><small>最新一場</small><b class="num" id="statLatest">—</b></div>
         <div><small>累計場次</small><b class="num" id="statCount">—</b></div>
       </div>
@@ -138,8 +138,8 @@
 <!-- 研究員內容 -->
 <div id="appView" hidden>
   <header class="topbar">
-    <a class="brand" href="#/"><span class="mark">CCC</span><span class="brand-name">交易實驗室</span></a>
-    <nav class="topnav" aria-label="主選單"><a href="#/" id="navList">直播留檔</a><a href="#/course" id="navCourse">系統分享</a></nav>
+    <a class="brand" href="#/"><img class="brand-logo" src="/start/logo-mark.png" alt="CCC°" width="39" height="32"><span class="brand-name">交易實驗室</span></a>
+    <nav class="topnav" aria-label="主選單"><a href="#/" id="navList">直播紀錄</a><a href="#/course" id="navCourse">交易分享</a></nav>
     <div class="ticker" id="ticker"></div>
     <span class="spacer"></span>
     <label class="search" id="searchBox">
@@ -160,7 +160,7 @@
     <div class="desk">
       <section class="panel">
         <div class="panel-head">
-          <h1>直播留檔 <span class="count" id="countText"></span></h1>
+          <h1>直播紀錄 <span class="count" id="countText"></span></h1>
           <div class="chips" id="chips" role="group" aria-label="篩選"></div>
         </div>
         <div class="vhead" aria-hidden="true"><span>日期</span><span>主題</span><span class="r">片長</span><span class="r">教材</span><span class="r">狀態</span></div>
@@ -194,7 +194,7 @@
   </main>
 
   <main id="notesView" class="page" hidden>
-    <a class="back" href="#/"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>直播留檔</a>
+    <a class="back" href="#/"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>直播紀錄</a>
     <section class="panel">
       <div class="panel-head"><h1>我的筆記 <span class="count" id="notesCount"></span></h1></div>
       <div id="notesAll"></div>
@@ -202,7 +202,7 @@
   </main>
 
   <main id="feedbackView" class="page" hidden>
-    <a class="back" href="#/"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>直播留檔</a>
+    <a class="back" href="#/"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>直播紀錄</a>
     <section class="panel">
       <div class="panel-head"><h1>我的提問 <span class="count" id="feedbackCount"></span></h1></div>
       <div id="feedbackList" class="fb-list"></div>
@@ -210,21 +210,20 @@
   </main>
 
   <main id="courseView" class="page" hidden>
-    <a class="back" href="#/"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>直播留檔</a>
+    <a class="back" href="#/"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>直播紀錄</a>
     <section class="panel">
       <div class="panel-head course-head">
         <div>
-          <h1>系統分享 <span class="count" id="courseCount"></span></h1>
-          <p class="small muted" id="courseSub">CCC、X 的系統分享影片各 6 份。從你加入那天起每週解鎖一份，依 CCC、X 輪流，每 3 週休息一週。</p>
+          <h1>交易分享 <span class="count" id="courseCount"></span></h1>
+          <p class="small muted" id="courseSub">CCC、X 的交易分享，加入就能看。</p>
         </div>
       </div>
-      <div class="course-track" id="courseTrack" aria-hidden="true"></div>
       <div id="courseList"></div>
     </section>
   </main>
 
   <main id="watchView" class="page" hidden>
-    <a class="back" id="watchBack" href="#/"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg><span>直播留檔</span></a>
+    <a class="back" id="watchBack" href="#/"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg><span>直播紀錄</span></a>
     <div class="watch">
       <section class="watch-main">
         <div class="player" id="player">

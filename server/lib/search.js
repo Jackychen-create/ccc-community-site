@@ -1,4 +1,4 @@
-// 直播留檔搜尋＋AI 重點對時間
+// 直播紀錄搜尋＋AI 重點對時間
 // 逐字稿（video_highlights.chunks）合成大約 20 秒一行；搜尋就是找有這個字的那幾行
 export function linesOf(chunks) {
   const segs = Object.keys(chunks || {}).map(Number).sort((a, b) => a - b).flatMap((k) => chunks[k] || []);

@@ -2,7 +2,7 @@
 // 每人從加入那天起算，每一輪剛好一個月；這一輪達到第幾級 → 下一輪就是第幾級（等級怎麼算在 tier.js）
 import { supabaseAdmin } from "./env.js";
 import { twDate, todayTW } from "./dates.js";
-import { EXCHANGES, LOCKED_AUTO, SITE_TIER, FIRST_CYCLE_TIER, tierOf, periodOf, nextPeriod, prevPeriod, addDays } from "../../public/assets/js/shared/rules.js";
+import { EXCHANGES, LOCKED_AUTO, SITE_TIER, FIRST_CYCLE_TIER, tierOf, periodOf, nextPeriod, prevPeriod, addDays, VOLUME_TIERS_ON } from "../../public/assets/js/shared/rules.js";
 import { notifyMilestones } from "./milestone.js";
 import { unitOn } from "./membership.js";
 export { EXCHANGES, AUTO_EXCHANGES, LOCKED_AUTO, TIERS, SITE_TIER, tierOf, tierName, goalFor, unitOf, gapTo, tierRuleText, periodOf, nextPeriod, prevPeriod, addMonths, idLabel, cleanExId, exIdOk, exIdError, needsName, cleanAccountName, accountNameOk, ACCOUNT_NAME_ERROR } from "../../public/assets/js/shared/rules.js";
@@ -96,6 +96,7 @@ export async function saveVolumes({ entries, updatedBy, merge = false, keepAuto 
   // 通知失敗不影響存檔
   let milestones = { recorded: 0, sent: 0 };
   if (hits.length && (await unitOn())) hits.length = 0; // 單位制沒有一輪一輪的升級（解鎖通知在 course-mail.js）
+  if (!VOLUME_TIERS_ON) hits.length = 0; // v1.37.0：拿掉交易量門檻，不發升級通知
   try { milestones = await notifyMilestones(hits); } catch (err) { console.error("milestone notify failed", err?.message); }
   return { saved: upserts.length, newlyQualified, tierUps: hits.length, milestones };
 }

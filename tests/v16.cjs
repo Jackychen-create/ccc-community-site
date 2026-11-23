@@ -89,7 +89,7 @@ const errs = [];
   check("後台課程格子", (await p.textContent(".course-grid-card")).includes("已上架 4／12"));
   await p.screenshot({ path: "output/shots/v16-admin-videos.png" });
   await p.click("#videoTableBox tbody tr:has-text('停損設在哪裡') .btn:has-text('編輯')"); await p.waitForTimeout(300);
-  check("直播留檔預設隱藏課程欄位", await p.isHidden(".modal .course-fields"));
+  check("直播紀錄預設隱藏課程欄位", await p.isHidden(".modal .course-fields"));
   await p.click(".modal .chip:text-is('系統分享')");
   await p.selectOption(".modal select[aria-label='課程主講']", "CCC");
   await p.selectOption(".modal select[aria-label='第幾份']", "1");

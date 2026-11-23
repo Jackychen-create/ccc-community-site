@@ -1,5 +1,5 @@
 // 付費制（v1.28.0）：綠界信用卡。規則在 shared/rules.js 的「付費制」
-//   月費：定期定額，每月自動扣 → 直播留檔、研究員專區、Discord 研究員身分組
+//   月費：定期定額，每月自動扣 → 直播紀錄、研究員專區、Discord 研究員身分組
 //   系統分享單集：一次付清，第 N 集＝CCC、X 的第 N 份
 // 設定在 settings 的 pay；正式特店的代號和金鑰只放在 Cloudflare 環境變數（ECPAY_MERCHANT_ID、ECPAY_HASH_KEY、ECPAY_HASH_IV）
 import { env, supabaseAdmin } from "./env.js";
@@ -270,7 +270,7 @@ export async function handleNotify(p, kind, now = Date.now()) {
     await setOrder(order.trade_no, { status: "active", paid_until: until, times: 1, last_msg: msg });
     const role = await syncRole(order.user_id, true);
     await notifyStaff(`💳 ${tag}${who} 訂閱月費，${money(order.amount)}${role === "unlinked" ? "（還沒連結 Discord，連結後會自動拿到研究員身分組）" : role === "error" ? "（⚠️ 給 Discord 身分組失敗，請手動給）" : ""}`);
-    await dmMember(order.user_id, `訂閱成功 🎉 月費會員到 ${until}，之後每個月自動扣款。直播留檔、研究員專區都打開了：${LAB_URL}`);
+    await dmMember(order.user_id, `訂閱成功 🎉 月費會員到 ${until}，之後每個月自動扣款。直播紀錄、研究員專區都打開了：${LAB_URL}`);
     return "1|OK";
   }
 

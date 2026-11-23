@@ -722,3 +722,8 @@ alter table public.uid_join_attempts enable row level security;
 --   notify_consent_at：同意收直播通知與活動資訊的時間；joined_via：discord＝用新流程加入
 alter table public.members add column if not exists notify_consent_at timestamptz;
 alter table public.members add column if not exists joined_via text;
+
+-- v1.37.0：系統分享改成「交易分享」（加入就能看、沒有解鎖排程、沒有交易量門檻）
+--   後台把影片類型選「交易分享」就是 trade_share = true；原本的系統分享（course_host、course_part）資料留著，研究員看不到
+alter table public.videos add column if not exists trade_share boolean not null default false;
+create index if not exists videos_trade_share on public.videos (published_at desc) where trade_share;
