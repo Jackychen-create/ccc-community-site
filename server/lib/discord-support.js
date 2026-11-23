@@ -9,7 +9,7 @@ import { postWithFiles, twStamp } from "./chatlog.js";
 const B = { VIEW: 1n << 10n, SEND: 1n << 11n, MANAGE_CHANNELS: 1n << 4n, MANAGE_MESSAGES: 1n << 13n, EMBED: 1n << 14n, ATTACH: 1n << 15n, HISTORY: 1n << 16n, THREADS: (1n << 35n) | (1n << 36n) | (1n << 38n) };
 const bits = (...xs) => String(xs.reduce((a, b) => a | b, 0n));
 export const GOLD = 0xcda45e, GREEN = 0x5fa285, GREY = 0x7f8a8c;
-export const LOGO = "https://ccc-community-site.pages.dev/assets/brand/ccc-bot.png";
+export const LOGO = "https://ccc-community-site.pages.dev/assets/brand/ccc-owl.png";
 
 export const SUPPORT_TOPICS = [
   { value: "member", label: "培訓計畫、研究員身分", emoji: "🧪", hint: "加入、身分組、直播紀錄、交易分享" },

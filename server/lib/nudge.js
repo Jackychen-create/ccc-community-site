@@ -11,7 +11,7 @@ import { BRAND } from "./chatlog.js";
 import { discordIds } from "./milestone.js";
 import { dmOrMail } from "./course-mail.js";
 
-const LOGO = `${SITE_URL}/assets/brand/ccc-bot.png`;
+const LOGO = `${SITE_URL}/assets/brand/ccc-owl.png`;
 const COOL_DAYS = 30;
 const GRACE_MS = 2 * 86400e3;
 

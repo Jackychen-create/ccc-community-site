@@ -3,10 +3,10 @@
 // 可以重複按：已經建好的頻道、已經貼過的訊息不會重複建立，只會把權限調回正確
 import {
   getGuilds, getGuild, getRoles, getMember, getChannel, createChannel, editChannel, sendMessage, editMessage,
-  getDiscordSettings, saveDiscordSettings, discordConfigured,
+  getDiscordSettings, saveDiscordSettings, discordConfigured, discordApi,
 } from "./discord.js";
-import { env } from "./env.js";
-import { panelMessage } from "./discord-flow.js";
+import { env, supabaseAdmin } from "./env.js";
+import { panelMessage, SITE_URL } from "./discord-flow.js";
 import { TICKET_CATEGORY, categoryOverwrites } from "./discord-ticket.js";
 
 // 權限位元（https://discord.com/developers/docs/topics/permissions）
@@ -132,4 +132,30 @@ export async function syncPanelMessage() {
   }
   await saveDiscordSettings({ ...(await getDiscordSettings()), panelHash: hash });
   return { updated: true };
+}
+
+// 機器人（實驗室助教）的頭貼：v1.38.0 換成研究員貓頭鷹「研研」
+// 每 5 分鐘由 /api/cron/lives 呼叫；bot_state 的 bot_avatar 記換過的版本，換好就不再動
+// Discord 換頭貼有頻率限制，失敗了 1 小時後再試
+export const BOT_AVATAR = { version: "owl-1", path: "/assets/brand/ccc-owl.png" };
+export async function syncBotAvatar(now = Date.now()) {
+  if (!discordConfigured()) return null;
+  const { data } = await supabaseAdmin.from("bot_state").select("value").eq("key", "bot_avatar").maybeSingle();
+  const st = data?.value || {};
+  if (st.version === BOT_AVATAR.version) return { updated: false };
+  if (st.triedAt && now - st.triedAt < 60 * 60e3) return { updated: false, waiting: true };
+  const save = (value) => supabaseAdmin.from("bot_state").upsert({ key: "bot_avatar", value, updated_at: new Date(now).toISOString() });
+  try {
+    const img = await fetch(SITE_URL + BOT_AVATAR.path, { signal: AbortSignal.timeout(10000) });
+    if (!img.ok) throw new Error(`頭貼圖片讀不到（${img.status}）`);
+    const bytes = new Uint8Array(await img.arrayBuffer());
+    let bin = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    await discordApi("PATCH", "/users/@me", { avatar: `data:image/png;base64,${btoa(bin)}` });
+    await save({ version: BOT_AVATAR.version, at: now });
+    return { updated: true };
+  } catch (e) {
+    await save({ ...st, triedAt: now, error: String(e?.message || e) });
+    return { updated: false, error: String(e?.message || e) };
+  }
 }

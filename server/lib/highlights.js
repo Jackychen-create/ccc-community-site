@@ -10,7 +10,7 @@ import { supabaseAdmin, env } from "./env.js";
 import { getDiscordSettings, sendMessage, discordApi, editMessage } from "./discord.js";
 
 export const SITE = "https://ccc-community-site.pages.dev";
-export const LOGO = `${SITE}/assets/brand/ccc-bot.png`;
+export const LOGO = `${SITE}/assets/brand/ccc-owl.png`;
 export const WHISPER = "@cf/openai/whisper-large-v3-turbo";
 export const LLMS = ["@cf/openai/gpt-oss-120b", "@cf/meta/llama-3.3-70b-instruct-fp8-fast"];
 export const CHUNK_SEC = 600; // 每段 10 分鐘
