@@ -59,3 +59,7 @@
 .welcome-box .field { margin-top: 18px; }
 .welcome-save { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
 .welcome-save .btn[hidden] { display: none; }
+/* v1.36.1：登入頁精簡（分頁本身就是標題） */
+#joinPane .join-first { margin-top: 22px; }
+#signinPane #discordLogin { margin-top: 26px !important; }
+#signinPane { padding-bottom: 4px; }

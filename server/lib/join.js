@@ -48,7 +48,7 @@ export async function verifyUid(req, exchangeIn, uidIn) {
   if (!exIdOk(exchange, uid)) return { ok: false, status: 400, code: "bad_input", error: "UID 是一串數字，請再確認一次" };
   const p = PROVIDERS[exchange];
   if (!AUTO_EXCHANGES.includes(exchange) || !p?.configured()) return { ok: false, status: 503, code: "unavailable", error: `${exchange} 暫時確認不到，請過幾分鐘再試` };
-  if (await uidTaken(exchange, uid)) return { ok: false, status: 409, code: "taken", error: `這個 ${exchange} ${idLabel(exchange)}已經加入過了。如果是你，請到「登入」用 Discord 登入` };
+  if (await uidTaken(exchange, uid)) return { ok: false, status: 409, code: "taken", error: `這個 ${idLabel(exchange)}已經加入過了，請到「登入」用 Discord 登入` };
   if (await tooManyTries(req)) return { ok: false, status: 429, code: "too_many", error: "試太多次了，請一小時後再試" };
   let check;
   try { check = await p.check(uid); } catch (e) {
@@ -56,9 +56,9 @@ export async function verifyUid(req, exchangeIn, uidIn) {
     return { ok: false, status: 503, code: "unavailable", error: `${exchange} 暫時確認不到，請過幾分鐘再試` };
   }
   if (!check?.invited) {
-    if (check?.otherCode) return { ok: false, status: 400, code: "other_code", error: `這個 ${exchange} 帳號是用別人的邀請碼註冊的，不是 CCC 的連結。請用下面的 CCC 連結重新註冊一個帳號` };
-    const extra = exchange === "Bybit" ? "Bybit 要填主帳號的 UID。" : "";
-    return { ok: false, status: 400, code: "not_invited", error: `查不到這個 UID 是用 CCC 連結註冊的。${extra}剛註冊完的話，交易所資料要幾分鐘才會更新，請稍後再試一次；如果當初不是用 CCC 連結註冊，請用下面的連結重新註冊` };
+    if (check?.otherCode) return { ok: false, status: 400, code: "other_code", error: "這個帳號用的是別人的邀請碼，請用下面的 CCC 連結重新註冊" };
+    const extra = exchange === "Bybit" ? "（Bybit 填主帳號的 UID）" : "";
+    return { ok: false, status: 400, code: "not_invited", error: `查不到這個 UID${extra}。剛註冊的話請幾分鐘後再試，或用下面的 CCC 連結註冊` };
   }
   return { ok: true, exchange, uid, verified: check };
 }
