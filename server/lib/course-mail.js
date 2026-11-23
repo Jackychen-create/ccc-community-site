@@ -17,7 +17,7 @@ import { unitOn } from "./membership.js";
 // 私訊用的卡片
 export function courseUnlockEmbed(list) {
   return {
-    author: { name: `${BRAND}｜系統分享`, icon_url: `${SITE_URL}/assets/brand/ccc-bot.png` },
+    author: { name: `${BRAND}｜系統分享`, icon_url: `${SITE_URL}/assets/brand/ccc-owl.png` },
     title: list.length === 1 ? `🔓 解鎖：${list[0].host} 主講第 ${list[0].part} 份` : `🔓 解鎖 ${list.length} 份系統分享`,
     description: list.map((x) => `**[${x.host} 主講第 ${x.part} 份：${x.title}](${LAB_URL}#/v/${x.id})**`).join("\n") + `\n\n照順序看效果最好。全部系統分享在網站「系統分享」。`,
     color: 0xcda45e,

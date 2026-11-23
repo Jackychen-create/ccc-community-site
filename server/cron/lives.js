@@ -10,7 +10,7 @@ const COURSE_MAIL_ON = false;
 import { runExchangeRoles } from "../lib/exchange-roles.js";
 import { okxProbe } from "../lib/okx.js";
 import { fixHighlightFooters } from "../lib/highlights.js";
-import { syncPanelMessage } from "../lib/discord-setup.js";
+import { syncPanelMessage, syncBotAvatar } from "../lib/discord-setup.js";
 
 export default route({
   async POST(req, res) {
@@ -47,7 +47,9 @@ export default route({
     const footers = await fixHighlightFooters().catch((e) => ({ ok: false, error: String(e?.message || e) }));
     // 報名頻道的固定訊息跟程式不一樣了（例如拿掉 UM 開戶按鈕）就自動更新
     const panel = await syncPanelMessage().catch((e) => ({ ok: false, error: String(e?.message || e) }));
-    return res.status(200).json({ ok: true, due: (data || []).length, reminded, reviews, announced, onboarding, courseMail, exchangeRoles, okx, footers, panel });
+    // 機器人頭貼換成程式裡指定的那張（換過就不動）
+    const avatar = await syncBotAvatar(now).catch((e) => ({ ok: false, error: String(e?.message || e) }));
+    return res.status(200).json({ ok: true, due: (data || []).length, reminded, reviews, announced, onboarding, courseMail, exchangeRoles, okx, footers, panel, avatar });
   },
 });
 

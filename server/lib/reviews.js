@@ -14,7 +14,7 @@ export const reviewEmojisOf = (s) => (Array.isArray(s?.reviewEmojis) && s.review
 const sameEmoji = (a, b) => (a.id || b.id ? a.id === b.id : a.name === b.name);
 // Discord 訊息裡顯示用：自訂表情 <:名字:id>
 export const emojiText = (e) => (e.id ? `<${e.animated ? "a" : ""}:${e.name}:${e.id}>` : e.name);
-const LOGO = "https://ccc-community-site.pages.dev/assets/brand/ccc-bot.png";
+const LOGO = "https://ccc-community-site.pages.dev/assets/brand/ccc-owl.png";
 const KEEP_WEEKS = 8;
 const clip = (s, n) => { s = String(s ?? "").replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
 const nameOf = (a) => a?.global_name || a?.username || "研究員";

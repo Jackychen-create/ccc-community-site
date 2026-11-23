@@ -4,7 +4,7 @@ import { supabaseAdmin, requireMember, readBody, route, toInt, todayTW, getDisco
 import { tierName, tierInfo, streakOf, MAX_TIER, addDays } from "../public/assets/js/shared/rules.js";
 
 const SITE = "https://ccc-community-site.pages.dev";
-const LOGO = `${SITE}/assets/brand/ccc-bot.png`;
+const LOGO = `${SITE}/assets/brand/ccc-owl.png`;
 const COLOR = { 1: 0xb9784a, 2: 0xb9c4cb, 3: 0xcda45e };
 const ICON = { 1: "🥉", 2: "🥈", 3: "🏆" };
 

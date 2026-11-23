@@ -8,7 +8,7 @@ import { SITE_URL, LAB_URL } from "./discord-flow.js";
 import { BRAND } from "./chatlog.js";
 import { reviewEmojisOf, emojiText } from "./reviews.js";
 
-const LOGO = `${SITE_URL}/assets/brand/ccc-bot.png`;
+const LOGO = `${SITE_URL}/assets/brand/ccc-owl.png`;
 export const ONBOARD_DAYS = 7;
 export const ONBOARD_HOUR = 20;
 const twDay = (ms) => new Date(ms + 8 * 3600e3).toISOString().slice(0, 10);
