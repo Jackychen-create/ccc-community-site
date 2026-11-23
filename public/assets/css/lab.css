@@ -240,3 +240,14 @@ html:not([data-theme]) .auth-board {
   border-color: rgba(255, 255, 255, .22);
 }
 html:not([data-theme]) .vrow.is-new, html:not([data-theme]) .vrow.new { background: transparent; }
+
+/* v1.37.7：影片的位置要清楚——縮圖、上次看到的大縮圖、播放器都加一圈亮的細框 */
+html:not([data-theme]) .vthumb::after,
+html:not([data-theme]) .thumb::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 2;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .42), 0 0 0 0 transparent;
+}
+html:not([data-theme]) .vrow:hover .vthumb::after { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .7); }
+html:not([data-theme]) .thumb { border-radius: var(--r-sm, 6px); }
+html:not([data-theme]) .player { border-color: rgba(255, 255, 255, .42); box-shadow: 0 0 24px -10px rgba(255, 255, 255, .25); }
+html:not([data-theme]) .player:fullscreen { box-shadow: none; }

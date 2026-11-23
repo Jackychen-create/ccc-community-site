@@ -4,7 +4,7 @@ import { openDiscordLink } from "./discord-link.js";
 import { rankRing } from "./levelup.js";
 import { $, el, api, sb, icon, modal, setBusy, toast, tutorial, whatsNew } from "../core/index.js";
 import { state } from "./state.js";
-import { VOLUME_TIERS_ON } from "../shared/rules.js";
+import { VOLUME_TIERS_ON, STREAK_ON } from "../shared/rules.js";
 
 const menuBtn = $("#menuBtn");
 const menuPanel = $("#menuPanel");
@@ -15,7 +15,7 @@ export function renderMenu() {
   rankRing($("#avatar"), VOLUME_TIERS_ON && me && !me.isAdmin && !me.free && !me.volume?.paid ? me.tier ?? 0 : null); // 頭像外圈：銅／銀／金（贈送名額、付費制不分級，不加；v1.37.0 拿掉等級後不加）
   // 連續打卡：頭像旁邊「🔥 5」
   const chip = $("#streakChip");
-  const st = me && !me.isAdmin ? me.streak : null;
+  const st = STREAK_ON && me && !me.isAdmin ? me.streak : null; // v1.37.7：連續打卡的火焰收起來
   if (chip) chip.hidden = !st?.days;
   if (chip && st?.days) {
     chip.textContent = `🔥 ${st.days}`;

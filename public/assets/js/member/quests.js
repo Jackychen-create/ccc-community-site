@@ -3,10 +3,11 @@
 import { $, el, api, toast } from "../core/index.js";
 import { state } from "./state.js";
 import { md } from "./format.js";
+import { QUESTS_ON } from "../shared/rules.js";
 
 export async function loadQuests() {
   const box = $("#questPanel");
-  if (!state.me || state.me.isAdmin) return (box.hidden = true);
+  if (!QUESTS_ON || !state.me || state.me.isAdmin) return (box.hidden = true); // v1.37.7：本週小目標收起來
   let q;
   try {
     q = await api("/api/quests");

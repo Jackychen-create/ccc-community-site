@@ -24,6 +24,7 @@ const errs = [];
     const page = await p.textContent("#appView");
     check(`${name}：沒有「我的等級」、交易量、等級提醒`, (await p.locator("#volPanel").isHidden()) && (await p.locator("#accessBanner").isHidden()) && !page.includes("第二級") && !page.includes("交易量"));
     check(`${name}：叫「直播紀錄」，沒有「直播留檔」「系統分享」`, page.includes("直播紀錄") && !page.includes("直播留檔") && !page.includes("系統分享"));
+    check(`${name}：沒有連續打卡的火焰、沒有本週小目標（v1.37.7）`, (await p.locator("#streakChip").isHidden()) && (await p.locator("#questPanel").isHidden()));
     check(`${name}：左上角是金色 CCC° 標誌`, (await p.locator("#appView .brand img.brand-logo").count()) === 1);
     check(`${name}：沒有徽章（v1.37.2 收起來了）`, await p.locator("#badgePanel").isHidden());
     await p.click("#menuBtn");
