@@ -191,7 +191,7 @@ export function openEditor(id, { justUploaded = false } = {}) {
         attList, attUploads, attInput),
       el("div", { class: "field notify-row" }, notifyBtn, notifyNote),
       err,
-      el("p", { class: "small", style: { marginTop: "16px" } }, el("a", { href: `/#/v/${v.id}`, target: "_blank", rel: "noopener", class: "meta-ico" }, icon("ext"), "用研究員畫面預覽"))
+      el("p", { class: "small", style: { marginTop: "16px" } }, el("a", { href: `/lab#/v/${v.id}`, target: "_blank", rel: "noopener", class: "meta-ico" }, icon("ext"), "用研究員畫面預覽"))
     ),
     actions: [
       el("button", { class: "btn danger", type: "button", style: { marginRight: "auto" }, onclick: async () => {

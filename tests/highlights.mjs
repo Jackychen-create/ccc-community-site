@@ -75,7 +75,7 @@ await test("工作佇列：沒做過的先、卡住或失敗的過一陣子再�
 });
 await test("Discord 精華卡片：標題連到影片、重點、標的、章節、AI 提醒", () => {
   const e = highlightEmbed({ id: 7, title: "週三直播", hosts: ["CCC", "X"] }, { summary: "今天講 BTC", points: ["一"], tickers: [{ name: "BTC", note: "看多" }], chapters: [{ t: 0, title: "開場" }, { t: 330, title: "BTC" }] });
-  assert.equal(e.url, "https://ccc-community-site.pages.dev/#/v/7");
+  assert.equal(e.url, "https://ccc-community-site.pages.dev/lab#/v/7");
   assert.deepEqual(e.fields.map((f) => f.name), ["📌 重點", "🎯 提到的標的", "🧭 章節"]);
   assert.match(e.fields[2].value, /`5:30` BTC/);
   assert.match(e.footer.text, /整理內容可能有誤/);

@@ -6,7 +6,7 @@
 //   → 在報名頻道選交易所、填 UID → OKX、Bybit、BingX 自動確認；查不到時由管理員在同一個頻道按通過
 //   → 通過：給身分組，在頻道裡給他專用的實驗室密碼（也私訊一份）→ 按「關閉這個頻道」
 import { grantExchangeRole } from "../lib/exchange-roles.js";
-import { SITE_URL } from "../lib/discord-flow.js";
+import { LAB_URL } from "../lib/discord-flow.js";
 import { isPaidOn } from "../../public/assets/js/shared/rules.js";
 import { LINK_BUTTON_ID, createLinkToken, linkedUserOfDiscord } from "../lib/discord-link.js";
 import {
@@ -50,7 +50,7 @@ async function grantCode(s, app) {
     console.error("discord personal code failed", e?.message);
     code = "";
   }
-  if (code) await dm(app.discord_user_id, `CCC 實驗室培訓計畫審核通過 🎉\n你的實驗室密碼：${code}（只能用一次）\n加入連結：https://ccc-community-site.pages.dev/?invite=${code}`);
+  if (code) await dm(app.discord_user_id, `CCC 實驗室培訓計畫審核通過 🎉\n你的實驗室密碼：${code}（只能用一次）\n加入連結：${LAB_URL}?invite=${code}`);
   return code;
 }
 
@@ -65,7 +65,7 @@ function paidReply() {
     `1. 到研究員專區用 Email 註冊（不用實驗室密碼）`,
     `2. 在網站訂閱月費會員，直播和直播留檔就打開了；系統分享可以一集一集買`,
     "3. 回 Discord 按「🔗 連結網站帳號」，研究員身分組會自動給你",
-  ].join("\n"), { components: [{ type: 1, components: [{ type: 2, style: 5, label: "到研究員專區", url: `${SITE_URL}/#/plans` }] }] });
+  ].join("\n"), { components: [{ type: 1, components: [{ type: 2, style: 5, label: "到研究員專區", url: `${LAB_URL}#/plans` }] }] });
 }
 
 // 按「報名培訓計畫」之後（背景）：開報名頻道，把連結回給他

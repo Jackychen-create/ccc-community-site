@@ -6,7 +6,7 @@ import { env, supabaseAdmin } from "./env.js";
 import { todayTW, twDate } from "./dates.js";
 import { getDiscordSettings, addRole, removeRole, sendMessage, dm, isSnowflake } from "./discord.js";
 import { linkedOf } from "./discord-link.js";
-import { SITE_URL } from "./discord-flow.js";
+import { SITE_URL, LAB_URL } from "./discord-flow.js";
 import {
   PAY_MONTHLY, PAY_PART, PAY_GRACE_DAYS, PAY_ITEMS, SITE_TIER, COURSE_PARTS,
   addDays, addMonths, isPaidOn, isLegacyMember, paidStatus, periodOf,
@@ -135,7 +135,7 @@ export async function checkoutForm(cfg, order, { now = Date.now(), back = "#/pla
     ReturnURL: `${SITE_URL}/api/pay/notify`,
     ChoosePayment: "Credit",
     EncryptType: "1",
-    ClientBackURL: `${SITE_URL}/${back}`,
+    ClientBackURL: `${LAB_URL}${back}`,
     CustomField1: order.kind,
   };
   if (order.kind === "monthly") {
@@ -251,7 +251,7 @@ export async function handleNotify(p, kind, now = Date.now()) {
     await setOrder(order.trade_no, { status: paid ? "paid" : "failed", times: paid ? 1 : 0, last_msg: msg });
     if (paid) {
       await notifyStaff(`💳 ${tag}${who} 買了系統分享第 ${order.part} 集，${money(order.amount)}`);
-      await dmMember(order.user_id, `付款成功 🎉 系統分享第 ${order.part} 集（CCC、X）已經打開了，永久可以看：${SITE_URL}/#/course`);
+      await dmMember(order.user_id, `付款成功 🎉 系統分享第 ${order.part} 集（CCC、X）已經打開了，永久可以看：${LAB_URL}#/course`);
     }
     return "1|OK";
   }
@@ -270,7 +270,7 @@ export async function handleNotify(p, kind, now = Date.now()) {
     await setOrder(order.trade_no, { status: "active", paid_until: until, times: 1, last_msg: msg });
     const role = await syncRole(order.user_id, true);
     await notifyStaff(`💳 ${tag}${who} 訂閱月費，${money(order.amount)}${role === "unlinked" ? "（還沒連結 Discord，連結後會自動拿到研究員身分組）" : role === "error" ? "（⚠️ 給 Discord 身分組失敗，請手動給）" : ""}`);
-    await dmMember(order.user_id, `訂閱成功 🎉 月費會員到 ${until}，之後每個月自動扣款。直播留檔、研究員專區都打開了：${SITE_URL}/`);
+    await dmMember(order.user_id, `訂閱成功 🎉 月費會員到 ${until}，之後每個月自動扣款。直播留檔、研究員專區都打開了：${LAB_URL}`);
     return "1|OK";
   }
 
@@ -288,7 +288,7 @@ export async function handleNotify(p, kind, now = Date.now()) {
   }
   if (order.status === "active") await setOrder(order.trade_no, { status: "past_due", last_msg: msg });
   await notifyStaff(`⚠️ ${tag}${who} 的月費扣款失敗（${p.RtnMsg || p.RtnCode}）。到期後寬限 ${PAY_GRACE_DAYS} 天，之後自動結束`);
-  await dmMember(order.user_id, `提醒：這個月的月費扣款沒有成功（${p.RtnMsg || "信用卡扣款失敗"}）。${PAY_GRACE_DAYS} 天內會員照常可以用，請確認信用卡，或到網站重新訂閱：${SITE_URL}/#/plans`);
+  await dmMember(order.user_id, `提醒：這個月的月費扣款沒有成功（${p.RtnMsg || "信用卡扣款失敗"}）。${PAY_GRACE_DAYS} 天內會員照常可以用，請確認信用卡，或到網站重新訂閱：${LAB_URL}#/plans`);
   return "1|OK";
 }
 
@@ -307,7 +307,7 @@ export async function sweep(today = todayTW()) {
     }
     if (o.user_id && (await roleWanted(o.user_id, today)) === false) {
       if ((await syncRole(o.user_id, false)) === "removed") out.removed++;
-      await dmMember(o.user_id, `你的 CCC 月費會員到期了（${o.paid_until}），研究員身分組先收回。想繼續看直播和留檔，可以到網站重新訂閱：${SITE_URL}/#/plans`);
+      await dmMember(o.user_id, `你的 CCC 月費會員到期了（${o.paid_until}），研究員身分組先收回。想繼續看直播和留檔，可以到網站重新訂閱：${LAB_URL}#/plans`);
     }
   }
   // 一天以上還沒付的訂單：當作放棄（不影響任何人）

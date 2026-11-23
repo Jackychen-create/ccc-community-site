@@ -158,7 +158,7 @@ export async function summarize(v, transcript) {
 
 // ── 4. 貼到 Discord ──
 export function highlightEmbed(v, h) {
-  const url = `${SITE}/#/v/${v.id}`;
+  const url = `${SITE}/lab#/v/${v.id}`;
   const fields = [];
   if (h.points?.length) fields.push({ name: "📌 重點", value: clip(h.points.map((x) => `• ${x}`).join("\n"), 1024) });
   if (h.tickers?.length) fields.push({ name: "🎯 提到的標的", value: clip(h.tickers.map((x) => `\`${x.name}\`${x.note ? ` ${x.note}` : ""}`).join("\n"), 1024) });

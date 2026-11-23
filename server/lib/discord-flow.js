@@ -9,6 +9,8 @@ import { EXCHANGES, needsName } from "../../public/assets/js/shared/rules.js";
 export const T = { PONG: 1, MESSAGE: 4, DEFER: 5, UPDATE: 7, MODAL: 9 }; // 回應類型
 export const EPHEMERAL = 64; // 只有按的人看得到
 export const SITE_URL = "https://ccc-community-site.pages.dev";
+// 實驗室培訓房（研究員專區）：2026-11-23 起跟介紹網站（首頁）分開，在 /lab
+export const LAB_URL = `${SITE_URL}/lab`;
 
 const EX_HINT = {
   OKX: "OKX 的 UID（個人中心可以看到）",
@@ -90,7 +92,7 @@ export function approvedMessage({ userId, roleId, code, by = "", labChannelId = 
     lines.push(
       "", "接著到網站註冊研究員專區（註冊時選同一間交易所、填同一個 UID）：",
       `你的實驗室密碼：**${code}**（只能用一次，請不要給別人）`,
-      `加入連結：${SITE_URL}/?invite=${code}`,
+      `加入連結：${LAB_URL}?invite=${code}`,
     );
   } else {
     lines.push("實驗室密碼管理員會再給你，請稍等。");

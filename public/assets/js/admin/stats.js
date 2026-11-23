@@ -138,7 +138,7 @@ async function openRetention(id) {
     r.feedback.length
       ? el("div", { class: "ret-fbs" }, el("h3", { text: "這一場的提問" }),
           ...r.feedback.map((f) => el("div", { class: "ret-fbrow" },
-            el("a", { class: "num", href: `/#/v/${r.video.id}${f.t != null ? `?t=${f.t}` : ""}`, target: "_blank", rel: "noopener", text: f.t != null ? mmss(f.t) : "—" }),
+            el("a", { class: "num", href: `/lab#/v/${r.video.id}${f.t != null ? `?t=${f.t}` : ""}`, target: "_blank", rel: "noopener", text: f.t != null ? mmss(f.t) : "—" }),
             el("span", { class: "grow" }, f.body), el("span", { class: "small muted", text: f.email.split("@")[0] }))))
       : null,
   ].filter(Boolean));
