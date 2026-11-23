@@ -15,6 +15,7 @@ import publicVideo from "../../server/public-video.js";
 import publicMembership from "../../server/public-membership.js";
 import publicMarket from "../../server/public-market.js";
 import publicStats from "../../server/public-stats.js";
+import discordRebrand from "../../server/discord-rebrand.js";
 import notes from "../../server/notes.js";
 import course from "../../server/course.js";
 import feedback from "../../server/feedback.js";
@@ -70,6 +71,7 @@ const ROUTES = {
   "public-membership": publicMembership,
   "public-market": publicMarket,
   "public-stats": publicStats,
+  "discord-rebrand": discordRebrand,
   "notes": notes,
   "course": course,
   "feedback": feedback,

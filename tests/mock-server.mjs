@@ -409,6 +409,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (p === "/api/discord-oauth") return req.method === "POST" ? send(res, 503, { error: "一鍵連結還沒設定好，請先用 Discord 裡的按鈕連結" }) : send(res, 200, { enabled: false }); // v1.35.0：假伺服器沒有 Discord OAuth
     if (p === "/api/public-stats") return send(res, 200, { discord: 1234, lives: 10, liveHours: 12, featured: [{ at: Date.now() - 864e5, text: "等掃完前低才進，停損放在掃蕩低點下面，這筆照規則出場。", votes: 5 }] });
+    if (p === "/api/discord-rebrand") return send(res, 200, { version: "yanyan-1", finished: true, rounds: 1, bot: { avatar: true, username: true, nick: true }, webhooks: { total: 2, renamed: 2, gone: 0 }, places: [], errors: [] });
     if (p === "/api/public-market") { // 對外網站行情（假資料）
       const spark = Array.from({ length: 25 }, (_, i) => 70000 + Math.sin(i / 3) * 800 + i * 40);
       return send(res, 200, { at: new Date().toISOString(), items: [{ name: "BTC", note: null, price: 71000, chg24: 1.2, high24: 72000, low24: 69500, spark }, { name: "ETH", note: null, price: 2020, chg24: -3.4, high24: 2140, low24: 2000, spark: spark.map((x) => x / 35) }], fng: { value: 32, label: "Fear" } });
