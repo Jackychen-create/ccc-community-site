@@ -22,7 +22,7 @@ import { openWatch } from "./watch.js";
 import { openCourse } from "./course.js";
 import { openNotes } from "./notes.js";
 import { openFeedback } from "./feedback.js";
-import { finishLink } from "./discord-link.js";
+import { finishLink, finishOAuth, openDiscordLink } from "./discord-link.js";
 import { isPaidMember, openPlans } from "./plans.js";
 
 document.querySelectorAll("[data-site-name]").forEach((n) => (n.textContent = SITE));
@@ -37,6 +37,17 @@ function route() {
     finishLink(link[1], () => { renderMenu(); route(); });
     return;
   }
+  // 一鍵連結 Discord 回來（v1.35.0）
+  if (location.hash.startsWith("#/discord-oauth?")) {
+    const params = new URLSearchParams(location.hash.slice(location.hash.indexOf("?") + 1));
+    history.replaceState(null, "", location.pathname + location.search + "#/");
+    finishOAuth(params, () => { renderMenu(); route(); });
+    return;
+  }
+  // 剛註冊好：還沒連 Discord 的話，直接請他連（一鍵就能拿到研究員身分組）
+  let justJoined = false;
+  try { justJoined = sessionStorage.getItem("justJoined") === "1"; sessionStorage.removeItem("justJoined"); } catch {}
+  if (justJoined && state.me?.discord && !state.me.discord.linked) setTimeout(() => openDiscordLink(renderMenu), 600);
   const m = location.hash.match(/^#\/v\/(\d+)(?:\?t=(\d+))?/);
   // 付費制（v1.28.0）：首頁沒有月費就是「我的方案」；系統分享、筆記、提問一直都能進（買了的集數才看得到）
   if (isPaidMember()) {

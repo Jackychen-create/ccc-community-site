@@ -32,6 +32,7 @@ import adminHighlights from "../../server/admin/highlights.js";
 import share from "../../server/share.js";
 import search from "../../server/search.js";
 import discordLink from "../../server/discord-link.js";
+import discordOauth, { callback as discordOauthCallback } from "../../server/discord-oauth.js";
 import adminReviews from "../../server/admin/reviews.js";
 import adminOnboarding from "../../server/admin/onboarding.js";
 import adminChatlog from "../../server/admin/chatlog.js";
@@ -83,6 +84,8 @@ const ROUTES = {
   "share": share,
   "search": search,
   "discord-link": discordLink,
+  "discord-oauth": discordOauth,
+  "discord-oauth/callback": discordOauthCallback,
   "admin/reviews": adminReviews,
   "admin/onboarding": adminOnboarding,
   "admin/chatlog": adminChatlog,
