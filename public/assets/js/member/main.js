@@ -47,7 +47,10 @@ function route() {
   // 剛註冊好：還沒連 Discord 的話，直接請他連（一鍵就能拿到研究員身分組）
   let justJoined = false;
   try { justJoined = sessionStorage.getItem("justJoined") === "1"; sessionStorage.removeItem("justJoined"); } catch {}
-  if (justJoined && state.me?.discord && !state.me.discord.linked) setTimeout(() => openDiscordLink(renderMenu), 600);
+  // （只有一鍵連結設定好才跳，不然要他自己去 Discord 按按鈕，等他從選單打開就好）
+  if (justJoined && state.me?.discord && !state.me.discord.linked) {
+    api("/api/discord-oauth").then((o) => { if (o?.enabled) openDiscordLink(renderMenu); }).catch(() => {});
+  }
   const m = location.hash.match(/^#\/v\/(\d+)(?:\?t=(\d+))?/);
   // 付費制（v1.28.0）：首頁沒有月費就是「我的方案」；系統分享、筆記、提問一直都能進（買了的集數才看得到）
   if (isPaidMember()) {
