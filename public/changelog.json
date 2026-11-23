@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.37.13",
+    "date": "2026-11-24",
+    "items": [
+      "分享網站連結（Threads、LINE、Discord 等）時，預覽圖改成金色 CCC° 標誌。"
+    ]
+  },
+  {
     "version": "1.37.12",
     "date": "2026-11-24",
     "items": [
