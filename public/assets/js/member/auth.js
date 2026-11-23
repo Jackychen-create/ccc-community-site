@@ -154,7 +154,7 @@ export function initAuth(afterLogin) {
     const ex = $("#regEx").value;
     $("#regUidHint").textContent = UID_HINT[ex] || "管理員要靠 UID 對到你的交易量。用好幾間的話，登入後可以再加。";
   });
-  $("#authTutorial").addEventListener("click", (e) => {
+  $("#authTutorial")?.addEventListener("click", (e) => {
     e.preventDefault();
     tutorial();
   });

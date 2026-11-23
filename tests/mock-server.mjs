@@ -373,8 +373,8 @@ const server = http.createServer(async (req, res) => {
       const ex = String(body.exchange || ""), uid = cleanExId(ex, body.uid);
       if (!EXCHANGES.includes(ex)) return send(res, 400, { error: "請選擇你用 CCC 連結註冊的交易所", code: "bad_input" });
       if (!/^\d{5,20}$/.test(uid)) return send(res, 400, { error: "UID 是一串數字，請再確認一次", code: "bad_input" });
-      if (uid.startsWith("9")) return send(res, 400, { error: "查不到這個 UID 是用 CCC 連結註冊的。剛註冊完的話，交易所資料要幾分鐘才會更新，請稍後再試一次；如果當初不是用 CCC 連結註冊，請用下面的連結重新註冊", code: "not_invited", links: JOIN_LINKS });
-      if (members.some((m) => m.join_uid === `${ex}:${uid}`)) return send(res, 409, { error: `這個 ${ex} UID已經加入過了。如果是你，請到「登入」用 Discord 登入`, code: "taken" });
+      if (uid.startsWith("9")) return send(res, 400, { error: "查不到這個 UID。剛註冊的話請幾分鐘後再試，或用下面的 CCC 連結註冊", code: "not_invited", links: JOIN_LINKS });
+      if (members.some((m) => m.join_uid === `${ex}:${uid}`)) return send(res, 409, { error: "這個 UID 已經加入過了，請到「登入」用 Discord 登入", code: "taken" });
       return send(res, 200, { ok: true, exchange: ex, uid, url: `/api/discord-oauth/callback?state=j.${ex}.${uid}&code=mockcode123456` });
     }
     if (p === "/api/join/login") return send(res, 200, { url: "/api/discord-oauth/callback?state=l.mock&code=mockcode123456" });

@@ -6,11 +6,11 @@ import { $, api, setBusy } from "../core/index.js";
 import { cleanExId, exIdOk } from "../shared/rules.js";
 
 const UID_HINT = {
-  OKX: "OKX App →左上角頭像→ UID 在名字下面。",
-  Bybit: "Bybit 請填主帳號的 UID：App 左上角頭像→ UID 在名字下面。",
-  BingX: "BingX App →「我的」→ UID 在名字下面。",
+  OKX: "OKX App 左上角頭像，名字下面",
+  Bybit: "Bybit App 左上角頭像，填主帳號的 UID",
+  BingX: "BingX App「我的」，名字下面",
 };
-const DEFAULT_HINT = "UID 在交易所 App 的個人頁面，是一串數字。";
+const DEFAULT_HINT = "UID 在交易所 App 的個人頁面";
 let links = {};
 
 function setError(id, msg) {
@@ -75,7 +75,7 @@ export function initJoin() {
     setBusy(btn, true, "跟交易所確認中…");
     try {
       const r = await api("/api/join", { method: "POST", body: { exchange, uid } });
-      $("#joinOk").textContent = `✓ 已確認：${r.exchange} UID ${r.uid} 是用 CCC 連結註冊的`;
+      $("#joinOk").textContent = `✓ ${r.exchange} UID ${r.uid} 已確認`;
       $("#joinDiscord").href = r.url;
       step(2);
     } catch (err) {

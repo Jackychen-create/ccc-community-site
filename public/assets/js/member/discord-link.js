@@ -100,15 +100,14 @@ async function welcome(params) {
     } catch (e) { msg.textContent = e.message; msg.hidden = false; }
     finally { setBusy(save, false); }
   });
-  const go = el("a", { class: "btn primary lg block", href: channel, target: "_blank", rel: "noopener", text: "打開 Discord 研究員頻道" });
+  const go = el("a", { class: "btn primary lg block", href: channel, target: "_blank", rel: "noopener", text: "打開 Discord" });
   modal({
     title: "開通完成 🎉",
     body: el("div", { class: "welcome-box" },
-      el("p", { class: "sub", text: role ? "你已經在 CCC 的 Discord 裡，也拿到「實驗室研究員」身分組了，會員直播和研究員頻道現在都看得到。" : "你已經在 CCC 的 Discord 裡了。" }),
-      el("label", { class: "field" }, el("span", { class: "label", text: c.email ? "我們會寄重要通知到這個 Email（可以改）" : "留個 Email，直播通知才寄得到你" }), email),
-      el("label", { class: "check-line" }, notify, el("span", { text: "我同意 CCC 交易實驗室寄送直播通知與活動資訊" })),
-      el("div", { class: "welcome-save" }, save, msg),
-      el("p", { class: "small muted", text: "之後回網站看直播留檔，按「用 Discord 登入」就好，不用密碼。" })),
+      el("p", { class: "sub", text: role ? "已加入 CCC 的 Discord，拿到「實驗室研究員」身分組。" : "已加入 CCC 的 Discord。" }),
+      el("label", { class: "field" }, el("span", { class: "label", text: "通知 Email" }), email),
+      el("label", { class: "check-line" }, notify, el("span", { text: "同意收直播通知與活動資訊" })),
+      el("div", { class: "welcome-save" }, save, msg)),
     actions: [go],
   });
 }
