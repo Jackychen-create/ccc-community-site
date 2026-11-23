@@ -1017,7 +1017,7 @@ const server = http.createServer(async (req, res) => {
   if (p === "/__log") return send(res, 200, log.splice(0));
 
   // ── 靜態檔 ──
-  let file = p === "/" ? "/index.html" : p;
+  let file = p === "/" || p === "/lab" || p === "/login" ? "/index.html" : p; // 測試照舊從「/」進研究員專區；/lab、/login 是正式網站的培訓房網址
   if (p === "/admin") file = "/admin.html";
   if (p === "/watch") file = "/watch.html";
   if (p === "/config.js") {

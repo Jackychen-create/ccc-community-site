@@ -79,7 +79,7 @@ await test("晚上 8 點：通過後第 1～7 天的人各收到當天那一則�
 });
 await test("沒註冊的第 1 天附自己的加入連結；第 3 天寫績效頻道和熊熊表情；不 @ 任何人", () => {
   const d1 = dms.find((d) => d.to === "111111111111111101").body;
-  assert.ok(d1.embeds[0].description.includes("/?invite=NEW-0001"));
+  assert.ok(d1.embeds[0].description.includes("/lab?invite=NEW-0001"));
   const d3 = dms.find((d) => d.to === "111111111111111103").body;
   assert.ok(d3.embeds[0].description.includes("<#100000000000000011>") && d3.embeds[0].description.includes("<:13_:800000000000000001>"));
   assert.deepEqual(d3.allowed_mentions, { parse: [] });

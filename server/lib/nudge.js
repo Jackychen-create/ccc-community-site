@@ -6,7 +6,7 @@ import { supabaseAdmin } from "./env.js";
 import { discordApi, sendMessage } from "./discord.js";
 import { adminEmails } from "./auth.js";
 import { mailReady, escHtml } from "./mail.js";
-import { SITE_URL } from "./discord-flow.js";
+import { SITE_URL, LAB_URL } from "./discord-flow.js";
 import { BRAND } from "./chatlog.js";
 import { discordIds } from "./milestone.js";
 import { dmOrMail } from "./course-mail.js";
@@ -54,13 +54,13 @@ export function unregisteredEmbed(code) {
   return {
     author: { name: `${BRAND}｜實驗室助教`, icon_url: LOGO },
     title: "你的研究員專區還沒開通喔",
-    description: `之前你的培訓計畫報名已經通過，但還沒用實驗室密碼註冊網站。\n直播留檔、系統分享、交易系統分享都在研究員專區，註冊一分鐘就好：\n\n${SITE_URL}/?invite=${code}\n（註冊時選報名時的交易所、填同一個 UID）\n\n密碼不能用或有問題，直接回這則訊息或開客服單。`,
+    description: `之前你的培訓計畫報名已經通過，但還沒用實驗室密碼註冊網站。\n直播留檔、系統分享、交易系統分享都在研究員專區，註冊一分鐘就好：\n\n${LAB_URL}?invite=${code}\n（註冊時選報名時的交易所、填同一個 UID）\n\n密碼不能用或有問題，直接回這則訊息或開客服單。`,
     color: 0xcda45e,
     footer: { text: "這個連結只能用一次，請不要給別人", icon_url: LOGO },
   };
 }
 export function unwatchedEmbed(ep1) {
-  const link = ep1 ? `${SITE_URL}/#/v/${ep1.id}` : `${SITE_URL}/#/course`;
+  const link = ep1 ? `${LAB_URL}#/v/${ep1.id}` : `${LAB_URL}#/course`;
   return {
     author: { name: `${BRAND}｜實驗室助教`, icon_url: LOGO },
     title: "從這一支開始看吧",
@@ -70,7 +70,7 @@ export function unwatchedEmbed(ep1) {
   };
 }
 export function unwatchedHtml(ep1) {
-  const link = ep1 ? `${SITE_URL}/#/v/${ep1.id}` : `${SITE_URL}/#/course`;
+  const link = ep1 ? `${LAB_URL}#/v/${ep1.id}` : `${LAB_URL}#/course`;
   return `<p>研究員專區開通了好幾天，還沒看過任何影片的話，推薦從這一支開始：</p>
 <p style="font-size:18px;font-weight:700;margin:8px 0">${escHtml(ep1?.title || "系統分享第 1 份")}</p>
 <p>CCC 講自己的進出場規則和邏輯，大部分研究員都從這支開始，看完再接著看其他系統分享和直播留檔。</p>

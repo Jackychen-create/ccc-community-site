@@ -4,7 +4,7 @@
 // 一個 Discord 帳號只能連一個網站帳號；換帳號要先在網站解除
 import { supabaseAdmin } from "./env.js";
 import { randomHex } from "./random.js";
-import { SITE_URL } from "./discord-flow.js";
+import { LAB_URL } from "./discord-flow.js";
 
 export const LINK_BUTTON_ID = "link_site";
 export const LINK_TTL_MS = 15 * 60e3;
@@ -28,7 +28,7 @@ export async function createLinkToken(discordUserId, discordName, now = Date.now
   await supabaseAdmin.from("discord_link_tokens").delete().lt("created_at", new Date(now - 86400e3).toISOString());
   const { error } = await supabaseAdmin.from("discord_link_tokens").insert({ token, discord_user_id: discordUserId, discord_name: String(discordName || "").slice(0, 80) || null, expires_at: new Date(now + LINK_TTL_MS).toISOString() });
   if (error) throw error;
-  return { token, url: `${SITE_URL}/#/link-discord?t=${token}` };
+  return { token, url: `${LAB_URL}#/link-discord?t=${token}` };
 }
 
 export async function linkedOf(userId) {

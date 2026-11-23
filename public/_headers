@@ -19,6 +19,9 @@
 /index.html
   Cache-Control: no-cache
 
+/lab
+  Cache-Control: no-cache
+
 /admin
   Cache-Control: no-cache
 

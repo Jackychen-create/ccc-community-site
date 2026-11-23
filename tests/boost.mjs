@@ -72,11 +72,11 @@ await test("課程解鎖提醒：今天解鎖的人收到（加入當天那份�
   const r = unlocksToday(ms, tiers, CV, today);
   assert.deepEqual(r.map((x) => [x.email, x.list.map((y) => `${y.host}${y.part}`).join()]), [["a@x", "X1"], ["f@x", "CCC2"]]);
   const html = courseMailHtml(r[0].list);
-  assert.ok(html.includes("/#/v/3") && html.includes("X 主講第 1 份"));
+  assert.ok(html.includes("/lab#/v/3") && html.includes("X 主講第 1 份"));
 });
 await test("課程解鎖私訊卡片：有連結、不想收怎麼關", () => {
   const e = courseUnlockEmbed([{ host: "X", part: 1, id: 3, title: "X 一" }]);
-  assert.ok(e.title.includes("X 主講第 1 份") && e.description.includes("/#/v/3") && e.footer.text.includes("關掉"));
+  assert.ok(e.title.includes("X 主講第 1 份") && e.description.includes("/lab#/v/3") && e.footer.text.includes("關掉"));
 });
 await test("影片還沒上傳的那份不寄", () => {
   const r = unlocksToday([{ user_id: "a", email: "a@x", created_at: "2026-10-26T02:00:00Z" }], tiers, CV.filter((v) => v.course_host !== "X"), "2026-11-02");
@@ -154,7 +154,7 @@ await test("私訊提醒註冊：附他自己的加入連結；30 天內不再�
   assert.equal(r.sent, 1);
   assert.equal(dms[0].to, "111111111111111101");
   assert.equal(dms.length, 1); // 已經註冊的「連到的人」不在這組
-  assert.ok(dms[0].body.embeds[0].description.includes("/?invite=AAAA-0001"));
+  assert.ok(dms[0].body.embeds[0].description.includes("/lab?invite=AAAA-0001"));
   const again = await runNudge("unregistered", NOW + D / 2);
   assert.deepEqual([again.sent, again.skipped], [0, 1]);
   assert.ok((await nudgeLists(NOW + D / 2)).unregistered[0].sentAt);
@@ -164,9 +164,9 @@ await test("推薦 EP1：有連 Discord 的私訊、沒連的寄信，都連到 
   assert.deepEqual([r.sent, r.dms, r.mails], [2, 1, 1], JSON.stringify(r));
   assert.equal(mails.length, 1);
   assert.equal(mails[0].messageVersions[0].to[0].email, "never@x");
-  assert.ok(mails[0].htmlContent.includes("/#/v/1") && mails[0].htmlContent.includes("EP1"));
+  assert.ok(mails[0].htmlContent.includes("/lab#/v/1") && mails[0].htmlContent.includes("EP1"));
   const d = dms.find((x) => x.to === "111111111111111106");
-  assert.ok(d && d.body.embeds[0].description.includes("/#/v/1"));
+  assert.ok(d && d.body.embeds[0].description.includes("/lab#/v/1"));
   assert.equal((await runNudge("unwatched", NOW + D / 2)).sent, 0);
 });
 await test("提醒註冊的私訊內容", () => {

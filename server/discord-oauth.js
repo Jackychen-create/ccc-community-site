@@ -7,7 +7,7 @@ import { oauthConfigured, authorizeUrl, readAnyState, finishOAuth, discordUserFr
 import { linkedUserOfDiscord } from "./lib/discord-link.js";
 import { createFromDiscord, sessionFor } from "./lib/join.js";
 
-const back = (res, q) => { res.setHeader("Location", `/#/discord-oauth?${new URLSearchParams(q)}`); return res.status(302).end(); };
+const back = (res, q) => { res.setHeader("Location", `/lab#/discord-oauth?${new URLSearchParams(q)}`); return res.status(302).end(); };
 
 // v1.36.0：加入培訓計畫（j）／用 Discord 登入（l）回來：建帳號或找到帳號 → 加進伺服器、給身分組 → 帶一次性代碼回網站登入
 //   回網站：#/discord-oauth?r=welcome|login&t=代碼&n=名字&g=1|0&c=研究員頻道網址

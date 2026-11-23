@@ -8,7 +8,7 @@ import { sendMail, mailReady, escHtml } from "./mail.js";
 import { tiersFor } from "./tier.js";
 import { twDate } from "./dates.js";
 import { COURSE_HOSTS, COURSE_PARTS, courseUnlockDate, courseWeek, courseTierOk, courseSkipSchedule } from "../../public/assets/js/shared/rules.js";
-import { SITE_URL } from "./discord-flow.js";
+import { SITE_URL, LAB_URL } from "./discord-flow.js";
 import { discordConfigured, discordApi, sendMessage } from "./discord.js";
 import { discordIds } from "./milestone.js";
 import { BRAND } from "./chatlog.js";
@@ -19,7 +19,7 @@ export function courseUnlockEmbed(list) {
   return {
     author: { name: `${BRAND}｜系統分享`, icon_url: `${SITE_URL}/assets/brand/ccc-bot.png` },
     title: list.length === 1 ? `🔓 解鎖：${list[0].host} 主講第 ${list[0].part} 份` : `🔓 解鎖 ${list.length} 份系統分享`,
-    description: list.map((x) => `**[${x.host} 主講第 ${x.part} 份：${x.title}](${SITE_URL}/#/v/${x.id})**`).join("\n") + `\n\n照順序看效果最好。全部系統分享在網站「系統分享」。`,
+    description: list.map((x) => `**[${x.host} 主講第 ${x.part} 份：${x.title}](${LAB_URL}#/v/${x.id})**`).join("\n") + `\n\n照順序看效果最好。全部系統分享在網站「系統分享」。`,
     color: 0xcda45e,
     footer: { text: "不想收到：網站右上角選單關掉「新影片、課程解鎖通知」" },
   };
@@ -81,10 +81,10 @@ export function unitUnlocks(members, tiers, courseVideos, notified = {}) {
   return { due: out, next };
 }
 export function courseMailHtml(list) {
-  const items = list.map((x) => `<li style="margin:6px 0"><a href="${SITE_URL}/#/v/${x.id}" style="color:#9a6b1f;font-weight:700">${escHtml(x.host)} 主講第 ${x.part} 份：${escHtml(x.title)}</a></li>`).join("");
+  const items = list.map((x) => `<li style="margin:6px 0"><a href="${LAB_URL}#/v/${x.id}" style="color:#9a6b1f;font-weight:700">${escHtml(x.host)} 主講第 ${x.part} 份：${escHtml(x.title)}</a></li>`).join("");
   return `<p>你的系統分享解鎖了新的一份：</p><ul style="padding-left:18px">${items}</ul>
 <p>照順序看效果最好。全部系統分享在網站「系統分享」。</p>
-<p><a href="${SITE_URL}/#/course" style="display:inline-block;background:#cda45e;color:#1b1f1d;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700">去看課程</a></p>
+<p><a href="${LAB_URL}#/course" style="display:inline-block;background:#cda45e;color:#1b1f1d;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700">去看課程</a></p>
 <p style="color:#7a817d;font-size:13px">不想收到通知：網站右上角選單 →「新影片、課程解鎖通知」關掉。</p>`;
 }
 

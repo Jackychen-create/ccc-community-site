@@ -9,7 +9,7 @@ export function show(id) {
 // API 錯誤：沒登入就回登入頁、沒權限就顯示沒有權限，其他跳提示
 export function fail(e) {
   if (e.status === 401) {
-    sb.auth.signOut().then(() => location.replace("/?next=admin"));
+    sb.auth.signOut().then(() => location.replace("/lab?next=admin"));
     return;
   }
   if (e.status === 403 && e.code === "owner_only") return A.toast(e.message, "err"); // 協作管理員用到主要管理員的功能

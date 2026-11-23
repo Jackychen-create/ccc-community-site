@@ -41,13 +41,13 @@ document.querySelectorAll("[data-ico]").forEach((n) => {
 
 (async function boot() {
   const { data } = await sb.auth.getSession();
-  if (!data.session) return location.replace("/?next=admin");
+  if (!data.session) return location.replace("/lab?next=admin");
   try {
     state.me = await api("/api/me");
   } catch (e) {
     if (e.status === 401) {
       await sb.auth.signOut();
-      return location.replace("/?next=admin");
+      return location.replace("/lab?next=admin");
     }
     show("noAccess");
     if (e.status !== 403) {
@@ -75,7 +75,7 @@ async function logout(e) {
   e && e.preventDefault();
   if (activeUploads.size && !(await A.confirmDialog({ title: "還有影片在上傳", message: "現在登出會中斷上傳，確定要登出嗎？", confirmText: "登出", danger: true }))) return;
   await sb.auth.signOut();
-  location.href = "/";
+  location.href = "/lab";
 }
 $("#logout").addEventListener("click", logout);
 $("#changelogLink").addEventListener("click", (e) => {

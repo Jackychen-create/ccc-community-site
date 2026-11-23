@@ -4,7 +4,7 @@
 // 第 1 天看他註冊網站了沒（報名通過拿到的實驗室密碼有沒有被用掉），沒有就提醒
 import { supabaseAdmin } from "./env.js";
 import { discordApi, getDiscordSettings, sendMessage } from "./discord.js";
-import { SITE_URL } from "./discord-flow.js";
+import { SITE_URL, LAB_URL } from "./discord-flow.js";
 import { BRAND } from "./chatlog.js";
 import { reviewEmojisOf, emojiText } from "./reviews.js";
 
@@ -20,8 +20,8 @@ export function onboardingStep(day, s = {}, who = {}) {
   const emo = emojiText(reviewEmojisOf(s)[0]);
   const steps = {
     1: who.registered === false
-      ? { title: "先把研究員專區註冊好", body: `你還沒用實驗室密碼註冊網站喔！直播留檔、系統分享都在網站上。\n\n${who.code ? `你的加入連結：${SITE_URL}/?invite=${who.code}\n（註冊時選同一間交易所、填同一個 UID）` : `實驗室密碼在報名頻道、也私訊給你一份了，到 ${SITE_URL} 註冊。`}` }
-      : { title: "從系統分享開始", body: `網站登入後先看「系統分享」第 1 週，每位主講各講自己的交易系統。\n每週會解鎖新的一份，課程頁會寫你每一份的解鎖日期。\n\n${SITE_URL}` },
+      ? { title: "先把研究員專區註冊好", body: `你還沒用實驗室密碼註冊網站喔！直播留檔、系統分享都在網站上。\n\n${who.code ? `你的加入連結：${LAB_URL}?invite=${who.code}\n（註冊時選同一間交易所、填同一個 UID）` : `實驗室密碼在報名頻道、也私訊給你一份了，到 ${LAB_URL} 註冊。`}` }
+      : { title: "從系統分享開始", body: `網站登入後先看「系統分享」第 1 週，每位主講各講自己的交易系統。\n每週會解鎖新的一份，課程頁會寫你每一份的解鎖日期。\n\n${LAB_URL}` },
     2: { title: "直播和直播精華", body: `會員直播會在 Discord 公告時間，錯過了到網站「直播留檔」看。\n每一場直播助教都會整理重點和章節，貼在 ${ch(s.highlightChannelId, "直播精華")}，沒空看完整場可以先看重點。` },
     3: { title: "想聽主講點評你的交易？", body: `把交易貼到 ${ch(s.perfChannelId, "交易績效")}，對想聽主講點評的交易按 ${emo}，自己的、別人的都可以投。\n每週日晚上 9 點整理票數，主講挑票多的在直播點評。` },
     4: { title: "來研究員大廳聊聊", body: `研究員大廳是研究員的討論區，每天助教會整理一則前一天的「每日回顧」，錯過的討論看回顧就好。\n${s.labChannelId ? `公告都在 <#${s.labChannelId}>。` : ""}` },

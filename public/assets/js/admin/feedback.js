@@ -42,7 +42,7 @@ function fbCard(f) {
     el("div", { class: "fb-head" },
       el("span", { class: "pill" + (f.kind === "problem" ? " warn" : " brass"), text: f.kind === "problem" ? "網站問題" : "內容提問" }),
       el("b", { style: { wordBreak: "break-all" }, text: f.email }),
-      f.video_id ? el("a", { class: "small", href: `/#/v/${f.video_id}${f.t != null ? `?t=${f.t}` : ""}`, target: "_blank", rel: "noopener" }, f.video_title || "影片", f.t != null ? el("span", { class: "num", text: ` ${A.fmtDur(f.t)}` }) : null) : null,
+      f.video_id ? el("a", { class: "small", href: `/lab#/v/${f.video_id}${f.t != null ? `?t=${f.t}` : ""}`, target: "_blank", rel: "noopener" }, f.video_title || "影片", f.t != null ? el("span", { class: "num", text: ` ${A.fmtDur(f.t)}` }) : null) : null,
       el("span", { class: "spacer" }),
       el("span", { class: "small muted", text: A.fmtRel(f.created_at) })),
     el("p", { class: "fb-body", text: f.body }),
