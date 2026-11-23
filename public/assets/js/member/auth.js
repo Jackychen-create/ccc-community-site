@@ -45,6 +45,12 @@ async function checkPay() {
   }
 }
 
+// 舊的 Email 註冊（含實驗室密碼）：只在 ?invite= 連結、或新流程（Discord 開通）沒設定好時出現
+export function showLegacyFull() {
+  $("#legacyAuth").open = true;
+  for (const id of ["legacySeg", "authTitle", "authSub"]) $("#" + id).hidden = false;
+}
+
 export function showAuth() {
   show("authView");
   document.title = SITE;
@@ -52,7 +58,7 @@ export function showAuth() {
   const invite = params.get("invite");
   checkJoin();
   if (invite) {
-    $("#legacyAuth").open = true; // 拿實驗室密碼連結來的：直接打開舊的 Email 註冊
+    showLegacyFull(); // 拿贈送名額／實驗室密碼連結來的：直接打開舊的 Email 註冊
     $("#invite").value = invite.toUpperCase();
     setMode("register");
     checkInvite();

@@ -77,12 +77,13 @@
         </div>
         <details class="legacy-auth" id="legacyAuth">
           <summary>舊帳號用 Email 登入</summary>
-            <div class="seg" role="tablist" aria-label="登入或註冊">
+            <!-- v1.37.10：平常這裡只給舊帳號登入（Email＋密碼）；註冊、實驗室密碼只在拿贈送名額連結（?invite=）來、或新流程沒開時出現 -->
+            <div class="seg" role="tablist" aria-label="登入或註冊" id="legacySeg" hidden>
               <button type="button" role="tab" id="tabLogin" aria-selected="true">登入</button>
               <button type="button" role="tab" id="tabRegister" aria-selected="false">用 Email 註冊</button>
             </div>
-            <h2 id="authTitle">歡迎回來</h2>
-            <p id="authSub" class="intro">用你的 Email 和密碼登入</p>
+            <h2 id="authTitle" hidden>歡迎回來</h2>
+            <p id="authSub" class="intro" hidden>用你的 Email 和密碼登入</p>
             <form id="authForm" novalidate>
               <label class="field"><span class="label">Email</span>
                 <input class="input" id="email" type="email" autocomplete="email" inputmode="email" required>
