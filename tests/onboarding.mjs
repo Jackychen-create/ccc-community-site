@@ -71,7 +71,7 @@ await test("不是晚上 8 點：不發", async () => {
 await test("晚上 8 點：通過後第 1～7 天的人各收到當天那一則；今天剛通過、十天前、沒通過的不發", async () => {
   const r = await runOnboarding(NOW);
   assert.equal(r.sent, 3, JSON.stringify(r));
-  assert.deepEqual(title("111111111111111101"), ["第 1 天｜先把研究員專區註冊好"]);
+  assert.deepEqual(title("111111111111111101"), ["第 1 天｜先把實驗室培訓房開通好"]);
   assert.deepEqual(title("111111111111111102"), ["第 1 天｜從直播紀錄開始"]);
   assert.deepEqual(title("111111111111111103"), ["第 3 天｜想聽主講點評你的交易？"]);
   assert.equal(dms.filter((d) => ["111111111111111104", "111111111111111105", "111111111111111106"].includes(d.to)).length, 0);
@@ -79,7 +79,7 @@ await test("晚上 8 點：通過後第 1～7 天的人各收到當天那一則�
 });
 await test("沒註冊的第 1 天附自己的加入連結；第 3 天寫績效頻道和熊熊表情；不 @ 任何人", () => {
   const d1 = dms.find((d) => d.to === "111111111111111101").body;
-  assert.ok(d1.embeds[0].description.includes("/lab?invite=NEW-0001"));
+  assert.ok(d1.embeds[0].description.includes("/lab") && d1.embeds[0].description.includes("貼上 UID")); // v1.37.9：新流程不用實驗室密碼
   const d3 = dms.find((d) => d.to === "111111111111111103").body;
   assert.ok(d3.embeds[0].description.includes("<#100000000000000011>") && d3.embeds[0].description.includes("<:13_:800000000000000001>"));
   assert.deepEqual(d3.allowed_mentions, { parse: [] });
@@ -91,7 +91,7 @@ await test("同一天再跑：不重複", async () => {
 });
 await test("隔天：收到下一天", async () => {
   await runOnboarding(NOW + D);
-  assert.deepEqual(title("111111111111111101"), ["第 1 天｜先把研究員專區註冊好", "第 2 天｜直播和直播精華"]);
+  assert.deepEqual(title("111111111111111101"), ["第 1 天｜先把實驗室培訓房開通好", "第 2 天｜直播和直播精華"]);
   assert.equal(title("111111111111111104").length, 1); assert.ok(title("111111111111111104")[0].startsWith("第 1 天")); // 昨天剛通過的人今天收第 1 天
 });
 await test("第 7 天之後就不發了", async () => {

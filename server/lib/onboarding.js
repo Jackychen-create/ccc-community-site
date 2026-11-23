@@ -20,7 +20,7 @@ export function onboardingStep(day, s = {}, who = {}) {
   const emo = emojiText(reviewEmojisOf(s)[0]);
   const steps = {
     1: who.registered === false
-      ? { title: "先把研究員專區註冊好", body: `你還沒用實驗室密碼註冊網站喔！直播紀錄、交易分享都在網站上。\n\n${who.code ? `你的加入連結：${LAB_URL}?invite=${who.code}\n（註冊時選同一間交易所、填同一個 UID）` : `實驗室密碼在報名頻道、也私訊給你一份了，到 ${LAB_URL} 註冊。`}` }
+      ? { title: "先把實驗室培訓房開通好", body: `你還沒開通網站喔！直播紀錄、交易分享都在實驗室培訓房。\n\n到 ${LAB_URL} 選交易所、貼上 UID，再用 Discord 授權就開通了（用報名時同一間交易所、同一個 UID）。` }
       : { title: "從直播紀錄開始", body: `網站登入後先看最新一場「直播紀錄」，可以跳章節、記筆記。\n「交易分享」上架就能看，加入的研究員都看得到。\n\n${LAB_URL}` },
     2: { title: "直播和直播精華", body: `會員直播會在 Discord 公告時間，錯過了到網站「直播紀錄」看。\n每一場直播助教都會整理重點和章節，貼在 ${ch(s.highlightChannelId, "直播精華")}，沒空看完整場可以先看重點。` },
     3: { title: "想聽主講點評你的交易？", body: `把交易貼到 ${ch(s.perfChannelId, "交易績效")}，對想聽主講點評的交易按 ${emo}，自己的、別人的都可以投。\n每週日晚上 9 點整理票數，主講挑票多的在直播點評。` },

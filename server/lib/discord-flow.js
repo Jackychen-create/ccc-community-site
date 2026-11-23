@@ -39,15 +39,17 @@ export function signupRow(invites = {}) {
 export function panelMessage(invites = {}) {
   const signup = signupRow(invites);
   return {
+    // v1.37.9：跟網站同一套流程——網站貼 UID、Discord 授權，自動拿到研究員身分組（不用報名頻道、不用實驗室密碼）
     content: [
-      "## 報名 CCC 實驗室培訓計畫 🧪",
-      "按下面的按鈕，機器人會幫你開一個**只有你和管理員看得到的報名頻道**。",
-      "在頻道裡選你用 CCC 邀請連結註冊的交易所（OKX、Bybit、BingX）、填 UID：",
-      "• 幾秒鐘自動確認，通過就給你研究員身分組和實驗室密碼",
-      "• 交易所暫時查不到的話，由管理員確認後通過，一樣在頻道裡給你",
-      signup ? "\n還沒有交易所帳號？先用下面的 CCC 邀請連結註冊：" : "",
-    ].filter(Boolean).join("\n"),
-    components: [{ type: 1, components: [{ type: 2, style: 1, custom_id: "apply", label: "報名培訓計畫", emoji: { name: "🧪" } }] }, ...(signup ? [signup] : [])],
+      "## 加入 CCC 實驗室培訓計畫 🧪",
+      "**1.** 用 CCC 連結註冊交易所（OKX、Bybit、BingX 選一間）",
+      "**2.** 到實驗室培訓房，選交易所、貼上 UID",
+      "**3.** 按「進入 Discord 實驗室研究員專區」並授權，自動拿到研究員身分組",
+      "",
+      "加入後看得到直播紀錄、交易分享、會員直播和研究員大廳。",
+      signup ? "\n還沒有交易所帳號？先用下面的 CCC 連結註冊：" : "",
+    ].filter((x) => x !== false).join("\n").replace(/\n{3,}/g, "\n\n"),
+    components: [{ type: 1, components: [{ type: 2, style: 5, url: LAB_URL, label: "到實驗室培訓房加入", emoji: { name: "🧪" } }] }, ...(signup ? [signup] : [])],
     allowed_mentions: { parse: [] },
   };
 }
@@ -90,7 +92,7 @@ export function approvedMessage({ userId, roleId, code, by = "", labChannelId = 
   ];
   if (code) {
     lines.push(
-      "", "接著到網站註冊研究員專區（註冊時選同一間交易所、填同一個 UID）：",
+      "", "接著到實驗室培訓房註冊（選同一間交易所、填同一個 UID）：",
       `你的實驗室密碼：**${code}**（只能用一次，請不要給別人）`,
       `加入連結：${LAB_URL}?invite=${code}`,
     );

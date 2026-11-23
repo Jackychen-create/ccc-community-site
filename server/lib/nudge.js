@@ -53,10 +53,10 @@ export async function nudgeLists(now = Date.now()) {
 export function unregisteredEmbed(code) {
   return {
     author: { name: `${BRAND}｜實驗室助教`, icon_url: LOGO },
-    title: "你的研究員專區還沒開通喔",
-    description: `之前你的培訓計畫報名已經通過，但還沒用實驗室密碼註冊網站。\n直播紀錄、交易分享都在研究員專區，註冊一分鐘就好：\n\n${LAB_URL}?invite=${code}\n（註冊時選報名時的交易所、填同一個 UID）\n\n密碼不能用或有問題，直接回這則訊息或開客服單。`,
+    title: "你的實驗室培訓房還沒開通喔",
+    description: `之前你的培訓計畫報名已經通過，但還沒開通網站。\n直播紀錄、交易分享都在實驗室培訓房，一分鐘就好：選交易所、貼上 UID，再用 Discord 授權。\n\n${LAB_URL}\n\n有問題直接回這則訊息或開客服單。`,
     color: 0xcda45e,
-    footer: { text: "這個連結只能用一次，請不要給別人", icon_url: LOGO },
+    footer: { text: "用報名時同一間交易所、同一個 UID", icon_url: LOGO },
   };
 }
 export function unwatchedEmbed(ep1) {
@@ -64,14 +64,14 @@ export function unwatchedEmbed(ep1) {
   return {
     author: { name: `${BRAND}｜實驗室助教`, icon_url: LOGO },
     title: "從這一支開始看吧",
-    description: `研究員專區開通好幾天了，還沒看過影片的話，推薦從這支開始：\n\n**[${ep1?.title || "最新一場直播紀錄"}](${link})**\n\n最新一場直播的完整紀錄，可以跳章節、記筆記，看完再接著看其他直播紀錄和交易分享。`,
+    description: `實驗室培訓房開通好幾天了，還沒看過影片的話，推薦從這支開始：\n\n**[${ep1?.title || "最新一場直播紀錄"}](${link})**\n\n最新一場直播的完整紀錄，可以跳章節、記筆記，看完再接著看其他直播紀錄和交易分享。`,
     color: 0xcda45e,
     footer: { text: "登入有問題：直接回這則訊息或開客服單", icon_url: LOGO },
   };
 }
 export function unwatchedHtml(ep1) {
   const link = ep1 ? `${LAB_URL}#/v/${ep1.id}` : `${LAB_URL}#/`;
-  return `<p>研究員專區開通了好幾天，還沒看過任何影片的話，推薦從這一支開始：</p>
+  return `<p>實驗室培訓房開通了好幾天，還沒看過任何影片的話，推薦從這一支開始：</p>
 <p style="font-size:18px;font-weight:700;margin:8px 0">${escHtml(ep1?.title || "最新一場直播紀錄")}</p>
 <p>最新一場直播的完整紀錄，可以跳章節、記筆記，看完再接著看其他直播紀錄和交易分享。</p>
 <p><a href="${link}" style="display:inline-block;background:#cda45e;color:#1b1f1d;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700">開始看</a></p>

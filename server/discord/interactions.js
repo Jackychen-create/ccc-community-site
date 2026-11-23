@@ -62,10 +62,10 @@ async function paidSignupOn() {
 function paidReply() {
   return reply([
     "CCC 研究員改成訂閱制了：",
-    `1. 到研究員專區用 Email 註冊（不用實驗室密碼）`,
+    `1. 到實驗室培訓房，選交易所、貼上 UID，用 Discord 授權加入`,
     `2. 在網站訂閱月費會員，直播和直播紀錄就打開了；系統分享可以一集一集買`,
     "3. 回 Discord 按「🔗 連結網站帳號」，研究員身分組會自動給你",
-  ].join("\n"), { components: [{ type: 1, components: [{ type: 2, style: 5, label: "到研究員專區", url: `${LAB_URL}#/plans` }] }] });
+  ].join("\n"), { components: [{ type: 1, components: [{ type: 2, style: 5, label: "到實驗室培訓房", url: `${LAB_URL}#/plans` }] }] });
 }
 
 // 按「報名培訓計畫」之後（背景）：開報名頻道，把連結回給他
@@ -199,7 +199,7 @@ export default route({
       if (id === LINK_BUTTON_ID) {
         const { url } = await createLinkToken(user.id, nameOf(user));
         const already = await linkedUserOfDiscord(user.id);
-        return res.status(200).json(reply(`${already ? "你已經連結過網站帳號了；要換成別的網站帳號，先在網站解除再用這個連結。\n\n" : ""}用**登入研究員專區的那個瀏覽器**打開下面的連結就完成了（15 分鐘內有效、只能用一次，不要給別人）。`, { components: [{ type: 1, components: [{ type: 2, style: 5, label: "打開網站完成連結", url }] }] }));
+        return res.status(200).json(reply(`${already ? "你已經連結過網站帳號了；要換成別的網站帳號，先在網站解除再用這個連結。\n\n" : ""}用**登入實驗室培訓房的那個瀏覽器**打開下面的連結就完成了（15 分鐘內有效、只能用一次，不要給別人）。`, { components: [{ type: 1, components: [{ type: 2, style: 5, label: "打開網站完成連結", url }] }] }));
       }
       // 付費制（v1.28.0）開始後：不再用交易所報名拿身分組，改成到網站訂閱
       if ((id === "apply" || id === "apply_ex") && !hasRole && (await paidSignupOn())) return res.status(200).json(paidReply());

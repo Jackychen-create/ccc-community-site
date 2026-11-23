@@ -14,7 +14,7 @@ export function linkPanelMessage() {
   return {
     embeds: [{
       title: "🔗 連結網站帳號",
-      description: "把你的 Discord 連到研究員專區，課程解鎖、升級、直播精華這些提醒就會由實驗室助教私訊給你。\n\n按下面的按鈕，用登入網站的瀏覽器打開助教給你的連結就完成了（連結 15 分鐘內有效、只能用一次）。",
+      description: "用 Discord 加入實驗室培訓房的研究員已經自動連好了，不用再按。\n\n用 Email 帳號登入的舊研究員：按下面的按鈕，用登入網站的瀏覽器打開助教給你的連結就完成了（15 分鐘內有效、只能用一次）。連好之後，新影片、直播精華的提醒由實驗室助教私訊給你。",
       color: 0xcda45e,
     }],
     components: [{ type: 1, components: [{ type: 2, style: 1, custom_id: LINK_BUTTON_ID, label: "連結網站帳號", emoji: { name: "🔗" } }] }],

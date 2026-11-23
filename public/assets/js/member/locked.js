@@ -17,7 +17,7 @@ export function openLocked() {
   $("#chips").replaceChildren();
   $("#countText").textContent = "";
   document.querySelector("#listView .vhead").hidden = true;
-  document.querySelector("#listView h1").firstChild.textContent = "研究員專區 ";
+  document.querySelector("#listView h1").firstChild.textContent = "實驗室培訓房 ";
   const v = state.me.volume;
   const tier = state.me.tier ?? 0;
   const invites = Object.entries(state.me.invites || {});
