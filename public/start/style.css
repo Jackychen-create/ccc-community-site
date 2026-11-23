@@ -1020,3 +1020,68 @@ body::after { animation: none !important; }
   #faq summary { font-size: 16px; color: #fff; }
   #faq details p { font-size: 14.5px; color: #A9A6A0; }
 }
+
+/* v1.37.12：手機版——每一段一個畫面看完，段落之間分得清楚（電腦版不變）
+   段落之間一道亮的分隔光、間距收緊；四步、培訓房說明、Discord 改成兩欄小格 */
+@media (max-width: 760px) {
+  .sec { padding: 40px 0 36px; border-bottom: 0; }
+  .sec + .sec, #hosts + .sec { position: relative; }
+  main > .sec::before, main > section.sec::before {
+    content: ""; position: absolute; left: 16px; right: 16px; top: 0; height: 1px; pointer-events: none;
+    background: linear-gradient(90deg, transparent, rgba(217, 178, 106, .85) 50%, transparent);
+    box-shadow: 0 0 14px 1px rgba(217, 178, 106, .35);
+  }
+  #hosts::before { display: none; }
+  .sec h2[data-k] { font-size: 27px; }
+  .sec h2[data-k]::before { margin-bottom: 8px; }
+  .sec .intro, .sec .intro.intro-lg { font-size: 14px; margin-top: 6px; }
+
+  /* 四步：2×2 小格 */
+  .steps { grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
+  .steps li { grid-template-columns: 1fr; gap: 6px; padding: 14px 12px; }
+  .steps .step-n { font-size: 20px; line-height: 1; }
+  .steps li h3 { font-size: 16px; }
+  .steps li p { font-size: 13px; line-height: 1.6; }
+  .steps .more { font-size: 12.5px; margin-top: 2px; }
+
+  /* 交易所：收緊 */
+  #exchanges .warn-box { padding: 12px 14px; margin-top: 16px; }
+  #exchanges .warn-box p { font-size: 13px; }
+  #exchanges .tabs { margin-top: 16px; }
+  .ex-head { gap: 10px; }
+  .ex-head h3 { font-size: 22px; }
+  .how { gap: 10px; margin-top: 14px; }
+  .how li b { font-size: 15px; }
+  .how li span { font-size: 13px; }
+
+  /* 培訓房說明：2 欄小格，只留標題＋一句 */
+  #site .cards { grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
+  #site .card { padding: 13px 12px; }
+  #site .card h3 { font-size: 15.5px; margin-bottom: 4px; }
+  #site .card p { font-size: 12.5px; line-height: 1.55; }
+  #site .card .go { font-size: 13px; margin-top: 6px; }
+
+  /* Discord：2 欄 */
+  .feat { grid-template-columns: 1fr 1fr; column-gap: 14px; margin-top: 18px; }
+  .feat li { padding: 12px 0; padding-right: 0; }
+  .feat li b { font-size: 15px; }
+  .feat li span { font-size: 12.5px; line-height: 1.55; }
+
+  #faq summary { font-size: 15px; }
+}
+@media (max-width: 760px) {
+  .how { grid-template-columns: 1fr 1fr; column-gap: 12px; row-gap: 12px; }
+  .how li { grid-template-columns: 1fr; row-gap: 4px; }
+  .how li::before { width: 22px; height: 22px; font-size: 12.5px; grid-row: auto; }
+  .ex-head { flex-wrap: wrap; }
+  .ex-head .btn { width: 100%; }
+}
+@media (max-width: 760px) {
+  #exchanges .ex { margin-top: 10px; padding: 14px 0 0; }
+  #exchanges .ex-head { padding-bottom: 12px; gap: 8px; }
+  #exchanges .ex-head > div { display: flex; align-items: baseline; gap: 12px; }
+  #exchanges .ex-code { margin-top: 0; }
+  #exchanges .btn { height: 42px; }
+  #exchanges .intro { display: none; }
+  #exchanges .warn-box p { line-height: 1.6; }
+}
