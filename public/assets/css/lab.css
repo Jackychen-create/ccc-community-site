@@ -158,3 +158,85 @@ html:not([data-theme]) .vdesc, html:not([data-theme]) .sub, html:not([data-theme
 /* 背景本身再收一點，讓內容站在前面 */
 html:not([data-theme]) body::after { opacity: .55; }
 @media (max-width: 760px) { html:not([data-theme]) body::after { opacity: .35; } }
+
+/* v1.37.5：背景會動——細光線往下流（跟介紹頁的雨同一個方向），一部分星星會閃
+   內容區不墊灰色色塊（跟介紹頁的卡片一樣，只留細框），字再亮一點 */
+html:not([data-theme]) body::after {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: .75;
+  background:
+    linear-gradient(to bottom, transparent, rgba(150, 185, 240, 0.26) 12%, transparent 25%, transparent) 45.4% 0 / 1px 150vh repeat-y,
+    linear-gradient(to bottom, transparent, rgba(150, 185, 240, 0.28) 14%, transparent 28%, transparent) 19.7% 0 / 1px 150vh repeat-y,
+    linear-gradient(to bottom, transparent, rgba(150, 185, 240, 0.27) 9%, transparent 19%, transparent) 44.9% 0 / 1px 110vh repeat-y,
+    linear-gradient(to bottom, transparent, rgba(150, 185, 240, 0.28) 12%, transparent 25%, transparent) 6.0% 0 / 1px 150vh repeat-y,
+    linear-gradient(to bottom, transparent, rgba(150, 185, 240, 0.19) 9%, transparent 18%, transparent) 61.8% 0 / 1px 90vh repeat-y,
+    linear-gradient(to bottom, transparent, rgba(150, 185, 240, 0.25) 11%, transparent 23%, transparent) 4.9% 0 / 1px 150vh repeat-y,
+    linear-gradient(to bottom, transparent, rgba(150, 185, 240, 0.18) 12%, transparent 25%, transparent) 24.4% 0 / 1px 130vh repeat-y,
+    linear-gradient(to bottom, transparent, rgba(150, 185, 240, 0.34) 13%, transparent 26%, transparent) 64.9% 0 / 1px 150vh repeat-y,
+    linear-gradient(to bottom, transparent, rgba(150, 185, 240, 0.23) 13%, transparent 26%, transparent) 32.3% 0 / 1px 110vh repeat-y,
+    linear-gradient(to bottom, transparent, rgba(150, 185, 240, 0.32) 9%, transparent 19%, transparent) 75.6% 0 / 1px 150vh repeat-y,
+    linear-gradient(to bottom, transparent, rgba(150, 185, 240, 0.21) 10%, transparent 21%, transparent) 94.0% 0 / 1px 90vh repeat-y,
+    linear-gradient(to bottom, transparent, rgba(150, 185, 240, 0.19) 12%, transparent 24%, transparent) 38.0% 0 / 1px 150vh repeat-y,
+    linear-gradient(to bottom, transparent, rgba(150, 185, 240, 0.19) 11%, transparent 23%, transparent) 76.7% 0 / 1px 130vh repeat-y,
+    linear-gradient(to bottom, transparent, rgba(150, 185, 240, 0.22) 10%, transparent 20%, transparent) 94.6% 0 / 1px 90vh repeat-y,
+    linear-gradient(to bottom, transparent, rgba(150, 185, 240, 0.29) 10%, transparent 20%, transparent) 7.7% 0 / 1px 150vh repeat-y,
+    linear-gradient(to bottom, transparent, rgba(150, 185, 240, 0.28) 12%, transparent 24%, transparent) 50.9% 0 / 1px 110vh repeat-y;
+  background-position: 45.4% 48vh, 19.7% 24vh, 44.9% 81vh, 6.0% 40vh, 61.8% 76vh, 4.9% 132vh, 24.4% 117vh, 64.9% 65vh, 32.3% 72vh, 75.6% 17vh, 94.0% 60vh, 38.0% 50vh, 76.7% 3vh, 94.6% 1vh, 7.7% 114vh, 50.9% 50vh;
+  animation: lab-rain 9s linear infinite;
+}
+@keyframes lab-rain {
+  from { background-position: 45.4% 48vh, 19.7% 24vh, 44.9% 81vh, 6.0% 40vh, 61.8% 76vh, 4.9% 132vh, 24.4% 117vh, 64.9% 65vh, 32.3% 72vh, 75.6% 17vh, 94.0% 60vh, 38.0% 50vh, 76.7% 3vh, 94.6% 1vh, 7.7% 114vh, 50.9% 50vh; }
+  to { background-position: 45.4% 348vh, 19.7% 174vh, 44.9% 301vh, 6.0% 340vh, 61.8% 166vh, 4.9% 282vh, 24.4% 247vh, 64.9% 215vh, 32.3% 182vh, 75.6% 167vh, 94.0% 150vh, 38.0% 350vh, 76.7% 133vh, 94.6% 91vh, 7.7% 264vh, 50.9% 160vh; }
+}
+@media (max-width: 760px) { html:not([data-theme]) body::after { opacity: .5; } }
+/* 會閃的星星：兩組，節奏錯開 */
+html:not([data-theme])::before, html:not([data-theme])::after { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+html:not([data-theme])::before {
+  background:
+    radial-gradient(circle at 42.2% 21.9%, rgba(255, 255, 255, 0.78) 0 1.6px, rgba(200, 215, 255, .25) 2.2px, transparent 4.0px),
+    radial-gradient(circle at 30.8% 87.7%, rgba(255, 255, 255, 0.76) 0 1.3px, rgba(200, 215, 255, .25) 1.9px, transparent 3.7px),
+    radial-gradient(circle at 98.6% 60.0%, rgba(255, 255, 255, 0.87) 0 1.1px, rgba(200, 215, 255, .25) 1.7px, transparent 3.5px),
+    radial-gradient(circle at 98.0% 21.9%, rgba(255, 255, 255, 0.78) 0 1.6px, rgba(200, 215, 255, .25) 2.2px, transparent 4.0px),
+    radial-gradient(circle at 33.2% 30.0%, rgba(255, 255, 255, 0.72) 0 1.1px, rgba(200, 215, 255, .25) 1.7px, transparent 3.5px),
+    radial-gradient(circle at 21.5% 63.4%, rgba(255, 255, 255, 0.7) 0 1.3px, rgba(200, 215, 255, .25) 1.9px, transparent 3.7px),
+    radial-gradient(circle at 37.4% 45.4%, rgba(255, 255, 255, 0.99) 0 1.3px, rgba(200, 215, 255, .25) 1.9px, transparent 3.7px),
+    radial-gradient(circle at 82.6% 14.3%, rgba(255, 255, 255, 0.82) 0 1.6px, rgba(200, 215, 255, .25) 2.2px, transparent 4.0px),
+    radial-gradient(circle at 16.1% 90.0%, rgba(255, 255, 255, 0.95) 0 1.1px, rgba(200, 215, 255, .25) 1.7px, transparent 3.5px),
+    radial-gradient(circle at 72.1% 16.5%, rgba(255, 255, 255, 0.89) 0 1.6px, rgba(200, 215, 255, .25) 2.2px, transparent 4.0px),
+    radial-gradient(circle at 20.3% 94.1%, rgba(255, 255, 255, 0.96) 0 1.6px, rgba(200, 215, 255, .25) 2.2px, transparent 4.0px),
+    radial-gradient(circle at 8.7% 5.6%, rgba(255, 255, 255, 0.73) 0 1.6px, rgba(200, 215, 255, .25) 2.2px, transparent 4.0px);
+  animation: lab-twinkle 3.4s ease-in-out infinite;
+}
+html:not([data-theme])::after {
+  background:
+    radial-gradient(circle at 95.3% 24.4%, rgba(255, 255, 255, 0.91) 0 1.3px, rgba(200, 215, 255, .25) 1.9px, transparent 3.7px),
+    radial-gradient(circle at 42.2% 89.7%, rgba(255, 255, 255, 0.85) 0 1.6px, rgba(200, 215, 255, .25) 2.2px, transparent 4.0px),
+    radial-gradient(circle at 18.2% 71.6%, rgba(255, 255, 255, 0.72) 0 1.1px, rgba(200, 215, 255, .25) 1.7px, transparent 3.5px),
+    radial-gradient(circle at 48.0% 65.0%, rgba(255, 255, 255, 0.88) 0 1.1px, rgba(200, 215, 255, .25) 1.7px, transparent 3.5px),
+    radial-gradient(circle at 28.5% 90.9%, rgba(255, 255, 255, 0.76) 0 1.1px, rgba(200, 215, 255, .25) 1.7px, transparent 3.5px),
+    radial-gradient(circle at 7.8% 41.3%, rgba(255, 255, 255, 0.77) 0 1.1px, rgba(200, 215, 255, .25) 1.7px, transparent 3.5px),
+    radial-gradient(circle at 18.3% 37.1%, rgba(255, 255, 255, 0.87) 0 1.1px, rgba(200, 215, 255, .25) 1.7px, transparent 3.5px),
+    radial-gradient(circle at 10.0% 14.6%, rgba(255, 255, 255, 0.84) 0 1.3px, rgba(200, 215, 255, .25) 1.9px, transparent 3.7px),
+    radial-gradient(circle at 65.4% 68.7%, rgba(255, 255, 255, 0.88) 0 1.1px, rgba(200, 215, 255, .25) 1.7px, transparent 3.5px),
+    radial-gradient(circle at 58.8% 91.5%, rgba(255, 255, 255, 0.84) 0 1.3px, rgba(200, 215, 255, .25) 1.9px, transparent 3.7px),
+    radial-gradient(circle at 69.7% 95.4%, rgba(255, 255, 255, 0.71) 0 1.6px, rgba(200, 215, 255, .25) 2.2px, transparent 4.0px),
+    radial-gradient(circle at 8.3% 7.6%, rgba(255, 255, 255, 0.79) 0 1.1px, rgba(200, 215, 255, .25) 1.7px, transparent 3.5px);
+  animation: lab-twinkle 4.6s ease-in-out -2.1s infinite;
+}
+@keyframes lab-twinkle { 0%, 100% { opacity: .15; } 45% { opacity: 1; } 55% { opacity: .85; } }
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-theme]) body::after, html:not([data-theme])::before, html:not([data-theme])::after { animation: none; }
+}
+
+/* 內容：不墊灰色色塊，只留細框（跟介紹頁的卡片一樣）；字再亮 */
+html:not([data-theme]) {
+  --ink: #FFFFFF;
+  --ink-2: #E2DFD9;
+  --ink-3: #BDBAB4;
+}
+html:not([data-theme]) .panel,
+html:not([data-theme]) .auth-card,
+html:not([data-theme]) .auth-board {
+  background: rgba(0, 0, 0, .28);
+  border-color: rgba(255, 255, 255, .22);
+}
+html:not([data-theme]) .vrow.is-new, html:not([data-theme]) .vrow.new { background: transparent; }
