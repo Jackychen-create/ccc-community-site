@@ -5,6 +5,7 @@ import http from "node:http";
 import { setEnv } from "../server/lib/env.js";
 import handler, { CLOSE_DELAY_MS } from "../server/discord/interactions.js";
 import { closeSupport, resyncSupportTickets, SUPPORT_COOLDOWN_MS } from "../server/lib/discord-support.js";
+import { setupWiki, searchTerms, canView, GLOSSARY } from "../server/lib/discord-wiki.js";
 import { setupGuild, BOT_PERMISSIONS, inviteUrl, syncPanelMessage } from "../server/lib/discord-setup.js";
 
 let pass = 0, fail = 0;
@@ -71,6 +72,17 @@ const GUILD_ID = "222222222222222222";
 const channels = new Map();
 let chanSeq = 0, botRolePos = 3, msgSeq = 0;
 let roleFail = false;
+// 頻道導覽用：一般分類、只有研究員看得到的分類、私人客服分類
+const VIEW_BIT = String(1n << 10n);
+const guildChannels = [
+  { id: "700000000000000001", type: 4, name: "📌 新手報到", position: 0, permission_overwrites: [] },
+  { id: "700000000000000002", type: 0, name: "📜規則", position: 0, parent_id: "700000000000000001", topic: "先看這裡\n第二行不要", permission_overwrites: [] },
+  { id: "700000000000000003", type: 4, name: "🧪 研究員專區", position: 1, permission_overwrites: [{ id: GUILD_ID, type: 0, allow: "0", deny: VIEW_BIT }, { id: "1560542923173400596", type: 0, allow: VIEW_BIT, deny: "0" }] },
+  { id: "700000000000000004", type: 0, name: "💬研究員聊天", position: 0, parent_id: "700000000000000003", permission_overwrites: [{ id: GUILD_ID, type: 0, allow: "0", deny: VIEW_BIT }, { id: "1560542923173400596", type: 0, allow: VIEW_BIT, deny: "0" }] },
+  { id: "700000000000000005", type: 2, name: "🎙️語音", position: 1, parent_id: "700000000000000001", permission_overwrites: [] },
+  { id: "700000000000000006", type: 4, name: "🎫 客服單", position: 2, permission_overwrites: [] },
+  { id: "700000000000000007", type: 0, name: "客服-Eve", position: 0, parent_id: "700000000000000006", permission_overwrites: [] },
+];
 const disc = http.createServer(async (req, res) => {
   const body = await readJson(req);
   calls.push({ method: req.method, path: req.url, body, auth: req.headers.authorization });
@@ -88,7 +100,8 @@ const disc = http.createServer(async (req, res) => {
   // 一鍵建立用
   if (req.method === "GET" && req.url === "/users/@me/guilds") return send([{ id: GUILD_ID, name: "CCC 交易實驗室" }]);
   if (req.method === "GET" && req.url === `/guilds/${GUILD_ID}`) return send({ id: GUILD_ID, name: "CCC 交易實驗室" });
-  if (req.method === "GET" && req.url === `/guilds/${GUILD_ID}/roles`) return send([{ id: GUILD_ID, name: "@everyone", position: 0 }, { id: "1560542923173400596", name: "實驗室研究員", position: 5 }, { id: "777", name: "CCC 小幫手", position: botRolePos }]);
+  if (req.method === "GET" && req.url === `/guilds/${GUILD_ID}/channels`) return send(guildChannels);
+  if (req.method === "GET" && req.url === `/guilds/${GUILD_ID}/roles`) return send([{ id: GUILD_ID, name: "@everyone", position: 0, permissions: VIEW_BIT }, { id: "1560542923173400596", name: "實驗室研究員", position: 5 }, { id: "777", name: "CCC 小幫手", position: botRolePos }]);
   if (req.method === "GET" && /\/members\/111111111111111111$/.test(req.url)) return send({ roles: ["777"] });
   if (req.method === "POST" && req.url === `/guilds/${GUILD_ID}/channels`) { const id = String(800000000000000000n + BigInt(++chanSeq)); channels.set(id, body); return send({ id, ...body }); }
   if (req.method === "GET" && /^\/channels\/\d+$/.test(req.url)) { const id = req.url.split("/")[2]; return channels.has(id) ? send({ id, ...channels.get(id) }) : send({ message: "Unknown Channel", code: 10003 }, 404); }
@@ -494,6 +507,76 @@ await test("排程：報名訊息跟程式不一樣才更新（拿掉 UM 開戶�
   before = calls.length;
   assert.deepEqual(await syncPanelMessage(), { updated: false });
   assert.ok(!calls.slice(before).some((x) => x.method === "PATCH"), "內容一樣就不再改");
+});
+
+// ── 📚 交易百科與頻道導覽 ──
+const wikiOf = (custom_id, m, extra = {}) => ({ type: 3, guild_id: GUILD, token: "tok-w", member: m, channel_id: "555555555555555555", data: { custom_id, component_type: extra.values ? 3 : 2, ...extra } });
+await test("交易百科：搜尋中文、英文、縮寫、打錯字都找得到", async () => {
+  assert.deepEqual(searchTerms("delta").map((e) => e.term), ["Delta"]);
+  assert.deepEqual(searchTerms("爆倉").map((e) => e.term), ["強平"]);
+  assert.deepEqual(searchTerms("sweeep").map((e) => e.term), ["流動性掃蕩"]);
+  assert.deepEqual(searchTerms("xyz"), []);
+  assert.ok(GLOSSARY.every((e) => e.short.length <= 100 && e.body.length < 4000), "下拉選單說明 100 字內");
+  assert.ok(GLOSSARY.filter((e) => e.featured).length <= 25, "下拉選單最多 25 個");
+});
+await test("交易百科：後台貼面板（沒填頻道 → 建「📚交易百科」，大家看得到、不能發言）；再按一次改原本那則", async () => {
+  const st = db.settings.find((r) => r.key === "discord").value;
+  st.guildId = GUILD; delete st.wikiChannelId; delete st.wikiMessageId;
+  let before = calls.length;
+  const r = await setupWiki();
+  assert.ok(r.ok); assert.deepEqual(r.created, ["📚交易百科"]);
+  const made = calls.slice(before).find((c) => c.method === "POST" && c.path === `/guilds/${GUILD}/channels`);
+  assert.equal(made.body.name, "📚交易百科");
+  assert.ok(BigInt(made.body.permission_overwrites.find((o) => o.id === GUILD).deny) & (1n << 11n), "不能發言");
+  const panel = postsTo(r.settings.wikiChannelId, before)[0].body;
+  assert.equal(panel.embeds[0].title, "📚 交易百科與頻道導覽");
+  assert.equal(panel.components[0].components[0].custom_id, "wiki_term");
+  assert.deepEqual(panel.components[1].components.map((b) => b.label), ["頻道導覽", "搜尋其他名詞"]);
+  before = calls.length;
+  const again = await setupWiki();
+  assert.equal(again.reposted, false);
+  assert.ok(calls.slice(before).some((c) => c.method === "PATCH" && c.path === `/channels/${r.settings.wikiChannelId}/messages/${r.settings.wikiMessageId}`), "改原本那則");
+  assert.equal(postsTo(r.settings.wikiChannelId, before).length, 0, "不重貼");
+  assert.match((await setupWiki({ channelId: "799999999999999999" })).error, /找不到這個頻道/);
+});
+await test("交易百科：選名詞 → 只有自己看得到的說明", async () => {
+  const r = await interact(wikiOf("wiki_term", member(EVE), { values: ["FVG"] }));
+  assert.equal(r.body.type, 4); assert.equal(r.body.data.flags, 64);
+  assert.match(r.body.data.embeds[0].title, /FVG/);
+  assert.match(r.body.data.embeds[0].footer.text, /不是進出場建議/);
+});
+await test("交易百科：搜尋其他名詞 → 表單 → 一個結果直接給說明、多個給選單、找不到給提示", async () => {
+  const m = await interact(wikiOf("wiki_search", member(EVE)));
+  assert.equal(m.body.type, 9); assert.equal(m.body.data.custom_id, "wiki_search_form");
+  const form = (q) => ({ type: 5, guild_id: GUILD, token: "tok-wf", member: member(EVE), channel_id: "555555555555555555", data: { custom_id: "wiki_search_form", components: [{ type: 1, components: [{ type: 4, custom_id: "q", value: q }] }] } });
+  const one = await interact(form("資費"));
+  assert.match(one.body.data.embeds[0].title, /資金費率/); assert.equal(one.body.data.flags, 64);
+  const many = await interact(form("訂單"));
+  assert.equal(many.body.data.components[0].components[0].custom_id, "wiki_term");
+  assert.ok(many.body.data.components[0].components[0].options.length >= 2);
+  const none = await interact(form("香蕉"));
+  assert.match(none.body.data.content, /找不到「香蕉」/);
+});
+await test("頻道導覽：先回處理中，再列出這個人看得到的頻道（照分類，私人客服分類不列）", async () => {
+  db.settings.find((r) => r.key === "discord").value.supportCategoryId = "700000000000000006";
+  const r = await interact(wikiOf("wiki_guide", member(EVE)));
+  assert.equal(r.body.type, 5); assert.equal(r.body.data.flags, 64);
+  const emb = lastEdit().body.embeds[0];
+  assert.equal(emb.title, "🧭 頻道導覽");
+  assert.deepEqual(emb.fields.map((f) => f.name), ["📌 新手報到"], "沒有研究員身分組看不到研究員專區");
+  assert.equal(emb.fields[0].value, "<#700000000000000002>｜先看這裡\n<#700000000000000005>");
+  await interact(wikiOf("wiki_guide", member(EVE, { roles: [ROLE] })));
+  assert.deepEqual(lastEdit().body.embeds[0].fields.map((f) => f.name), ["📌 新手報到", "🧪 研究員專區"]);
+});
+await test("頻道導覽：權限計算（everyone 擋、身分組開、個人擋、管理員全看得到）", async () => {
+  const roles = [{ id: GUILD, permissions: VIEW_BIT }, { id: "9", permissions: "0" }, { id: "8", permissions: String(1n << 3n) }];
+  const ch = (ow) => ({ permission_overwrites: ow });
+  const ctx = (memberRoles = [], userId = "u") => ({ guildId: GUILD, roles, memberRoles, userId });
+  assert.equal(canView(ch([]), ctx()), true);
+  assert.equal(canView(ch([{ id: GUILD, type: 0, allow: "0", deny: VIEW_BIT }]), ctx()), false);
+  assert.equal(canView(ch([{ id: GUILD, type: 0, allow: "0", deny: VIEW_BIT }, { id: "9", type: 0, allow: VIEW_BIT, deny: "0" }]), ctx(["9"])), true);
+  assert.equal(canView(ch([{ id: "u", type: 1, allow: "0", deny: VIEW_BIT }]), ctx(["9"])), false);
+  assert.equal(canView(ch([{ id: GUILD, type: 0, allow: "0", deny: VIEW_BIT }]), ctx(["8"])), true);
 });
 
 supa.close(); disc.close(); bingx.close();

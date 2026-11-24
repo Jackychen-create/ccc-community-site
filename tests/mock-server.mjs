@@ -877,6 +877,14 @@ const server = http.createServer(async (req, res) => {
         Object.assign(discordSettings, { guildId: "222222222222222222", categoryId: "800000000000000001", panelChannelId: "800000000000000002", reviewChannelId: "800000000000000003", labChannelId: "800000000000000004", ticketCategoryId: "800000000000000005" });
         return send(res, 200, { ok: true, guildName: "CCC 交易實驗室", hierarchyOk: false, roleName: "實驗室研究員", created, settings: discordSettings });
       }
+      if (body.action === "wiki") {
+        const ch = String(body.channelId || "").trim();
+        if (ch && !/^\d{17,20}$/.test(ch)) return send(res, 400, { error: "頻道 ID 是 17–20 位數字，請在 Discord 對頻道按右鍵「複製頻道 ID」" });
+        const created = !ch && !discordSettings.wikiChannelId ? ["📚交易百科"] : [];
+        const reposted = !discordSettings.wikiMessageId || (ch && ch !== discordSettings.wikiChannelId);
+        Object.assign(discordSettings, { wikiChannelId: ch || discordSettings.wikiChannelId || "800000000000000009", wikiMessageId: "900000000000000009" });
+        return send(res, 200, { ok: true, created, reposted: !!reposted, settings: discordSettings });
+      }
       if (!discordSettings.panelChannelId) return send(res, 400, { error: "先填報名頻道的 ID" });
       discordPanels++;
       return send(res, 200, { ok: true, messageId: "900000000000000001" });

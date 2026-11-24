@@ -101,6 +101,7 @@ function renderSettings() {
       save,
       post),
     supportCard(),
+    wikiCard(),
     el("div", { class: "dc-endpoint" },
       el("span", { class: "small muted", text: "Discord Developer Portal 的 Interactions Endpoint URL：" }),
       el("button", { class: "btn sm ghost", type: "button", onclick: () => A.copyText(endpoint), title: "複製" }, icon("copy"), el("span", { class: "num", text: endpoint }))),
@@ -186,6 +187,32 @@ function supportCard() {
     btn,
     s.supportPanelChannelId ? el("p", { class: "small dc-ok", style: { marginTop: "8px" } }, icon("ok"), "客服中心已經建立；確認沒問題後可以把 Ticket Tool 移出伺服器。") : null,
     rows.length ? el("div", { class: "dc-tickets" }, el("p", { class: "small muted", text: "最近的客服單" }), ...rows) : null);
+}
+
+// 📚 交易百科與頻道導覽：常駐面板（下拉選名詞、頻道導覽、搜尋），回覆只有按的人看得到
+function wikiCard() {
+  const s = dc.settings;
+  const ch = idInput("dcWiki", s.wikiChannelId, "不填就自動建立「📚交易百科」頻道");
+  const btn = el("button", { class: "btn primary block", type: "button", id: "dcWikiPost", style: { marginTop: "10px" } }, s.wikiMessageId ? "更新交易百科面板" : "貼出交易百科面板");
+  btn.addEventListener("click", async () => {
+    A.setBusy(btn, true, "處理中…");
+    try {
+      const r = await api("/api/admin/discord", { method: "POST", body: { action: "wiki", channelId: ch.value.trim() } });
+      dc.settings = r.settings;
+      A.toast(r.created.length ? `建立了「${r.created.join("、")}」，面板也貼好了` : r.reposted ? "交易百科面板貼好了" : "交易百科面板更新好了");
+      renderSettings();
+    } catch (e) {
+      A.setBusy(btn, false);
+      fail(e);
+    }
+  });
+  const link = s.guildId && s.wikiChannelId ? `https://discord.com/channels/${s.guildId}/${s.wikiChannelId}` : null;
+  return el("div", { class: "dc-support" },
+    el("h3", { text: "交易百科與頻道導覽" }),
+    el("p", { class: "small sub", text: "研究員從下拉選單挑交易名詞、按「搜尋其他名詞」查，或按「頻道導覽」看自己看得到的頻道。回覆只有按的人看得到。名詞改了之後按一次「更新交易百科面板」。" }),
+    el("label", { class: "field" }, el("span", { class: "label", text: "貼在哪個頻道（頻道 ID，選填）" }), ch),
+    btn,
+    link ? el("p", { class: "small dc-ok", style: { marginTop: "8px" } }, icon("ok"), el("a", { href: link, target: "_blank", rel: "noopener", text: "面板已經貼好，到 Discord 看" })) : null);
 }
 
 // 機器人要貼到哪：直播精華、升級慶祝（獨立一塊，不用打開進階設定）
