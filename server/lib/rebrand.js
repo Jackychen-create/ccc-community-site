@@ -19,6 +19,9 @@ const hookBase = (u) => (env.DISCORD_API_BASE ? u.replace(/^https:\/\/[^/]+\/api
 const clean = (e) => String(e?.message || e).replace(/webhooks\/(\d+)\/[\w-]+/g, "webhooks/$1/…").slice(0, 160);
 const tpeDay = (t) => new Date(t + 8 * 3600e3).toISOString().slice(0, 10);
 const MAX_ROUNDS = 12;
+// 大廳的角色機器人維持原樣（2026-11-24 林睿宇）：皮老闆（每日一題）、泡芙阿姨
+const KEEP_NAME = /皮老闆|泡芙阿姨/;
+const KEEP_BOTS = ["daily_question"];
 const noAccess = (e) => e?.status === 403 || e?.status === 404 || e?.code === 50001 || e?.code === 50013;
 
 async function loadState() {
@@ -30,15 +33,22 @@ const saveState = (st, now) => supabaseAdmin.from("bot_state").upsert({ key: "re
 // 網站存著的 Webhook，和它們設定的討論串
 async function storedHooks(d) {
   const hooks = new Map(); // id → { id, url, threads:Set }
+  const keep = new Set();
   const add = (url, thread) => {
     const m = String(url || "").match(HOOK_RE);
-    if (!m) return;
+    if (!m || keep.has(m[1])) return;
     const h = hooks.get(m[1]) || { id: m[1], url, threads: new Set() };
     if (thread && /^\d{17,20}$/.test(String(thread))) h.threads.add(String(thread));
     hooks.set(m[1], h);
   };
   const { data } = await supabaseAdmin.from("settings").select("value").eq("key", "bots").maybeSingle();
   const b = data?.value || {};
+  // 維持原樣的機器人用的 Webhook：整個跳過
+  for (const k of KEEP_BOTS) {
+    const o = (b.outlets || []).find((x) => x?.id === b.bots?.[k]?.outlet);
+    const m = String(o?.url || "").match(HOOK_RE);
+    if (m) keep.add(m[1]);
+  }
   for (const o of b.outlets || []) {
     add(o?.url, o?.thread);
     for (const conf of Object.values(b.bots || {})) if (conf?.outlet === o?.id) add(o.url, conf.thread);
@@ -108,9 +118,12 @@ export async function runRebrand(now = Date.now()) {
       const list = await discordApi("GET", `/guilds/${d.guildId}/webhooks`);
       st.guildList = true;
       for (const w of list || []) {
-        if (w.type !== 1) continue; // 只有一般 Webhook（追蹤公告頻道的不算）
+        if (w.type !== 1) continue;
+        if (KEEP_NAME.test(w.name || "")) { hooks.delete(w.id); continue; } // 只有一般 Webhook（追蹤公告頻道的不算）
         const h = hooks.get(w.id) || { id: w.id, url: w.token ? `https://discord.com/api/webhooks/${w.id}/${w.token}` : "", threads: new Set() };
         h.channel = w.channel_id;
+        h.name = w.name || "";
+        if (KEEP_NAME.test(h.name)) { hooks.delete(w.id); continue; }
         hooks.set(w.id, h);
       }
     } catch (e) { st.guildList = noAccess(e) ? "沒有管理 Webhook 權限" : clean(e); }
@@ -120,9 +133,13 @@ export async function runRebrand(now = Date.now()) {
   for (const h of hooks.values()) {
     const rec = (st.hooks[h.id] ||= {});
     if (rec.gone) continue;
+    if (rec.kept) continue;
     if (!rec.renamed) {
       try {
         let w;
+        // 名字是皮老闆、泡芙阿姨的：不動
+        const cur = h.name ?? (h.url ? (await fetch(hookBase(h.url), { signal: AbortSignal.timeout(10000) }).then((r) => (r.ok ? r.json() : {})).catch(() => ({}))).name : "");
+        if (KEEP_NAME.test(cur || "")) { rec.kept = true; continue; }
         if (h.url) {
           const r = await fetch(hookBase(h.url), { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: REBRAND.name, avatar: AVATAR }), signal: AbortSignal.timeout(10000) });
           if (r.status === 404 || r.status === 401) { rec.gone = true; continue; }
