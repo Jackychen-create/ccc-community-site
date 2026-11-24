@@ -1206,3 +1206,34 @@ body::after { animation: none !important; }
   #exchanges .how li b { display: block; margin-bottom: 6px; font-size: 15px; }
   #exchanges .how li span { display: block; font-size: 13.5px; line-height: 1.75; }
 }
+
+/* v1.37.24：手機版——
+   1.「註冊前先看這個」不再發光、不再有掃過的亮線，改成低調的說明框
+   2. 格子縮小：編號、小標、說明都小一點、行距收一點，一段（例如 Discord）滑到就能一次看完
+   3. 框的顏色每段輪流：白 → 深紫 → 黑（暗灰細線），主講白、加入流程紫、交易所黑、培訓房白、Discord 紫、常見問題黑 */
+@media (max-width: 760px) {
+  /* 1 */
+  .warn-box { border: 1px solid rgba(255, 255, 255, .12); background: rgba(255, 255, 255, .03); box-shadow: none; padding: 14px 16px; }
+  .warn-box::before, .warn-box::after { display: none; animation: none !important; }
+  .warn-box b { font-size: 14px; color: #D9B26A; font-weight: 600; }
+  .warn-box p { font-size: 13px; line-height: 1.75; color: #A9A6A0; margin-top: 4px; }
+
+  /* 2 */
+  .steps, #site .cards, .feat, .hosts.two, #exchanges .how { gap: 10px !important; column-gap: 10px !important; }
+  .steps li, #site .card, .feat li, .hosts .host, #exchanges .how li { padding: 13px 12px 14px !important; }
+  .steps .step-n, #site .card h3::before, .feat li b::before, #exchanges .how li::before { font-size: 13px !important; margin-bottom: 5px !important; }
+  .steps li h3, #site .card h3, .feat li b, #exchanges .how li b { font-size: 15px !important; line-height: 1.4; margin-bottom: 4px !important; }
+  .steps li p, #site .card p, .feat li span, #exchanges .how li span, .host p:not(.host-tag) { font-size: 13px !important; line-height: 1.65 !important; }
+  .feat li { gap: 2px; }
+  #discord, #site, #join { padding-top: 40px; padding-bottom: 40px; }
+  #discord .wrap > h2[data-k] + *, #discord .wrap > h2[data-k] + .intro + * { margin-top: 14px; }
+
+  /* 3：每段設定框的顏色，格子讀這三個變數 */
+  #hosts, #site { --fr: rgba(255, 255, 255, .55); --fr-glow: 0 0 6px rgba(255, 255, 255, .28), 0 0 18px rgba(200, 220, 255, .12), inset 0 0 10px rgba(255, 255, 255, .06); --fr-bg: none; --fr-sweep: #fff; }
+  #join, #discord { --fr: rgba(150, 112, 255, .75); --fr-glow: 0 0 6px rgba(140, 100, 255, .45), 0 0 18px rgba(110, 70, 230, .22), inset 0 0 10px rgba(140, 100, 255, .1); --fr-bg: rgba(60, 30, 130, .08); --fr-sweep: #D9C9FF; }
+  #exchanges, #faq { --fr: rgba(255, 255, 255, .12); --fr-glow: none; --fr-bg: rgba(255, 255, 255, .025); --fr-sweep: transparent; }
+  .steps li, #site .card, #site .card-go, .feat li, .hosts .host, #exchanges .how li, #faq details { border-color: var(--fr) !important; box-shadow: var(--fr-glow) !important; background: var(--fr-bg) !important; }
+  .steps li::before, .steps li::after, #site .card::before, #site .card::after { background: linear-gradient(90deg, transparent, var(--fr-sweep) 50%, transparent); }
+  #join .steps li::before, #join .steps li::after { filter: drop-shadow(0 0 4px rgba(170, 130, 255, .9)); }
+  #faq details[open] { border-color: rgba(217, 178, 106, .45) !important; }
+}
