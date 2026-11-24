@@ -541,11 +541,18 @@ await test("交易百科：後台貼面板（沒填頻道 → 建「📚交易�
 });
 await test("交易百科：排程自動貼（只自動一次）、內容一樣不動", async () => {
   const st = db.settings.find((r) => r.key === "discord").value;
-  delete st.wikiChannelId; delete st.wikiMessageId; delete st.wikiHash; delete st.wikiAutoTried;
+  delete st.wikiChannelId; delete st.wikiMessageId; delete st.wikiHash;
+  // 上次建到一半留下的頻道要沿用，不再建一個
+  guildChannels.push({ id: "700000000000000099", type: 0, name: "📚交易百科", position: 9, permission_overwrites: [] });
+  channels.set("700000000000000099", { name: "📚交易百科" });
+  const before0 = calls.length;
   const r = await syncWikiPanel();
   assert.equal(r.posted, true);
+  assert.equal(r.channelId, "700000000000000099");
+  assert.ok(!calls.slice(before0).some((c) => c.method === "POST" && c.path === `/guilds/${GUILD}/channels`), "不重複建頻道");
+  guildChannels.pop();
   const now = db.settings.find((x) => x.key === "discord").value;
-  assert.ok(now.wikiMessageId && now.wikiHash && now.wikiAutoTried);
+  assert.ok(now.wikiMessageId && now.wikiHash && now.wikiAutoDone);
   let before = calls.length;
   assert.deepEqual(await syncWikiPanel(), { updated: false });
   assert.ok(!calls.slice(before).some((c) => c.method !== "GET"), "內容一樣什麼都不做");
