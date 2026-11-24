@@ -256,3 +256,37 @@ html:not([data-theme]) .player:fullscreen { box-shadow: none; }
 html:not([data-theme]) .panel,
 html:not([data-theme]) .auth-card,
 html:not([data-theme]) .auth-board { background: #000; }
+
+/* v1.38.2：面板改成黑邊＋炫光（跟介紹頁「加入流程」的框一樣）——
+   白色的邊拿掉，換成暗色細邊、外面一圈很淡的光；一道亮光沿著上緣、下緣慢慢掃過。縮圖和播放器的細框不變。 */
+html:not([data-theme]) .panel,
+html:not([data-theme]) .auth-card,
+html:not([data-theme]) .auth-board,
+html:not([data-theme]) .modal {
+  border-color: rgba(255, 255, 255, .1);
+  box-shadow: 0 0 16px rgba(255, 255, 255, .05), 0 0 34px rgba(170, 190, 230, .04), inset 0 0 16px rgba(255, 255, 255, .03), 0 24px 60px -30px rgba(0, 0, 0, .9);
+  overflow: hidden;
+}
+html:not([data-theme]) .modal { overflow: auto; }
+html:not([data-theme]) .panel::before,
+html:not([data-theme]) .auth-card::before,
+html:not([data-theme]) .panel::after,
+html:not([data-theme]) .auth-card::after {
+  content: ""; position: absolute; left: -35%; right: auto; width: 35%; height: 1px; pointer-events: none; z-index: 3;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .95) 50%, transparent);
+  filter: drop-shadow(0 0 4px rgba(210, 225, 255, .9)); opacity: 0;
+}
+html:not([data-theme]) .panel::before, html:not([data-theme]) .auth-card::before { top: 0; }
+html:not([data-theme]) .panel::after, html:not([data-theme]) .auth-card::after { bottom: 0; top: auto; }
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-theme]) .panel::before, html:not([data-theme]) .auth-card::before { animation: lab-sweep 7s ease-in-out infinite; }
+  html:not([data-theme]) .panel::after, html:not([data-theme]) .auth-card::after { animation: lab-sweep 7s ease-in-out 3.5s infinite; }
+  html:not([data-theme]) .panel:nth-of-type(2n)::before { animation-delay: 1.6s; }
+  html:not([data-theme]) .panel:nth-of-type(2n)::after { animation-delay: 5.1s; }
+}
+@keyframes lab-sweep {
+  0% { transform: translateX(0); opacity: 0; }
+  10% { opacity: .9; }
+  55% { opacity: .9; }
+  70%, 100% { transform: translateX(400%); opacity: 0; }
+}
