@@ -1085,3 +1085,61 @@ body::after { animation: none !important; }
   #exchanges .intro { display: none; }
   #exchanges .warn-box p { line-height: 1.6; }
 }
+
+/* v1.37.19：手機版——章節分得更清楚、章節裡的順序更清楚（電腦版不變）
+   1. 每一段是一個「章」：金色小標前面加章號（01 主講、02 加入流程…），標題區底下一條細線跟內容分開
+   2. 章節裡每一項都有編號，照順序讀：培訓房說明、Discord、常見問題也編號；培訓房說明照使用順序排
+   3. Discord 改成跟培訓房說明一樣的框，不再是沒有邊的兩欄文字 */
+@media (max-width: 760px) {
+  main { counter-reset: ch; }
+  main > section.sec:not([hidden]):has(h2[data-k]) { counter-increment: ch; }
+  .sec h2[data-k]::before {
+    content: counter(ch, decimal-leading-zero) "\2002" attr(data-k);
+    display: flex; width: max-content; padding: 6px 10px 6px 9px; margin-bottom: 12px;
+    border: 1px solid rgba(217, 178, 106, .6); background: rgba(217, 178, 106, .08);
+    font: 600 12px/1 var(--f-text); letter-spacing: .22em; color: #E3C27E;
+  }
+  .sec { padding: 44px 0 40px; }
+  /* 標題區（大標＋一句說明）跟內容之間一條細線 */
+  .sec .wrap > h2[data-k]:not(:has(+ .intro)),
+  .sec .wrap > h2[data-k] + .intro { padding-bottom: 16px; border-bottom: 1px solid rgba(255, 255, 255, .14); }
+  #exchanges .wrap > h2[data-k] { padding-bottom: 16px; border-bottom: 1px solid rgba(255, 255, 255, .14); }
+  #exchanges .wrap > h2[data-k] + .intro { border-bottom: 0; padding-bottom: 0; }
+  .sec .wrap > h2[data-k] + .intro + * , .sec .wrap > h2[data-k]:not(:has(+ .intro)) + * { margin-top: 18px; }
+  #hosts .wrap > h2[data-k] { border-bottom: 0; }
+
+  /* 小標「1 項 / 2 項…」：共用的編號樣式 */
+  #site .cards, .feat, #faq .wrap { counter-reset: it; }
+  #site .card h3::before, .feat li b::before, #faq summary::before {
+    counter-increment: it; content: counter(it, decimal-leading-zero);
+    display: block; margin-bottom: 6px; font: 600 15px/1 var(--f-text); letter-spacing: .04em; color: #D9B26A;
+  }
+
+  /* 培訓房說明：照使用順序（註冊 → 連結 Discord → 直播紀錄 → 交易分享 → 我的提問 → 進培訓房） */
+  #site .cards > :nth-child(1) { order: 1; }
+  #site .cards > :nth-child(5) { order: 2; }
+  #site .cards > :nth-child(3) { order: 3; }
+  #site .cards > :nth-child(2) { order: 4; }
+  #site .cards > :nth-child(4) { order: 5; }
+  #site .cards > :nth-child(6) { order: 6; }
+  /* order 變了，編號要照畫面順序：改用畫面上的位置編號 */
+  #site .card h3::before { counter-increment: none; }
+  #site .cards > :nth-child(1) h3::before { content: "01"; }
+  #site .cards > :nth-child(5) h3::before { content: "02"; }
+  #site .cards > :nth-child(3) h3::before { content: "03"; }
+  #site .cards > :nth-child(2) h3::before { content: "04"; }
+  #site .cards > :nth-child(4) h3::before { content: "05"; }
+  #site .cards > :nth-child(6) h3::before { content: "06"; }
+  #site .card-go { border-color: #D9B26A; }
+
+  /* Discord：每一項一個框，跟培訓房說明一致 */
+  .feat { border-top: 0; gap: 10px; column-gap: 10px; }
+  .feat li { border: 1px solid rgba(255, 255, 255, .55); padding: 13px 12px; gap: 4px; align-content: start; }
+
+  /* 常見問題：問題前面編號、每題一個框 */
+  #faq details { border: 1px solid rgba(255, 255, 255, .22); border-bottom-width: 1px; margin-top: 10px; padding: 0 12px; }
+  #faq details[open] { border-color: rgba(217, 178, 106, .6); }
+  #faq summary { padding: 14px 32px 14px 0; display: grid; grid-template-columns: 30px 1fr; align-items: baseline; }
+  #faq summary::before { display: inline; margin: 0; font-size: 13px; }
+  #faq details p { padding: 0 0 14px 30px; margin: 0; }
+}
