@@ -18,6 +18,7 @@ import {
   approvedMessage, notInvitedMessage, rejectedMessage,
 } from "../lib/discord-flow.js";
 import { openTicket, ticketOf, closeTicket, personalCode } from "../lib/discord-ticket.js";
+import { WIKI_IDS, termReply, searchModal, searchReply, guideFor } from "../lib/discord-wiki.js";
 import { SUPPORT_TOPICS, supportModal, openSupport, openSupportOf, supportBlocked, claimSupport, claimedMessage, confirmCloseMessage, closeSupport } from "../lib/discord-support.js";
 
 const nameOf = (u) => u?.global_name || u?.username || "";
@@ -195,6 +196,18 @@ export default route({
 
     // 按鈕、選單
     if (i.type === 3) {
+      // ── 📚 交易百科與頻道導覽（server/lib/discord-wiki.js）：誰都可以按，回覆只有自己看得到 ──
+      if (id === WIKI_IDS.term) return res.status(200).json(termReply(i.data?.values?.[0]));
+      if (id === WIKI_IDS.search) return res.status(200).json(searchModal());
+      if (id === WIKI_IDS.guide) {
+        req.waitUntil?.(guideFor({ guildId: i.guild_id, member: i.member, s })
+          .then((embed) => editOriginal(i.token, { embeds: [embed], allowed_mentions: { parse: [] } }))
+          .catch(async (e) => {
+            console.error("wiki guide failed", e?.status, e?.message);
+            await editOriginal(i.token, { content: "頻道導覽讀取失敗，請稍後再按一次。", allowed_mentions: { parse: [] } }).catch(() => {});
+          }));
+        return res.status(200).json({ type: T.DEFER, data: { flags: EPHEMERAL } });
+      }
       // 🔗 連結網站帳號：只給他自己看的一次性連結（server/lib/discord-link.js）
       if (id === LINK_BUTTON_ID) {
         const { url } = await createLinkToken(user.id, nameOf(user));
@@ -259,6 +272,9 @@ export default route({
       const m = /^(approve|reject):(\d+)$/.exec(id);
       if (m) return review(req, res, i, s, m[1], Number(m[2]));
     }
+
+    // 交易百科：搜尋表單送出
+    if (i.type === 5 && id === WIKI_IDS.form) return res.status(200).json(searchReply(fieldValue(i.data?.components, WIKI_IDS.query)));
 
     // 客服單：填完主旨、說明送出 → 開私人頻道
     if (i.type === 5 && /^support_form:/.test(id)) {

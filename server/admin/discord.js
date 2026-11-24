@@ -4,6 +4,7 @@
 // POST  /api/admin/discord { action: "panel" }    在報名頻道張貼「報名培訓計畫」按鈕
 // POST  /api/admin/discord { action: "setup" }  一鍵建立分類、頻道、權限、報名按鈕
 // POST  /api/admin/discord { action: "support" }  一鍵建立客服中心（取代 Ticket Tool）：客服單分類、客服中心頻道、客服紀錄頻道、開單選單
+// POST  /api/admin/discord { action: "wiki", channelId? }  貼／更新「📚 交易百科與頻道導覽」面板（沒填頻道就建「📚交易百科」）
 import { ONE_ON_ONE_HOSTS } from "../../public/assets/js/shared/rules.js";
 import {
   supabaseAdmin, requireAdmin, readBody, route, EXCHANGES, env,
@@ -13,6 +14,7 @@ import { panelMessage } from "../lib/discord-flow.js";
 import { setupGuild, inviteUrl, overwrites } from "../lib/discord-setup.js";
 import { categoryOverwrites } from "../lib/discord-ticket.js";
 import { setupSupport, supportOverwrites, resyncSupportTickets } from "../lib/discord-support.js";
+import { setupWiki } from "../lib/discord-wiki.js";
 
 const discordMsg = (e) => {
   if (e?.code === 50013) return "機器人的權限不夠（要有管理頻道、管理身分組、傳送訊息），請用後台的「把機器人加進伺服器」重新邀請一次";
@@ -113,7 +115,7 @@ export default route({
   async POST(req, res) {
     if (!(await requireAdmin(req, res))) return;
     const b = readBody(req);
-    if (!["panel", "setup", "support"].includes(b.action)) return res.status(400).json({ error: "不支援這個操作" });
+    if (!["panel", "setup", "support", "wiki"].includes(b.action)) return res.status(400).json({ error: "不支援這個操作" });
     if (!discordConfigured()) return res.status(503).json({ error: "還沒設定 Discord 機器人（Cloudflare 的 DISCORD_APP_ID、DISCORD_PUBLIC_KEY、DISCORD_BOT_TOKEN）" });
     if (b.action === "setup") {
       try {
@@ -121,6 +123,16 @@ export default route({
         return res.status(r.ok ? 200 : 400).json(r.ok ? r : { error: r.error });
       } catch (e) {
         return res.status(502).json({ error: `建立失敗：${discordMsg(e)}` });
+      }
+    }
+    if (b.action === "wiki") {
+      const ch = String(b.channelId || "").trim();
+      if (ch && !isSnowflake(ch)) return res.status(400).json({ error: "頻道 ID 是 17–20 位數字，請在 Discord 對頻道按右鍵「複製頻道 ID」" });
+      try {
+        const r = await setupWiki({ channelId: ch });
+        return res.status(r.ok ? 200 : 400).json(r.ok ? r : { error: r.error });
+      } catch (e) {
+        return res.status(502).json({ error: `交易百科面板設定失敗：${discordMsg(e)}` });
       }
     }
     if (b.action === "support") {
