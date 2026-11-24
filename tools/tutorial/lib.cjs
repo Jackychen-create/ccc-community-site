@@ -5,7 +5,7 @@ const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
 
-const BASE = "http://localhost:4400";
+const BASE = "http://localhost:" + (process.env.PORT || 4400);
 const FONT_CSS = ["noto-sans-tc/400", "noto-sans-tc/500", "noto-sans-tc/700", "sofia-sans-semi-condensed/500", "sofia-sans-semi-condensed/600", "sofia-sans-semi-condensed/700"]
   .map((f) => `@import url("${BASE}/__fonts/${f}.css");`).join("\n");
 
@@ -31,7 +31,7 @@ const OVERLAY = (mobile) => `(() => {
   @keyframes __fin { 0% { transform: scale(.5); opacity: 0; } 25% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.25); opacity: 0; } }
   #__tut .hl { position: absolute; border-radius: 14px; box-shadow: 0 0 0 3px #CDA45E, 0 0 0 9999px rgba(5, 8, 7, .55); transition: all .45s cubic-bezier(.3,.1,.2,1); opacity: 0; }
   #__tut .hl.on { opacity: 1; }
-  #__tut .card { position: absolute; inset: 0; background: #0F1412; display: grid; place-content: center; justify-items: center; gap: \${MOBILE ? 16 : 22}px; text-align: center;
+  #__tut .card { position: absolute; inset: 0; background: #000; display: grid; place-content: center; justify-items: center; gap: \${MOBILE ? 16 : 22}px; text-align: center;
     transition: opacity .5s ease; padding: 24px; }
   #__tut .card.hide { opacity: 0; }
   #__tut .tiles { display: flex; gap: \${MOBILE ? 8 : 12}px; perspective: 600px; }
@@ -41,7 +41,7 @@ const OVERLAY = (mobile) => `(() => {
   #__tut .tile::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 3px; margin-top: -1.5px; background: rgba(22,18,10,.4); }
   #__tut .tile:nth-child(2) { animation-delay: .12s; } #__tut .tile:nth-child(3) { animation-delay: .24s; }
   @keyframes __flip { from { transform: rotateX(-90deg); opacity: .3; } to { transform: none; opacity: 1; } }
-  #__tut .ct { font: 700 \${MOBILE ? 30 : 46}px/1.3 "Noto Sans TC"; color: #DDE3E0; letter-spacing: .04em; }
+  #__tut .ct { font: 700 \${MOBILE ? 30 : 46}px/1.3 "Noto Sans TC"; color: #F5F1E6; letter-spacing: .04em; }
   #__tut .cs { font: 500 \${MOBILE ? 16 : 22}px/1.6 "Noto Sans TC"; color: #A6B2AD; max-width: \${MOBILE ? 340 : 760}px; }
   #__tut .cs em { font-style: normal; color: #CDA45E; }
   \`;
@@ -196,7 +196,7 @@ async function start({ mobile, name }) {
       const listFile = path.join(outDir, "list.txt");
       fs.writeFileSync(listFile, list.join("\n"));
       execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", listFile,
-        "-vf", `scale=${W}:${H}:force_original_aspect_ratio=decrease:flags=lanczos,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=0x0F1412,fps=30,format=yuv420p`,
+        "-vf", `scale=${W}:${H}:force_original_aspect_ratio=decrease:flags=lanczos,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=0x000000,fps=30,format=yuv420p`,
         "-c:v", "libx264", "-preset", "medium", "-crf", "21", "-movflags", "+faststart", outFile], { stdio: "inherit" });
       const total = frames[frames.length - 1].ts - frames[0].ts;
       console.log(`${outFile}: ${frames.length} frames, ${total.toFixed(1)}s, errors: ${errs.length ? errs.join(" | ") : "none"}`);

@@ -13,7 +13,8 @@ const PORT = Number(process.env.PORT || 4321);
 const ROOT = path.join(path.dirname(new URL(import.meta.url).pathname), "..");
 const PUB = process.argv[2] ? path.resolve(process.argv[2]) : path.join(ROOT, "public");
 const FONTS = path.join(ROOT, "tests", "node_modules", "@fontsource");
-const MEDIA = path.join(ROOT, "tests", "fixtures");
+// TUTORIAL=1：錄使用說明影片用（tools/tutorial），換成示範用的影片和封面
+const MEDIA = process.env.TUTORIAL ? path.join(ROOT, "tools", "tutorial", "media") : path.join(ROOT, "tests", "fixtures");
 // 跟正式環境一樣的 CSP（讀 Cloudflare 的 _headers）
 const CSP = fs.readFileSync(path.join(PUB, "_headers"), "utf8").match(/Content-Security-Policy:\s*(.+)/)[1].trim();
 
@@ -42,6 +43,20 @@ videos.push(
   { id: 22, course_host: "X", course_part: 2, hosts: ["X"], title: "開盤前的準備", description: null, published_at: d(40), is_published: true, duration_sec: 90, size_bytes: 1, thumb: null, attachments: [] },
   { id: 23, course_host: "CCC", course_part: 2, hosts: ["CCC"], title: "部位大小怎麼算", description: null, published_at: d(40), is_published: true, duration_sec: 90, size_bytes: 1, thumb: null, attachments: [] },
 );
+if (process.env.TUTORIAL) {
+  const mm = (a, b = 0) => a * 60 + b;
+  videos.splice(0, videos.length,
+    { id: 6, hosts: ["CCC"], thumb: "t1.jpg", title: "本週盤勢與紀律檢討", description: "回顧這週每一筆的進場理由與違規，重點放在追單之後怎麼處理。", published_at: d(1), is_published: true, duration_sec: 3720, size_bytes: 1, chapters: [{ t: 0, title: "開場" }, { t: mm(4, 30), title: "本週盤勢回顧" }, { t: mm(18, 20), title: "違規單檢討" }, { t: mm(35, 10), title: "追單之後怎麼處理" }, { t: mm(49, 40), title: "Q&A" }], attachments: [{ id: 1, title: "盤勢整理.pdf", size_bytes: 1830000 }, { id: 2, title: "交易紀錄範本.xlsx", size_bytes: 42000 }] },
+    { id: 5, hosts: ["X"], thumb: "t2.jpg", title: "開盤區間與假突破", description: "開盤 30 分鐘的區間判斷，和兩個最常見的假突破。", published_at: d(8), is_published: true, duration_sec: 3482, size_bytes: 1, chapters: [{ t: 0, title: "開場" }, { t: mm(6, 10), title: "開盤 30 分鐘區間" }, { t: mm(22, 45), title: "假突破的兩個特徵" }, { t: mm(41), title: "實盤回放" }], attachments: [{ id: 4, title: "開盤區間筆記.pdf", size_bytes: 760000 }] },
+    { id: 4, hosts: ["X"], thumb: "t3.jpg", title: "停損設在哪裡", description: "結構停損、波動停損、時間停損，各自適合什麼情況。", published_at: d(15), is_published: true, duration_sec: 3355, size_bytes: 1, chapters: [{ t: 0, title: "結構停損" }, { t: mm(15), title: "波動停損" }, { t: mm(31, 30), title: "時間停損" }, { t: mm(47), title: "Q&A" }], attachments: [{ id: 3, title: "停損講義.pdf", size_bytes: 920000 }] },
+    { id: 3, hosts: ["CCC", "X"], thumb: "t4.jpg", title: "研究員 Q&A", description: "這個月大家問最多的十個問題。", published_at: d(22), is_published: true, duration_sec: 3610, size_bytes: 1, attachments: [] },
+    { id: 2, hosts: ["CCC"], thumb: "t5.jpg", title: "資金控管：每筆風險怎麼抓", description: "每筆風險怎麼設定，連續虧損時怎麼調整部位。", published_at: d(29), is_published: true, duration_sec: 3290, size_bytes: 1, attachments: [{ id: 5, title: "部位計算表.xlsx", size_bytes: 38000 }] },
+    { id: 1, hosts: ["X"], thumb: "t6.jpg", title: "交易日誌怎麼寫", description: "每天收盤後 10 分鐘，記下什麼最有用。", published_at: d(36), is_published: true, duration_sec: 3150, size_bytes: 1, attachments: [] },
+    { id: 30, trade_share: true, hosts: ["CCC"], thumb: "c1.jpg", title: "BTC 掃完前低再進場", description: "等流動性被掃、收回區間才進，停損放在掃蕩低點下面。", published_at: d(2), is_published: true, duration_sec: 1240, size_bytes: 1, attachments: [] },
+    { id: 31, trade_share: true, hosts: ["X"], thumb: "c2.jpg", title: "ETH 趨勢回踩加碼", description: "趨勢裡第一次回踩、量縮再放量的加碼點。", published_at: d(6), is_published: true, duration_sec: 980, size_bytes: 1, attachments: [] },
+    { id: 32, trade_share: true, hosts: ["CCC", "X"], thumb: "c3.jpg", title: "一筆停損單的檢討", description: "照規則出場的一筆虧損，為什麼還是好交易。", published_at: d(12), is_published: true, duration_sec: 1105, size_bytes: 1, attachments: [] },
+  );
+}
 const progress = new Map([
   ["00000000-0000-4000-8000-000000000002:5", { position_sec: 40, duration_sec: 90, updated_at: new Date(Date.now() - 3600e3).toISOString() }],
   ["00000000-0000-4000-8000-000000000002:3", { position_sec: 90, duration_sec: 90, updated_at: new Date(Date.now() - 86400e3).toISOString() }],
@@ -424,7 +439,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { id: v.id, title: v.title, description: v.description, published_at: v.published_at, duration_sec: v.duration_sec, chapters: v.chapters || [], thumb_url: thumbUrl(v), url: "/media/" + (process.env.VIDEO || "live.webm") + "?sig=" + Date.now() });
     }
     if (p === "/api/stats") {
-      const pub = videos.filter((v) => v.is_published && !v.course_host).sort((a, b) => String(b.published_at).localeCompare(a.published_at));
+      const pub = videos.filter((v) => v.is_published && !v.course_host && !v.trade_share && !v.is_public).sort((a, b) => String(b.published_at).localeCompare(a.published_at));
       return send(res, 200, { latest: pub[0]?.published_at || null, count: pub.length });
     }
     if (!u) return send(res, 401, { error: "請先登入" });

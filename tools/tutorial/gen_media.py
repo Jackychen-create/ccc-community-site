@@ -88,8 +88,8 @@ def video():
     ff.stdin.close(); ff.wait()
 
 def thumbs():
-    items = [("t1", "本週盤勢\n紀律檢討", "CCC・OC", 11), ("t2", "NQ 開盤區間\n怎麼看", "OC", 22), ("t3", "停損\n設在哪裡", "X", 33),
-             ("t4", "研究員 Q&A", "CCC・X・OC", 44), ("t5", "資金控管\n每筆風險怎麼抓", "CCC", 55), ("t6", "交易日誌\n怎麼寫", "X", 66), ("t7", "10/16 直播", "CCC", 77)]
+    items = [("t1", "本週盤勢\n紀律檢討", "CCC", 11), ("t2", "開盤區間\n與假突破", "X", 22), ("t3", "停損\n設在哪裡", "X", 33),
+             ("t4", "研究員 Q&A", "CCC・X", 44), ("t5", "資金控管\n每筆風險怎麼抓", "CCC", 55), ("t6", "交易日誌\n怎麼寫", "X", 66), ("t7", "10/16 直播", "CCC", 77)]
     for name, title, host, seed in items:
         ticks = 20
         candles = make_candles(seed, 80, ticks)
@@ -108,7 +108,7 @@ def thumbs():
         im.save(f"media/{name}.jpg", quality=86)
 
 def course_thumbs():
-    items = [("c1", "交易計畫\n怎麼寫", "CCC・課程 1", 101), ("c2", "看懂\n市場結構", "X・課程 1", 102), ("c3", "開盤前的\n準備", "OC・課程 1", 103),
+    items = [("c1", "BTC 掃完前低\n再進場", "CCC・交易分享", 101), ("c2", "ETH 趨勢\n回踩加碼", "X・交易分享", 102), ("c3", "一筆停損單\n的檢討", "CCC・X・交易分享", 103),
              ("c4", "部位大小\n怎麼算", "CCC・課程 2", 104), ("c5", "流動性與\n假突破", "X・課程 2", 105)]
     for name, title, host, seed in items:
         candles = make_candles(seed, 80, 20)
@@ -123,7 +123,7 @@ def course_thumbs():
         d.rounded_rectangle([64, 78, 64 + d.textlength(host, font=f) + 36, 128], radius=25, outline=AMBER, width=3)
         d.text((82, 80), host, font=f, fill=AMBER)
         d.multiline_text((64, 170), title, font=F(BLACK, 92), fill=INK, spacing=18)
-        d.text((64, H - 90), "CCC 交易實驗室・教學課程", font=f, fill=AMBER)
+        d.text((64, H - 90), "CCC 交易實驗室・交易分享", font=f, fill=AMBER)
         im.save(f"media/{name}.jpg", quality=86)
 
 def upload_files():

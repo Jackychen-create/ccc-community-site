@@ -137,7 +137,7 @@ async function offerTutorial() {
   store.set("tutorialOffered", true);
   const yes = await confirmDialog({
     title: "歡迎加入實驗室培訓計畫",
-    message: "第一次來？花 2 分鐘看使用說明：怎麼找影片、接著看、章節和筆記。之後也可以在右上角選單打開。",
+    message: "第一次來？花 3 分鐘看使用說明：怎麼加入、看直播紀錄、章節、筆記和提問。之後也可以在右上角選單打開。",
     confirmText: "看使用說明",
     cancelText: "之後再看",
   });
