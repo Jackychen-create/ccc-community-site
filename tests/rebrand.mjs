@@ -7,11 +7,12 @@ import { runRebrand, rebrandStatus, REBRAND } from "../server/lib/rebrand.js";
 const listen = (s) => new Promise((r) => s.listen(0, "127.0.0.1", () => r(`http://127.0.0.1:${s.address().port}`)));
 const readBody = (req) => new Promise((r) => { let b = ""; req.on("data", (c) => (b += c)); req.on("end", () => r(b)); });
 const H1 = "123456789012345678", H2 = "223456789012345678", H3 = "323456789012345678";
+const PI = "623456789012345678", AUNT = "723456789012345678";
 const T1 = "a".repeat(30), T2 = "b".repeat(30);
 const CH1 = "400000000000000001", CH2 = "400000000000000002", TH = "400000000000000009", GUILD = "500000000000000000";
 const db = {
   settings: [
-    { key: "bots", value: { outlets: [{ id: "o1", url: `https://discord.com/api/webhooks/${H1}/${T1}` }], bots: { tw: { outlet: "o1", thread: TH } } } },
+    { key: "bots", value: { outlets: [{ id: "o1", url: `https://discord.com/api/webhooks/${H1}/${T1}` }, { id: "pi", url: `https://discord.com/api/webhooks/${PI}/${"p".repeat(30)}` }], bots: { tw: { outlet: "o1", thread: TH }, daily_question: { outlet: "pi" } } } },
     { key: "discord", value: { guildId: GUILD, chatChannels: [{ id: "300000000000000000", webhook: `https://discord.com/api/webhooks/${H2}/${T2}` }] } },
   ],
   bot_state: [],
@@ -40,8 +41,9 @@ const disc = http.createServer(async (req, res) => {
   calls.push({ method: req.method, path: req.url, body });
   const json = (d, s = 200) => { res.writeHead(s, { "Content-Type": "application/json" }); res.end(JSON.stringify(d)); };
   const u = new URL(req.url, "http://x");
-  if (u.pathname === `/guilds/${GUILD}/webhooks`) return json([{ id: H3, type: 1, token: "c".repeat(30), channel_id: CH1 }, { id: "9", type: 2 }]);
+  if (u.pathname === `/guilds/${GUILD}/webhooks`) return json([{ id: H3, type: 1, token: "c".repeat(30), channel_id: CH1, name: "台股助理" }, { id: AUNT, type: 1, token: "d".repeat(30), channel_id: CH1, name: "泡芙阿姨" }, { id: "9", type: 2 }]);
   const wh = u.pathname.match(/^\/webhooks\/(\d+)\/[\w-]+$/);
+  if (wh && req.method === "GET") return json({ id: wh[1], name: "舊名字" });
   if (wh && req.method === "PATCH") return json({ id: wh[1], channel_id: wh[1] === H1 ? CH1 : wh[1] === H2 ? CH2 : CH1 });
   if (wh && req.method === "POST") return json({ id: `new${++seq}` });
   const ch = u.pathname.match(/^\/channels\/(\d+)\/messages$/);
@@ -76,6 +78,9 @@ await test("今天的訊息再發一次（今天沒有就最新一則），用�
   assert.ok(titles.includes("入口"));
   assert.ok(posts.every((p) => p.body.includes(REBRAND.name)));
   assert.ok(!posts.some((p) => p.body.includes("別人的")));
+});
+await test("皮老闆、泡芙阿姨維持原樣", async () => {
+  for (const id of [PI, AUNT]) assert.ok(!calls.some((c) => c.path.startsWith(`/webhooks/${id}/`) && c.method !== "GET"), id);
 });
 await test("做完就不再動", async () => {
   const n = calls.length;
