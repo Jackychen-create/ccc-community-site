@@ -1179,3 +1179,30 @@ body::after { animation: none !important; }
   #faq summary { padding: 18px 32px 18px 0; }
   #faq details p { line-height: 1.75; padding-bottom: 18px; }
 }
+
+/* v1.37.23：手機版——主講這段靠緊，每一段的層次一致（電腦版不變）
+   每一段都是同樣三層：
+   第一層　章號＋大標題（＋一句說明），底下一條細線
+   第二層　一格一格的框，框裡左上是金色編號或名字、白色小標題
+   第三層　灰色說明文字 */
+@media (max-width: 760px) {
+  /* 主講：「實驗室培訓房」改成標題下面的一句說明，跟其他段一樣；底下一條細線 */
+  #hosts .wrap > h2[data-k] { display: flex; flex-direction: column; align-items: flex-start; padding-bottom: 20px; border-bottom: 1px solid rgba(255, 255, 255, .14); }
+  #hosts h2[data-k]::before { order: -2; }
+  #hosts h2[data-k] .h2-kicker { order: 2; margin: 12px 0 0; font: 400 15px/1.7 var(--f-text); letter-spacing: .04em; color: #A9A6A0; }
+  /* 兩位主講並排、各一個框，跟下面幾段的框一樣 */
+  .hosts.two { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 28px; }
+  .hosts .host { border: 1px solid rgba(255, 255, 255, .55); border-radius: 0; padding: 18px 14px 20px; }
+  .hosts .host .host-mark { opacity: .45; }
+  .host h3 { font-size: 24px; line-height: 1.2; }
+  .host .host-tag { margin-top: 8px !important; font-size: 14.5px; }
+  .host p:not(.host-tag) { margin-top: 8px; font-size: 13.5px; line-height: 1.75; }
+  #hosts { padding-bottom: 44px; }
+
+  /* 交易所的四個步驟：也改成框，編號跟加入流程一樣是 01–04 */
+  #exchanges .how { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  #exchanges .how li { display: block; border: 1px solid rgba(255, 255, 255, .55); padding: 18px 14px; }
+  #exchanges .how li::before { content: counter(how, decimal-leading-zero); display: block; width: auto; height: auto; margin-bottom: 6px; border: 0; border-radius: 0; font: 600 15px/1 var(--f-text); letter-spacing: .04em; color: #D9B26A; }
+  #exchanges .how li b { display: block; margin-bottom: 6px; font-size: 15px; }
+  #exchanges .how li span { display: block; font-size: 13.5px; line-height: 1.75; }
+}
