@@ -290,3 +290,12 @@ html:not([data-theme]) .panel::after, html:not([data-theme]) .auth-card::after {
   55% { opacity: .9; }
   70%, 100% { transform: translateX(400%); opacity: 0; }
 }
+
+/* v1.38.3：背景星星拿掉（固定的星點和會閃的星星都不要），只留淡淡的暖光、藍光和往下流的細光線 */
+html:not([data-theme]) body::before {
+  background:
+    radial-gradient(70% 45% at 50% -10%, rgba(236, 210, 160, .16), transparent 70%),
+    radial-gradient(50% 45% at 100% 0%, rgba(70, 110, 200, .12), transparent 70%),
+    radial-gradient(50% 45% at 0% 100%, rgba(70, 110, 200, .09), transparent 70%);
+}
+html:not([data-theme])::before, html:not([data-theme])::after { content: none; animation: none; }
