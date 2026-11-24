@@ -1237,3 +1237,10 @@ body::after { animation: none !important; }
   #join .steps li::before, #join .steps li::after { filter: drop-shadow(0 0 4px rgba(170, 130, 255, .9)); }
   #faq details[open] { border-color: rgba(217, 178, 106, .45) !important; }
 }
+
+/* v1.37.25：手機版——加入流程的框改成黑邊＋炫光（亮光沿著上下邊掃過）；交易所段拿掉「註冊前先看這個」 */
+@media (max-width: 760px) {
+  #join { --fr: rgba(255, 255, 255, .18); --fr-glow: 0 0 14px rgba(255, 255, 255, .07), 0 0 30px rgba(170, 190, 230, .05), inset 0 0 14px rgba(255, 255, 255, .04); --fr-bg: rgba(0, 0, 0, .55); --fr-sweep: #fff; }
+  #join .steps li::before, #join .steps li::after { filter: drop-shadow(0 0 4px rgba(210, 225, 255, .9)); }
+  #exchanges .warn-box { display: none; }
+}
