@@ -11,7 +11,7 @@ jobs=("member d" "member m" "admin d" "admin m")
 [ $# -eq 2 ] && jobs=("$1 $2")
 for job in "${jobs[@]}"; do
   set -- $job
-  PORT=4400 node server.mjs > server.log 2>&1 &
+  if [ "$1" = member ]; then TUTORIAL=1 PORT=4400 node ../../tests/mock-server.mjs > server.log 2>&1 & else PORT=4400 node server.mjs > server.log 2>&1 & fi
   pid=$!
   sleep 1
   node "$1.cjs" "$2" || { kill $pid; exit 1; }
