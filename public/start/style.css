@@ -1143,3 +1143,39 @@ body::after { animation: none !important; }
   #faq summary::before { display: inline; margin: 0; font-size: 13px; }
   #faq details p { padding: 0 0 14px 30px; margin: 0; }
 }
+
+/* v1.37.20：手機版——段落之間、段落裡面多留白，跟電腦版一樣有呼吸感（電腦版不變） */
+@media (max-width: 760px) {
+  .sec { padding: 88px 0 80px; }
+  #hosts { padding-top: 96px; }
+  .sec h2[data-k]::before { margin-bottom: 18px; }
+  .sec .intro, .sec .intro.intro-lg { margin-top: 12px; line-height: 1.7; }
+  .sec .wrap > h2[data-k]:not(:has(+ .intro)),
+  .sec .wrap > h2[data-k] + .intro,
+  #exchanges .wrap > h2[data-k] { padding-bottom: 24px; }
+  .sec .wrap > h2[data-k] + .intro + *, .sec .wrap > h2[data-k]:not(:has(+ .intro)) + * { margin-top: 28px; }
+
+  /* 主講 */
+  .hosts.two { gap: 56px; }
+
+  /* 格子之間、格子裡面 */
+  .steps, #site .cards, .feat { gap: 14px; column-gap: 14px; }
+  .steps li { padding: 18px 14px; gap: 8px; }
+  #site .card, .feat li { padding: 18px 14px; }
+  #site .card h3, .feat li b { margin-bottom: 6px; }
+  .steps li p, #site .card p, .feat li span { line-height: 1.75; }
+
+  /* 交易所 */
+  #exchanges .warn-box { padding: 16px 16px; }
+  #exchanges .warn-box p { margin-top: 6px; line-height: 1.75; }
+  #exchanges .tabs { margin-top: 28px; }
+  #exchanges .ex { margin-top: 18px; }
+  #exchanges .ex-head { padding-bottom: 20px; gap: 14px; }
+  #exchanges .how { row-gap: 24px; column-gap: 16px; margin-top: 22px; }
+  .how li { row-gap: 8px; }
+
+  /* 常見問題 */
+  #faq details { margin-top: 14px; }
+  #faq summary { padding: 18px 32px 18px 0; }
+  #faq details p { line-height: 1.75; padding-bottom: 18px; }
+}
