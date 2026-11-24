@@ -1282,3 +1282,6 @@ body::after { animation: none !important; }
   #discord { --fr: rgba(58, 19, 158, .6); --fr-glow: 0 0 6px rgba(80, 30, 210, .4), 0 0 18px rgba(64, 20, 180, .22); --fr-sweep: rgba(183, 156, 255, .7); }
   #discord .feat li::before, #discord .feat li::after { filter: drop-shadow(0 0 4px rgba(150, 110, 255, .6)); }
 }
+
+/* v1.37.29：主講名字後面加「交易員」，字小一點、不搶名字（電腦、手機都有） */
+.host h3 .h3-role { margin-left: .32em; font-family: var(--f-text); font-size: .56em; font-weight: 500; letter-spacing: .08em; color: var(--ink-2); vertical-align: .12em; }
