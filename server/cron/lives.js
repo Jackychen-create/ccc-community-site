@@ -11,6 +11,7 @@ import { runExchangeRoles } from "../lib/exchange-roles.js";
 import { okxProbe } from "../lib/okx.js";
 import { fixHighlightFooters } from "../lib/highlights.js";
 import { syncPanelMessage } from "../lib/discord-setup.js";
+import { syncWikiPanel } from "../lib/discord-wiki.js";
 import { runRebrand } from "../lib/rebrand.js";
 
 export default route({
@@ -48,9 +49,11 @@ export default route({
     const footers = await fixHighlightFooters().catch((e) => ({ ok: false, error: String(e?.message || e) }));
     // 報名頻道的固定訊息跟程式不一樣了（例如拿掉 UM 開戶按鈕）就自動更新
     const panel = await syncPanelMessage().catch((e) => ({ ok: false, error: String(e?.message || e) }));
+    // 📚 交易百科面板：還沒貼就自動貼一次，名詞庫改了就自動更新（server/lib/discord-wiki.js）
+    const wiki = await syncWikiPanel().catch((e) => ({ ok: false, error: String(e?.message || e) }));
     // 所有機器人改名「研研（助理）」、換貓頭鷹頭貼、今天的訊息再發一次（做完就不動，server/lib/rebrand.js）
     const avatar = await runRebrand(now).catch((e) => ({ ok: false, error: String(e?.message || e) }));
-    return res.status(200).json({ ok: true, due: (data || []).length, reminded, reviews, announced, onboarding, courseMail, exchangeRoles, okx, footers, panel, avatar });
+    return res.status(200).json({ ok: true, due: (data || []).length, reminded, reviews, announced, onboarding, courseMail, exchangeRoles, okx, footers, panel, wiki, avatar });
   },
 });
 

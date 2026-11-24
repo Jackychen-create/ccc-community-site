@@ -2,7 +2,7 @@
 // 名詞庫寫在下面的 GLOSSARY；改了之後到後台「Discord 審核」按「更新交易百科面板」，下拉選單就會換成新的
 // 頻道導覽不用另外維護：每次按都讀伺服器現在的分類、頻道和頻道主題，只列出這位研究員看得到的頻道
 import { env } from "./env.js";
-import { discordApi, getDiscordSettings, saveDiscordSettings, getChannel, createChannel, sendMessage, editMessage } from "./discord.js";
+import { discordApi, discordConfigured, getDiscordSettings, saveDiscordSettings, getChannel, createChannel, sendMessage, editMessage } from "./discord.js";
 import { supportOverwrites, GOLD, LOGO } from "./discord-support.js";
 
 export const WIKI_IDS = { term: "wiki_term", guide: "wiki_guide", search: "wiki_search", form: "wiki_search_form", query: "q" };
@@ -239,6 +239,38 @@ export async function setupWiki({ channelId = "" } = {}) {
   if (!repost) await editMessage(target, s.wikiMessageId, wikiPanelMessage()).catch((e) => { if (e.status === 404) repost = true; else throw e; });
   if (repost) next.wikiMessageId = (await sendMessage(target, wikiPanelMessage())).id;
   next.wikiChannelId = target;
-  await saveDiscordSettings(next);
+  next.wikiHash = await hashOf(wikiPanelMessage());
+  await saveDiscordSettings({ ...(await getDiscordSettings()), wikiChannelId: next.wikiChannelId, wikiMessageId: next.wikiMessageId, wikiHash: next.wikiHash });
   return { ok: true, created, reposted: repost, settings: next };
+}
+
+async function hashOf(payload) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(payload)));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 16);
+}
+
+// 每 5 分鐘由 /api/cron/lives 呼叫（v1.38.1），不用進後台：
+// - 還沒貼過：自動建「📚交易百科」、貼面板（只自動做一次；失敗或之後被刪掉，到後台按「貼出交易百科面板」）
+// - 名詞庫改了（面板內容跟上次不一樣）：自動改原本那則
+export async function syncWikiPanel() {
+  if (!discordConfigured()) return null;
+  const s = await getDiscordSettings();
+  if (!s.guildId) return null;
+  if (!s.wikiMessageId) {
+    if (s.wikiAutoTried) return null;
+    await saveDiscordSettings({ ...s, wikiAutoTried: true });
+    const r = await setupWiki();
+    return r.ok ? { posted: true, channelId: r.settings.wikiChannelId } : { posted: false, error: r.error };
+  }
+  const payload = wikiPanelMessage();
+  const hash = await hashOf(payload);
+  if (s.wikiHash === hash) return { updated: false };
+  try {
+    await editMessage(s.wikiChannelId, s.wikiMessageId, payload);
+  } catch (e) {
+    if (e.status === 404) return { updated: false, missing: true };
+    throw e;
+  }
+  await saveDiscordSettings({ ...(await getDiscordSettings()), wikiHash: hash });
+  return { updated: true };
 }

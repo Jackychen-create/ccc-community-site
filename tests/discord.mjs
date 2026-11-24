@@ -5,7 +5,7 @@ import http from "node:http";
 import { setEnv } from "../server/lib/env.js";
 import handler, { CLOSE_DELAY_MS } from "../server/discord/interactions.js";
 import { closeSupport, resyncSupportTickets, SUPPORT_COOLDOWN_MS } from "../server/lib/discord-support.js";
-import { setupWiki, searchTerms, canView, GLOSSARY } from "../server/lib/discord-wiki.js";
+import { setupWiki, syncWikiPanel, searchTerms, canView, GLOSSARY } from "../server/lib/discord-wiki.js";
 import { setupGuild, BOT_PERMISSIONS, inviteUrl, syncPanelMessage } from "../server/lib/discord-setup.js";
 
 let pass = 0, fail = 0;
@@ -538,6 +538,23 @@ await test("交易百科：後台貼面板（沒填頻道 → 建「📚交易�
   assert.ok(calls.slice(before).some((c) => c.method === "PATCH" && c.path === `/channels/${r.settings.wikiChannelId}/messages/${r.settings.wikiMessageId}`), "改原本那則");
   assert.equal(postsTo(r.settings.wikiChannelId, before).length, 0, "不重貼");
   assert.match((await setupWiki({ channelId: "799999999999999999" })).error, /找不到這個頻道/);
+});
+await test("交易百科：排程自動貼（只自動一次）、內容一樣不動", async () => {
+  const st = db.settings.find((r) => r.key === "discord").value;
+  delete st.wikiChannelId; delete st.wikiMessageId; delete st.wikiHash; delete st.wikiAutoTried;
+  const r = await syncWikiPanel();
+  assert.equal(r.posted, true);
+  const now = db.settings.find((x) => x.key === "discord").value;
+  assert.ok(now.wikiMessageId && now.wikiHash && now.wikiAutoTried);
+  let before = calls.length;
+  assert.deepEqual(await syncWikiPanel(), { updated: false });
+  assert.ok(!calls.slice(before).some((c) => c.method !== "GET"), "內容一樣什麼都不做");
+  now.wikiHash = "old";
+  before = calls.length;
+  assert.deepEqual(await syncWikiPanel(), { updated: true });
+  assert.ok(calls.slice(before).some((c) => c.method === "PATCH" && c.path === `/channels/${now.wikiChannelId}/messages/${now.wikiMessageId}`));
+  delete db.settings.find((x) => x.key === "discord").value.wikiMessageId;
+  assert.equal(await syncWikiPanel(), null, "已經自動貼過一次，之後被刪掉就不再自己貼");
 });
 await test("交易百科：選名詞 → 只有自己看得到的說明", async () => {
   const r = await interact(wikiOf("wiki_term", member(EVE), { values: ["FVG"] }));
