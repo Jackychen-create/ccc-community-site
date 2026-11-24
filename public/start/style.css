@@ -1249,3 +1249,30 @@ body::after { animation: none !important; }
 @media (max-width: 760px) {
   #discord { --fr: #5B2FD0; --fr-glow: 0 0 8px rgba(91, 47, 208, .65), 0 0 22px rgba(70, 30, 180, .35), inset 0 0 14px rgba(91, 47, 208, .18); --fr-bg: rgba(40, 14, 110, .22); }
 }
+
+/* v1.37.27：手機版——
+   1. 交易所註冊整段靠緊：上下留白、分頁、交易所名稱、按鈕、四個步驟之間都收
+   2. Discord 的框：只有邊框是更深的紫色、外面帶紫光，裡面不加底色；亮光沿著上下邊掃過（跟加入流程同一種炫光） */
+@media (max-width: 760px) {
+  #exchanges { padding-top: 40px !important; padding-bottom: 40px !important; }
+  #exchanges .wrap > h2[data-k] { padding-bottom: 14px !important; }
+  #exchanges .tabs { margin-top: 16px !important; }
+  #exchanges .ex { margin-top: 12px !important; }
+  #exchanges .ex-head { padding-bottom: 14px !important; gap: 10px !important; }
+  #exchanges .how { margin-top: 14px !important; }
+
+  #discord { --fr: #3A139E; --fr-glow: 0 0 6px rgba(80, 30, 210, .7), 0 0 18px rgba(64, 20, 180, .4); --fr-bg: none; --fr-sweep: #B79CFF; }
+  #discord .feat li { position: relative; overflow: hidden; }
+  #discord .feat li::before, #discord .feat li::after { content: ""; position: absolute; left: -30%; width: 30%; height: 2px; pointer-events: none; opacity: 0; z-index: 1;
+    background: linear-gradient(90deg, transparent, var(--fr-sweep) 50%, transparent); filter: drop-shadow(0 0 4px rgba(150, 110, 255, .95)); }
+  #discord .feat li::before { top: -1px; } #discord .feat li::after { bottom: -1px; }
+}
+@media (max-width: 760px) and (prefers-reduced-motion: no-preference) {
+  #discord .feat li::before, #discord .feat li::after { animation: warn-sweep 6s ease-in-out infinite; }
+  #discord .feat li:nth-child(1)::before { animation-delay: 0s; } #discord .feat li:nth-child(1)::after { animation-delay: 3s; }
+  #discord .feat li:nth-child(2)::before { animation-delay: 1s; } #discord .feat li:nth-child(2)::after { animation-delay: 4s; }
+  #discord .feat li:nth-child(3)::before { animation-delay: 2s; } #discord .feat li:nth-child(3)::after { animation-delay: 5s; }
+  #discord .feat li:nth-child(4)::before { animation-delay: .5s; } #discord .feat li:nth-child(4)::after { animation-delay: 3.5s; }
+  #discord .feat li:nth-child(5)::before { animation-delay: 1.5s; } #discord .feat li:nth-child(5)::after { animation-delay: 4.5s; }
+  #discord .feat li:nth-child(6)::before { animation-delay: 2.5s; } #discord .feat li:nth-child(6)::after { animation-delay: 5.5s; }
+}
