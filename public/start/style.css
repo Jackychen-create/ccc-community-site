@@ -1276,3 +1276,9 @@ body::after { animation: none !important; }
   #discord .feat li:nth-child(5)::before { animation-delay: 1.5s; } #discord .feat li:nth-child(5)::after { animation-delay: 4.5s; }
   #discord .feat li:nth-child(6)::before { animation-delay: 2.5s; } #discord .feat li:nth-child(6)::after { animation-delay: 5.5s; }
 }
+
+/* v1.37.28：手機版——Discord 的深紫邊框和紫光稍微透明一點（顏色不變） */
+@media (max-width: 760px) {
+  #discord { --fr: rgba(58, 19, 158, .6); --fr-glow: 0 0 6px rgba(80, 30, 210, .4), 0 0 18px rgba(64, 20, 180, .22); --fr-sweep: rgba(183, 156, 255, .7); }
+  #discord .feat li::before, #discord .feat li::after { filter: drop-shadow(0 0 4px rgba(150, 110, 255, .6)); }
+}
