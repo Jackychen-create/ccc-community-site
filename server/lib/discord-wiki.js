@@ -231,6 +231,11 @@ export async function setupWiki({ channelId = "" } = {}) {
     target = "";
   }
   if (!target) {
+    // 之前建到一半（例如逾時）留下的「📚交易百科」頻道：直接用，不要再建一個
+    const all = await discordApi("GET", `/guilds/${s.guildId}/channels`).catch(() => []);
+    target = (all || []).find((c) => c.type === 0 && c.name === WIKI_CHANNEL.name)?.id || "";
+  }
+  if (!target) {
     const ctx = { guildId: s.guildId, botId: env.DISCORD_APP_ID, staffRoleIds: s.staffRoleIds || [] };
     target = (await createChannel(s.guildId, { ...WIKI_CHANNEL, permission_overwrites: supportOverwrites("panel", ctx) })).id;
     created.push(WIKI_CHANNEL.name);
@@ -250,16 +255,19 @@ async function hashOf(payload) {
 }
 
 // 每 5 分鐘由 /api/cron/lives 呼叫（v1.38.1），不用進後台：
-// - 還沒貼過：自動建「📚交易百科」、貼面板（只自動做一次；失敗或之後被刪掉，到後台按「貼出交易百科面板」）
+// - 還沒貼過：自動建「📚交易百科」、貼面板（失敗最多再試 3 次；貼成功後被刪掉就不再自己貼，到後台按「貼出交易百科面板」）
 // - 名詞庫改了（面板內容跟上次不一樣）：自動改原本那則
 export async function syncWikiPanel() {
   if (!discordConfigured()) return null;
   const s = await getDiscordSettings();
   if (!s.guildId) return null;
   if (!s.wikiMessageId) {
-    if (s.wikiAutoTried) return null;
-    await saveDiscordSettings({ ...s, wikiAutoTried: true });
+    // 自動貼最多試 3 次、每次隔 30 分鐘（Discord 偶爾逾時）；貼成功過之後被刪掉就不再自己貼
+    const tries = Number(s.wikiAutoTries || 0);
+    if (s.wikiAutoDone || tries >= 3 || (s.wikiAutoAt && Date.now() - s.wikiAutoAt < 30 * 60e3)) return null;
+    await saveDiscordSettings({ ...s, wikiAutoTries: tries + 1, wikiAutoAt: Date.now() });
     const r = await setupWiki();
+    if (r.ok) await saveDiscordSettings({ ...(await getDiscordSettings()), wikiAutoDone: true });
     return r.ok ? { posted: true, channelId: r.settings.wikiChannelId } : { posted: false, error: r.error };
   }
   const payload = wikiPanelMessage();
