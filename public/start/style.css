@@ -1316,3 +1316,5 @@ body::after { animation: none !important; }
 .m-only { display: none; }
 @media (min-width: 761px) { .hero-what, .hero-ctas { display: none; } }
 @media (max-width: 760px) { .pc-only { display: none; } .m-only { display: inline; } }
+/* 加入流程第 2 步：UID 是什麼的備註 */
+.steps .step-note { margin-top: 10px; padding: 8px 10px; border-left: 2px solid rgba(217, 178, 106, .6); background: rgba(217, 178, 106, .06); font-size: 13px !important; line-height: 1.65 !important; color: #A9A6A0; }
