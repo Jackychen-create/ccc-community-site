@@ -1326,3 +1326,37 @@ body::after { animation: none !important; }
   .hero-go { border-radius: 0 !important; }
   .hosts .host p .hl { display: block; }
 }
+
+/* v1.38.7 手機：一進來看得到整個首屏、三間交易所一樣亮、主要按鈕炫光邊框、「進入培訓房」更亮（電腦版不變） */
+@media (max-width: 760px) {
+  /* 首屏壓短 */
+  .hero-text { padding-top: 14px; }
+  .h1-mark img { width: auto; height: 74px; }
+  .hero.space h1 { gap: 0; }
+  .slogan { margin-top: 10px; font-size: 19px; }
+  .hero-ctas { margin-top: 14px; }
+  .hero-go { height: 46px; font-size: 16px; }
+  .hero-stats { margin-top: 10px; font-size: 13px; }
+  .orbit { --card-h: 250px; --card-w: 184px; margin-top: -96px; }
+  .earth { --top: calc(100% - 262px); }
+  .oc-cap small { white-space: nowrap; font-size: 12.5px; }
+  .oc-art .wm { font-size: 34px; }
+  .oc-cap { padding: 8px 4px 4px; }
+  .hero.space .lead-under { top: calc(100% + 20px); font-size: 13px; line-height: 1.75; }
+  /* 三間交易所一樣亮 */
+  .oc:not([aria-current="true"]) { opacity: 1; }
+  .oc:not([aria-current="true"]) .oc-art::before { opacity: 1; }
+  .oc .oc-art img, .oc .oc-art .wm { opacity: 1 !important; filter: drop-shadow(0 0 22px rgba(255, 255, 255, .3)); }
+  .oc .oc-cap b { color: rgba(255, 255, 255, .92); }
+  /* 進入培訓房：更亮 */
+  .top-in .top-login { background: linear-gradient(180deg, #F6DC9C, #E2B866) !important; border-color: #F6DC9C !important; color: #000 !important; box-shadow: 0 0 0 1px rgba(255, 232, 170, .6), 0 0 18px rgba(246, 210, 130, .65), 0 0 36px rgba(226, 184, 102, .35) !important; }
+  /* 3 步加入：炫光邊框（金光呼吸＋一道亮光掃過） */
+  .hero-go { position: relative; overflow: hidden; border: 1px solid #FFF3D6 !important; animation: go-glow 2.8s ease-in-out infinite; }
+  .hero-go::after { content: ""; position: absolute; top: 0; bottom: 0; left: -40%; width: 30%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .75), transparent); transform: skewX(-20deg); animation: go-sweep 3.2s ease-in-out infinite; pointer-events: none; }
+}
+@keyframes go-glow {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(255, 236, 190, .5), 0 0 14px rgba(232, 196, 120, .45), 0 0 30px rgba(217, 178, 106, .2); }
+  50% { box-shadow: 0 0 0 1px rgba(255, 244, 214, .9), 0 0 24px rgba(240, 206, 130, .75), 0 0 52px rgba(217, 178, 106, .4); }
+}
+@keyframes go-sweep { 0% { left: -40%; } 55%, 100% { left: 130%; } }
+@media (prefers-reduced-motion: reduce) { .hero-go, .hero-go::after { animation: none !important; } .hero-go::after { display: none; } }
