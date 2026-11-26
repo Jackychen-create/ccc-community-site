@@ -26,7 +26,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Sofia+Sans+Semi+Condensed:wght@500;600;700&display=swap">
 <!-- 標題用的襯線字只載標題用到的字（改了標題記得跑 node scripts/intro-fonts.mjs 更新） -->
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;600;700&display=swap&text=-CDXcdiors%C2%B0%E4%B8%80%E4%B8%8D%E4%BA%A4%E4%BB%80%E5%80%8B%E5%85%A5%E5%86%8A%E5%8A%A0%E5%8B%87%E5%8D%93%E5%8F%AA%E5%93%A1%E5%95%8F%E5%9B%9B%E5%9C%A8%E5%9F%B9%E5%AE%A4%E5%AF%A6%E5%B8%B8%E6%88%BF%E6%89%80%E6%89%8D%E6%92%9E%E6%93%81%E6%96%BC%E6%98%8E%E6%98%93%E6%9C%89%E6%AD%A5%E7%95%AB%E7%A0%94%E7%A2%B0%E7%A9%B6%E7%B3%BB%E7%B5%B1%E8%81%8A%E8%A3%A1%E8%A6%8B%E8%A8%88%E8%A8%93%E8%A8%BB%E8%AA%AA%E8%B6%8A%E9%A1%8C%E9%A9%97%E9%A9%9F%E9%BA%BC%EF%BC%8C">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;600;700&display=swap&text=-CDXcdiors%C2%B0%E4%B8%80%E4%B8%89%E4%B8%8D%E4%BA%A4%E4%BB%80%E5%80%8B%E5%85%A5%E5%86%8A%E5%8A%A0%E5%8B%87%E5%8D%93%E5%8F%AA%E5%93%A1%E5%95%8F%E5%9C%A8%E5%9F%B9%E5%AE%A4%E5%AF%A6%E5%B8%B8%E6%88%BF%E6%89%80%E6%89%8D%E6%92%9E%E6%93%81%E6%96%BC%E6%98%8E%E6%98%93%E6%9C%89%E6%AD%A5%E7%95%AB%E7%A0%94%E7%A2%B0%E7%A9%B6%E7%B3%BB%E7%B5%B1%E8%81%8A%E8%A3%A1%E8%A6%8B%E8%A8%88%E8%A8%93%E8%A8%BB%E8%AA%AA%E8%B6%8A%E9%A1%8C%E9%A9%97%E9%A9%9F%E9%BA%BC%EF%BC%8C">
 <script src="/start/gate.js"></script>
 <link rel="stylesheet" href="/start/style.css">
 <script src="/start/cjk.js" defer></script>
@@ -45,13 +45,13 @@
     <nav class="nav" aria-label="頁面導覽">
       <a href="#top">主頁</a>
       <a href="#join">怎麼加入</a>
-      <a href="#exchanges">交易所註冊</a>
-      <a href="#site">培訓房說明</a>
+      <a href="#exchanges">交易所<span class="pc-only">註冊</span></a>
+      <a href="#site">培訓房<span class="pc-only">說明</span></a>
       <a href="#discord">Discord</a>
       <a href="#faq">常見問題</a>
     </nav>
-    <a class="btn primary sm top-login" href="/lab">進入-實驗室培訓房</a>
-    <a class="btn primary sm top-cta" href="https://discord.gg/REVsw2uYwe" data-link="discord" target="_blank" rel="noopener">加入 Discord</a>
+    <a class="btn primary sm top-login" href="/lab"><span class="pc-only">進入-實驗室培訓房</span><span class="m-only">進入培訓房</span></a>
+    <a class="btn primary sm top-cta" href="https://discord.gg/REVsw2uYwe" data-link="discord" target="_blank" rel="noopener" aria-label="加入 Discord"><svg class="dc-ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M19.3 5.3A16.5 16.5 0 0 0 15.2 4l-.5 1a15 15 0 0 0-4.5 0l-.5-1a16.5 16.5 0 0 0-4.1 1.3C3 9.2 2.3 13 2.6 16.8a16.6 16.6 0 0 0 5.1 2.5l1-1.7a10.6 10.6 0 0 1-1.6-.8l.4-.3a11.8 11.8 0 0 0 10 0l.4.3c-.5.3-1 .6-1.6.8l1 1.7a16.6 16.6 0 0 0 5.1-2.5c.4-4.4-.7-8.2-3.1-11.5ZM9 14.5c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Zm6 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Z"/></svg><span class="dc-txt">加入 Discord</span></a>
   </div>
 </header>
 
@@ -63,6 +63,11 @@
   <div class="wrap hero-text" data-enter>
     <h1><span class="h1-mark"><img src="/start/logo-mark-lg.png" alt="CCC°" width="436" height="360"></span><span class="h1-name">交易實驗室</span></h1>
     <p class="slogan"><span class="nw">勇於碰撞，</span><span class="nw">才擁於卓越</span></p>
+    <p class="hero-what">CCC、X 兩位交易員的交易社群<br>直播紀錄、交易分享，加入不收會費</p>
+    <div class="hero-ctas">
+      <a class="btn primary hero-go" href="#join">3 步加入培訓計畫</a>
+      <a class="hero-in" href="/lab">已經加入？進入培訓房 →</a>
+    </div>
     <p class="hero-stats" id="heroStats" hidden></p>
   </div>
 
@@ -80,7 +85,7 @@
         <span class="oc-art t-bingx"><span class="wm">BingX</span></span>
         <span class="oc-cap"><b>BingX</b><small>點擊我，用 CCC 連結註冊</small></span>
       </button>
-      <p class="lead lead-under"><span class="ln"><span class="nw">OKX、Bybit、BingX 綁定註冊，</span><span class="nw">成為 交易實驗室 一員</span></span><span class="ln"><span class="nw">會員直播（紀錄）、</span><span class="nw">交易分享、</span><span class="nw">專屬筆記、</span><span class="nw">認知分享</span></span></p>
+      <p class="lead lead-under"><span class="ln"><span class="nw">OKX、Bybit、BingX 綁定註冊，</span><span class="nw">成為交易實驗室一員</span></span><span class="ln"><span class="nw">會員直播（紀錄）、</span><span class="nw">交易分享、</span><span class="nw">專屬筆記、</span><span class="nw">認知分享</span></span></p>
     </div>
 
   </div>
@@ -127,38 +132,30 @@
 
 <section class="sec" id="join">
   <div class="wrap">
-    <h2 data-k="加入流程">加入培訓計畫，四步</h2>
-    <p class="intro intro-lg">加入培訓計畫，成為 實驗室研究員</p>
-    <ol class="steps">
+    <h2 data-k="加入流程">加入培訓計畫，三步</h2>
+    <p class="intro intro-lg">跟著做完，就是實驗室研究員</p>
+    <ol class="steps steps3">
       <li>
         <span class="step-n num">01</span>
         <div>
-          <h3>註冊交易所</h3>
-          <p>三間選一間，<strong>務必從本站連結註冊</strong>並完成驗證。</p>
-          <a class="more" href="#exchanges">各交易所註冊步驟 →</a>
+          <h3>用 CCC 連結註冊交易所</h3>
+          <p>OKX、Bybit、BingX 選一間，<strong>一定要從 CCC 的連結註冊</strong>，並完成身分驗證。</p>
+          <a class="more" href="#exchanges">選交易所、看註冊步驟 →</a>
         </div>
       </li>
       <li>
         <span class="step-n num">02</span>
         <div>
-          <h3>填寫 UID</h3>
-          <p>進入實驗室培訓房，選交易所、貼上 UID。</p>
-          <a class="more" href="/lab">加入培訓計畫 →</a>
+          <h3>到培訓房貼上 UID</h3>
+          <p>選你註冊的交易所，貼上 UID（交易所 App 個人頁面的那串數字）。</p>
+          <a class="more" href="/lab">到培訓房貼 UID →</a>
         </div>
       </li>
       <li>
         <span class="step-n num">03</span>
         <div>
-          <h3>授權 Discord</h3>
-          <p>按下授權，自動加入 Discord、拿到研究員身分。</p>
-        </div>
-      </li>
-      <li>
-        <span class="step-n num">04</span>
-        <div>
-          <h3>開始學習</h3>
-          <p>直播紀錄、交易分享、會員直播全部開通。</p>
-          <a class="more" href="#site">實驗室培訓房-說明 →</a>
+          <h3>連結 Discord</h3>
+          <p>按下授權，自動加入 Discord、拿到「實驗室研究員」身分組，直播紀錄、交易分享全部開通。</p>
         </div>
       </li>
     </ol>
@@ -168,7 +165,7 @@
 <section class="sec" id="exchanges">
   <div class="wrap">
     <h2 data-k="交易所">交易所註冊步驟</h2>
-    <p class="intro">選你習慣的那一間就好。</p>
+    <p class="intro">這是第 1 步的細節。選你習慣的那一間，做完拿到 UID，就回到<a href="#join">第 2 步</a>。</p>
 
     <div class="warn-box" role="note">
       <b>註冊前先看這個</b>
@@ -192,8 +189,8 @@
       <ol class="how">
         <li><b>點按鈕註冊</b><span>邀請碼自動帶入，確認是 <code class="num">99357363</code>。</span></li>
         <li><b>完成身分驗證</b><span>依 App 指示上傳證件、人臉辨識。</span></li>
-        <li><b>複製 UID</b><span>點頭像進個人資料，名字旁的數字。</span></li>
-        <li><b>回網站加入</b><span>選 OKX、貼上 UID，確認後立即開通。</span></li>
+        <li><b>複製 UID</b><span>點頭像進個人資料，名字旁的數字。<br><strong>下一步：</strong>到<a href="/lab">實驗室培訓房</a>選交易所、貼上 UID。</span></li>
+        
       </ol>
     </article>
 
@@ -208,8 +205,8 @@
       <ol class="how">
         <li><b>點按鈕註冊</b><span>推薦碼自動帶入，確認是 <code class="num">CCCX</code>。</span></li>
         <li><b>完成身分驗證</b><span>依 App 指示上傳證件、人臉辨識。</span></li>
-        <li><b>複製 UID</b><span>點右上角頭像，最上方那串數字。</span></li>
-        <li><b>回網站加入</b><span>選 Bybit、貼上 UID，確認後立即開通。</span></li>
+        <li><b>複製 UID</b><span>點右上角頭像，最上方那串數字。<br><strong>下一步：</strong>到<a href="/lab">實驗室培訓房</a>選交易所、貼上 UID。</span></li>
+        
       </ol>
     </article>
 
@@ -224,8 +221,8 @@
       <ol class="how">
         <li><b>點按鈕註冊</b><span>邀請碼自動帶入，確認是 <code class="num">GTUTWZ</code>。</span></li>
         <li><b>完成身分驗證</b><span>依 App 指示上傳證件、人臉辨識。</span></li>
-        <li><b>複製 UID</b><span>點頭像進個人中心，名稱下方數字。</span></li>
-        <li><b>回網站加入</b><span>選 BingX、貼上 UID，確認後立即開通。</span></li>
+        <li><b>複製 UID</b><span>點頭像進個人中心，名稱下方數字。<br><strong>下一步：</strong>到<a href="/lab">實驗室培訓房</a>選交易所、貼上 UID。</span></li>
+        
       </ol>
     </article>
 

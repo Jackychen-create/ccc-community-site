@@ -1285,3 +1285,34 @@ body::after { animation: none !important; }
 
 /* v1.37.29：主講名字後面加「交易員」，字小一點、不搶名字（電腦、手機都有） */
 .host h3 .h3-role { margin-left: .32em; font-family: var(--f-text); font-size: .56em; font-weight: 500; letter-spacing: .08em; color: var(--ink-2); vertical-align: .12em; }
+
+/* ── 手機版清楚化（草稿）─────────────────────────── */
+/* 第一屏：一句白話＋一個主要按鈕 */
+.hero-what { margin: 18px auto 0; max-width: 30em; color: var(--ink-2); font-size: 15.5px; line-height: 1.75; }
+.hero-ctas { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 20px; position: relative; z-index: 3; }
+.hero-go { min-width: 240px; height: 50px; font-size: 16.5px; font-weight: 700; }
+.hero-in { color: var(--ink-2); font-size: 14px; text-decoration: none; }
+.hero-in:hover { color: var(--ink); }
+/* 加入流程三步 */
+.steps.steps3 { grid-template-columns: repeat(3, 1fr); }
+/* 頁首：Discord 只放圖示（手機），培訓房是唯一的主要按鈕 */
+.top-cta .dc-ic { display: none; }
+@media (max-width: 760px) {
+  .top-cta { width: 38px; height: 34px; padding: 0 !important; display: inline-grid; place-items: center; background: transparent !important; border: 1px solid rgba(255,255,255,.18) !important; color: var(--ink) !important; box-shadow: none !important; }
+  .top-cta .dc-ic { display: block; }
+  .top-cta .dc-txt { display: none; }
+}
+@media (max-width: 760px) {
+  /* 導覽列：右邊淡出，看得出還能往右滑；字和間距縮小一點 */
+  .nav { -webkit-mask-image: linear-gradient(90deg, #000 82%, transparent); mask-image: linear-gradient(90deg, #000 82%, transparent); }
+  .nav a { padding: 8px 9px; font-size: 13.5px; }
+  /* 交易所輪播：兩邊被切到的淡掉，不像壞掉 */
+  .hero .stage { -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 22%, #000 78%, transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 22%, #000 78%, transparent 100%); }
+  /* 卡片改一欄，好讀 */
+  .steps, .steps.steps3, .how, #exchanges .how { grid-template-columns: 1fr !important; }
+  .hero-what { font-size: 14.5px; margin-top: 14px; }
+}
+/* 第一屏的白話介紹、主要按鈕、頁首短字：只在手機版 */
+.m-only { display: none; }
+@media (min-width: 761px) { .hero-what, .hero-ctas { display: none; } }
+@media (max-width: 760px) { .pc-only { display: none; } .m-only { display: inline; } }
