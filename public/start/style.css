@@ -1318,3 +1318,11 @@ body::after { animation: none !important; }
 @media (max-width: 760px) { .pc-only { display: none; } .m-only { display: inline; } }
 /* 加入流程第 2 步：UID 是什麼的備註 */
 .steps .step-note { margin-top: 10px; padding: 8px 10px; border-left: 2px solid rgba(217, 178, 106, .6); background: rgba(217, 178, 106, .06); font-size: 13px !important; line-height: 1.65 !important; color: #A9A6A0; }
+.hosts .host p .hl { display: inline; }
+/* 手機版第一屏再調整：頁首按鈕醒目、主要按鈕直角、主講兩張卡斷行對稱 */
+@media (max-width: 760px) {
+  .top-in .top-login { background: #D9B26A !important; color: #0A0A0A !important; border: 1px solid #D9B26A !important; font-weight: 700; box-shadow: 0 0 14px rgba(217, 178, 106, .35) !important; }
+  .top-in .top-cta { background: #5865F2 !important; border-color: #5865F2 !important; color: #fff !important; box-shadow: 0 0 14px rgba(88, 101, 242, .35) !important; }
+  .hero-go { border-radius: 0 !important; }
+  .hosts .host p .hl { display: block; }
+}
