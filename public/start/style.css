@@ -1352,11 +1352,14 @@ body::after { animation: none !important; }
   .top-in .top-login { background: linear-gradient(180deg, #F6DC9C, #E2B866) !important; border-color: #F6DC9C !important; color: #000 !important; box-shadow: 0 0 0 1px rgba(255, 232, 170, .6), 0 0 18px rgba(246, 210, 130, .65), 0 0 36px rgba(226, 184, 102, .35) !important; }
   /* 3 步加入：炫光邊框（金光呼吸＋一道亮光掃過） */
   .hero-go { position: relative; overflow: hidden; border: 1px solid #FFF3D6 !important; animation: go-glow 2.8s ease-in-out infinite; }
-  .hero-go::after { content: ""; position: absolute; top: 0; bottom: 0; left: -40%; width: 30%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .75), transparent); transform: skewX(-20deg); animation: go-sweep 3.2s ease-in-out infinite; pointer-events: none; }
+  .hero-go::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 30%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .75), transparent); transform: translate3d(-140%, 0, 0) skewX(-20deg); animation: go-sweep 3.2s ease-in-out infinite; pointer-events: none; will-change: transform; }
+  /* v1.38.8：iPhone 上標誌、標語會上下跳 1px：掃光改用 transform（不觸發重新排版），首屏文字固定在自己的圖層 */
+  .hero-text { transform: translateZ(0); backface-visibility: hidden; }
+  .hero-go { transform: translateZ(0); }
 }
 @keyframes go-glow {
   0%, 100% { box-shadow: 0 0 0 1px rgba(255, 236, 190, .5), 0 0 14px rgba(232, 196, 120, .45), 0 0 30px rgba(217, 178, 106, .2); }
   50% { box-shadow: 0 0 0 1px rgba(255, 244, 214, .9), 0 0 24px rgba(240, 206, 130, .75), 0 0 52px rgba(217, 178, 106, .4); }
 }
-@keyframes go-sweep { 0% { left: -40%; } 55%, 100% { left: 130%; } }
+@keyframes go-sweep { 0% { transform: translate3d(-140%, 0, 0) skewX(-20deg); } 55%, 100% { transform: translate3d(440%, 0, 0) skewX(-20deg); } }
 @media (prefers-reduced-motion: reduce) { .hero-go, .hero-go::after { animation: none !important; } .hero-go::after { display: none; } }
