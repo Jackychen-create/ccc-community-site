@@ -6,7 +6,7 @@
 //   #/notes       我的筆記       notes.js
 //   #/feedback    我的提問       feedback.js
 //   #/plans       我的方案       plans.js（付費制的研究員：月費、系統分享單集）
-import { $, api, sb, store, whatsNew, confirmDialog, tutorial } from "../core/index.js";
+import { $, api, sb, store, confirmDialog, tutorial } from "../core/index.js";
 import { state, SITE } from "./state.js";
 import { show, showBlocked, showUnavailable, leavePage } from "./views.js";
 import { showAuth, initAuth } from "./auth.js";
@@ -116,9 +116,9 @@ async function enterApp() {
   renderAccessBanner();
   renderVolPanel();
   renderLivePanel();
-  // 這個瀏覽器第一次進來：問要不要看使用說明（只問一次；老研究員看到的是「網站更新了」）
+  // 這個瀏覽器第一次進來：問要不要看使用說明（只問一次）。更新不再自動跳公告（1.38.9）
   const firstVisit = !store.get("seenVersion", null);
-  whatsNew();
+  store.set("seenVersion", "1");
   if (firstVisit && !me.isAdmin && !store.get("tutorialOffered", false)) offerTutorial();
   promptUidIfMissing();
   celebrateMilestone();
