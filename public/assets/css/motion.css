@@ -6,11 +6,7 @@
   body.watching.playing { overflow: hidden; }
 }
 
-/* ── 版本提示、更新公告、中文換行、動態 ─── */
-.update-bar { position: sticky; top: 0; z-index: 40; display: flex; align-items: center; justify-content: center; gap: 12px;
-  min-height: 44px; padding: 6px 16px; background: var(--surface-2); border-bottom: 1px solid color-mix(in srgb, var(--amber) 45%, transparent);
-  font-size: 14px; color: var(--ink); animation: rise .3s ease-out both; }
-.update-bar + .topbar, .update-bar ~ * .topbar { top: 44px; }
+/* ── 更新紀錄、中文換行、動態 ─── */
 .whatsnew section + section { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
 .whatsnew section:first-child { margin-top: 16px; }
 .whatsnew h3 { display: flex; align-items: baseline; gap: 10px; }

@@ -68,7 +68,6 @@ document.querySelectorAll("[data-ico]").forEach((n) => {
   // 先把三個清單都抓回來，側欄數字才有東西
   if (canSeeView(state.me.adminRole, "invites")) loadInvites(true);
   loadMembers(true);
-  A.whatsNew();
 })();
 
 async function logout(e) {
